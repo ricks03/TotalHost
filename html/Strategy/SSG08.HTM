@@ -1,0 +1,391 @@
+<html>
+
+<head>
+<TITLE>Chapter 8: Some Basics of Battle</TITLE>
+</head>
+
+<body bgcolor="#ffffff">
+
+<blockquote>
+  <h1 align="left"><font face="Arial, Helvetica" size="7" color="#808080">Chapter</font> <font FACE="Arial, Helvetica" size="7">8</font></h1>
+  <p align="left"><font FACE="Arial, Helvetica" size="7">Some Basics of Battle</font></p>
+<p>&nbsp;</p>
+<table cellspacing="0" cellpadding="0" border="0">
+<tr>
+    <td>
+	<IMG alt="battle.gif" border=0 height=68 src="images/battle.gif" width=135><IMG alt="battle.gif" border=0 height=68 src="images/battle.gif" width=135><IMG alt="battle.gif" border=0 height=68 src="images/battle.gif" width=135>
+    </td>
+</tr>
+</table>
+
+  <p><font FACE="Arial, Helvetica" SIZE="4"><b><br>
+  <a name="In this chapter">In this chapter</a></b></font></p>
+
+<P>Stars! is a game of conquest. With several other races standing between you and final victory, war is inevitable. While other aspects of the game are important to success in those wars, the act that will decide war is battle. You need to know as much as possible about how battle works and what will win battles. In Stars!, battle is complex and interesting; the battle engine interacts with many varied factors to determine the battles outcome. While brute strength is certainly the most important factor, other tactical issues also help make the difference between your victory and your defeat. Let's take a look at some of the mechanics of battle and tactical issues. </P>
+
+<p><font FACE="Arial, Helvetica" SIZE="5"><a name="What causes battle">What causes battle?</a> 
+</font></p>
+
+<P>Battle occurs when the fleets of two or more players arrive at the same location, at least one of those fleets is armed, at least one of the other player's fleets matches the target specification of the armed fleet, and the other player is specified as a race who can be attacked. (Even enemies won't fight if their battle orders forbid it.) This means that battle happens only when you or your enemy wants it to happen.</P>
+
+<blockquote>
+<p><font FACE="Arial, Helvetica" size="2">
+<u>S t a r b a s e s&nbsp;&nbsp;&nbsp; a s&nbsp;&nbsp; a r m e d&nbsp;&nbsp; f l e e t s</u><BR>
+While an armed starbase counts as an armed fleet, it cannot start a battle. Only an armed fleet of ships can start a battle.
+</font></p>
+</blockquote>
+
+<P>Battles may happen without formal planning: your fleet and an enemy fleet stumble upon one another at a system and one or both of you has attack orders that include the opponent's ship type. You may also go looking for trouble, setting a waypoint at a known enemy base or thoroughfare or by setting an intercept course for an incoming or passing enemy fleet. In an intercept scenario, the targeted fleets others move first, then their pursuers move toward their new location--;if the latter's speed is sufficient to reach that location the intercept is successful and a battle will result (assuming the orders call for one).</P>
+
+<P>To properly understand battle strategy in Stars! it's important that you understand the following: </P>
+
+<P>The potential difficulty of catching a fleet that you want to fight means battles tend to happen when both sides are willing to accept it. Were this not so, understanding the battle engine in detail wouldn't be nearly as important as it actually is in human games--the side that built the most or best ships would win fairly easily. But because avoiding battle is relatively easy--at least for short periods of time--having an unexpected edge in a fight is a much more powerful than an edge your enemy expects. Having a strong knowledge of how battle works in Stars! can win games.</P>
+
+<P>To illustrate, say you have 50 battleships of two types: 30 beam ships and 20 missile-carrying ships. 40 light years away is an enemy fleet of 60 battleships carrying beam weapons, built using a design you have seen. Your enemy may think that his edge in numbers will let him easily win a fight, and thus target you for intercept. If your knowledge of Stars! battle leads you to believe he is right, you need only retreat 61 light years or more (rallying reinforcements). If in this case, with the designs and technology match-ups being what they are, your fleet of 50 mixed ships can beat his 60, then you can target him, or a planet in his direction, accepting battle. If you would win, you do. If you would lose, no battle occurs. The same was not true for him because he was "flying by the seat of his pants" without your knowledge of the details of Stars! battle and expecting his numbers to carry the day.</P>
+
+<P>So, in a sense, battles in Stars! are often caused by incorrect estimates of likely results--whether those come from limited information, limited player knowledge, or random/uncertain elements of battle itself. </P>
+
+<p><font FACE="Arial, Helvetica" SIZE="5"><a name="Battle Orders">Battle Orders</a></font></p>
+
+<p><IMG alt="defplan.gif" border=0 height=212 src="images/defplan.gif" width=424></p>
+
+<P>Every Stars! fleet has a battle order. Usually it is the "default" order, which is to attack all races specified as enemies or neutral, to target armed ships first and anything else second, and to use "Maximize damage ratio" as a battle-movement tactic. You can change any of these orders you wish, for any fleet.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Attack Who">Attack Who</a></font></p>
+
+<P>The "Attack Who" field specifies your rules of engagement--who to seek battle with. You can set that to everyone, enemies, enemies and neutrals, or any particular named race. Or "none". Usually the default "Enemy or Neutral" is a good idea--it certainly will tend to keep your space your own. But dropping the "Neutral" part, attacking only enemies, can be diplomatically important. Do not worry about being attacked by neutrals if you do this--any fleet of yours attacked by another will fight back regardless of its order. It only takes one to pick a fight. "None" has another use besides diplomacy, though--your fleets will sweep mines only of races they are set to attack, so an order of "None" won't sweep any. You can use this for a "silent running" order for cloaked fleets, to avoid alerting anyone of your presence with a minesweeping report.</P>
+
+<P>Particular situations might call for more detailed orders--attack Vorlons for instance, rather than all enemies, though that is rarely needed. One more thing to know about "Attack Who" is that it will also determine what races your bombers will bomb if over their worlds (and no base of theirs is present)--you will only bomb a race the fleet is set to attack.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Primary Target">Primary Target</a></font></p>
+
+<P>The primary target field tells your captains which sorts of ships to concentrate on. They will try to move to get in range of types covered by that, and will fire at them in preference to their secondary target. They will, however, fire in passing at any target covered by secondary target orders if no primary target is in range. Armed starbases are counted as "Armed Ships" but can still be specified separately. If you want to take out the starbase first, choose a primary target of "starbase", with a secondary target of "Any" or "Armed Ships." Even if you lose a fight, you can sometimes get the base, often important.</P>
+
+<P>There are similar uses for the "Bombers/Freighters" target class. One useful tactic is the kamikaze strike--a fast, long range, and high initiative ship or group targets bombers first. If they can get in range of the far side of the battle board the first round and have the highest initiative, they can get off their shot at vulnerable bombers before being destroyed.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Secondary Targets">Secondary Targets</a></font></p>
+
+<P>Secondary targets are those you attack after all primary targets have been destroyed or that you fire at in passing. Ships on patrol ignore secondary targets and will attempt to intercept only those enemy fleets that match the primary target type.</P>
+
+<blockquote>
+<p><font FACE="Arial, Helvetica" size="2">
+<u>T a r g e t&nbsp;&nbsp;  t h e m&nbsp;&nbsp;  a l l</u><BR>
+Enemy ships that are neither primary nor secondary target types will be ignored during battle, even after all other ships are destroyed.  This is a good reason to set your secondary target to "All".</font></p>
+</blockquote>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Battle Movement">Battle Movement</a></font></p>
+
+<P>Last come the battle movement tactics. These tactics tell a token of ships in a battle which square on the battleboard to move into. "Maximize damage ratio" and "Maximize damage" are the tactics you will use most often. Maximize damage ratio tells your ships to seek the best range to fire unanswered by most enemy weapons. Maximize damage tells your ships to ignore enemy weapons entirely and just go where they can dish out the most damage.</P>
+
+<P>Maximize damage ratio is the default, and the one you want to use almost all the time--especially when you have a range advantage. Maximize damage is useful on shorter-range beam ships, because it tells them to use their full battle speed to close with the enemy. Use Maximize damage to prevent the enemy from backing you up (for example, one small ship-group moving toward you to keep you away from his bombers or his missile ships) or dancing just out of range (for example, you have range 2 beams and he has range 3 ones on lighter ships). </P>
+
+<P>"Disengage" is another important tactic. Use it to avoid battle despite a successful enemy intercept, if you are fast enough. Note that all unarmed ships will seek to disengage regardless of their battle order.</P>
+
+<P>Battle orders can be important for special missions (like a silent running-style mission or the kamikaze mission mentioned above). They can also help you avoid pitfalls in a given match-up, in terms of range, speed, weight, initiative. But they will not win a fight for you. Truly wrong orders can lose you a fight (for example, no order to fire at armed ships, or "Minimize damage to self" when the other fellow has the better range you were expecting to have--in that case you may never get in range). Stick with the default orders unless you have a clear idea why you need the altered order.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="5"><a name="Range Speed Initiative and Weight">Range, Speed, Initiative and Weight</a></font></p>
+
+<P>The tactical complexity of Stars! battle comes from the wide variety of fleet capabilities. Several subtle factors will determine who shoots whom, and when. Range, speed, initiative and weight, and their interactions, can leave you firing unanswered and destroying the enemy before he can reply, or yield a slugfest of sheer firepower, or anything in between.
+</P>
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Range of Movement">Range of Movement</a></font></p>
+
+<P>Stars! battle is broken down into combat rounds, up to 16 in a given fight. In each round, all ships move, then all ships fire. In each round of movement, ships move from zero to three squares on the battle board. The order in which ships fire in the firing portion of the round is determined by initiative--higher initiative ships fire before lower. During movement, the order in which ships move is determined by their speed and by their weight, with faster ships moving more often in the single round and lighter ships moving after heavier ones, but in a way that interacts with speed. Naturally, during firing, ships can only fire at targets that are within their weapons range.</P>
+
+<P>Here are the basics of this system (see the Stars! player's guide for details):</P>
+
+<blockquote>
+<P>A ship's speed and the round of battle you are in determines the number of squares that ship will move in that round. Speed 1 ships will move 1 square in each round; speed 2 ships 2 squares. Speed 2 1/4 ships will move 3, 2, 2, 2, then repeat. Etc. Move order is--all the ships with the highest number of moves in that round move once, then drop to the next number of squares of movement, then the last. That is, a speed 2 1/4 ship in round one will move one square, then that ship and speed 2 ships will move one square, then all ships will move one square. For all the ships moving in the same "impulse", the heaviest to move in that impulse moves first, the lightest moves last. </P>
+</blockquote>
+
+<P>This explanation is much clearer with an example. A 150 kiloton cruiser with speed 1 1/2 is fighting a stack of 22 kiloton frigates with speed 1. The moves per round from the table in the player's guide are--2 1 2 1 for the cruiser and 1 1 1 1 for the frigates. In round one, the cruiser moves one square because its number of moves that round is higher. Then it moves again because it is heavier, in the "move 1 impulse". Last the frigates move one square. The next round, the cruiser has movement 1, the same as the frigates. The cruiser moves first because it is heavier, then the frigates move. So the overall move order for those two rounds is cruiser twice, then frigates, then cruiser, then frigates.</P>
+
+<P>The lighter ships move after the heavier ones; they are more maneuverable and thus get to react to the moves of the heavier ship. Light weight is desirable in battle. Note this is purely a per-ship thing--it doesn't matter how large the ship stacks are. A huge stack of light frigates will be more maneuverable than a single heavier ship.</P>
+
+<P>For purposes of determining move order, though, weights are randomly modified by a factor of +/- 20%. Who will move last when the weights are the same will therefore be random. A ship that is only 2/3rds the weight of another (1.2/.8) will always move last. Between those two points, the lighter ship will have a better chance of moving last but it will not be certain.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Speed">Speed</a></font></p>
+
+<P>Battle speed is determined by engine rating, jets and thrusters, and reduced by weight per engine. War Mongers also get a + 1/2 speed bonus for any ship they fly (like a free built-in overthruster, basically). A warp 6 rated engine gives speed 1, before any adjustments; a warp 10 engine gives speed 2. Each warp difference is worth 1/4 move. The weight adjustment reduces the speed by 1/4 square for every 70 kilotons of weight being moved by one engine, fractions are dropped. So a single-engine ship (such as a frigate or destroyer) will have full battle speed if it weighs 69 kiloton or less, -1/4 speed for weights 70 kiloton to 139 kiloton, etc. For a two engine ship (cruiser e.g.) you get full battle speed up to 139 kiloton weight, then -1/4 for weights 140 kiloton to 279 kiloton, etc. </P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Initiative">Initiative</a></font></p>
+
+<P>The full initiative for a weapon equals the initiative of the hull plus a bonus for any computers on that hull plus the weapons own initiative.</P>
+
+<P>For example a destroyer with one standard Battle Computer firing Delta Torpedoes will get initiative 5 to 3 for the hull, +1 for one standard computer, +1 initiative from the Delta Torpedo. A Battleship firing heavy Blasters, with no added computers, will get an initiative of 15 (10 for hull, 5 for the weapon); the same ship mounting  sappers on other slots will get an initiative of 24 for the Sappers (10 hull, 14 weapon). The Sappers will fire before the Blasters, while other ships might fire between the two. When initiatives are equal, firing order is random.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="How They Interact">How They Interact</a>   
+</font></p>
+
+<P>A range advantage can allow you to take many unanswered shots. Say you are using range 5 missiles, and the enemy has only range 2 beams. He is not likely to get within his range the first round, so you could shoot unanswered until he was within 2 squares on the battleboard. If he is also slow, it could take him several rounds to get in range, being fired upon all the while. If your fleet happens to be lighter than his (say you have Cruisers and he has Frigates), your ability to move last will let you back up out of his range more easily, too. Once he runs you down at the far end of the board, though, you won't be able to back up further and he will finally get to fire. If you have the initiative, the first round he gets in range you will still shoot before he does.</P>
+
+<P>High speed can partially counteract a range disadvantage. In the example above, with speed 2 or better the shorter range ship can cover the far end of the board on round 3 regardless of how the longer-ranged ship moves--move 6 shoot 2 is 8, which from the starting position covers the whole board.</P>
+
+<P>Low weight can counteract a slight range disadvantage. Take the Cruisers vs. Frigates example above, and suppose the Frigates have range 2 beams while the lighter Cruisers have range 3 beams. The Cruiser will try to get to range 3 and stay there. But after it is done moving, the Frigates will get their move and can close from range 3 to range 2.
+</P>
+<P>Low weight combined with greater range can be very powerful, especially against slower ships. Say the Frigates had the range 3 beams and the Cruisers the range 2 beams. Then that "last move" would let the Frigates back up to range 3 over and over again. With only a speed of 1 1/2 and a range of 2, the Cruisers wouldn't cover the far side of the board until round 5. Until then the lighter and longer range ships could blast away unanswered.</P>
+
+<p>Higher initiative can be decisive when there is no range difference and overall firepower is very high compared to defenses.</p>
+
+<table cellspacing="2" cellpadding="2" border="0">
+<tr>
+    <td valign="top">Say you have really nice Battleships with 20 Armageddon missiles and seven Battle Supercomputers each. Your overall initiative will be 27 (10 for BB hull, 14 for 2 * 7 computer bonus, 3 for weapons).</td>
+    <td valign="top"><IMG alt="bbarmbc.gif" border=0 src="images/bbarmbc.gif"></td>
+</tr>
+<tr>
+    <td valign="top">&nbsp;</td>
+    <td valign="top">&nbsp;</td>
+</tr>
+<tr>
+    <td valign="top">Say the enemy is fielding Doomsday-loaded Battleships also with seven Battle Supercomputers, with Bear shields and Neutronium armor. </td>
+    <td valign="top"><IMG alt="bbdoombc.gif" border=0 src="images/bbdoombc.gif"></td>
+</tr>
+</table>
+
+<p>Your initiative is one higher than his. With so many computers and no enemy jamming, you can expect about 19 hits per firing battleship, doing 9975 damage. His Battleships have only 4450 damage points each. Even with odds of  2 :1 in his favor, you can kill his entire fleet in one shot before it has a chance to fire. But if he had Battle Nexus Computers on his Doomsday-loaded Battleships, he could gain a higher initiative than you and turn the tables.</p>
+
+<P>High initiative plus high range, or better range and lower weight, equal a dominant position. Lower but decent range plus high speed (or sometimes low weight, if the range difference is modest), combined with good defenses (jamming, good shields, etc) can work out well with the right odds. As a partial counter to all this, the higher range weapons are more expensive than the lower range weapons (allowing fewer ships to be built with them for the same expense), tend to have lower initiative, require higher tech, and in the case of missiles are heavier. The possible combinations of factors are complicated, to put it mildly.</P>
+
+<P>Any given design will have some weakness stemming from some of the above factors. Exploiting such weaknesses, while it can require better tech in some cases and always requires a fleet gathered with these weaknesses in mind, can allow you to beat enemy fleets that cost more than yours, often with little loss. And just as important, such details can let you beat enemies who aren't expecting it and fail to avoid battle.</P>
+
+<P>Here's a point made earlier in this guide: when you beat the enemy using cheaper ships, you take a major stride forward in winning the battle of resource management. One of your goals should be to make battle (far) more expensive for your enemies than it is for you. Read on to learn a bit about the cost of weaponry.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="5"><a name="Weapons Types and Combined Arms">Weapons Types and Combined Arms</a></font></p>
+
+<P>Weapons in Stars! are either beams or torpedoes. Beams have shorter range, are far cheaper in mineral cost, more powerful in raw firepower early in the game, and have higher initiative than torpedoes.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Torpedoes vs Beams">Torpedoes vs. Beams</a> 
+</font></p>
+
+<P>Torpedoes are superior to beams in range, interact with the somewhat complicated systems of electronic warfare (Battle Computers and Jammers), and are weaker early in the game but extremely powerful later. As described above, superior range can be extremely important in combat, making the expensive torpedoes the weapons of choice later on. But their high cost tends to limit their numbers and allows beam alternatives to remain competitive.</P>
+
+<P>Beam weapons damage shields first and armor only after all shields on a target token are gone; they also sweep mines at a rate of firepower * range^2. Torpedoes do 1/2 of their damage straight to armor, regardless of shield level, and the other 1/2 to shields first like beams. Torpedoes also have a chance of missing; misses do nothing to armor and damage shields at only 1/8th the rated firepower of the torpedo.</P>
+
+<P>Torpedoes are also limited to one killed enemy ship per torpedo that hits, regardless of the damage points the torpedo can deal. This allows torpedoes to be counteracted by "chaff"--light cheap ships with piddling armament (such as a scout with one x-ray laser and a quick jump 5 engine) that try to draw their fire away from more valuable ships.</P>
+
+<P>Torpedoes come in two types: Capital ship missiles and normal torpedoes.</P>
+
+<P>Beam weapons come in several types--Shield Sappers; Gattling weapons; range 0 beams; and standard beams of varying range (1, 2, or 3).</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Capital Ship Missiles">Capital Ship Missiles</a></font></p>
+
+<p><img src="images/capmis.gif" width=252 height=32 border=0 alt="capmis.gif"></p>
+
+<P>Capital ship missiles, one of the two subtypes of torpedoes, also get a bonus of double damage vs. targets that have no remaining shields. (Jihad, Juggernaut, Doomsday, and Armageddon are capital ships missiles). These missiles also have lower inherent accuracy, so they need computers to help them hit targets and don't deal with high enemy jamming as well as standard torpedoes. Capital ship missiles give the most effective combat power per weapon vs. enemies with little or no jamming when backed by sufficient computing power. They also cost tons of Ironium, limiting their numbers. </P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Shield Sappers">Shield Sappers</a></font></p>
+
+<p><img src="images/sappers.gif" width=187 height=48 border=0 alt="sappers.gif"></p>
+
+<P>Sappers damage only enemy shields and have no effect on armor. They also have the highest initiative of any Stars! weapon and the best beam range of three squares. They are very useful against stacked enemy shields and can help lower shields for missiles used on other (or the same) ships. A common use of Sappers is to place four of them on a beam-armed battleship, to help lower shields while the other 16 weapons kill the enemy's armor. Another use is the specialty Sapper ship--Frigates early in the game, Cruisers or even Battleships later--used alongside other armor-killing ship types as fleet "auxiliaries". </P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Gattling Weapons">Gattling Weapons</a></font></p>
+
+<p><img src="images/gats.gif" width=251 height=51 border=0 alt="gats.gif"></p>
+
+<P>Gattling weapons have special abilities. They hit every token in range with their full firepower. Not every ship, mind, but every stack of ships. This gives Gattling weapons a bit more firepower in tech vs. one target than the standard beams lower in the technology tree, as much as standard beams higher than them in tech vs. 2 targets, and potentially astronomical firepower against highly split-up enemies (such as a gate "rally point" with many single or paired ships arriving from many different places each year). They have range of 2, which is so-so, and have initiative 12, higher than any other weapons except sappers. Also, all other beams lose 10% of their firepower over their maximum range (.90 * rated at range 2 for a range 2 beam e.g., .95 for the same at range 1), but Gattling weapons are exempt from this, using their full firepower at any range. Last, Gattling weapons sweep mines better than any other beam of comparable tech, 16 times rated firepower.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Range 0 Beams">Range 0 Beams</a></font></p>
+
+<p><img src="images/range0.gif" width=183 height=51 border=0 alt="range0.gif"></p>
+
+<P>Range 0 beam weapons require the fleet to be right on top of the target. They can't sweep mines, but get higher initiative than standard beams or any torpedoes. Because they have to be in the same square to fire, ships using range 0 weapons have to be faster and lighter than their target. A lighter target can always use its "move last" ability to scoot out of range--you will only catch heavier ships with Range 0 beams. But they give far more firepower for the cost than any other beams of comparable tech. Range 0 beams are hard to use correctly, so be sure you know what you are doing before investing much in them, but against the right enemy they can give a lot of bang for the buck.</P>
+
+<P>For example, an enemy overly fond of heavy armor uses Cruisers with six Phaser Bazookas, two Kelarium armor, one warp 7 engine, one Maneuvering Jet, one tech 6 Shield. You could counter with a Destroyer, one tech 6 Shield, 2 Blackjacks, Maneuvering Jet, warp 7 engine, then buy three of these Destroyers for less than your opponent spent on the Cruisers. He will get one free shot on round two, but in round three you can catch him because of your move-last and your speed advantages. Your stacked shields will hold for that first round, and you shoot first after you get him. As you move last and more than match his speed, he will never get away, and you have over three times the firepower at pointblank (though only 2/3rds the damage points). </P>
+
+<P>But notice, if he used light Frigates with the same Bazookas, shielded, then you could never catch him. He'd be light enough to stay out of range and pound away until your destroyers were gone.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Standard Beams">Standard Beams</a></font></p>
+
+<p><img src="images/stdbeam.gif" width=401 height=91 border=0 alt="stdbeam.gif"></p>
+
+<P>Standard beams are plain vanilla weapons. The longer-ranged standard beams are more expensive and have lower initiative, but are often worth the price. Range 1 beams aren't very useful, but range 2 is a good weapons for a fast fleet (speed of 1 1/2 to 2, or better) especially on a fast, light fleet. To fight long range torpedo ships with good firepower, though, you want range of 3 and speed of 2 1/4 (to reach the far side of the board on round 2, move 3, then 2, shoot 3 = 8, covering the board from where you start) if at all possible. Battleships can get that with warp 10 engines if you lower the armor used to stay under 560 kiloton.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Tailor Your Designs">Tailor Your Designs</a></font></p>
+
+<P>With all the choices of weapons and all the factors mentioned in the previous section in play, it becomes possible to tailor a particular design to defeat a given enemy design. This gives an edge to strategic defenders, who get to build in reaction to the designs they see. It also makes fleets of only one warship type fairly vulnerable, no matter what that type is, because it is often enough to beat such a design at only one thing while matching it in other respects.</P>
+
+<table cellspacing="2" cellpadding="2" border="0">
+<tr>
+    <td valign="top">For example, say your enemy sends a fleet of Beam and Jammer battleships with six Jammers, Overthrusters, 16 Heavy Blasters, four tech 15 Sappers, Bear Shields and Organic Armor (to keep the weight down). He has a lot of them, but they are all of that type and have no other support.
+	</td>
+    <td valign="top"><img src="images/bbjam.gif" width=327 height=262 border=0 alt="bbjam.gif">
+	</td>
+</tr>
+<tr>
+    <td valign="top">&nbsp;</td>
+    <td valign="top">&nbsp;</td>
+</tr>
+<tr>
+    <td valign="top">If you use the same design but with three Capacitors in place of three of the Jammers, you match him in everything but get 33% more firepower (1.1^3). If you aren't worried about speed because of his lack of missiles, you could also replace the Overthruster with a single Battle Super Computer, getting 2 higher initiative and thus shooting first.
+</td>
+    <td valign="top"><img src="images/bbcapac.gif" width=326 height=261 border=0 alt="bbcapac.gif">
+	</td>
+</tr>
+</table>
+
+<P>You could also, for the same reason, use full Neutronium armor to get 600 more armor damage points per ship. That will leave you with speed of only 1 1/2 compared to his 2 1/4 (-1/2 for no overthruster, -1/4 for extra weight), but with the weapon ranges the same speed is not much of an issue--if he can shoot you, you can shoot him. With roughly equal amounts spent, you will win easily (more firepower, more damage points, shoot first). If on the other hand he had used all Juggernaut Battleships with four Battle Supercomputers and 3 Jammers each, you could use the Beam and Jammer Battleship he used above with all the speed, and throw in some "chaff" to eat his missile fire for 2 rounds until you get in range. You would then do more damage than he could, because your jamming fully offsets his computing power leaving his juggernauts only 20% accurate. Your ships would also cost far less in Ironium. You would lose your chaff but win the battle. </P>
+
+<P>Because of this counter-design logic, it is best to use combined arms: several ship types made to be good at different things, "plugging" each others weaknesses. The most common version of this is the "two stack attack": one stack with ships that that with Battle Supercomputers and your best capital ship missiles, the other stack made of very fast beam ships with some Sappers and Jammers. Both types should be built in numbers and used together in one fleet. Fast beam ships can help knock down shields so that the missiles get their double damage bonus; they can also help kill "chaff" since beams aren't limited to "one hit, one kill" like the missiles are. An enemy can't just give up jamming and speed, though, or the missiles will eat him alive. </P>
+
+<P>As players throw more and more counterdesigns into the mix, combined arms can get far more complicated (note also that the Gattling weapons provide possible counterdesigns to an enemy using lots of designs, from their split-fire ability). Then things depend on knowing how the battle system works. But a solid fleet can be built around the "two stack" idea, with other measures being taken as needed. </P>
+
+<p><font FACE="Arial, Helvetica" SIZE="5"><a name="Odds, Stacking, and Per-Slot Damage">Odds, Stacking, and Per-Slot Damage</a> </font></p>
+
+<P>All of the design and tactical advantages can still lose to overwhelming numbers of ships. Sheer weight of metal goes a long way, especially if you use designs with decent defenses (such as Jamming) and if you can get more than 2 :1 odds. The size of your fleets has other effects, too, from how damage is allocated in Stars!.</P>
+
+<P>Shots in Stars! are resolved from each firing slot on the shooting token. You only see the overall result in the VCR playback as one shot, but that is not how it works. A destroyer with a weapon in each slot will fire three times with the damage from each being applied after the preceding shot. A stack of 10 destroyers will also fire three times (not 30); each shot will be from 10 weapons. A stack of 10 frigates with three weapons each, on the other hand, will fire all 30 weapons in one shot, since they occupy the same slot. </P>
+
+<P>Taking big shots is somewhat better than taking lots of little shots. This is due to the way that Stars! allocates the damage to armor:</P>
+
+<blockquote>
+<P>The total armor damage is divided by the armor per ship in the target token. Drop the fraction. That is the number of ships killed. The remaining damage is spread over the whole token, reducing the armor of each ship. </P>
+</blockquote>
+
+<P>For example, in our frigate vs. destroyer duel, say both types are using Phaser Bazookas at range 2 and both types have two organic armor each. That gives the frigates 395 damage points per ship; the destroyers have 550 damage points each. The frigates get +1 initiative from the hull (4 vs. 3), so they fire first. Total firepower is 702 (26 * 30 * .9 for range). 550 of that kills one destroyer, leaving 9; the remaining 152 is spread over those 9 leaving 533 damage points each. The destroyers then reply, as three shots of 9 Phasers each; each shot is 211 damage points, less than the armor on one frigate. So no frigates are killed; the whole round of firing just reduces the armor on each frigate to 332 (395--(211 * 3) / 10). </P>
+
+<P>One on one, the destroyer design would win because of its heavier armor, despite shooting second. With tokens big enough to get kills right away, though, the number of weapons the destroyers will keep in action will fall from the outset and keep falling. They could easily lose to an enemy with the same firepower and less overall damage points, because of the way the per-slot damage works (and because of the frigates' first shot from initiative). At very high numbers on both sides, the destroyers will get kills, too, and the edge from the higher overall damage points might make the difference once again. </P>
+
+<P>Particular odds ratios can therefore effect the outcome of Stars! battles. </P>
+
+<P>A more common case where odds can matter involves torpedoes. These do 1/2 of their damage to shields, 1/2 to armor. So the effective "divisor" for determining kills is twice as high as the armor per ship, as long as the shields hold. A Nubian with one slot of Superlatinium armor gets 9500 armor damage points. While its shields are up, it takes 19000 damage points inflicted by one firing slot to get a kill. Such a ship might also easily have 88% jamming, making it impossible to get more than modest accuracy against it with capital ship missiles. Combine that with adequate shielding to keep the divisor high for several rounds and such late-war beasties can be very tough to take out when stacked; most of their guns will stay in action for most of the battle, or until the whole token dies. </P>
+
+<P>Stacking shields is another important Stars! tactic. Beams do no damage to armor until all shields are destroyed for the whole target token. Say you use a "fighter horde" of shielded frigates, each with 2 wolverine shields and 3 Phasers. You stack 100 of them. Then you have a combined shield of 12000 damage points, and enemy beams cannot knock out any of your guns until they get through all of that. Your own shot on the other hand will be 7020 damage points all in one go, at maximum range, with 7800 damage points at point-blank range. Unshielded enemies, even if heavily armored, are going to lose ships to that kind of hit from the first shot on--at range that much damage would be enough to kill 12 of the organic-armored Destroyers described above or 17 of the armored Frigates. </P>
+
+<P>An enemy could try to get around that sort of stacked-shield tactic either by using torpedoes (1/2 straight to armor, thus using the low base armor of your shielded frigates to get the result that 90 damage points from one firing slot would kill one frigate) or by using the high-firepower special sapper weapons to fry your shields for his other beams. </P>
+
+<p><font FACE="Arial, Helvetica" SIZE="5"><a name="Electronics in Battle">Electronics in Battle</a> </font></p>
+
+<P>Electronics warfare and its interaction with design decisions is one of the key aspects of battle. The counter-design battleship mentioned above to deal with the single-fleet Beam and Jammer enemy illustrated the power of electronics in Stars! battle. Three Capacitors and one Battle Computer, in that case, gave first shot and 33% extra firepower at a trivial cost (in fact, a net savings in resource terms compared to the systems they replaced in that example). Electronics do nothing to enemy ships alone, but they provide a cheap multiplier to the effect of other systems. </P>
+
+<P>If you look at the slots available for electronics as you move up the construction tech tree, you will see the importance of this aspect of battle. Destroyers can have at most two electronics parts; only one if shielded. Frigates get none if they are armed. Cruisers can have four, Battlecruisers and Battleships seven, Dreadnoughts 10, and Nubians up to 33 with some room for weapons--effectively unlimited. More advanced hulls then generally have better electronics, thus they usually get more out of their other systems for the cost than the less advanced hulls.</P>
+
+<P>The main types of Stars! electronics used in battle are Capacitors, Battle Computers, Jammers, and. Computers help torpedos hit and raise the initiative of all weapons. Jammers make it harder for enemy torpedoes to hit. Capacitors raise Beam firepower up to 2.5 times.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Capacitors">Capacitors</a></font></p>
+
+<p><img src="images/ecap.gif" width=125 height=63 border=0 alt="ecap.gif"></p>
+
+<P>Each Capacitor gives 1.1 times the firepower, and this is cumulative. (1.2 times for the Hyper Expansionist's special Flux Capacitor). Capacitance tops out at 2.5 times rated firepower, however--that is 10 standard Capacitors or about five Flux Capacitors. While more firepower at a low cost is a nice thing, Capacitors take up scarce electronic slots. On Nubians, one can afford that. On Battleships and Cruisers, it comes at the expense of lower jamming most of the time. Using Capacitors on Beams at the expense of jamming works very well vs. enemy beam ships, but is less useful vs. enemy missiles. </P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Battle Computers and Jammers">Battle Computers and Jammers</a> </font></p>
+
+<p><img src="images/compjam.gif" width=250 height=126 border=0 alt="compjam.gif"></p>
+
+<P>The interaction of Battle Computers and Jammers is more complicated, but it is a system worth learning. Computers help capital ship missiles a lot, and help standard torpedoes somewhat less. They also counteract enemy jamming for both types, but more effectively for the standard torpedoes when the enemy jamming is high.</P>
+
+<P>When you have several Battle Computers or Jammers on a ship, their combined effect is given by the following:</P>
+
+<blockquote>
+<P>1 - (1 - system rating)^number of systems.</P>
+</blockquote>
+
+<P>Thus, 1 standard computer rated 20% or .2 gives</P>
+
+<blockquote>
+<P>1 - 1 - .2 = 1 - .8 = .2 </P>
+</blockquote>
+
+<P>or 20% effect, as you would expect.</P>
+
+<P>Two of the same computers give</P>
+
+<blockquote>
+<P>1 - (1 - .2)^2 = 1 - .8^2 = 1 - .64 = .36</P>
+</blockquote>
+
+<P>or 36% effect, rather than 40%. Basically the second system only helps in the cases where the first one didn't already do the job.</p>
+
+<P>When the shooter has Computers and the target has Jammers, the two sets of systems interact. The overall computing level (calculated as shown above) and the overall jamming level cancel, 1% for 1%. Only the excess effects the outcome of that shot, as "net computing" or "net jamming". Thus, two standard Battle Computers give 36% computing. Against one Jammer 20, the net computing is 16% (36 - 20). </P>
+
+<P>This system makes jamming highly effective against capital ship missiles with their low base accuracy, but less effective vs. the more accurate standard torpedoes when either type has decent computing power behind it. The interaction of Jammers with Battle Computers works to make the final adjusted accuracy converge on the base accuracy of the torpedo/missile when both the jamming and the computing levels are high. That may be a bit hard to follow if you don't see what it is about. Extensive details follow.</P>
+
+<P>Battleship #1 uses Upsilon Torpedoes (75% accuracy), and has four Battle Supercomputers giving 76% targeting power--which we will call 75 to make things clearer. Battleship #2 uses Doomsday Missiles (25% accuracy) and the same computers. Now, if they both shoot a target with 75% jamming, the accuracy is the base accuracy in each case--the Battle Computers and the Jammers cancel each other. </P>
+
+<P>Suppose they shoot a target with 50% jamming. Then they each get +25%targeting, which raises the Upsilon's from 75 to 81.25% accurate--not a large effect. The Doomsday Torpedoes go from 25% accurate to 43.75% accurate--a much bigger increase. </P>
+
+<P>Suppose they shoot at a target with 88% jamming--six Jammer 30s. They each get -13% accuracy, leaving 65.25% for the Upsilon and 21.75% for the Doomsday. </P>
+
+<P>Suppose they shoot an unjammed target--then they both get +75% targeting; the Upsilons are 93.75% accurate and the Doomsdays are 81.25% accurate.</P>
+
+<P>With 75% computing:
+</P>
+<TABLE CELLSPACING=0 BORDER=0 CELLPADDING=2><TBODY>
+<TR><TD WIDTH="15%" VALIGN="top" COLSPAN=2>
+<FONT FACE="Arial, Helvetica" SIZE=2><B>Jamming</B></FONT></TD>
+<TD WIDTH="25%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2><B>Upsilon Accuracy</B></FONT></TD>
+<TD WIDTH="30%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2><B>Doomsday Accuracy</B></FONT></TD>
+<TD WIDTH="30%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2><B>UpAcc/DoomAcc</B></FONT></TD></TR>
+<TR><TD WIDTH="15%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2>None</FONT></TD>
+<TD WIDTH="25%" VALIGN="top" COLSPAN=2>
+<FONT FACE="Arial, Helvetica" SIZE=2>94%</FONT></TD>
+<TD WIDTH="30%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2></font>81%</FONT></TD>
+<TD WIDTH="30%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2>1.15x</FONT></TD>
+</TR>
+<TR><TD WIDTH="15%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2>50% </FONT></TD>
+<TD WIDTH="25%" VALIGN="top" COLSPAN=2>
+<FONT FACE="Arial, Helvetica" SIZE=2>81% </FONT></TD>
+<TD WIDTH="30%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2>44%</FONT></TD>
+<TD WIDTH="30%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2>1.84x</FONT></TD>
+</TR>
+<TR><TD WIDTH="15%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2>75% </FONT></TD>
+<TD WIDTH="25%" VALIGN="top" COLSPAN=2>
+<FONT FACE="Arial, Helvetica" SIZE=2>75% </FONT></TD>
+<TD WIDTH="30%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2>30% </FONT></TD>
+<TD WIDTH="30%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2>2.5x</FONT></TD>
+</TR>
+<TR><TD WIDTH="15%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2>88%</FONT></TD>
+<TD WIDTH="25%" VALIGN="top" COLSPAN=2>
+<FONT FACE="Arial, Helvetica" SIZE=2>65% </FONT></TD>
+<TD WIDTH="30%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2>22% </FONT></TD>
+<TD WIDTH="30%" VALIGN="top">
+<FONT FACE="Arial, Helvetica" SIZE=2>3.0x</FONT></TD>
+</TR></TBODY></TABLE>
+
+<P>For comparison to the ratio line, note that Doomsday Missiles have 1.66x the rated firepower of an Upsilon Torpedo, and do double damage to an unshielded target.</P>
+
+<P>When the computing power is far higher than the jamming, the missiles are clearly better because of their higher rated firepower. Both types top out near 100% accuracy: you can't hit with more than all the missiles. But with higher jamming <I>and computing</I>, the accuracy's are close to the base accuracy of the weapons--exactly equal if the jamming <I>and computing</I> are the same, but close even if the computing and jamming are different if both are high absolutely.</P>
+
+<P>With high levels of jamming, there is little that extra computers can do to improve accuracy. For instance, consider 88% jamming as is common for Nubians and some Beam and Jammer Battleships. Computing can't be more than +100%. The maximum improvement in accuracy vs. a target with 88% jamming is therefore12%--even with 33 Battle Nexus computers on a Nubian, say. That is only enough to make a Doomsday Missile (with its base accuracy of 25) 34% accurate. 12 * 75% inaccuracy + 25% base accuracy = 34%. An Upsilon Torpedo with the same unlimited computers would be 78% accurate: .12* 25% inaccuracy + 75% base accuracy = 78%. </P>
+
+<P>Similarly, once you place a decent level of computing power behind an accurate torpedo, there is little jamming can do to protect a ship. Say you have Omega Torpedoes and three Battle Nexus computers. 3 Battle Nexus give +87.5% targeting. This means that even a Nubian with 33 Jammer 50s (Inner Strength only)--a pointless design by the way, but we illustrate the principle with the most extreme case--can only degrade the Omega Torpedo by 7.5% of its accuracy, leaving it with .925 * 80% = 74% accuracy. So with a bit of computing, you ensure basically 3/4 hits, 234 firepower expected from each firing torpedo (.74 * the 316 rated firepower), regardless of the enemy design.</P>
+
+<blockquote>
+<P><FONT FACE="Arial, Helvetica" SIZE=2><u>M a x i m u m&nbsp;&nbsp; j a m</u><BR>
+The maximum jamming for fleets is 95%--anything above 95% jamming by the formulas is still treated as 95% (unlike computing, which goes to 100%). The maximum jamming for starbases is 75%.
+</FONT></P>
+</blockquote>
+
+<P>Summing up, when both computing power and jamming power are near their maximums, they can't move any more. Also, the adjusted accuracy tends rapidly towards the base accuracy of the torpedo, as both computing and jamming rise. That is why standard torpedoes work better against highly jammed targets. You can counteract the jamming with computing. But you can't get more than 100% computing, regardless of how many computers you use. You can only raise the low base accuracy of Capital Ship Missiles with the excess room between the other fellow's jamming level and the 100% "ceiling". The standard torpedoes, you can't make much more accurate than their rating in the same way--but that rating is excellent, not poor. </P>
+
+<P>This element of the combat system takes some getting used to. It is a system that brings many possible countermeasure things into play, especially before Nubian hulls are available, limiting electronics design options. With only so many electronics slots available, you have to make tradeoffs.</P>
+
+<P>One way to play those tradeoffs is to go all-out for the attack, using seven of your best computers and 20 of your heaviest missiles on a big expensive and mean Battleship. No enemy can get higher initiative simply by using more computers, unless they are War Mongers and have Dreadnought hulls, or are any other race with Nubian hulls. The danger here is that you get no jamming. If the enemy succeeds in beating you at initiative (using a better torpedo or a better computer) you can die very quickly with no jamming to defend against incoming missiles. </P>
+
+<P>Another way to play those tradeoffs is to use three to four Battle Computers and three to four Jammers on torpedo-laden Battleships. That provides decent protection, and enough computing to help standard torpedoes overpower enemy Jammers. But it usually does not give enough computing power to overpower high jamming by enough to help less accurate Capital Ship Missiles get numerous hits, and it sacrifices first shot to those who go for initiative. </P>
+
+<P>Similarly, you can try to defeat enemy torpedo-armed warships by using highly jammed beam-armed Battleships--with 76% or 88% jamming from six Jammers. That can work well, but enemy standard torpedoes can still get hits and have greater range, and often you give up the first 2 shots to range and initiative advantages to the enemy. If those first two shots are too strong for your defensive systems, not enough of your guns will get into range to win. And as shown in the example above, six Jammer beam ships can be countered by beam ships with capacitors.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="5"><a name="Conclusion">Conclusion</a></font> </p>
+
+<P>You want to have the right designs to defeat those used by the enemy, in enough numbers to make the difference, at the point of battle. Unfortunately, so does he, and he is able to deny battle (or try to) if he doesn't think he has the numbers or any other strong advantage. Use of combined arms and superior knowledge of the Stars! combat system can help you defeat him anyway, fighting when you know you can win and he doesn't, and avoiding battle when you know you can't while gathering the forces that can change that.</P>
+
+  <p>&nbsp;</p>
+  <p align="center"><IMG alt="rockbr1.gif" height=14 src="images/rockbr1.gif" width=460></p>
+  <p align="center"><font face="Arial, Helvetica" size="2">(c) 1998, Mare Crisium, LLC</font></p></blockquote>
+</body>
+</html>
+

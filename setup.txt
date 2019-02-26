@@ -1,0 +1,103 @@
+Last Updated: 121231
+
+Extremely brief instructions to get the TotalHost website running on a windows XP-32 system.
+
+Resolve the usual DNS related issues. Known your domain name and admin addresses. 
+
+Install and patch XP
+	Do not install IIS
+
+Install Activestate Perl (version: 5.14.2.1402 32 bit)
+	Using PPM, install win32::ODBC and CGI/Session.pm, MIME::Lite, CGI::Session::Auth, MIME-tools, io-socket-ssl, mail::pop3client, MIME::Parser, Mail::POP3Client;
+
+Make sure you have cgi-lib.pl in c:\perl\lib
+
+http://community.activestate.com/faq/activeperl-and-apache-cgi
+
+Download and install Junction
+
+Link /usr to c:\perl (to make perl consistent across platforms)
+junction c:\usr c:\perl
+Or just install perl in the c:\usr folder
+
+Install Apache (Windows version 2.2.22) and update httpd.conf as appropriate. Don't forget to get perl working. 
+Enable Virtual Hosts
+Update ServerAdmin
+Update ServerName
+
+LoadFile "C:/Perl/bin/perl514.dll"      (dependent on the version of perl)
+LoadModule perl_module modules/mod_perl.so
+DocumentRoot "C:/TH/html"
+
+<Directory />
+    Options FollowSymLinks
+    AllowOverride None
+</Directory>
+DirectoryIndex index.html index.htm
+
+
+# Virtual hosts
+Include conf/extra/httpd-vhosts.conf
+
+
+, and httpd-vhost.conf as below (correcting for file path)
+## Root Totalhost.com
+<VirtualHost *:999>
+    ServerAdmin webmaster@example.com
+    DocumentRoot "D:/TH/html"
+    ServerName 127.0.0.1
+    ServerAlias www.example.com
+    ErrorLog "logs/TH_error.log"
+    CustomLog "logs/TH_access.log" common
+    <Directory "/">
+       Options Indexes FollowSymLinks Includes
+       AllowOverride All
+       Order allow,deny
+       Allow from all
+    </Directory>
+   Alias /Images "d:/TH/images/"
+   Alias /THImages "d:/TH/images/"
+   Alias /images "d:/TH/images/"
+   Alias /Download "d:/TH/download/"
+   Alias /THDownload "d:/TH/download/"
+   Alias /Downloads "d:/TH/downloads/"
+   Alias /Upload "d:/TH/uploads/"
+   ScriptAlias /THscripts/ "D:/TH/scripts/"
+   <Directory "/THscripts/">
+       AllowOverride None
+       Options -Indexes Includes
+       Order allow,deny
+       Allow from all
+   </Directory>
+   ScriptAlias /scripts/ "D:/TH/scripts/"
+   <Directory "/scripts/">
+       AllowOverride None
+       Options -Indexes Includes
+       Order allow,deny
+       Allow from all
+   </Directory>
+
+   Alias /Games "D:/TH/GameHTM/"
+
+</VirtualHost>
+
+
+
+
+
+Install Stars! (Activate with License key, update .ini)
+
+set up DSN on XP in the Control Panel > Administrative Tools > Data Sources (ODBC)  for "TotalHost" (or user specified).
+
+Create a scheduled task to run TurnMake.pl at whatever interval you would like to check. 
+
+update config.pl with all the correct information.
+	Currently requires a SMTP server that does not require authentication
+	
+Create a scheduled task to check turns as often as you'd like: 
+From the Windows 7 Command line: 
+schtasks /create /sc minute /mo 1 /tn "Task Name" /tr c:\temp\filename.exe
+
+
+Movies
+For movies to work, you'll need to install imagemagick and update the information in the movies script. You'll also need java installed

@@ -1,0 +1,270 @@
+<html>
+<head>
+<title>Chapter 11: Reducing Micro-Management</title>
+</head>
+
+<body bgcolor="#ffffff">
+
+<blockquote>
+  <h1 align="left"><font face="Arial, Helvetica" size="7" color="#808080">Chapter</font> 
+  <font FACE="Arial, Helvetica" size="7">11</font></h1>
+  <p align="left"><font FACE="Arial, Helvetica" size="7">Reducing Micro-Management</font></p>
+  <blockquote>
+    <font FACE="Arial, Helvetica" SIZE="4"><p></p>
+    </font>
+  </blockquote>
+  
+  <p><font FACE="Arial, Helvetica" SIZE="4"><b><br>
+  <a name="In this chapter">In this chapter</a></b></font></p>
+
+<P>The Middle Game brings an increase in mundane tasks that seem to bear down upon your soul as you perform them. You begin to feel you've gone through this same 35 step procedure every turn for the past 10 turns, and it looks like you're going to be doing it for the next 10 turns, or perhaps for the rest of the game. Wouldn't it be nice if there was a way to automate that?</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="5"><a name="Surprise!">Surprise!</a></font></p>
+
+<P>Guess what? For almost every mundane, boring, repetitive task in Stars! there is a way to automate it. You probably already know how to automate planetary production, but that's just the tip of the iceberg. (Imagine setting queues manually, for every world you colonize, the production queue. Makes you want to kiss whoever thought up the idea of a default production queue.)</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="5"><a name="Ships">Ships</a></font></p>
+  
+<p><IMG alt="flename.jpg" border=0 height=104 src="images/flename.jpg" width=197></p>
+
+<p>Let's start with your ships. If you're doing everything right, you've got transport ships flying every which way, miners on every world you can find to put them on, minelayers in deep space and around your important worlds, scouts keeping tabs on your borders, and a few warships trying to sneak up on a nearby enemy. If you're doing everything wrong, your fleet names are something like 'Transport #239' and 'Destroyer #193.' The first thing you need to do is get some sensible names on things.</p>
+
+<P>If you ask 10 Stars! players how they name their fleets, you will get 11 different answers. Instead of giving every possible strategy, I am simply going to give you mine. Add your own ideas to it, throw out something you don't like, or start your own from scratch. The important thing is to do a little work early to save yourself a lot of work late.</P>
+
+<P>Here's the basic outline for a fleet naming strategy. It's possible to use it for almost every single fleet in an empire:</P>
+
+<blockquote>
+<P><FONT FACE="Arial" SIZE=2>Task - Area [- Ship Type] [Number]</FONT></P>
+</blockquote>
+
+<P>For example, a remote mining ship that is orbiting Iceball would be called &quot;Mining - Iceball,&quot; the second torpedo destroyer that I'm using to patrol around Howe would be named &quot;Patrol - Howe - Torpedo 2,&quot; and the 9<SUP>th</SUP> minelayer to lay mines in space would be named &quot;Minelayer - Deep Space 9.&quot;</P>
+
+<P>For transports, there are 3 main types, each guarded or unguarded. &quot;Supply - Earth&quot; would be the name of a ship that is taking from one planet (usually a remote mining world) and supplying the planet Earth. &quot;Transport&quot; is the name of a transport that just wanders around doing odd tasks, like moving Germanium to a needy world. &quot;Balance&quot; would be the name of a ship that went between 2 worlds and balanced minerals between them (More on this handy task later). Of course, each of these 3 types could also have the word &quot;Guarded&quot; in them, so &quot;Transport - Guarded&quot; would be a (gasp!) guarded transport ship.</P>
+
+<P>Warships follow the same grounds, but the Area could be a region to defend, or attack, or a race to attack. Defensive fleets would be listed, for example, &quot;Defense - Earth,&quot; while offensive ships would be listed something like &quot;Offense - Plasmoids - Beam&quot;</P>
+<P>While the names lack color and originality, they make management a breeze. To get a quick list of all remote miners, simply open up the fleet report (F3) and sort by fleet name. In the list will be a group of ships, all named &quot;Mining - Stinky Socks&quot; and &quot;Mining - Spruance.&quot; What could be easier?</P>
+
+<table>
+<tr>
+	<td valign="center"><IMG alt="check.jpg" src="images/check.jpg"></td>
+	<td>&nbsp;</td>
+  <td valign="top"><p><font FACE="Arial, Helvetica" SIZE="5"><a name="Repeat Orders">Repeat Orders</a></font></p></td>
+</tr>
+</table>
+  
+<P>In the Tutorial, you set up a repeat order between a remote mining world and your homeworld. By far, this kind of repeat order is the most common. You will always be picking minerals up from the remote mining world, and dropping them off at the populated world. There are also many other uses for repeat orders.</P>
+
+<P>Another common transport repeat order would be for balancing minerals between two nearby worlds. Let's say one world has Ironium to spare, while another has Germanium to spare. Neither world can build much on it's own, because they both lack the mineral that the other world has in excess.</P>
+
+<P>You could set up a transport (or several transports) with specific orders on each world. On the first world, you will drop all Germanium, and load all available Ironium. On the second world, you will do just the opposite, dropping all Ironium and loading all available Germanium.</P>
+
+<P>But then, several years later, you may have the opposite problem! After the transports run for a while, they may be taking too much Ironium from the world that had an excess, leaving it empty. If you have to keep checking up on this transport, you have destroyed the entire reason for doing the repeat order in the first place.</P>
+
+<P>So how do you set up the order to begin with, so that the ship will not take <I>all</I> Ironium from the world? There is a great transport order that will take care of that. Let's say you want the Ironium rich world to never drop below 2000kT of Ironium. Simply set the transport order to &quot;Set Waypoint to: 2000kT.&quot; This order will load Ironium, but never take from the world if there is 2000kT or less. Do this on both ends, and you're set. You can forget about that transport for the rest of the game (Unless, of course, someone attacks it).</P>
+
+<font FACE="Arial, Helvetica" SIZE="5"><p><a name="Autobuild Orders">Autobuild Orders</a></p></font>
+
+<P>Turning to Planetary Queues, there are many ways to automate building, beyond the simple default queue. First, let's look at that default queue again and see if there is a way to make it work for all worlds.</P>
+
+<P>All starting worlds have one main goal, and that goal is to build factories. Your starting worlds should build factories until they run out of Germanium, then build mines until they can't build any more, then terraform until the world is perfect (or as close to perfect as you can make them). Therefore, it seems that the perfect default queue would be something like:</P>
+
+<FONT FACE="Arial" SIZE=2><P>Up To 1020 Factories<BR>
+Up To 1020 Mines<BR>
+Up To 1020 Terraform</P></FONT>
+
+<P>While this queue works great for an early colony, it does not serve the needs of the planet in the long run. As the planet grows, it may need more minerals than this set of orders will give it, for example (A planet with these orders, until it is full of factories, will never have any spare Germanium). Therefore, a more sensible default queue may be:</P>
+
+<FONT FACE="Arial" SIZE=2><P>Up to 100 Factories<BR>
+Up to 100 Mines<BR>
+Up to 500 Factories<BR>
+Up to 500 Mines<BR>
+Up to 10% Terraform</P></FONT>
+
+<P>With this set of orders, your people will start building mines as soon as they can build 100 factories on a world (In other words, once they can mine 300 or 400kT of Germanium a year). That way, your worlds that have high Germanium contents will start to see an excess of Germanium earlier, and will be able to either begin exporting it to Germanium-low worlds, or use it to build ships. If the world does not need the Germanium, it will happily use it to build more factories, which is exactly what you want.</P>
+
+<P>Once you have your terraforming done, usually you would want your world to build defenses. Why not, then, put them at the bottom of the Queue? Generally, an autobuild of Up to 10 Defenses, or Up to 50 Defenses, is enough. That way your world doesn't instantly use up all of it's minerals building defenses that it may not need. Also, in a large empire, leaving the defenses built message unfiltered will give you a reminder that a world is fully industrialized, and can start building ships.</P>
+
+<P>So, a final default queue may look something like this:</P>
+
+<FONT FACE="Arial" SIZE=2><P>Up to 100 Factories<BR>
+Up to 100 Mines<BR>
+Up to 500 Factories<BR>
+Up to 500 Mines<BR>
+Up to 10% Terraform<BR>
+Up to 20 Defenses</P></FONT>
+
+<P>When putting other items in your queues (such as ships, starbases, planetary scanners, or whatnot), they should generally never take more than one year to build, so you never cut, completely, the colony's building of factories and mines. Of course, if you really need a starbase (say, if the enemy will arrive in two years), you can bend this rule.</P>
+
+<p>To have Stars! notify you when one of your colonies is critically low on Germanium and thus cannot build enough factories, you can add the following to the bottom of your default queue (after terraforming and defenses):</p>
+
+<P><FONT FACE="Arial" SIZE=2>
+Mineral Alchemy as needed<br>
+10 Factories</FONT></P>
+
+<p>Using this queue, any colony that has built all the mines it can that year but is still short of the Germanium needed to build all the factories in the queue, will use Alchemy to create more Germanium, then restart on the factories. You can use the Mineral Alchemy production message as a red flag, telling you that you should load up a freighter with Germanium and send it to the poor colony as soon as possible. You might also want to set up a continuous stream of Germanium-loaded fleets to this world.
+
+<p><font FACE="Arial, Helvetica" SIZE="5"><a name="Reports">Using Reports</a></font></p>
+<IMG alt="report.jpg" border=0 src="images/report.jpg">
+<P>Effective use of your reports can cut the amount of time you spend on each turn drastically, and will also, generally, keep you from missing important things. Let's look at each report and see what they can tell us.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Battle Summary Report">Battle Summary Report</a></font></p>
+
+<P>This is the only report that comes up on its own every turn. The first message of the year tells you how many battles you've taken part in, and lets you view them. If you don't get this message, you've either inadvertently filtered it out, or you have had no battles.</P>
+
+<P>You may want to watch each battle, just for fun. Usually though all you need to know about a battle is whether or not you won, and how many ships you lost. You can sort this report by the number of your ships left, and then see, at a glance, how many battles you survived and how many you died in. Sorting by number of enemy ships tells you instantly how many battles you won, and how many others left some bystanders.</P>
+
+<blockquote>
+<p><font FACE="Arial, Helvetica" size="2"><u>n&nbsp; o&nbsp; t&nbsp; e</u><br>
+If you and a friend are fighting an enemy together, their ships will be listed among the enemy in &quot;Other Fleets.&quot; This could make it look, on the surface, that the enemy survived.</font></p>
+</blockquote>
+
+<P>If you, like I, want to watch every battle, it may be worth it to filter out some of the fields. I go so far as to filter out every field except the location. That way, you have to watch every battle to see if you win or lose.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Planet Summary Report">Planet Summary Report</a></font></p>
+
+  <blockquote>
+    <p><font FACE="Arial, Helvetica" size="2"><u>t&nbsp; i&nbsp; p&nbsp;</u><br>
+    You can access the Planet Report at any time by hitting F3.</font></p>
+  </blockquote>
+
+<P>This is the most used report in the game, and you can use it, along with filters and sorts, to accomplish almost any task. Let's look at each column of the report.</P>
+
+<P>The <B>Planet Name</B> column shows you, at a glance, which planets have starbases, which starbases have mass drivers, and which starbases have stargates. You can't sort on this information like you can for other columns, but it does offer a handy reference. A blue dot means you have an Orbital Fort orbiting the world. A yellow dot means you have a Space Dock, a Starbase, or an Ultrastation. A purple dot means you have a mass driver installed on the starbase. A green dot means you have a stargate. If you have a planet selected on the scanner pane, it will be listed in red in this report, so you can quickly see what planet you are on. If you click on the planet name, you will jump to that planet, making it easy to select your planets and jump around your empire.</P>
+
+<P>The <B>Starbase</B> column lets you sort by the name of the starbase at the planet, in alphabetical order. To make things easier, you can name all of your starbase designs with this in mind. For example, the first orbital fort design could be named &quot;AA - Little Fort&quot; and the next &quot;AB - Blaster Fort.&quot; Your first Space Dock could be then named &quot;BA - Blaster Dock&quot; and your second &quot;BB - Missile Dock.&quot; If you set up all of your starbase designs this way, when you sort by starbase name, all of your Space Docks will be at the top of the list, sorted oldest design to newest design. Then all of your Orbital Forts, followed by Starbases, and then Ultrastations.</P>
+
+<P>The <B>Population</B> column makes it easy to see where your people are. If you sort by this column, all of your small planets will be at the top, and your large planets will be at the bottom. This will help you decide where you can take people from, and where you can put them. If the number is red, you have more people on the world than it can support, and you will either need to remove some of them, terraform the world, or suffer deaths.</P>
+
+<P>The <B>Cap</B> column is one of the more useful columns, and it shows the capacity of your worlds. Remember back in chapter 6, when you were trying to keep the capacity of your homeworld at 30-40 percent? This is the number you were trying to control. This number represents how full of people the world is. If the number is under 25%, the world could generally use more people. If it's over 40%, you could probably take some people from it. If it's over 70% (later in the game most worlds will be) you can probably use this world to build ships. However, a world that has not built all of it's factories may be better left alone.</P>
+
+<P>The <B>Value</B> column is very handy. It shows the current value of the world, along with the value the world would have if you Terraformed it fully. In other words, if you had a value listed at &quot;32% (58%)&quot; then the world's current value would be 32%, but you would be able to terraform it up to 58% with your current terraforming technology. Sorting by this number will show you, at a glance, the worlds that are high value, and potentially (or currently) your breeder worlds or production centers.</P>
+
+<P>The <B>Production</B> column is not very useful. It tells you what is at the top of your production queue (almost always, this will be 1 Factory or 1 Mine). If you use this report a lot to look at your planets, this column is useful in that clicking on it will bring up that planet's production queue.</P>
+
+<P>The <B>Mine</B> column shows you how many mines are on the world. If the number is green, you have exactly the right number of mines for the current population to run. If the number is red, you have more mines than your current population can run. Sorting by this number puts all the worlds that have a lot of mines together, and these worlds will more than likely be able to produce ships and starbases.</P>
+
+<P>The <B>Fact</B> column shows you how many factories are on the world. If the number is green, you have exactly the right number of factories for the current population to run. If the number is red, you have more factories than your current population can run. Sorting by this column puts all the worlds that have a lot of factories together. Worlds with a lot of factories are perfect candidates for ship production, research, or that really cool starbase you just researched how to build.</P>
+
+<P>The <B>Defense</B> column shows you how many planetary defenses each world has. You could use this column to find out which worlds haven't completely built all of their defenses yet.</P>
+
+<P>The <B>Minerals</B> column is a very useful one. You can sort by the amount of Ironium, Boranium, or Germanium on the surface of your worlds, and see who is short on minerals as well as who has excess. This can help you decide who needs extra Germanium, and where to get it from.</P>
+
+<P>The <B>Mining Rate</B> column lists how much of each mineral is being pulled out of the ground each year. This column can help you figure out what worlds will always have a shortage, and what worlds will always be in excess, for each mineral. Using this information, you can set up repeat routes with your ships, making mineral balancing between your worlds a snap.</P>
+
+<P>Likewise, the <B>Min Conc</B> column lists how much of each mineral is in the ground. You can use it in the same way as the Mining Rate column above.</P>
+
+<P>The <B>Resources</B> column allows you to sort worlds in according to their production capacity. This allows you to see your most productive worlds at-a-glance, allowing you to see if any of these worlds are experiencing a shortage of any critical mineral. You can also use this column as a way to help you decide when to build certain orbitals or ships: for example, you could decide that any colony with 200 resources should build a space dock or minimal space station for defense and refueling, and any colony with 500 resources should build a full-blown space station. You can add warships to the queues of colonies that can afford to build them.</P>
+
+<P>The <B>Driver Dest</B> column shows every world that has a mass driver destination, listing what the destination world is. The most obvious reason for this is to make sure you clear destinations out, so you don't accidentally smash a world with a packet you didn't mean to send.</P>
+
+<P>The <B>Routing Dest</B> column is nice, so you can quickly see all worlds that are on your main routes.</P>
+
+<P>Let's say you need 500kT of Ironium at Earth, so it can build a starbase. Earth has a very low Ironium content, so it will never be able to mine enough Ironium to build the starbase. Open up the planetary report, sort by Minerals-&gt;Ironium, and go to the bottom of the chart. Now, you are at the world that has the most Ironium sitting on it's surface. However, that world is completely on the other side of your empire, and getting a transport that distance will take too long.</P>
+
+<P>Here's where your sorting comes in handy. Hitting the <B>Prev</B> button in the planet summary pane will jump to the next planet up the list (the one with the second highest Ironium content of your empire). Perhaps this planet is closer. If not, hit <B>Prev</B> again until you find one nearby. From there, it's just a matter of routing the transports.</P>
+
+<P>Later on in the game, you realize that Earth would make a very good production center, if it wasn't for that low Ironium content. Well, let's go back to the planetary report, this time sorting by <B>Min Conc</B> to see who has the highest mineral concentration. Worlds with high concentration will generally never use all of their available minerals.</P>
+
+<P>This time you lucked out on the first planet. Pervo is nearby, has a high Ironium content, and will never use all of that Ironium because of its low Boranium content. All you need to do is set up a transport with a repeating route, from Pervo to Earth, loading Ironium at Pervo and dropping it off at Earth.</P>
+
+<P>But why stop there? Earth has a fairly high Boranium content, and because of the low Ironium content never really used what was being mined. Considering that transport is going back to Pervo anyway, why not load it up with Boranium at Earth, and drop that Boranium at Pervo? Suddenly, with one transport, you have solved 2 planets' production problems.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Fleet Summary Report">Fleet Summary Report</a></font></p>
+
+<P>In the same ways that the Planet Summary Report can help you manage your planets, the Fleet Summary Report helps you manage your fleets.</P>
+
+<P>The <B>Fleet Name</B> column shows you (obviously) the names of your fleets. Any fleets you have not changed the names for will be named <B>SHIP NAME #123</B> where &quot;Ship Name&quot; is the name of the type of ship the fleet is composed of, and 123 is the fleet number. If you have not renamed any of your fleets, sorting by this column will put all similar fleets together. In other words, all of your Alpha Destroyers (Outfitted with, what else, but Alpha Torpedoes) will be first, and all of your Zephyrs (Your very fast beam Cruisers) will be last. If you rename your fleets in the way described above in <B>Fleets</B>, sorting by this column will put all of your Warships, Minelayers, and Transports together, making it easy to keep track of them all.</P>
+
+<P>The <B>ID</B> column is simply the fleet number. If you have not renamed your fleets, it is the same number as in your ship name. Other races can use this number when referencing your fleets. If an enemy says, &quot;Your cruiser fleet #258 is getting too close to my worlds. Move it or lose it,&quot; then you can use this column to find that fleet, even if you've renamed it to &quot;Defense - Earth&quot;</P>
+
+<P>The <B>Location</B> column tells you where the fleet is. If your fleet is at a planet, then the name of the planet will be listed here. If the fleet is in deep space, then the coordinates are given. Sorting by this column won't help much, but it does give a quick look at where your ships are.</P>
+
+<P>Likewise, the <B>Destination</B> column isn't that helpful for organization purposes. This column only gives you the next waypoint, not the last waypoint in a fleet's chain of orders.</P>
+
+<P>The <B>ETA</B> column could be useful, if you want to see who is going to be moving for a while. Again, this only gives you the ETA to the next waypoint.</P>
+
+<P>The <B>Mass</B> column can help you find your empty freighters or any bombing fleet that needs a cruiser escort. In the Enemy Fleet report, the Mass column can help you uncover when the enemy decides to hide battleships by naming them something like "Scout". If that enemy Scout weighs more than you know what a Scout should weigh (check your own Ship Designer for more information), then you know they're up to nothing good. To uncover their trick, just sort by Mass, then by Location. All those really heavy fleets near your border made up of one or more supposedly wimpy ship types are worth a closer look! Sorting by Mass and Location also helps keep the enemy from keeping keeping several dozen fleets at a location to hamper you from seeing all the fleets assembled at that location. </P>
+
+<P>The best way to use this report goes hand in hand with the naming conventions above. Let's say you want to make sure each of your mining fleets is at the world that will do it the most good. Sort by fleet name, and find all the &quot;Mining&quot; fleets, and then use the <B>Next</B> button to cycle through each one, looking at each world to see if the minerals have been depleted.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="5"><a name="More About Fleets">More About Fleets</a></font></p>
+
+<P>Along with the Fleet Summary Report, Stars! provides several other tools for optimizing how you manage your fleets.
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Map Filters">Map Filters</a></font></p>
+<IMG alt="button13.gif" src="images/button13.gif"><IMG alt="button14.gif" src="images/button14.gif"><IMG alt="button16.gif" src="images/button16.gif">
+
+<P>If you're trying to find a specific fleet, nothing is better than the filters provided in the game. Want to see who is sitting around doing nothing? Use the <B>Idle Fleets Filter</B> to show only ships with no waypoints. </P>
+
+<P>Don't care about your minelayers and remote miners? Filter them out with the ship specific filter. </P>
+
+<P>Do you only care about your idle transports? Filter out everything except transports, and turn on the Idle Fleets filter again.</P>
+
+<table>
+  <tr>
+	<td valign="center"><IMG alt="filter.jpg" src="images/filter.jpg"></td>
+	<td>&nbsp;</td>
+  <td valign="top"><font FACE="Arial, Helvetica" size="2"><u>n&nbsp; o&nbsp; t&nbsp; e</u><br>
+    If you start using filters a lot, remember to occasionally check to make sure you have filters turned off. Nothing is worse than getting clobbered because you had your warships filtered out and you lost track of them.</font></td>
+  </tr>
+</table>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Reminders">Reminders</a></font></p>
+  
+<P>Even the most mindful emperor will occasionally forget what his plans were for a planet or fleet. How many times has one of your planets built a huge Galleon, and you looked at it saying to yourself, &quot;Why did I build that?&quot; While you can't tag a message on your fleets saying things like &quot;After sending Germanium to McBride, pick up some Colonists to invade the Plasmoids at Ultima Thule,&quot; you can set up reminders and messages, if you're a bit creative.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Fleet Names">Fleet Names</a></font></p>
+
+<P>The most obvious way to remind yourself is to rename your fleets. Naming your fleet something like &quot;Drop Pop on Ultima Thule&quot; would remind you of your future intentions. When you get the message &quot;Drop Pop on Ultima Thule has completed it's assigned orders&quot; you can instantly load up the people, figure out the best way to get to Ultima Thule, find some nearby warships for air support, and invade. Without that message you probably would have forgotten your plan.</P>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Fleet Routing">Fleet Routing</a></font></p>
+
+<P>Another painful procedure to do every turn is the routing of all your warships from your production centers to the front lines. A successful empire can have dozens of ship-building worlds, each churning out several ships a year, and it's a pain to manually direct each ship to its destination. Here is where the <B>Route</B> property of a world comes in handy.</P>
+
+<P>The route order tells your world to send all built ships toward another world, at the fastest speed they can make it to that world with the fuel they have. If the other world has no starbase to refuel, the ships will go at their optimum speed. Using this, you can set route orders for each production world, aiming them all at another world near the front lines (Or, if you need to guard a large border, several worlds along that border). That world can then have route orders to send the ships to another world, and so on. Let's say you have three worlds in your empire: Earth, Stinky Socks, and Pervo. Earth is a production center. Stinky Socks has a Space Dock, and is in your periphery, and Pervo is on your border with an aggressive neighbor. You can set a route order for Earth that will send all ships to Stinky Socks, and another route order at Stinky Socks to send all ships to Pervo. Every ship built at Earth will head to Stinky Socks, refuel, and continue on it's way to Pervo, where they will stop and report that they have finished their orders. Any ships built at Stinky Socks will immediately go to Pervo and stop. Eventually, all of your ships will end up at Pervo.</P>
+
+<P>Here's another example. Let's say you intend those three Galleons to pick up a load of Germanium for transport to your ally's world of Rho. Put them in the queue of Stinky Socks, and then set up a Route order for the world, routing all ships to Rho. The next year, you will get the message &quot;Stinky Socks has built 3 Armed Galleon ships, which are being routed to Rho.&quot; &quot;What?&quot; you will ask yourself, &quot;Why did I do that?&quot; When you check and see that Stinky Socks has a glut of Germanium, and that Rho is your ally's world, the lightbulb will turn on and you will be able to continue on your merry way.</P>
+
+<blockquote>
+<p><font FACE="Arial, Helvetica" size="2"><u>n&nbsp; o&nbsp; t&nbsp; e</u><br>
+Don't forget to take the routing order away from the world after you build the ship, or you'll start sending everything that Stinky Socks builds toward you ally's world!</font></p>
+</blockquote>
+
+<p><font FACE="Arial, Helvetica" SIZE="4"><a name="Idle Fleets">Idle Fleets</a></font></p>
+
+<P>What about fleets that are idle? After all, they don't generate a message every year. If you want to remember to send Germanium to Earth from Pervo next year, and have a transport all ready to go, how are you ever going to remind yourself? There are two great ways to accomplish this task.</P>
+
+<P>If the worlds do not have starbases, you can tell the transport ship to use a stargate to get from one world to the other. The waypoints pane will warn you that you cannot do that, but ignore it. The next year, you will get the message that your ship tried to use a stargate and failed. If you name your ship correctly, the message will look something like &quot;Send Germanium to Earth tried to use a stargate at Pervo to reach Earth, but failed because there is no stargate at Pervo.&quot; Ping! You've been reminded.</P>
+
+<P>If you have stargates at each world then this reminding method won't work (Because, of course, the ships will use the stargates). You will need then to use another trick, which utilizes the &quot;Lay Mines&quot; waypoint task. Set the current world with a waypoint task of &quot;Lay Mines&quot; and next year you will get the message, &quot;Send Germanium to Pervo has tried to lay mines but has no minelaying pods installed. The order has been canceled.&quot; Again, you have generated a reminder message.</P>
+
+<P>But, as a prudent emperor, you have seen a flaw. What if this is a fleet of minelayers at a world with a stargate? No problem, you can also set them with &quot;Colonize&quot; orders, and you will get the same kind of message.</P>
+
+<P>You will always be able to use one of the above 3 ways to generate a message next year. That way, you will always have a way to remind yourself just what you wanted to do with your ships. </P>
+
+<p><font FACE="Arial, Helvetica" SIZE="5"><a name="E-Mail">E-Mail</a></font></p>
+
+<table>
+  <tr>
+	<td valign="top"><IMG alt="mail.jpg" src="images/mail.jpg"></td>
+	<td>&nbsp;</td>
+  <td valign="top">Sometimes you need to remember very important things that you just can't set up with fleet tasks and planetary orders. In a multiplayer game you can always send yourself in-game e-mail. If you use this option a lot, it may be wise to get in the habit of checking your mail before doing anything else in a turn (pressing the END key will go to the last message for your turn, where in-game e-mail is stored). In-game e-mail is not an option in solo games.</td>
+  </tr>
+</table>
+
+<p><font FACE="Arial, Helvetica" SIZE="5"><a name="The Long Haul">The Long Haul</a></font></p>
+
+<table>
+  <tr>
+	<td valign="top"><IMG alt="notepad.jpg" src="images/notepad.jpg"></td>
+	<td>&nbsp;</td>
+  <td valign="top">It never hurts to keep a separate file, in Windows Notepad, where you keep notes for each of your games. In it, you could list each race and your impressions of them, thoughts on their Primary Racial Trait and any Lesser Racial Traits, history of your dealings with them, and disputed planets. If you make deals with any races, put these deals in writing in your Notepad file so you won't forget about them. Nothing makes an ally into an enemy like forgetting to send that 1000kT of Germanium you promised!</td>
+  </tr>
+</table>
+
+    <p>&nbsp;</p>
+    <p align="center"><IMG alt="rockbr1.gif" height=14 src="images/rockbr1.gif" width=460></p>
+    <p align="center"><font face="Arial, Helvetica" size="2">(c) 1998, Mare Crisium, LLC</font></p>
+  </blockquote>
+</body>
+</html>

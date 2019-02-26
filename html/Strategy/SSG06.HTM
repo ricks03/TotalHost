@@ -1,0 +1,517 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+
+<head>
+<title>Chapter 6: Early Resource Management</title>
+</head>
+
+<body bgcolor="#FFFFFF">
+
+<blockquote>
+    <h1 align="left"><font face="Arial, Helvetica" size="7" color="#808080">Chapter</font> <font
+  FACE="Arial, Helvetica" size="7">6</font></h1>
+  <p align="left"><font FACE="Arial, Helvetica" size="7">Early Resource Management</font></p>
+
+  <p><img SRC="images/atombt.gif" width="36" height="41"><img SRC="images/atombt.gif" width="36" height="41">
+  <img SRC="images/atombt.gif" width="36" height="41"><img SRC="images/atombt.gif" width="36" height="41">
+  <img SRC="images/atombt.gif" width="36" height="41"><img SRC="images/atombt.gif" width="36" height="41"></p>
+  <p><font FACE="Arial, Helvetica" SIZE="4">
+  <b><a name="In this chapter">In this chapter</a></b></font></p>
+  <p>In the early game, your assets are meager and easy to deplete. You start the game with
+  a yearly income of about one hundred resources and a few hundred kilotons of each mineral.
+  To use these meager assets effectively, you&#146;ll need to consider how to balance what
+  you <i>need</i> to accomplish with what you <i>want</i> to accomplish. With each step you
+  take in the first few years of the game you should be thinking, &quot;What effect will
+  this action have on my resource growth?&quot; </p>
+  <p><font SIZE="5" FACE="Arial, Helvetica"><a name="Population Management">Population Management</a></font> </p>
+  <p>To research, build and expand your empire, you need resources. This makes the creation
+  of resources the most important element of your early game strategy. Since people (and
+  factories) create resources, increasing your population growth rate should be a main, and
+  ongoing, goal.</p>
+  <p>Although your race&#146;s standard growth rate is already set during the race design
+  process, the actual growth rate for each colony will depend on the habitability and
+  population for that colony world. Both low-value worlds and worlds with many colonists
+  will grow at a rate lower than the standard (or maximum) racial rate. Once your homeworld
+  (or any world) reaches 25% of population capacity, its growth begins to slow. At 30%
+  capacity, that world will grow people less rapidly than it did at 25% capacity, but will
+  still grow people faster than most other worlds you will find. However, your homeworld
+  will probably be the only world at the beginning of the game that starts with a
+  habitability value of 100%. Here is a chart of growth, comparing the homeworld's growth
+  rate at different capacities to worlds of lesser value:</p>
+  <div align="center"><center><table BORDER="0" CELLPADDING="0" WIDTH="311">
+    <tr>
+      <td WIDTH="127" bgcolor="#C0C0C0"><p align="center"><font face="Arial, Helvetica" size="2">If your
+      homeworld<br>
+      capacity is:</font></td>
+      <td WIDTH="180" bgcolor="#C0C0C0"><p align="center"><font face="Arial, Helvetica" size="2">It will
+      grow at the rate of a <br>
+      world with a value of:</font></td>
+    </tr>
+    <tr>
+      <td WIDTH="127"><p align="center"><font face="Arial, Helvetica" size="2">10%</font></td>
+      <td WIDTH="180"><p align="center"><font face="Arial, Helvetica" size="2">100%</font></td>
+    </tr>
+    <tr>
+      <td WIDTH="127"><p align="center"><font face="Arial, Helvetica" size="2">20%</font></td>
+      <td WIDTH="180"><p align="center"><font face="Arial, Helvetica" size="2">100%</font></td>
+    </tr>
+    <tr>
+      <td WIDTH="127"><p align="center"><font face="Arial, Helvetica" size="2">30%</font> </td>
+      <td WIDTH="180"><p align="center"><font face="Arial, Helvetica" size="2">87%</font> </td>
+    </tr>
+    <tr>
+      <td WIDTH="127"><p align="center"><font face="Arial, Helvetica" size="2">40%</font> </td>
+      <td WIDTH="180"><p align="center"><font face="Arial, Helvetica" size="2">64%</font> </td>
+    </tr>
+    <tr>
+      <td WIDTH="127"><p align="center"><font face="Arial, Helvetica" size="2">50%</font> </td>
+      <td WIDTH="180"><p align="center"><font face="Arial, Helvetica" size="2">44%</font> </td>
+    </tr>
+    <tr>
+      <td WIDTH="127"><p align="center"><font face="Arial, Helvetica" size="2">60%</font> </td>
+      <td WIDTH="180"><p align="center"><font face="Arial, Helvetica" size="2">28%</font> </td>
+    </tr>
+    <tr>
+      <td WIDTH="127"><p align="center"><font face="Arial, Helvetica" size="2">70%</font> </td>
+      <td WIDTH="180"><p align="center"><font face="Arial, Helvetica" size="2">16%</font> </td>
+    </tr>
+    <tr>
+      <td WIDTH="127"><p align="center"><font face="Arial, Helvetica" size="2">80%</font> </td>
+      <td WIDTH="180"><p align="center"><font face="Arial, Helvetica" size="2">7%</font> </td>
+    </tr>
+    <tr>
+      <td WIDTH="127"><p align="center"><font face="Arial, Helvetica" size="2">90%</font> </td>
+      <td WIDTH="180"><p align="center"><font face="Arial, Helvetica" size="2">2%</font> </td>
+    </tr>
+    <tr>
+      <td WIDTH="127"><p align="center"><font face="Arial, Helvetica" size="2">100%</font> </td>
+      <td WIDTH="180"><p align="center"><font face="Arial, Helvetica" size="2">0%</font> </td>
+    </tr>
+  </table>
+  </center></div><blockquote>
+    <p><font face="Arial, Helvetica" size="2"><u>t i p</u><br>
+    Display the population capacity of all of your worlds by pressing F3 and opening the
+    Planet report.</font></p>
+  </blockquote>
+  <p>This chart doesn&#146;t give us quite enough information to play with, so let's look at
+  an example. Say you have two worlds. One of them (your homeworld) is a 100% value world,
+  and the other is a 50% value world. You have 1 million people (the normal maximum number
+  of people for any world) to spread between the two worlds, and a 10% standard growth rate.
+  Here's another chart, showing the growth per planet, and the growth in total, of your
+  two-world empire with the population split between the two worlds:</p>
+  <div align="center"><center><table BORDER="0" width="656">
+    <tr>
+      <td bgcolor="#C0C0C0" width="134"><font face="Arial, Helvetica" size="2">Homeworld Capacity /
+      Population</font></td>
+      <td bgcolor="#C0C0C0" width="134"><font face="Arial, Helvetica" size="2">50%&nbsp;World Capacity /
+      Population</font></td>
+      <td bgcolor="#C0C0C0" width="81"><font face="Arial, Helvetica" size="2">Excess Population<sup>1</sup></font></td>
+      <td bgcolor="#C0C0C0" width="103"><font face="Arial, Helvetica" size="2">Homeworld Growth</font></td>
+      <td bgcolor="#C0C0C0" width="97"><font face="Arial, Helvetica" size="2">50%&nbsp;World Growth</font></td>
+      <td bgcolor="#C0C0C0" width="83"><font face="Arial, Helvetica" size="2">Total Empire Growth</font></td>
+    </tr>
+    <tr>
+      <td width="134"><font face="Arial, Helvetica" size="2">100% / 1,000,000</font></td>
+      <td width="134"><font face="Arial, Helvetica" size="2">0% / 0</font></td>
+      <td width="81"><font face="Arial, Helvetica" size="2">0 </font></td>
+      <td width="103"><font face="Arial, Helvetica" size="2">0% / 0</font></td>
+      <td width="97"><font face="Arial, Helvetica" size="2">0% / 0</font></td>
+      <td width="83"><font face="Arial, Helvetica" size="2">0</font></td>
+    </tr>
+    <tr>
+      <td width="134"><font face="Arial, Helvetica" size="2">90% / 900,000</font></td>
+      <td width="134"><font face="Arial, Helvetica" size="2">20%&nbsp;/ 100,000</font></td>
+      <td width="81"><font face="Arial, Helvetica" size="2">0 </font></td>
+      <td width="103"><font face="Arial, Helvetica" size="2">0.2%&nbsp;/ 1,800</font></td>
+      <td width="97"><font face="Arial, Helvetica" size="2">5% / 5,000</font></td>
+      <td width="83"><font face="Arial, Helvetica" size="2">6,800</font></td>
+    </tr>
+    <tr>
+      <td width="134"><font face="Arial, Helvetica" size="2">80% / 800,000</font></td>
+      <td width="134"><font face="Arial, Helvetica" size="2">40% / 200,000</font></td>
+      <td width="81"><font face="Arial, Helvetica" size="2">0 </font></td>
+      <td width="103"><font face="Arial, Helvetica" size="2">0.7%&nbsp;/ 5,600</font></td>
+      <td width="97"><font face="Arial, Helvetica" size="2">3.2%&nbsp;/ 6,400</font></td>
+      <td width="83"><font face="Arial, Helvetica" size="2">12,000</font></td>
+    </tr>
+    <tr>
+      <td width="134"><font face="Arial, Helvetica" size="2">70% / 700,000</font></td>
+      <td width="134"><font face="Arial, Helvetica" size="2">60%&nbsp;/ 300,000</font></td>
+      <td width="81"><font face="Arial, Helvetica" size="2">0 </font></td>
+      <td width="103"><font face="Arial, Helvetica" size="2">1.6%&nbsp;/ 11,200</font></td>
+      <td width="97"><font face="Arial, Helvetica" size="2">1.4%&nbsp;/ 4,200</font></td>
+      <td width="83"><font face="Arial, Helvetica" size="2">15,400</font></td>
+    </tr>
+    <tr>
+      <td width="134"><font face="Arial, Helvetica" size="2">60%&nbsp;/ 600,000</font></td>
+      <td width="134"><font face="Arial, Helvetica" size="2">80% / 400,000</font></td>
+      <td width="81"><font face="Arial, Helvetica" size="2">0 </font></td>
+      <td width="103"><font face="Arial, Helvetica" size="2">2.8%&nbsp;/ 16,800</font></td>
+      <td width="97"><font face="Arial, Helvetica" size="2">0.35% / 1,400</font></td>
+      <td width="83"><font face="Arial, Helvetica" size="2">18,200</font></td>
+    </tr>
+    <tr>
+      <td width="134"><font face="Arial, Helvetica" size="2">50% / 500,000</font></td>
+      <td width="134"><font face="Arial, Helvetica" size="2">100%&nbsp;/ 500,000</font></td>
+      <td width="81"><font face="Arial, Helvetica" size="2">0 </font></td>
+      <td width="103"><font face="Arial, Helvetica" size="2">4.4%&nbsp;/ 22,000</font></td>
+      <td width="97"><font face="Arial, Helvetica" size="2">0% / 0</font></td>
+      <td width="83"><font face="Arial, Helvetica" size="2">22,000</font></td>
+    </tr>
+    <tr>
+      <td width="134"><font face="Arial, Helvetica" size="2">40%&nbsp;/ 400,000</font></td>
+      <td width="134"><font face="Arial, Helvetica" size="2">100%&nbsp;/ 500,000</font></td>
+      <td width="81"><font face="Arial, Helvetica" size="2">100,000 </font></td>
+      <td width="103"><font face="Arial, Helvetica" size="2">6.4%&nbsp;/ 25,600</font></td>
+      <td width="97"><font face="Arial, Helvetica" size="2">0% / 0</font></td>
+      <td width="83"><font face="Arial, Helvetica" size="2">25,600</font></td>
+    </tr>
+    <tr>
+      <td width="134"><font face="Arial, Helvetica" size="2">30% / 300,000</font></td>
+      <td width="134"><font face="Arial, Helvetica" size="2">100%&nbsp;/ 500,000</font></td>
+      <td width="81"><font face="Arial, Helvetica" size="2">200,000 </font></td>
+      <td width="103"><font face="Arial, Helvetica" size="2">8.7%&nbsp;/ 26,100</font></td>
+      <td width="97"><font face="Arial, Helvetica" size="2">0% / 0</font></td>
+      <td width="83"><font face="Arial, Helvetica" size="2">26,100</font></td>
+    </tr>
+    <tr>
+      <td width="134"><font face="Arial, Helvetica" size="2">20% / 200,000</font></td>
+      <td width="134"><font face="Arial, Helvetica" size="2">100%&nbsp;/ 500,000</font></td>
+      <td width="81"><font face="Arial, Helvetica" size="2">300,000 </font></td>
+      <td width="103"><font face="Arial, Helvetica" size="2">10%&nbsp;/ 20,000</font></td>
+      <td width="97"><font face="Arial, Helvetica" size="2">0% / 0</font></td>
+      <td width="83"><font face="Arial, Helvetica" size="2">20,000</font></td>
+    </tr>
+    <tr>
+      <td width="134"><font face="Arial, Helvetica" size="2">10%&nbsp;/ 100,000</font></td>
+      <td width="134"><font face="Arial, Helvetica" size="2">100%&nbsp;/ 500,000</font></td>
+      <td width="81"><font face="Arial, Helvetica" size="2">400,000 </font></td>
+      <td width="103"><font face="Arial, Helvetica" size="2">10%&nbsp;/ 10,000</font></td>
+      <td width="97"><font face="Arial, Helvetica" size="2">0% / 0</font></td>
+      <td width="83"><font face="Arial, Helvetica" size="2">10,000</font></td>
+    </tr>
+  </table>
+  </center></div><p><font size="2"><sup>1</sup>Excess population loaded onto freighters in
+  orbit.</font></p>
+  <p>For purposes of this example, after the 50% world reached 100% capacity, the extra
+  people were left in freighters so they would not die. Note that, even with 200,000 people
+  in holding bays in space, not reproducing at all, growth was actually highest at 30%
+  Homeworld capacity. If you consider each world separately, highest growth on each was at
+  30% capacity (actually, at 33%). Therefore, to achieve the highest possible growth for
+  these two worlds, each year 300,000 people should be on the homeworld, 150,000 people
+  should be on the 50% world, and 550,000 people should be in freighters (or, even better,
+  on other worlds), with any excess each year loaded onto freighters:</p>
+  <div align="center"><center><table BORDER="0" width="656">
+    <tr>
+      <td bgcolor="#C0C0C0"><p align="left"><font face="Arial, Helvetica" size="2">Homeworld Capacity /
+      Population </font></td>
+      <td bgcolor="#C0C0C0"><font face="Arial, Helvetica" size="2">50%&nbsp;World Capacity / Population</font></td>
+      <td bgcolor="#C0C0C0"><font face="Arial, Helvetica" size="2">Excess Population<sup>1</sup></font></td>
+      <td bgcolor="#C0C0C0"><font face="Arial, Helvetica" size="2">Homeworld Growth</font></td>
+      <td bgcolor="#C0C0C0"><font face="Arial, Helvetica" size="2">50%&nbsp;World Growth</font></td>
+      <td bgcolor="#C0C0C0"><font face="Arial, Helvetica" size="2">Total Empire Growth</font></td>
+    </tr>
+    <tr>
+      <td><font face="Arial, Helvetica" size="2">30% / 300,000</font></td>
+      <td><font face="Arial, Helvetica" size="2">30% / 150,000</font></td>
+      <td><p align="center"><font face="Arial, Helvetica" size="2">550,000 </font></td>
+      <td><font face="Arial, Helvetica" size="2">8.7% / 26,100</font></td>
+      <td><font face="Arial, Helvetica" size="2">4.35% / 6,525</font></td>
+      <td><font face="Arial, Helvetica" size="2">32,625</font></td>
+    </tr>
+  </table>
+  </center></div>
+  <p>In simpler words, when trying to maximize your growth, don&#146;t export
+  people to other worlds until the homeworld capacity is somewhere between 30% and 40%,
+  because the people will simply grow faster on the homeworld than they would on almost any
+  other world. </p>
+  <blockquote>
+    <p><font face="Arial, Helvetica" size="2"><u>t i p</u><br>
+    Wait to export people until the source world&#146;s capacity is somewhere between 30% and
+    40%,</font></p>
+  </blockquote>
+  <p>Here are some rules of thumb for population growth: <ul>
+    <li>Colonize and ramp-up a world that has a habitability value of 90% or greater
+      immediately. If you have the same amount of people on both the homeworld and the 90%
+      world, they will grow at almost your maximum rate, until each world reaches 33% capacity.
+      This gives you, basically, 2 homeworlds.</li>
+    <li>A world with a habitability value of 50% or better should be ramped up before the
+      homeworld capacity is over 35%.</li>
+    <li>Worlds with a habitability value of less than 50% should wait until all other available
+      worlds are filled, and should not be filled until the homeworld is over 33% of capacity.
+      Generally, homeworld capacity should never go above 40% in the early growth years.</li>
+  </ul>
+  <p>If you can&#146;t find nearby worlds with a value greater than 50%, you should consider
+  going back to your race and fixing whatever is wrong with the habitability settings. Be
+  glad you found this in a testbed instead of a real game. (You are still in the testbed
+  stage, aren't you?).</p>
+  <p>So, in the beginning, sit on your homeworld building factories and (if you run out of
+  Germanium) mines, waiting for your population to become ripe for expansion. Send out your
+  scouts and find those high value worlds, and then wait. Once you colonize a world, send
+  enough people to increase its population to 25% of that world&#146;s capacity, so it can
+  start industrializing itself and, possibly, act as a seed (or breeder) world for new
+  colonies on yet more worlds. This way your high value worlds serve as &quot;little
+  homeworlds&quot; that provide new bases for expansion.</p>
+  <p>However, the needs of your empire's expansion and claiming of territory may end up
+  being more important than simple maximization of growth. Remember that the universe is
+  full of other races that want those planets as badly as you do. </p>
+  <p><font SIZE="5" FACE="Arial, Helvetica"><a name="Building your Resource Base">Building your Resource Base</a></font> </p>
+  <p>People also aren't the entire story. Your main resource supply is your number of
+  Factories per world. There are three key factors that govern factory production:
+  Population, Other Factories, and Mines.</p>
+  <p><font FACE="Arial, Helvetica" SIZE="4"><a name="Population">Population</a></font></p>
+  <p>The more people you have, the more factories you can build (because those people create
+  resources) and the more factories you can run in a year. As a general rule, you should
+  always have enough people on a world to run all factories already produced. Otherwise,
+  you&#146;ve wasted the resources used in their creation.</p>
+  <p><font FACE="Arial, Helvetica" SIZE="4"><a name="Factories">Factories</a></font></p>
+  <p>The more factories on a planet, the more resources your planet will have to build more
+  factories. This is known as the &quot;compounding effect of factories&quot;&#151;a very
+  powerful effect. Using the default settings in the Race wizard, one factory produces
+  enough resources to, by itself, build another factory in 10 years. Those two factories
+  will then, together, build another factory in five years, for a total of three after 15
+  years. About three years later, you will get another factory, and two years later another.
+  Now, you have five factories after a mere 21 years, all produced from the resources of
+  that first ancestral factory. Those five factories can build another factory every two
+  years and each factory immediately goes into production building more. Therefore, for
+  every factory you do not build early on (or that you build, but do not run) is sacrificing
+  one extra factory 10 years down the road, five factories 21 years down the road, or ten
+  factories 29 years down the road. It just gets worse from there.</p>
+  <p><font FACE="Arial, Helvetica" SIZE="4"><a name="Mines">Mines</a></font></p>
+  <p>Of course, if you run out of minerals, factory production will halt immediately. This
+  is where mines (local and remote) come in. You need Germanium to build Factories, and
+  you've got to pull a lot of it out of the soil to build the number of factories a
+  fully-industrialized world needs. While you may temporarily have to pull resources from
+  building factories to build your mines, mines cost no more resources to run. Once a mine is
+  built, it will pull minerals from your world until the end of time (though the mineral
+  concentration of the providing world will slowly decrease).</p>
+  <p><font SIZE="5" FACE="Arial, Helvetica"><a name="Managing Your Production Queue">Managing Your Production Queue</a></font> </p>
+  <p>It's time to consider your world's Production Queue and, in particular, your Default
+  Production Queue. What is an effective production queue? What should it contain, and in
+  what order? How are all the different things interrelated?</p>
+  <p>Here is a simple Production Queue: <ul>
+    <li>Build Up To 500 Factories</li>
+    <li>Build Up To 500 Mines</li>
+    <li>Terraform Up to 10%</li>
+    <li>Build Up To 10 Defenses</li>
+  </ul>
+  <p>This production queue tells your world to do the following: <ul>
+    <li>Build factories until you either run out of resources, or you run out of Germanium. If
+      you've run out of resources, great. Stop there.</li>
+    <li>If you have run out of Germanium <i>and have left over resources</i>, build mines so you
+      can have more Germanium for next year's factory production.</li>
+    <li>If you've built the maximum number of factories and mines that can be run by the current
+      population, then the limiting factor is not Germanium or Resources, but People. Terraform
+      the world so that more people can live there, and so that the current inhabitants can
+      reproduce faster.</li>
+    <li>If the world is fully industrialized, build a few defenses, just in case.</li>
+    <li>If you still have resources left over after getting all the way through this list,
+      allocate them into global research.</li>
+  </ul>
+  <p>Most of your worlds would start a queue like this with just the first item being done
+  each year. As Germanium runs low, the first two items will start to be done each year, and
+  your world will be on it's way to industrialization. Once Terraforming begins, your world
+  will be ready to consider either building ships or devoting itself to research. Once
+  Terraforming finishes, this world will probably be able to build ships and still
+  contribute to research.</p>
+  <p>Sometimes, however, you will be stuck on a world with low Germanium. This world will
+  never seem to have enough factories, and will therefore be a low resource world. Instead
+  of relying on the planet's own Germanium content, you should seriously consider finding
+  other sources.</p>
+  <p><font SIZE="5" FACE="Arial, Helvetica"><a name="Managing Your Minerals">Managing Your Minerals</a></font> </p>
+  <p><font FACE="Arial, Helvetica" SIZE="4"><a name="Germanium">Germanium</font></p>
+  <p>Your first critical mineral is Germanium. Every world will need it, and no world will
+  have enough. About the time your fledgling colonies start to require a lot of Germanium,
+  your homeworld will be running out of its own supply. Where are you going to get enough
+  Germanium for all your worlds? </p>
+  <p><font FACE="Arial, Helvetica" SIZE="4"><a name="Remote Mining">Remote Mining</a></font></p>
+  <p>Just before you would start to run out of Germanium is where Remote Mining shines.
+  While your homeworld cannot supply Germanium, it can usually spare some Ironium (the main
+  ingredient in most ships, and especially Remote Mining ships). By building remote mining
+  ships, your homeworld is effectively trading some resources and Ironium (plus a little
+  Boranium and Germanium) for a nearly endless supply of Germanium from worlds that your
+  race wouldn't be using anyway. While those resources could perhaps be used in the building
+  of more mines or factories (going against the dictate of 'Thou Shalt Not Compromise Thy
+  Resource Growth,') these remote miners, if built at the right time and in the right
+  number, will increase your eventual growth rate a few years down the road.</p>
+  <p><font FACE="Arial, Helvetica" SIZE="4"><a name="Ironium">Ironium</a></font></p>
+  <p>Next, your empire will experience its first Ironium Crunch. While the problem with
+  Germanium affects how fast you can build your factories, the Ironium problem affects your
+  growth in more subtle ways. Without adequate Ironium, you will have trouble building your
+  remote miners, in turn affecting your supply of Germanium. Also, without the Ironium, your
+  planets will have trouble building the colonizers and freighters (especially Privateer
+  colonizers and freighters) needed to move your people and minerals around. To solve your
+  Germanium problem, you needed either miners or very rich worlds. To solve your Ironium
+  problem, you need planning.</p>
+  <p>Until you have made several worlds productive, the main source of Ironium will be your
+  homeworld. You&#146;ll start with enough Ironium for quite a few transport, scout, and
+  mining vessels. If, however, you build too many of one type, you will quickly realize that
+  you don't have enough of another. If the type of ship you don't have enough of is your
+  scout, you will potentially lose your eyes on the universe. If you can't build enough
+  transports, you will sacrifice much of your growth. If you can't build your miners, you
+  may not be able to build scouts or transports either. Every year, you should consider the
+  available minerals, and decide what is most important to build.</p>
+  <p>Build as many remote miners in a year as you can afford, while still allowing your
+  homeworld to increase its factories and mines at a decent rate. Next you will need to
+  build a few freighters to haul your mineral wealth home. The homeworld will need enough
+  freighters to set up a round trip to at least one nearby planet being remote mined. A
+  one-way trip of one year will need two transports (so one is always on its way out, and
+  one on its way back), and a two-year trip will need four transports, in order to get
+  minerals flowing from the miners to your homeworld as fast as possible. Once these ships
+  are under way, you may not have to build more for a few years (when you may need more
+  freighters to send colonists or minerals to other planets). During this time, you should
+  also build one or two scouts every year, first to send out exploring, then to patrol your
+  space. Remember, you will not have current data for any world that is not either being
+  orbited or within your yellow penetrating scanner circles, so your scouts should be
+  constantly re-scanning any nearby planets (that you haven&#146;t colonized) for other
+  players' colonies and incoming ships trying to sneak up on you.</p>
+  <p><font FACE="Arial, Helvetica" SIZE="4"><a name="Boranium">Boranium</a></font></p>
+  <p>Managing your Boranium supply is easy compared to the other two minerals. Generally,
+  you will not need to manage it at all, for it isn&#146;t very important early on in the
+  game. A world that is very low in Boranium may need one small (less than 50kT) shipment,
+  just so it can build a space station and possibly a few freighters. Also, if you need to
+  build a lot of beam-weapon attack craft, you will have to do so on worlds that have a
+  decent Boranium supply. Other than that, you can usually ignore Boranium.</p>
+  <p><font SIZE="5" FACE="Arial, Helvetica"><a name="Building Only What You Need">Building Only What You Need</a></font> </p>
+  <p>Until you have built the core of an effective empire, you need to constantly
+  monitor what you need to build, and find a way to build it as quickly as possible.
+  Generally, you should build a ship, or a starbase, only if you can do so in one year's
+  time. For Starbases (but not Space Docks, for those of you with Improved Starbases), the
+  production time can be spread over two years. For ships, two years is too long. A ship
+  that takes two years to build halts all factory and mine production for that first year,
+  greatly slowing down your growth.</p>
+  <p>It is important to note that, unlike colonizers, freighters are reusable until their
+  design is made obsolescent by higher technology (and even then, they are still useful, but
+  take up a ship design slot). Once your homeworld stops sending people to nearby worlds,
+  the freighters formerly dedicated to that task can be turned to exporting people from your
+  well-established or breeder worlds to neighboring worlds, or to collecting and
+  distributing minerals. This strategy allows you to slow freighter production after the
+  initial investment. You can also move some of these older freighters to worlds with low
+  mineral content, saving your minerals and resources on those worlds for tasks other than
+  building freighters.</p>
+  <p>Scout production can eventually be halted completely. Once you have explored the edges
+  of the universe, and you have enough scouts to cover every planet within your borders
+  (and, preferably, beyond your borders as well), there is no need to build more.</p>
+  <p>Remote miners, however, can and should be built in any quantity. The more you build,
+  the more minerals can be pulled eventually from uncolonizable planets.</p>
+  <p>Once you have built enough of these three types of ships (or, at least, enough of the
+  Freighters and Scouts) you can turn your attention to other things like building your
+  minelayers and warships, and perhaps even doing a little research on the side.</p>
+  <p><font SIZE="5" FACE="Arial, Helvetica"><a name="Research">Research</a></font> </p>
+  <p>Research? Until now, you will notice that no mention has been made, except in very
+  special cases, about your research. With a very few exceptions you should avoid performing
+  research early in the game. Any resources your planets have available should be put into
+  more important things, like mines and factories, so that your economy will grow. Only
+  after all mines, factories, and ships are built should you take the time for the luxury of
+  research.</p>
+  <p>The exceptions are few, but important to note. Each field of research has a breakpoint
+  or two for the early game. Your race may start the game past the breakpoint in one field,
+  but will need to reach it in others. Sometimes, you can avoid the need to reach these
+  breakpoints with your race design. However, each breakpoint gives you something that will
+  help your economy eventually grow at a much faster pace than it would were they avoided.
+  Here are some important breakpoints (growth-related and otherwise), and the levels that
+  are needed to reach them:</p>
+  <p><font FACE="Arial, Helvetica" SIZE="4"><a name="Energy">Energy</a></font> <ul>
+    <li>Level 1 (and 1 in biotech as well) is needed to get Temperature terraforming (+/- 3)</li>
+    <li>Level 2 (and 4 in biotech as well) is needed to build a minelayer. It is also needed
+      (along with Propulsion 3) for the Maneuvering Jet. Along with Propulsion 6, it is needed
+      for the first ram scoop engine, the Radiating-Hydro Ram Scoop.</li>
+    <li>Level 3 (along with 7 in Electronics and 2 in Biotechnology) is needed for the first
+      Penetrating scanner.</li>
+    <li>Level 5 (along with Biotechnology 2) is needed for Temperature terraforming +/- 5</li>
+    <li>Level 6 is needed for the Wolverine Diffuse Shield</li>
+  </ul>
+  <p><font FACE="Arial, Helvetica" SIZE="4"><a name="Weapons">Weapons</a></font> <ul>
+    <li>Level 1 (along with Biotechnology 1) is needed for Radiation Terraforming +/- 3.</li>
+    <li>Level 5 (along with Electronics 6) is needed for the first LBU bomb, which destroys
+      planetary installations, and (with Biotechnology 7) for the first Smart Bomb, which kills
+      people, leaving installations standing. It is also needed (with Biotech 2) for Radiation
+      Terraforming +/- 7.</li>
+    <li>Level 7 is needed for the first high-power range 0 beam weapon.</li>
+    <li>Level 8 is needed for the first range 2 beam weapon.</li>
+    <li>Level 9 (with Energy 5) is needed for the first high-power Pulsed Sapper weapon, which
+      depletes your enemy's shields.</li>
+    <li>Level 10 (with Propulsion 2) is needed for the first Torpedo with an accuracy better
+      than 50%. It is also needed (with Biotechnology 3) for Radiation Terraforming +/- 11.</li>
+  </ul>
+  <p><font FACE="Arial, Helvetica" SIZE="4"><a name="Propulsion">Propulsion</a></font> <ul>
+    <li>Level 1 (with Biotechnology 1) is needed for Gravity Terraforming +/- 3.</li>
+    <li>Level 2 is needed for the Fuel Mizer engine, if you have Improved Fuel Efficiency.</li>
+    <li>Level 3 (with Energy 2) is needed for the Maneuvering Jet.</li>
+    <li>Level 5 (with Biotechnology 2) is needed for Gravity Terraforming +/- 7. It is also
+      needed (with Construction 5) for the first stargate.</li>
+    <li>Level 6 (with Energy 2) is needed for the first Ram scoop engine besides the Fuel Mizer
+      (only available if you have not taken No Ram scoop Engines).</li>
+    <li>Level 8 (with Energy 2) is needed for the first Ram scoop engine that does not emit
+      radiation (also available only if you avoided taking No Ram scoop Engines).</li>
+  </ul>
+  <p><font FACE="Arial, Helvetica" SIZE="4"><a name="Construction">Construction</a></font> <ul>
+    <li>Level 2 is needed for both the Mini-Miner Hull, and (with Electronics 1) the Robo-Mini
+      miner.</li>
+    <li>Level 3 is needed for the Cargo Pod, the Destroyer Hull, and the Medium Freighter Hull.</li>
+    <li>Level 4 is needed for the Privateer Hull, the Space Dock starbase (only if you have
+      taken Improved Starbases), and (with Electronics 2) the Robo-Mini Miner (only if you have
+      taken Advanced Remote Mining)</li>
+    <li>Level 5 (with Propulsion 5) is needed for the first stargate.</li>
+    <li>Level 6 is needed for the B-17 bomber, the first bomber hull that can hold something
+      besides bombs.</li>
+    <li>Level 7 is needed for the Super Fuel X-Port, a multipurpose ship that can generate fuel
+      and aid in the repair of ships.</li>
+  </ul>
+  <p><font FACE="Arial, Helvetica" SIZE="4"><a name="Electronics">Electronics</a></font> <ul>
+    <li>Level 1 is needed for the first useful scanner, the Rhino (the Bat scanner, available at
+      the beginning of the game, can only pick up the statistics of its exact location).</li>
+    <li>Level 7 (with Energy 3 and Biotechnology 2) is needed for the first scanner with
+      Penetrating Range (they can read planetary statistics without being in orbit around the
+      planet, and are only available to races who did not take No Advanced Scanners). Also
+      available at this level (with Energy 4) is the Energy Capacitor, which gives more punch to
+      beam weapons.</li>
+    <li>Level 8 (with Weapons 5) is needed for the first LBU bomb, which destroys planetary
+      installations.</li>
+    <li>Level 10 (with Energy 3 and Biotechnology 3) is needed for the first planetary
+      penetrating scanner (only available to those who avoided taking No Advanced Scanners).</li>
+  </ul>
+  <p><font FACE="Arial, Helvetica" SIZE="4"><a name="Biotechnology">Biotechnology</a></font> <ul>
+    <li>Level 1 is needed for all 3 Terraforming +/- 3% (also needs respective fields)</li>
+    <li>Level 2 is needed for all 3 Terraforming +/- 7% (also needs respective fields)</li>
+    <li>Level 3 is needed for Total Terraforming +/- 5% (needs the Total Terraforming trait)</li>
+    <li>Level 4 (with Energy 2) is needed for Minelaying ability (Space Demolition races start
+      with a smaller minelayer, however)</li>
+    <li>Level 6 is needed for Total Terraforming +/- 7 (needs the Total Terraforming trait)</li>
+    <li>Level 7 (with Weapons 5) is needed for the Smart Bomb.</li>
+    <li>Level 9 is needed for Total Terraforming +/- 10 (needs the Total Terraforming trait)</li>
+  </ul>
+  <p><font FACE="Arial, Helvetica" SIZE="4"><a name="In a Research Nutshell">In a Research Nutshell</a></font></p>
+  <p>What do these research breakpoints mean to your growing race? Well, for simple early
+  colonization (the first few years), your race can get away with nothing better than decent
+  Propulsion technology (Propulsion 2 if you have Improved Fuel Efficiency, otherwise you
+  can live with the engine on your first ships). However, once your homeworld and colonies
+  begin exporting people, your research levels should be: <ul>
+    <li>Energy 1, for the Temperature Terraforming, if you need it. If possible, level 5 gives
+      more Terraforming.</li>
+    <li>Weapons 1 or 5, for the same reason.</li>
+    <li>Propulsion 1 or 5, again for the same reason. If ram scoops are available to your race,
+      but you don't have the Fuel Mizer, Propulsion 8 could be a lofty goal, as that gives you
+      your first ram scoop that does not kill your colonists.</li>
+    <li>Construction 4 is critical for the Privateer hull, which uses little Germanium. If you
+      have taken Improved Starbases, you also get the Space Dock.</li>
+    <li>Electronics 7 gives you a penetrating scanner (unless you have taken No Advanced
+      Scanners) to help you find worlds faster.</li>
+    <li>Biotechnology 1 gives you basic (3%) terraforming for any of the first 3 fields that are
+      already 1. Biotechnology 2 gives you, for any of the first 3 fields that are 5 or above,
+      extra terraforming (7%). If you have Total Terraforming, you should try for Biotechnology
+      6.</li>
+  </ul>
+  <p>This is all you should research for early on, and if you can justify not researching
+  something, by all means do so (almost all of the above can probably be avoided, with the
+  exception of the Privateer and the Cargo Pod, which are both available through
+  Construction Research to level 4). This small amount of research, however, will help your
+  race a great deal in its expansion efforts. Once your homeworld begins experiencing a glut
+  of resources, you can turn your thoughts to more lofty research goals. By then, however,
+  you will be well into the middle game.</p>
+  <p>&nbsp;</p>
+  <p align="center"><img src="images/rockbr1.gif" alt="rockbr1.gif" width="460" height="14"></p>
+  <p align="center"><font face="Arial, Helvetica" size="2">(c) 1998, Mare Crisium, LLC</font></p>
+</blockquote>
+</body>
+</html>

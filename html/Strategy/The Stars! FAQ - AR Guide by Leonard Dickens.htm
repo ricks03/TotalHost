@@ -1,0 +1,750 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<!-- saved from url=(0045)http://www.starsfaq.com/articles/AR_Guide.htm -->
+<HTML><HEAD><TITLE>The Stars! FAQ - AR Guide by Leonard Dickens</TITLE>
+<META http-equiv=Content-Type content="text/html; charset=windows-1252">
+<META>
+<META 
+content="stars, FAQ, PBEM, blitz, hotseat, stratergy, micromanagement, James, McGuigan, Jeff McBride, Jason Cawley, advanced, technical, advFAQ, rgcs, battle, fleet, ship, war, space, 4X, scifi, empire, interactive, xplosiv, Supernova, explore, expand, exterminate, research, diplomacy, JRC3, autohost" 
+name=keywords>
+<META 
+content="The Stars! FAQ is the web resource the PBEM game Stars! by Jeff Johnson and Jeff McBride" 
+name=Description>
+<META content=ALL name=ROBOTS>
+<META content="James McGuigan" name=Copyright>
+<META content="James McGuigan" name=Author>
+<META content="MSHTML 5.50.4807.2300" name=GENERATOR></HEAD>
+<BODY text=#8eb3f4 vLink=#c00000 aLink=#800080 link=#f00000 bgColor=#000000 
+background="The Stars! FAQ - AR Guide by Leonard Dickens_files/starfield.gif">
+<P align=center><IMG height=115 
+src="The Stars! FAQ - AR Guide by Leonard Dickens_files/starsfaqlogo.gif" 
+width=500> <BR><A href="http://www.starsfaq.com/articles/index.htm">Return to 
+Main Menu</A> </P>
+<TABLE cellPadding=0 width="90%" align=center border=0>
+  <TBODY>
+  <TR>
+    <TD>
+      <P>
+      <H3>AR Guide</H3>Author: Leonard Dickens<BR>Revised: 21st September 
+      2000<BR><BR>
+      <BLOCKQUOTE><BR><B>Outline</B><BR>-------<BR><BR>ARs Compared to Normal 
+        Races<BR>Game Strategy<BR>Game Parameters<BR>Race Design:<BR>LRTs<BR>Hab 
+        and Growth<BR>Coefficient<BR>Research<BR>Playing ARs<BR>Early 
+        game<BR>Mid and late game<BR>Special AR 
+        problems<BR>Warfare<BR><BR><BR><B>ARs Compared to Normal 
+        Races</B><BR>----------------------------<BR><BR>ARs work very 
+        differently than the other races in Stars. This section touches on each 
+        significant difference, and its effect on race design or game 
+        play.<BR><BR>** Starbase Habitat: ARs live in starbases. Thus, while 
+        they use the planetary compat as do normal races for purposes of 
+        determining the growth-rate modification of the pop growth formula, they 
+        do *not* have the same planetary maximum populations. Instead, they get 
+        a fixed maxpop determined by the starbase type:<BR>orbital fort 
+        250000<BR>space dock 500000<BR>space station 1000000<BR>ultra station 
+        2000000<BR>death star 3000000<BR><BR>The most obvious effect of starbase 
+        habitat is that when the starbase is lost, so is the pop. It is thus 
+        much easier to attack an AR than a normal race, since you don't need 
+        bombers.<BR><BR>** No factories: ARs cannot make factories, but rather, 
+        get resources based on other factors (see below). As with any 
+        factoryless race, this means that the need for early minerals is 
+        modest.<BR><BR>A less obvious effect of being without factories is that 
+        settlements are cheap. Though they can be lost easily, they are also 
+        fast to set up. If a normal race loses a planet and it gets bombed out, 
+        that race may have to spend 10 to 20 turns to get the factories back up. 
+        The cost in germanium (G) is large, probably requiring imports. An AR 
+        can have a planet back in business in 2 turns, costing only a few 
+        minerals.<BR><BR>** AR mining: unlike normal races, an AR gets a small 
+        number of "mines" just by being at a planet. The amount is 
+        1/10sqrt(pop); thus, a planet with 250000 pop has the effect of 50 
+        mines. Not very much. Offsetting this weakness is the special rule about 
+        remote mining for AR planets: unlike any planet occupied by normal 
+        races, an AR planet may always be remote mined.<BR><BR>** Infinite 
+        mining: Unlike the normal races, when an AR remote mines a homeworld 
+        that it owns (meaning, has colonized), the homeworld floor of 30 
+        concentration applies to *all* of the AR's remote mining fleets at that 
+        planet. This means that an AR can mine an almost unlimited amount per 
+        turn, each turn, needing only the remote miners to do so. (Remote mining 
+        for all players is subject to a limit of 4000 mine-equivalents per 
+        fleet; thus, ARs are limited in remote mining by the 512 fleet 
+        limit.)<BR><BR>Thus, if the AR makes it to the late game, where tech is 
+        maxxed and minerals are tight, he is a great position. Other races will 
+        be spending most of their resources doing highly inefficient alchemy. 
+        ARs will be spending all of their resources building, assuming they set 
+        up their mineral distribution network properly. This is potentially a 
+        game breaker.<BR><BR>** Resource Formula: the formula for AR resources 
+        is:<BR>resources-from-planet = hab * sqrt(pop * energy / 
+        pop-coefficient)<BR>where:<BR>hab = the planetary habitat<BR>sqrt = 
+        square root<BR>pop = the pop at that planet<BR>energy = the AR's energy 
+        tech<BR>pop-coefficient = the value from the race wizard<BR>There are 
+        effects to all of these, so I will discuss each in turn.<BR><BR>hab: 
+        unlike normal races, the planetary habitat directly affects the 
+        production of an AR. This means that, all other things equal, an AR will 
+        do better with fewer, higher hab planets than with more low hab ones. 
+        The value for "hab" is never lower than 0.25; if the planet is lower 
+        value than that (or red), then 0.25 is used instead. This, combined with 
+        the pop limits based on the starbase, make ARs good at working up 
+        reds.<BR><BR>sqrt: the effect of this is huge. It means that all the 
+        factors inside it -- pop, energy, and pop-coefficient -- are "squelched" 
+        in effect. The larger they get, the less they matter. You will see the 
+        "square root effect" mentioned several more times in this 
+        guide...<BR><BR>pop: with the sqrt, this factor means that an AR gets 
+        fewer and fewer resources as a planet's pop increases. Normal races have 
+        a tough problem with their planets: do they want to use them to grow pop 
+        on, or to run factories at? If they decide to grow pop, they have to 
+        hold the planet between 1/4 and 1/2 full; obviously that cuts the 
+        possible production by the same amount. ARs grow using the same formula, 
+        but the effect on them is much less: if the AR leaves the planet at 1/4 
+        pop, he loses only half the resources (sqrt(0.25) = 0.5). If he leaves 
+        it at 1/3 maxpop, which is the level yielding the largest pop/turn, he 
+        loses only 42% of the resources.<BR><BR>This effect, combined with the 
+        raised planetary maxpop obtained from starbase living, means that ARs 
+        are considerably less dependent on a high growth rate (%grow) than 
+        normal races. A typical (OBRM) normal race has a planetary max pop that 
+        tops out at 1100000. (JOATs get 20% more.) In order to grow on average 
+        at a competitive rate, say, 10% or so over the first 50 years, a normal 
+        race needs to have a much higher growth rate -- 17-19% is typical. ARs 
+        can grow their pop much more easily, especially after they get the 
+        larger stations.<BR><BR>Another very important aspect of the sqrt(pop) 
+        effect is its effect on the maximum rate of economic growth possible for 
+        ARs. If pop is growing exponentially at rate R, a normal race can 
+        increase its economy at rate R. (Usually factories will lag pop, so the 
+        effect is somewhat delayed in the early game, but over time this is the 
+        case.) What holds back a normal race is crowding and low planet values. 
+        An AR, though, growing at the same rate R, gains econ at only rate 
+        (R/2)! Crowding holds an AR back somewhat less, low planet values the 
+        same. But in general, this fact means it is much harder to grow the AR 
+        economy than the normal race economy.<BR><BR>One final aspect of the 
+        sqrt(pop) factor is spreading. A normal race gets no immediate benefit 
+        for spreading its pop out, as long as all planets are below maxpop. 
+        (Spreading can increase the rate of growth, though, for planets above 
+        1/4 maxpop. Thus, it is certainly a good idea, but not imperative.) For 
+        ARs, though, because of the sqrt(pop) factory, spreading immediately 
+        increases the economy, as well as potentially increasing the growth 
+        rate. For example, assume an AR has two 100% planet available. If he 
+        puts 1M pop on one, and zero on the other, he gets sqrt(1M*energy/eff), 
+        or 1000sqrt(energy/eff). If he puts 500K on each planet, he gets 
+        2*sqrt(500K*energy/eff), or 1414sqrt(energy/eff). 41% more, just for 
+        rearranging where the pop is!<BR><BR>Note, though, that the amount an AR 
+        gets from spreading drops off, again as a result of the square root. 
+        Spreading his pop from 1 planet to 4, an AR can double his econ. But to 
+        quadruple it, he needs 16 planets. And to octuple it, he needs 64. 
+        Obviously, this process is only good for a relatively small amount of 
+        growth; getting 16 planets is possible in most typical games. Getting 64 
+        is unusual. Getting 256 is very unlikely -- if you are playing in a 
+        galaxy that large, you are an idiot.<BR><BR>(In theory, a 6% AR could 
+        spread his initial 55000 pop out into a large packed (910 planets), and 
+        get a 30x boost of his economy. Of course, this would be less than 100 
+        pop per planet. With some early growth, though, there would be enough 
+        pop for 100/planet; with energy 10, say, this would have an economy of 
+        around 7900 resources! Growing at 3%/year, and assuming energy 26, this 
+        would get to 55000 resources by year 50.)<BR><BR>energy: obviously, this 
+        one means that taking energy cheap or normal will be a good idea. Which 
+        is generally true; note, however, that the sqrt involved means that the 
+        AR gets diminishing returns the higher his energy goes. Going from 
+        energy 1 to 2 means a dramatic 41% increase in resources (and the cost 
+        is very low). Going from 10 to 11 means a modest 4.9% increase (and the 
+        cost is also higher). Since the cost increases and the return decreases 
+        the higher you go, cheap energy is not as important as it would 
+        initially seem. Note, though, that the cost of energy research is a 
+        fixed amount per level, whereas the benefit applies empire wide. So, if 
+        your total economy is 1000 resources, getting energy 11 probably does 
+        not make sense; you are paying over 1000 resources for a gain of 
+        49/turn. If your economy is up to 10000, though, you pay 1000 for a gain 
+        of 490/turn. That's a very good deal.<BR><BR>pop-coefficient: you drop 
+        this from 1/10 to 1/25, you get 600 points. That's a lot. But you lose 
+        37% (sqrt((1/25)/(1/10)) = 0.63) of your econ... that is also a lot. 
+        <BR><BR>** Movement losses: 2% of the AR pop on a freighter dies when it 
+        moves. This is annoying, but a typical AR has so much pop that it is 
+        hardly noticed. It can be bad for low growth ARs, though. In this case, 
+        there is an important feature (or defect, perhaps) to be aware of: the 
+        2% is rounded off. Thus, if you have 2200 or less pop in a fleet, you 
+        lose zero. Each 3300 (or fraction thereof) added to that, you lose 
+        100/turn. <BR><BR><BR><BR><B>Grand 
+        Strategy</B><BR>--------------<BR><BR>The grand strategy of all ARs is 
+        the same. You are strong in two parts of the game: the very start (where 
+        you get big resource gains from spreading and energy tech, and when you 
+        have resources to spend and nobody else does), and the end (where you 
+        have minerals, but nobody else does). Thus, the game that an AR hopes 
+        for is to use the first period to get established on a good number of 
+        planets without angering his neighbors. Then, he plays defensively, 
+        using diplomacy to avoid conflict as much as possible, building up his 
+        economy and tech, playing to survive until the end. Once minerals become 
+        scarce, he can go forth and conquer.<BR><BR><BR><B>Game Parameters 
+        Discussed</B><BR>-------------------------<BR><BR>Before you begin to 
+        design a race, or to adapt a design you already have, you should sit 
+        down and think about the game you are going to enter. Naturally, the 
+        game parameters and special rules can (and should) influence your 
+        design. Probably the most basic decision is: should one play an AR at 
+        all? If so, what sort of AR? Following is a list of universe parameters 
+        and special rules, with discussion of how they affect the AR.<BR><BR>** 
+        Universe Size and Crowding: ARs do best in uncrowded circumstances. Of 
+        course, every race can do better with more planets to work with, by 
+        scouting actively and "cherry picking" -- colonizing the best planets 
+        first. But in addition to this effect, as previously mentioned ARs 
+        increase their resource totals by simply spreading out. Finding four 
+        100% planets does not immediately help a normal race; an AR can benefit 
+        as soon as he can a colonizer there. A second aspect of larger galaxies 
+        is that the more planets there are per player on average, the more 
+        likely tech is to go to the maximum before serious conflict starts. ARs 
+        benefit more from max tech than other races, since it means they should 
+        have high energy for resources, and death stars for growing 
+        pop.<BR><BR>The less crowded an AR is, the narrower he can make his hab. 
+        In the extreme, an AR can be a one-immune with both other fields of 
+        minimum width, for about 1/21 initial greens. Barry Kearn's "ARvids" is 
+        of this ilk; it was the first public AR "monster" race. Such a race can 
+        afford very high %grow, 1/10 pop efficiency, and good tech. In a very 
+        uncrowded place (such as an unopposed small packed testbed), the race 
+        monsters easily. However, in any reasonably constrained area, such as a 
+        tiny normal, the ARvids flop. I call the artificial sense of security 
+        people get from testbedding in absurdly large places with narrow hab 
+        races "the ARvid effect".<BR><BR>One more point to add about choosing to 
+        play in uncrowded games: although uncrowded places are good for AR and 
+        help them relative to most other races, there is one PRT that benefits 
+        even more than ARs: CAs, especially narrow-hab TT CAs. So, if CAs are 
+        banned in an uncrowded game, that is the best possible situation for an 
+        AR.<BR><BR>** Game Definition: some of these would certainly affect my 
+        decision to play an AR. Let's look at them.<BR><BR>Max Minerals: good 
+        for factory based races. Hurts ARs, though, since their main ace in the 
+        hole -- the infinite minerals, eventually -- is much less competitive 
+        the more "normal" minerals everyone else gets.<BR><BR>AccBBS: good for 
+        hypergrowth races. Hurts ARs, since with the square root aspect of 
+        resource generation, starting with 25000 pop does not hurt their 
+        production that greatly.<BR><BR>Slow Tech: puts a premium on resources, 
+        thus, hurts ARs. Depending on the galaxy size, may make it completely 
+        impractical to play AR.<BR><BR>Galaxy Clumping: little effect.<BR><BR>No 
+        Random Events: helps ARs, slightly, since it means nobody will be 
+        getting the Alien Miner or Genesis Device, and thereby partly or 
+        completely nullifying your late-game mineral advantage. The existence of 
+        other MT parts in the game is also probably bad for ARs, as many of the 
+        parts tend to make BBs much better fighting ships, whereas AR tend to 
+        have cheap con and therefore will often be the first to get nubians. 
+        Also, ARs often have very few spare minerals until the early BB era, 
+        later than other players, so will often miss the first few 
+        MTs.<BR><BR>Public Player Scores: generally, hurts ARs. People already 
+        know you are weak, but because they cannot count your pop, they don't 
+        really know how weak. Without knowing where your economy is, they cannot 
+        know your tech. Thus, you have the diplomatic flexibility to lie a 
+        little bit. Public player scores takes the guesswork out: your neighbor 
+        will know exactly what your tech is, and what your econ is, and how many 
+        ships you have.<BR><BR><BR>** Special Game Rules:<BR><BR>Team games: ARs 
+        are nice to have in team games, since with teammates you have built-in 
+        trustworthy trading partners; you offer minerals and can get tech and 
+        protection.<BR><BR>Jump games: sometimes hosts do games in which there 
+        is an initial "jump" of 500 to 1000 years where players can do tech but 
+        not interact. You must examine these very carefully. If you can enter 
+        one of these games and end up after the jump on equal footing, AR would 
+        be a very strong race to play. Typically, the mineral shortage won't 
+        happen for a while, but on the other hand the AR ability to grow *fast* 
+        and cheap will put you in good stead. However, in my experience most of 
+        these games are dreamed up without considering ARs, and thus have no 
+        special rules for them. And given that ARs only generate about one half 
+        the resources of a normal factory race, playing an AR would be suicidal. 
+        So, be very careful about playing a jump game with AR: ask yourself: if 
+        I were a IT, what could I do with this setup? (The reason for IT, is 
+        that by starting with two planets you can rather easily get twice the 
+        resources of any non-IT or PP.) You should also consider what a 
+        narrow-hab TT CA might do in the setup.<BR><BR><BR><BR><B>Race 
+        Design</B><BR>-----------<BR><BR>** LRTs<BR><BR>*** ISB: Almost 
+        mandatory. Very low %grow ARs may avoid it.<BR><BR>You get two things 
+        from ISB, both handy. First, the space dock. These allow you a very 
+        cheap way to have up to 125000 pop on a planet with full growth. They 
+        also give fuel, can build ships, etc., as they do for normal 
+        races.<BR><BR>The main reason for taking ISB is ultrastations. Con 12 
+        costs around 13000 resources with cheap con; thus it can be obtained 
+        fairly early by almost any AR. Con 17 costs around 70000 resources 
+        (again with cheap con); this amount is fairly hard to obtain by most ARs 
+        before severe crowding sets in.<BR><BR><BR><BR>*** IFE: Recommended. 
+        Very wide hab ARs may be able to get away without it. <BR><BR>Generally, 
+        ARs will want IFE more than normal races. Unlike a normal race, ARs need 
+        to be moving as soon as possible. It is true that ARs have resources to 
+        spend, but they need every iota invested into growth: energy, con, and 
+        terraforming. You need at *least* prop 5 to move far without IFE, and 
+        even that is pretty slow.<BR><BR>On the other hand, in denser universes 
+        with ARs that have very wide hab and low growth, there should be enough 
+        planets very close by so that the early engines are acceptable for the 
+        initial colonization.<BR><BR>If you do not take IFE, then taking prop 
+        cheap or at least normal is a good idea.<BR><BR><BR>*** CE: sometimes. 
+        Yucky for any race.<BR><BR>CE sucks at all times, but of all the races 
+        to take it with, AR would have to be among the most likely, second after 
+        IT. Several reasons. First, taking CE means you can start at prop 2 for 
+        mizers. For other races, not a big deal, but AR want to be moving 
+        immediately, not even spending a small amount on prop. Second, early on 
+        with AR, you are on the defensive. Building gateable horde style ships 
+        as specific countermeasures to enemy designs can be quite useful. CE is 
+        never as bad on defense as on offense.<BR><BR>CE is bad once you get 
+        later in the game, though, so avoid it in larger places, team games, or 
+        other places where you have good reason to think you will survive 
+        later.<BR><BR>And of course, if you are like me you would rather lose 
+        than play the game with the micromanagement induced by CE, and never 
+        ever take it. :) But this is not how some people feel. The points are 
+        pretty good.<BR><BR><BR>*** NRSE: rarely. Better in larger 
+        places.<BR><BR>The downside of NRSE is, obviously, losing the ram 
+        engines other than the fuel mizer. Generally, rams are cheaper than 
+        normal engines in resources, which makes ARs like them more than others. 
+        Also, rams cost more G than other engines, meaning that ARs, needing no 
+        G for factories, can afford them better than most races.<BR><BR>The 
+        upside of NRSE is mainly the points. ARs don't have that many places to 
+        scrape up advantage points.<BR><BR>Secondarily, NRSE provides the 
+        interspace-10 (the earliest warp 10 engine). However, it is very 
+        expensive, and you won't have the resources or the minerals to really 
+        exploit it. Furthermore, as an AR you don't plan to be on the attack in 
+        the midgame, and warp 10 is much less useful for defense than attack. If 
+        I took CE, I would feel a lot better about NRSE. And of course, I would 
+        always want IFE for the mizer, but it is practically mandatory with 
+        NRSE.<BR><BR>Thus, I would recommend either IFE/CE/NRSE, or just 
+        IFE.<BR><BR><BR>*** TT: sometimes. Recommended for 1/25 ARs.<BR><BR>TT 
+        is a very nice thing for an AR to have, because of the way terraforming 
+        works in the resources equation. That is, that the value of a planet 
+        directly produces resources, unlike normal races. Thus, terraforming is 
+        a straight investment for ARs, in addition to a means of increasing the 
+        rate of growth. As with any investment, making it cheaper is good. 
+        Consider an average green for a one-immune: it might start at 50% hab 
+        with each point of terraforming increasing the value by 3%, say. Let's 
+        say there is enough pop there to produce 100 resources/turn. Spending 
+        that 100, you could increase the planet to 53% and thus the resources to 
+        106. Without TT, the rate of return from the terraforming is 6%: not 
+        great. With TT, the rate is better: 8.6%. By comparison, normal races 
+        invest in factories. A typical 12/9/x race gets 13.3%, given 
+        G.<BR><BR>TT also helps the AR work up yellows. Yellow colonization is 
+        typically much more important for ARs than other races, since they are 
+        so desperate for resources.<BR><BR>With all that good stuff to say about 
+        TT, why only "sometimes" take it? Because it is very expensive. I 
+        recommend TT more readily to 1/25 ARs in part because they have fewer 
+        resources from pop, but also because they have the extra points to 
+        invest.<BR><BR>Also, unlike normal races ARs have a hard time taking 
+        cheap bio, because they need cheap energy and con (everyone needs cheap 
+        weapons). Thus, the higher levels of TT will be out of reach of the AR 
+        until the very late game.<BR><BR><BR>*** LSP: OK for high growth ARs, 
+        though they should consider dropping %grow instead. Not good for low 
+        growth ARs.<BR><BR>Some people swear by LSP for ARs, because the square 
+        root effect: you lose 30% of the pop, but it is only 17% of the 
+        resources. But the fact remains that you are two years back of where you 
+        would otherwise be, or three for a midgrowth (13%) AR. This means there 
+        are planets that you might have gotten, but will not, because you will 
+        be too late. Is it worth it? As always, maybe. In a less crowded galaxy, 
+        LSP (and high growth) seems like the right way to go. If you lose one 
+        planet out of 50, it only reduces your econ by 2%. You may well be able 
+        to buy 2% more econ with the points, perhaps with a wider hab. On the 
+        other hand, if you are only getting 10 planets, then losing a planet is 
+        10% of your econ, and you will probably want to think twice about LSP. 
+        Remember your grand strategy: get out of the gate quickly, grab space 
+        and hold it.<BR><BR><BR>*** OBRM: never.<BR><BR>The one mining module 
+        you get with OBRM is initially the equivalent of about "mines cost 40", 
+        if that were possible. With full miniaturization, at con 21/elec 20, the 
+        OBRM miner is about like "mines cost 10". At the midlevels where you 
+        have to be starting to buy miners, it is about mines cost 20. All of 
+        those are way, way too much.<BR><BR><BR>*** ARM: Often. Good for any AR, 
+        but not necessary.<BR><BR>ARM provides several things beyond what you 
+        get with "normal" mining (neither ARM nor OBRM). First, you get the two 
+        potato bugs to start with. These are nice, but not necessary except 
+        perhaps for very low growth ARs. You also get the ultraminer hull, which 
+        is the cheapest way to buy mines, but not gateable. And there is the 
+        miner hull. Not amazingly useful.<BR><BR>The main thing you get with ARM 
+        is superbugs: the midget miner hull and the ultra miners. Superbugs are 
+        gateable, and very cheap.<BR><BR>Having miners be gateable has three 
+        benefits. First, you get the minerals in places other than the 
+        homeworld. The minerals at home are cheap, but the planet will quickly 
+        drop to its 30 min con. And so at many places the minerals will be even 
+        cheaper. It also costs to distribute the minerals out from the 
+        homeworld; you must buy freighters or packets.<BR><BR>Second, gateable 
+        miners allow you build them anywhere, then gate them home to mine. This 
+        means you can increase your mining very quickly, if need be, by having 
+        all planets build miners.<BR><BR>Finally, and perhaps most importantly, 
+        is the fact that *other* players can use the minerals in your planets 
+        quite nicely. They just have to kick you off of the planets. Thus, one 
+        aspect of the gateable superbugs is defensive: to quickly drain out any 
+        new planet, so as to deny the minerals to enemies or would-be enemies. I 
+        would advocate leaving a fleet or two of superbugs on every planet until 
+        it is considerably below 30 con, for this reason.<BR><BR><BR>*** NAS: 
+        often.<BR><BR>NAS is a good point mine. Not having penscans is not as 
+        great a problem on defense, and the doubled range can be helpful. That 
+        said, penscans are a great benefit to any race, and you should always 
+        think twice before giving them up. For ARs the choice is perhaps a 
+        little harder than most, since they need allies and friends in the 
+        midgame, and trading penscans is one very helpful way to keep friends 
+        friendly.<BR><BR><BR>*** RS: sometimes.<BR><BR>This LRT is nice to have 
+        in the very early game, and in the nubian era, but weak in between. This 
+        is about the same zone as where ARs are weak, so they should avoid RS if 
+        the midgame is likely to be long. But, if the midgame is likely to be 
+        long, ARs should probably avoid the entire game. That is, if you are 
+        considering AR at all, this may be a good LRT.<BR><BR>RS will mean you 
+        cannot effectively armor your stations, so if you like huge deathstars 
+        it may not be for you. It works well, though, with the late game 
+        Mao-style war that ARs excel at.<BR><BR>RS also makes it a bad idea to 
+        armor your ships. This is not necessarily a bad thing, just different; 
+        it means you will be building twice as many BBs to get the same armor. 
+        On the plus side, you get twice as many shields and they are up 40%, so 
+        your shield/armor balance will be great. (Normal BBs tend to have much 
+        less shielding than armor, making them fairly good targets for capital 
+        ship missiles.) On the minus side, you effectively pay twice as much for 
+        for the engines and electronics on the BB; thus, if you are thinking 
+        about NRSE you should probably avoid RS.<BR><BR><BR>*** GR: never. You 
+        need energy and con fast, not the others. Going at 65% speed is going to 
+        hurt ARs more than any other race.<BR><BR><BR>*** BET: never. You have 
+        cheap con. Don't waste the opportunity to be the first to nubians by 
+        making them double price forever.<BR><BR><BR>*** MA: never never never. 
+        Obviously, just build more remote miners.<BR><BR><BR>*** UR: rarely. The 
+        main problem with Ultimate Recycling is that it is quite costly, and ARs 
+        tend not to have points to spend. Also, the big advantage to UR happens 
+        when you get to nubians, since it allows a race to win the counterdesign 
+        wars. But if AR can make it to nubians, he is already is a very good 
+        position. Getting there is the problem, not winning once there. Finally, 
+        using UR can be fussy at best, and it is usually possible to avoid 
+        building designs that won't last.<BR><BR><BR>** Hab and 
+        Growth<BR><BR>There are two conflicting imperatives to keep in mind for 
+        AR habitat. On the one hand, because of spreading and in general the low 
+        resources an AR gets per planet, he wants all the planets he can get. 
+        This argues for wide hab variables, which means centered habs or 
+        immunities. On the other hand, ARs want the diplomatic advantages of 
+        intersettlement, an argument against centered habs. This is one reason 
+        immunities work well for ARs: they are wide without being 
+        centered.<BR><BR>The following sections discuss various AR hab/growth 
+        strategies. They are discussed in order of how strong they are, IMO, 
+        with the stronger hab schemes coming first.<BR><BR><BR>*** Single Immune 
+        ARs<BR><BR>Arguably the best AR hab, for general use, is one immunity, 
+        one relatively wide variable, and one narrow and offset. %Grow from 13% 
+        up to 17% or so; the higher values will require narrow 
+        habs.<BR><BR>Typically, it is done as immune grav, wide rad, and narrow 
+        offset energy. This works with other standard AR choices. Immune grav 
+        means prop research for terraforming is not needed; IFE, expensive prop, 
+        and sometimes NRSE/CE build on this. ARs, like anyone else, need 
+        weapons, so you are going to get the rad terraforming in any case. And 
+        ARs tend to go high into energy fast; it is not uncommon to get energy 
+        10 by 2415. A slight variant of this scheme uses immune grav, wide 
+        centered temp, and narrow offset rad.<BR><BR>A second one-immune scheme 
+        is wide grav, rad immune, and narrow offset temp. This has one 
+        disadvantage over the previous scheme: it requires at least some prop 
+        research, and it "wastes" weapons research. But the problem is less 
+        important than it seems: because the temp is much narrower than grav, it 
+        is going to be the preferred field for terraforming anyway. Offsetting 
+        this disadvantage is the advantage gained from rad immunity: it raises 
+        your overall universal hab slightly more than either of the other two 
+        immunities would, because the distribution of rad is less centered than 
+        grav/temp.<BR><BR>1/25 pop efficiency can work well with one-immunes. In 
+        this case, I would recommend spending the points on hab and TT. The 
+        reason for hab is obvious: you are giving up 36% of your economy; the 
+        only way to get it back is to get more planets and/or better planets. 
+        So, widen the hab to get more. The reason for TT is less obvious: in 
+        shrinking each planet but taking more of them, you have increased the 
+        amount of the economy that will be spend on terraforming. This slows the 
+        race down, so that even if you widened the hab enough to get 36% more 
+        planets, you are still much slower. Thus, it is still a reasonable idea 
+        to take expensive bio and TT with such a race.<BR><BR><BR>*** Non immune 
+        ARs<BR><BR>Generally, the non immune AR is a less aggressive, more HPish 
+        style of play than the one-immune. By not spending on the immunity, you 
+        are getting points to put into two wide hab variables and one mid-width 
+        one. Thus you will end up, in the long run, with more planets. The 
+        downside is that in the early going, you have more low-value greens, 
+        yellows and near reds which are not producing much.<BR><BR>Non immune 
+        ARs should consider TT for the higher terraforming levels, not just the 
+        cheap terraforming. If they do take TT, they should consider cheap or 
+        normal bio.<BR><BR>Given that weapons and energy are the two most 
+        important fields for any AR, a non immune AR will want to have either 
+        temp or rad be the narrowest hab variable, or both equally wide. Grav, 
+        therefore, should be wide, no narrower than 15 clicks in from the edge. 
+        Wider is OK; this increases hab values; IMO even full width is OK. 
+        Generally, I like to take rad as the narrowest field, because it can be 
+        most successfully offset.<BR><BR>I do not recommend 1/25 efficiency for 
+        non-immune ARs. Generally, they should find it hard to widen their hab 
+        by 36% without taking an immunity.<BR><BR>TT is recommended for 
+        non-immune ARs. Compared to a one-immune, they are going to have 50% 
+        more terraforming expense (three fields to work on instead of two), and 
+        they will have to get it somehow using all those small 
+        planets.<BR><BR><BR>*** Bi-immune ARs<BR><BR>Bi-immune ARs are, IMO, 
+        borderline playable. Some of them can reach almost the resources totals 
+        of one-immunes. The typical bi-immune AR has growth 13%, 1/25 pop 
+        efficiency, and immune in grav and rad, with temp the narrowest possible 
+        and offset only somewhat. This gives 23% green initially; with 15 points 
+        of terraforming, 56% of planets are green and all of them will be at 
+        least 41%. A second hab scheme is to take grav and temp immune, rad 
+        narrow and offset, typically 12 points in from one edge or the other. 
+        This gives slightly fewer greens, but by being more strongly offset it 
+        has a better chance of successful intersettlement and noncompetition 
+        with monsters.<BR><BR>The HP version of bi-immunes is to take 9% growth 
+        with 1/10 efficiency. This race has better long term production, but it 
+        ramps up quite slowly.<BR><BR>TT is optional for any biimmune. With two 
+        immunities, the amount of terraforming you need to do is quite 
+        reduced.<BR><BR><BR>*** The AR triimmune<BR><BR>The triimmune AR is not 
+        really viable for high level play. However, it is certainly an idea to 
+        keep in mind for team games, or other games with special rules. 
+        Generally, the triimmune is 6%, 1/8 pop efficiency. Variants are 
+        possible, of course. 7% is possible, for instance, though the points 
+        required are considerable, resulting in a race with weak LRTs.<BR><BR>No 
+        triimmune should ever have worse pop efficiency than 1/10.<BR><BR><BR>** 
+        Coefficient<BR><BR>As with normal races, it is typical to only consider 
+        1/10 or 1/25 for an AR. The reason is similar: consider the drop from 
+        1/10 to 1/11. Here, you are sacrificing roughly 5% of your economy for 
+        50 points. Now consider the drop from 1/24 to 1/25. Here, the same 50 
+        points means losing only about 2% of your economy. 1/9 gains you 5%, but 
+        for *200* points. ARs are desperate for resources, but usually not 
+        *that* desperate.<BR><BR>For most players, and certainly beginners, I 
+        would recommend the 1/10 AR. Compared to the 1/25 AR, it has fewer, 
+        better planets. That's generally easier to run in MM terms. It is also 
+        easier to take a more offset hab, when needing fewer planets. A typical 
+        1/10 AR will use perhaps 60% of planets with full terraforming. This 
+        gives diplomatic advantages, which any AR needs.<BR><BR>1/25 ARs are 
+        viable, though. They tend to need better play, though, because of their 
+        need for many more planets: with full terraforming, a 1/25 AR will use 
+        essentially all planets. <BR><BR><BR>** Research<BR><BR>Tech is more 
+        important for ARs than ordinary races, since they need at least some 
+        energy to get resources, and con to get the advanced space stations. 
+        Like other races, they need weapons for defense. Therefore, the 
+        traditional AR takes good tech -- cheap energy, weapons, and con. Two or 
+        three of the others expensive; sometimes normal prop or 
+        elect.<BR><BR>That said, ARs are also fairly desperate for advantage 
+        points from any source, in order to get the growth, hab, LRTs, etc. that 
+        they will need to survive. Thus, sometimes players want to mine the tech 
+        for points.<BR><BR><BR><B>Playing ARs</B><BR>-----------<BR><BR>For the 
+        AR, the game may be broadly broken down into three main sections: the 
+        early, mid, and late games. These correspond to the AR's situation 
+        vis-a-vis other players. In the early game, the AR is expanding outward 
+        into unoccupied space. In the midgame, the AR tries to build upward, 
+        getting energy tech and con to increase his planet's sizes. Finally, in 
+        the late game the AR goes on the offense, using his mineral advantage 
+        achieve victory.<BR><BR>** Early game: Tech Strategy<BR><BR>This is a 
+        sketch of how I play ARs. First, a general idea of what you should be 
+        doing in terms of tech. Here is the basic sequence of what techs you 
+        want to get, in what order.<BR><BR>start<BR>energy to 4+, higher is 
+        better...<BR>[homeworld getting close to 250K]<BR>con to 3, prop to 2 
+        (if IFE), else 5 (if not IFE).<BR>[medium freighter pop mover now 
+        possible]<BR>more energy...<BR>[first colony getting near to 62500 
+        colonists]<BR>con to 4, for dock<BR>energy to 10<BR>cheap terraforming 
+        tech (weaps/prop 5 if you aren't immune in<BR>rad/grav)<BR>con to 12, 
+        for ultrastations<BR>bio 4 (for minelayers)<BR>energy to 11-14<BR>con to 
+        17, for deathstars<BR>elect to 8 for ultraminer<BR>energy to 
+        16<BR><BR>That's the basics. Of course you need to get low bio levels in 
+        there (for terraform techs), but don't do them until you have at least 
+        one colony that will actually use the tech. Another thing to keep in 
+        mind is the sequence above is only the *economic* part of your tech 
+        game. You may well be doing other tech within that sequence for reasons 
+        of defense, mainly weapons but also electronics and even prop. For 
+        instance, depending on the pressure from other races you may want to get 
+        weapons 16 before death stars.<BR><BR>Regarding the very early 
+        production, generally you will do fine building only scouts and colony 
+        ships before you get con 3. The scouts are there to find good planets, 
+        the colony ships to get a toehold. Many AR players don't start 
+        colonizing until they get their home planet to 250000, but that is a 
+        mistake. You should colonize any green, and even some yellows, well 
+        before then. Remember the square root effect: your most efficient 
+        colonists are the first few. However, don't send more pop (just the 2200 
+        in a colony ship), until the home planet is nearing 250000, unless the 
+        planet is in the high 90's.<BR><BR>With a very low growth race (9% or 
+        less), I sometimes build one or two "minitrucks" -- small freighters 
+        with FM and fuel pod; they only move 7000 pop, but that is enough to 
+        double the production of a colony with 2200 pop... minitrucks are 
+        typically not needed with high growth rate races, though, since they 
+        will get to 250K fast enough. For a triimmune AR, you never want to move 
+        more than 2200 pop per fleet until the midgame, and so you can make a 
+        slightly better minitruck by using the colony ship hull.<BR><BR>Once you 
+        get near 250000 pop at the HW, get con 3. Then you can start building 2 
+        or 3 medium-freighter "trucks" each turn, until you have enough out to 
+        continually carry off all pop above 250000 on the HW. The "standard" 
+        medium truck is a medium freighter hull, a mizer, and a fuel pod. It can 
+        just get 162 ly at warp 9 and return empty, or 192 ly at warp 8; beyond 
+        192 ly you need to add fuel somehow. Building docks in strategic places 
+        can be very useful in this regard, since they provide gas. For more 
+        distant planets, you will have to augment trucks with fuel-pod scouts, 
+        that is, a scout with just FM and a fuel pod. These are quite cheap, and 
+        will allow you to do warp-8 or 9 runs to any distance and back, if you 
+        add enough. Some players use fuel DDs instead of scouts; they are a bit 
+        more expensive but can be armed, which may be very 
+        helpful.<BR><BR>Unlike normal races, you should spread your pop exports. 
+        Generally, I try to use them to keep all planets at the same pop level, 
+        excepting an extra load or two early to high value planets.<BR><BR><BR>* 
+        Mid game and later game considerations<BR><BR>After the early game, 
+        there is no cookie-cutter prescription for what to do as AR. The 
+        situations will vary far too much for that.<BR><BR>Probably the best 
+        situation for you (that is likely, anyway) would be to be part of an 
+        alliance against a distant leader, one of a group of more or less peers. 
+        Your allies need you too much for them to turn on you or let you be 
+        killed, allowing you to get through to the late game where your minerals 
+        will dominate. In this case, you need to play a very machiavellian game. 
+        Let the enemy pound your allies if they are starting to become dominant; 
+        keep the balance of power stable. If the situation becomes unstable 
+        (i.e. your alliance beats the enemy and takes their space), then your 
+        alliance will fracture, and you don't want that to happen until you are 
+        ready.<BR><BR>A more likely scenario would be that you are on the front 
+        line versus the enemy. Your allies do want you alive, just small enough 
+        that their resources are the ones that turn your minerals into a win -- 
+        for them. This situation must be played very carefully, giving your 
+        allies minerals but driving a hard bargain in terms of getting tech and 
+        planets from them. Generally it will be easier to get tech, especially 
+        the less useful techs (prop and elect), so concentrate on that. Remember 
+        that to you, resources are precious, much more than to them.<BR><BR>The 
+        midgame is the most dangerous era for an AR. This is the period others 
+        have many more resources than you, and have caught up with your earlier 
+        tech lead (at least in weapons, and maybe other fields). They can 
+        therefore field more ships than you can.<BR><BR>Packing planets -- 
+        similar to the case of normal races, ARs should first pack out very low 
+        value greens. However, it is for different reasons; normal races should 
+        always pack their high value planets last because of their pop growth 
+        rule. ARs pack out &lt;25% greens because of the minimum value on hab 
+        for the purposes of resource generation. Unlike a normal race, it does 
+        not matter how you pack higher value planets (&gt;=25% greens, that is) 
+        with an AR; from low to high value planets or from high to low. Just do 
+        what is convenient in terms of where the planets and minerals 
+        are.<BR><BR>Reds -- ARs use reds better than most other races, so grab 
+        any free planet you can get. Bring four large freighters of pop, if 
+        possible, and build a dock in the first turn. Then queue a death star 
+        with a 300/500 gate (use a dock if you don't expect to keep the planet 
+        long), and forget about the planet for a while. When the base completes, 
+        find a free fleet of superbugs and gate it over to mine the planet out 
+        as fast as possible.<BR><BR>Tech Trading -- You should always trade tech 
+        if you can, be you AR or not. Most non-AR races will take cheap weapons 
+        and other tech expensive, so you can very frequently trade energy and/or 
+        con for weapons. Even races with good tech will rarely have superior 
+        energy to yours, so you can almost always trade energy for 
+        something.<BR><BR><BR>* Warfare<BR><BR>Late in the game, with an AR, you 
+        can expect a time to come when you can outproduce the rest of the galaxy 
+        combined, since they have no minerals left and you do. Even once this 
+        happens, you still may be in danger -- they have their fleets in being, 
+        and may be able to stomp you before you can build up enough to match 
+        theirs. But beyond point, the game will be more or less won. You just 
+        need to mop up.<BR><BR>I am not discussing this part of the game much, 
+        because the warfare is much like the standard Stars war. "Mahan" style, 
+        you take your massive fleet and go to the enemy, destroying his planets 
+        until he is desperate enough to commit his fleet, or until you have so 
+        much force that you can beat his fleet even spread out.<BR><BR>What I am 
+        more interested in, is the style of warfare before this point in the 
+        game is reached. That is, for an AR that has made it into the midgame. 
+        Your tech might be 18/20/12/17/12/9 or so. You have starting making 
+        superbugs in many places and have minerals to spend, but so do your 
+        enemies. People are starting to make noise with BBs.<BR><BR>ARs are, by 
+        their nature, factoryless. They grow pop better than any other PRT. They 
+        use reds well, and should typically be designed so that with high 
+        terraforming tech, between 50% and 100% of planets will be yellow or 
+        green. Furthermore, until the very late game when their mineral edge 
+        finally becomes dominant, they will always have fewer resources/lower 
+        tech/fewer ships than normal races. This means they fight at a 
+        disadvantage, typically, in terms of fleet size, though they can hope to 
+        be part of an alliance so that combined fleets are more or less 
+        balanced. But that does not always happen.<BR><BR>All of these things 
+        point at one style of operational warfare for the AR: a spread out war 
+        on the map, denying the decisive battle to the enemy while fighting him 
+        in a population/resource war. This strategy of warfare has been dubbed 
+        the "Mao" strategy by Jason Cawley, in a excellent article on it that 
+        can be found on the net (search google for "Epworthian"), and in a 
+        modified form in the official strategy guide.<BR><BR>(The funny thing 
+        about this article, is that it is really fairly useless for most races 
+        in planning strategy. Most races rely on factories for the majority or 
+        vast majority of their resource production; for these races, factory 
+        sites need to be defended. Cawley's race in the article in question 
+        happened to be perfect for a Mao strategy, which is why he did it. But 
+        it is not something you will get to do every day in stars, unless you 
+        play factoryless races including ARs.)<BR><BR>Rather than repeat 
+        everything that Cawley says in his article, I suggest that you find it 
+        and read it now. Go on. And now, I will merely comment on some 
+        differences between how the AR fights a Mao style war, and what Cawley 
+        did with the Saxons.<BR><BR>First, the Saxons had a big advantage that 
+        ARs don't have: they did not die with their battlestation. So, the 
+        Epworthians had to bring lots of bombers, and even then had to spend a 
+        lot of time bombing. This slowed their attack. And it allowed 
+        bomber-killing kamikazi actions against the bombers, by the Saxons and 
+        his ally.<BR><BR>As an AR, you should expect to lose planets to a 
+        superior enemy very quickly. The enemy should be able to kill at least 
+        one planet per turn, and probably more if he guesses well, sweeps 
+        aggressively, and is willing to take losses. Therefore, you need to be 
+        able to colonize at least two planets a turn, to make up for your 
+        losses. However, you can do that. Keep a reserve of one or two colony 
+        ships at each planet. And keep a few large freighters at each planet 
+        near the front.<BR><BR>Whenever the enemy looks like he might destroy 
+        one of your starbases, take inventory of the local situation. First, 
+        determine if you are likely to win the battle. If not, the freighters 
+        should be used to remove any minerals, especially germanium, from the 
+        planet, and population after that. Deny germ to the enemy especially, 
+        and he will have a hard time consolidating his advances.<BR><BR>If you 
+        are going to win a battle, but lose the starbase (i.e. the enemy is 
+        sending in kamikazis to kill bases), then you should gather all the pop 
+        possible into the local freighters but don't move them. Order a colony 
+        ship to the planet from a nearby planet (so that you get waypoint 1 
+        colonization). If the enemy does not attack, you lose little, just that 
+        turn's resources from the pop you lifted. If he does attack and kills 
+        the starbase, then *after* combat, the colonizer coming in will put up a 
+        new orbital fort. You can then load up to 500000 pop on it, and queue 
+        for the first build a space dock. The next turn, you can put on whatever 
+        more pop you can arrange to have there, up to 3M, and queue a death 
+        star.<BR><BR>Don't be too concerned with losing population, with most 
+        ARs (low growth ARs, though, should give more thought to saving pop). 
+        Because of the square root effect, and AR can afford to strip off half 
+        the pop from all of his planets if he needs it for 
+        recolonization.<BR><BR>One point to note about Mao-style wars with AR: 
+        unlike the Saxons, who were truly decentralized, an AR *does* have a 
+        central point that is vulnerable: his home planet. And the mining fleets 
+        themselves may be vulnerable, especially for a non-ARM AR. (This is yet 
+        another reason that superbugs are great.) So it is generally a good idea 
+        to play in places large enough that homeworlds are not packed together. 
+        But note that until the very late game, you don't have to hold your 
+        homeworld; it is nice but not necessary, because there should still be 
+        plenty of minerals in remote places.<BR><BR>There is an upside to the 
+        "mine vulnerability" gap, though. And that is that a race like the 
+        Saxons *does* have the problem of reestablishing mines on planets that 
+        get bombed out, when it retakes them. Losing 1000 mines costs 3000 
+        resources. In this sense, an AR (especially with ARM) is again a sort of 
+        super factoryless Maoist: more vulnerable, but also faster to 
+        recover.<BR><BR>On the other side of the coin, your offensive 
+        operations. Your goal here is threefold: to pull the enemy fleet away 
+        from killing your planets; to destroy factories; and to gain space for 
+        yourself. All of these will be accomplished in the normal mode of 
+        attacking. Let's look at that.<BR><BR>First off, to attack you need at 
+        least a bit of battle strength. But it does not really take that much. A 
+        bunch of light and cheap mine sweeper DDs. Just enough of a warfleet to 
+        take an orbit, and enough bombs to kill a planet in a turn or three. As 
+        is always the case in these things, the exterior circumstances matter a 
+        lot. Does he have penscans? If not, things are easier for you. Does he 
+        have light forces present? Mines? Etc.<BR><BR>Your general idea, on the 
+        attack, will be to take risks with small forces to try to knock down 
+        bases so you can bomb. Your bombs, even against good defenses, cost him 
+        serious resources, and germanium. Once you get the defenses lowered, you 
+        get to add population to the list of things endangered.<BR><BR>For 
+        instance, consider a light force with enough cherry bombs to destroy an 
+        undefended planet in a turn: that would be 40 cherries. That would also 
+        destroy 400 installations on an undefended planet. Against maximum 
+        planetary shield defenses, it destroys 210 installations. For an average 
+        sort of planet, with maybe 500000 pop and 12/9/16(checked) factories and 
+        10/3/16 mines, that would be on the order of 90 factories and mines, and 
+        11 defenses destroyed. The total cost to the enemy: whatever the 
+        starbase cost, plus 1245 resources, plus 55/55/325 iron/boron/germ. So 
+        you see, if you capture orbits, you *can* hurt the enemy quite a bit, 
+        without needing to take the planet or even be in orbit for more than a 
+        turn. However, to win you have to be hurting the enemy faster and more 
+        than he hurts you.<BR><BR>It is much better for you, if you can arrange 
+        things to keep orbits captured for long enough to bomb out the enemy. 
+        (Of course that is not always possible.) Unlike other races, you have no 
+        interest at all in leaving any installations standing on the planet; 
+        they can only help the enemy. So, if you decide to go with B-52 bombers, 
+        or two designs, then going with LBUs as your main skirmishing bomber is 
+        a good idea.<BR><BR>In a larger galaxy, I would recommend using 
+        minibombers with LBU-45s as your main bomber, supported by B-52s with 
+        cherries to finish off planets with your main fleet, when it attacks. 
+        The LBUs can skirmish nicely; they are cheap, they kill lots of 
+        installations, and they can be gated about quickly. Spread them out into 
+        enemy space with light forces, and force the enemy to concentrate there. 
+        If he is putting forces there, they are not in your space killing your 
+        planets.<BR><BR>In smaller places, just use a B-52 design with mostly 
+        LBUs and one slot of cherries. 7 of them together is sufficient to kill 
+        an undefended planet, but should inflict serious economic hurt on the 
+        enemy even against full defenses.<BR><BR>One final difference between an 
+        AR and other races, even factoryless normal races, on the attack. An AR 
+        can very sensibly bring population with him on the attack, and gain 
+        ground there. Normal races have to bring a substantial amount of 
+        population to a planet to have much effect; i.e. assume you drop 55000 
+        Saxons on a planet in enemy space. Well, they can put up a dock, 
+        perhaps, and turn whatever enemy minerals are left (probably little G to 
+        use) to make light ships. But they only have 55 resources per turn, 
+        initially, to do it with.<BR><BR>Contrast that with bringing 55000 AR 
+        civvies to the same planet. With energy 18, they would get 314 resources 
+        if the planet was 100%, or as little as 78 if the planet is red or low 
+        value green. With even fewer civvies at risk, the AR has an even greater 
+        advantage (i.e., with 10000 pop the Saxons get 10 resources; an AR gets 
+        33-134).<BR><BR>Only if the enemy has no bombers or packet launchers 
+        around, should a normal race put hundreds of thousands of pop at risk in 
+        enemy space. AR can, and should, make much better use of this potential. 
+        Every planet withing 81 ly of one of yours that is empty, you should 
+        have your eye on to colonize. Send over a colony ship, and a large 
+        freighter with 100000 pop and some minerals. (If the enemy has no 
+        range-3 beamers with battle speed 2.25+, you can use galleons with 
+        overthrusters.) If you get the colony there, great, build a dock (they 
+        are very, very cheap), and build light ships until threatened enough 
+        that you have to run away.<BR><BR></BLOCKQUOTE><BR>
+      <P align=center><A 
+      href="http://www.starsfaq.com/articles/index.htm">Return to Main Menu</A> 
+      </P></TD></TR></TBODY></TABLE></BODY></HTML>

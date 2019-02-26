@@ -1,0 +1,252 @@
+<html>
+<body>
+<h2>Stars! Files</h2>
+<p>Mostly plagiarized from XyliGUN's thread <i><a rel="nofollow" class="external text" href="http://starsautohost.org/sahforum/index.php?t=msg&amp;th=4879&amp;rid=78&amp;S=5e1760ef736aaec585e53e97111af1c1">Inside of Stars! Files</a></i> at <a href="/wiki/HWF" title="HWF" class="mw-redirect">HWF</a> and <a href="https://wiki.starsautohost.org/wiki/Files_Used_in_Stars!#Ini_file_--_stars.ini_.28in_the_Windows_directory.29">Files Used in Stars!</a> on AutoHost.
+<p>Stars! stores all game information in several files: game.xy, game.hst, game.m*, game.x*, game.h*, where * is a player number. 
+<P>Most importantly, the game file (.m), the history (.h) file, and universe file (.xy) must be in the same directory. Also, the .ini file has some useful additions/changes.
+</p>
+
+<dl><dt>gamename.hst</dt>
+
+<dd>Host file, which contains almost a full state of the game/universe, ‘almost’ except planets locations and their names (which are stored in game.xy only). This is a main file, which game engine uses to generate the next turn. This file should be available only to the person playing the host, and is not required to take a turn. If the file is password-protected, you will be asked for a password.</dd>
+
+<dl><dt>gamename.xy</dt>
+
+<dd>The universe file, and does not change over the course of the game. It contains information about the positions of all the planets:</dd></dl>
+<ul><li> game settings: universe size, planets density, players number (note: there is no details on specific players and their races), distance between players start locations, game options (like public players scores, galaxy clumping and others) and winning conditions</li>
+<li> planet locations and their names (note: there is no planet stats, like minerals concentrations)</li></ul>
+
+
+<dl><dt>gamename.m[n]</dt>
+
+<dd>where [n] is a number from 1 to 16, representing the player number. This is the individual file for each player, containing all the data about that player's race and state of the player's empire at the beginning of a turn. It is a sort of filtered gamename.hst file, which contains only the partial game/universe state known/available to the specific player. There is one thing that is present in .m file and never present in the .hst file: game events (like you build X factories on planet Y) and players’ messages. Note: some of these events are not stored in files at all, but generated  by game client when turn is opened (like for example: you have found a new planet).</dd></dl>
+
+<dl><dt>gamename.x[n]</dt>
+
+<dd>The player actions log, which contains all of the actions player performed working on a turn. Compared to the .m file, which actually contains just a static data (planet x has y minerals), the .x file actually contains the specific actions (load x minerals to ship y). Note: even if you will do a number of opposite actions, they won’t be ‘merged’, but all of them will be included into x file (let’s say you  check and uncheck explosive minefield continuously 100 times in row, this will results in 200 actions recorded into x file: 100 for check action and 100 for uncheck action). This file is submitted, either automatically or manually, to the host program. The host adds the changes to the player's .mN file, and returns that file to the player when the new turn is generated. The host needs these files to update the information about each player from the .hst file before turn generation. Each time the player opens (or continues) a game, the .mN file is loaded. If a corresponding log file exists, it will also be loaded to update the game's current state.
+</dd></dl>
+
+<dl><dt>gamename.h[n]</dt>
+
+<dd>The player knowledge history file, which contains a history of the things the player has seen or learned on previous turns. The player automatically creates this file when opening their .m file.  Typically, only the player maintains a copy of this file. If a player will be absent for a few turns, and wishes to be temporarily replaced by the "Housekeeper" AI, a copy of this file would need to be given to the host so the absent player's view of the universe can be updated. If this file is lost, corrupted or moved to another directory, the player will not see what's been discovered in past turns. This file can be recreated by opening each turn file, in order.
+</dd></dl>
+
+
+<dl><dt>racename.r1</dt>
+
+<dd>Race file, which contains a race description created and saved using the Custom Race Wizard. You can specify a race file for each non-computer player in the game from step 2 of the New Advanced Game dialog. Once the universe has been created the race file is no longer needed. If you open this file from <b>File (Open)</b>, the Custom Race Wizard opens. The extension of .r1 is the default, and is not required.</dd></dl>
+
+
+<dl><dt>gamename.map</dt>
+
+<dd>Universe dump file, which contains tab-separated values suitable for loading into a spreadsheet program such as MS Excel containing a complete listing of every planet's ID, X coordinate, Y coordinate and name in the current game universe. This file remains the same throughout a game. To create a universe dump file click on <b>Dump to Text File(Universe Information)</b> in the <b>Report</b> menu or use the <a href="/wiki/Options_for_Launching_Stars!" title="Options for Launching Stars!">-dm option</a> when launching Stars!.</dd></dl>
+
+<dl><dt>gamename.pla or gamename.p[n]</dt>
+
+<dd>Planet dump file, which contains tab-separated values suitable for loading into a spreadsheet program such as MS Excel containing a complete listing of every planet's ID, X coordinate, Y coordinate and name in the current game universe.  
+
+</p><p>To create a planet dump file click on <b>Dump to Text File(Universe Information)</b> in the <b>Report</b> menu or use the <a href="/wiki/Options_for_Launching_Stars!" title="Options for Launching Stars!">-dm option</a> when launching Stars!.
+
+The data contained changes each turn as your knowledge of each planet changes. gamename.pla contains the following information (if known) for each planet:
+<table>
+<tr>
+<td>
+<ul><li>Planet Name</li>
+<li>Owner</li>
+<li>Starbase Type</li>
+<li>Report Age</li>
+<li>Population</li>
+<li>Value</li>
+<li>Production Queue (top item only)</li></ul>
+</td>
+<td>
+<ul><li>Mines</li>
+<li>Factories</li>
+<li>Def&#160;%</li>
+<li>S(urface) Iron</li>
+<li>S(urface) Bora</li>
+<li>S(urface) Germ</li>
+<li>Iron MR (mining rate)</li></ul>
+</td>
+<td valign="top">
+<ul><li>Bora MR (mining rate)</li>
+<li>Germ MR (mining rate)</li>
+<li>Iron MC (mineral concentration)</li>
+<li>Bora MC (mineral concentration)</li>
+<li>Germ MC (mineral concentration)</li>
+<li>Resources</li></ul>
+</td></tr></table>
+<p>If you have included newreports=1 in the [Misc] section of your stars.ini, gamename.pN will also contain:
+</p>
+<table>
+<tr>
+<td>
+<ul><li>Grav (current value)</li>
+<li>Temp (current value)</li>
+<li>Rad (current value)</li>
+<li>GravOrig (unterraformed value)</li>
+<li>TempOrig  (unterraformed value)</li>
+<li>RadOrig  (unterraformed value)</li></ul>
+</td>
+<td valign="top">
+<ul><li>Terra</li>
+<li>(population) Cap(acity used)</li>
+<li>Scan(ner range)</li>
+<li>Pen(etrating scanner range)</li>
+<li>(Mass) Driver</li></ul>
+</td>
+<td valign="top">
+<ul><li>(safe) Warp (speed of mass driver)</li>
+<li>Route (auto destination of new ships)</li>
+<li>GateRange</li>
+<li>GateMass</li>
+<li>PctDmg</li></ul>
+</td></tr></table>
+</dd>
+
+<dl><dt>gamename.f[n] or gamename.fle</dt>
+<dd>Fleet Data dump file, which contains tab-separated values suitable for loading into a spreadsheet program such as MS Excel containing a complete listing of all your fleets and any of your opponents' fleets you have scanner coverage of(ie you can see them). The data contained changes each turn. To create a fleet data dump file click on <b>Dump to Text File(Fleet Information)</b> in the <b>Report</b> menu or use the <a href="/wiki/Options_for_Launching_Stars!" title="Options for Launching Stars!">-df option</a> when launching Stars!. gamename.fle contains the following information (if known) for each fleet:
+<table>
+<tr>
+<td>
+<ul><li>Fleet Name</li>
+<li>X (coordinate)</li>
+<li>Y (coordinate)</li>
+<li>Planet (name if at a planet)</li></ul>
+</td>
+<td>
+<ul><li>Destination</li>
+<li>Battle Plan</li>
+<li>Ship Cnt (number of ships in the fleet)</li>
+<li>Iron (cargo in kt)</li></ul>
+</td>
+<td>
+<ul><li>Bora (cargo in kt)</li>
+<li>Germ (cargo in kt)</li>
+<li>Col (cargo in kt)</li>
+<li>Fuel (in mg)</li></ul>
+</td></tr></table>
+If you have included newreports=1 in the [Misc] section of your stars.ini, gamename.f[n] will also contain:
+<table>
+<tr>
+<td>
+<ul><li>Owner</li>
+<li>ETA</li>
+<li>Warp (speed)</li>
+<li>Mass (total mass of fleet in kt)</li>
+<li>Cloak (%)</li>
+<li>Scan(ner range)</li></ul>
+</td>
+<td>
+<ul><li>Pen(etrating scanner range)</li>
+<li>Task (at destination)</li>
+<li>Mining (rate in kt)</li>
+<li>Sweep (rate in mines)</li>
+<li>Laying (rate in mines)</li>
+<li>Terra(forming rate in clicks)</li></ul>
+</td>
+<td valign="top">
+<ul><li>Unarmed (quantity of type)</li>
+<li>Scout (quantity of type)</li>
+<li>Warship (quantity of type)</li>
+<li>Utility (quantity of type)</li>
+<li>Bomber (quantity of type)</li></ul>
+</td></tr></table>
+</dd>
+
+
+<h2>Ini file -- stars.ini (in the Windows directory)</h2>
+<dl>The stars.ini is located in the c:\windows directory or wherever else you installed windows to (c:\win95 etc) and contains the non game-specific settings for Stars!, and a hashed record of your game's serial number and machine configuration. If stars.ini is missing or the serial number/machine config do not match you will see the enter serial code dialog when you run stars.exe. For Stars! to remember these settings the user needs to have write access to the c:\windows directory(admin rights or access specifically granted by an admin), however stars will run quite happily without the stars.ini file ever existing - it will just ask you for your serial code every time and won't remember any of your settings.
+</p><p>The following settings are stored in stars.ini:
+</p>
+<ul><li>window layout</li>
+<li>all zip orders(custom transport tasks)</li>
+<li>all stored queues, <i>including the default queue</i></li>
+<li>current scanner view and overlays</li></ul>
+<h3>User-definable Options</h3>
+<p>The following items in the [Misc] section of stars.ini are user changeable:
+</p>
+<h4>DefaultPassword=Foo</h4>
+<p>Where Foo is whatever password you generally use. If you are sure that your opponents will not have access to your stars.ini file you can set this to your password. Whenever you open a game file that is protected by this password you will not be prompted to enter it.
+</p>
+<h4>Backups=N</h4>
+<p>Where N is a number between 1 and 999. Backup directories will be named Backup1 to BackupN and old game files will be stored there according to the turn number. For example with backups=4 then the first turn would be backed up to the directory backup1, the second to backup2, the third to backup3, the fourth to backup4, the fifth to backup1 and so on. 
+</p><p>By default Stars! saves one previous turn's data in a directory it creates named Backup.
+</p>
+<ul><li> Backup happens <i>when the game is generated</i> - this only applies to the host player or when playing alone vs AI.</li></ul>
+<h4>newreports</h4>
+<p>Adding newreports=1 to the [Misc] section will give increased information in your text dumps and change the name of the dump files from gamename.pla to gamename.p## (## being the player number)
+</p>
+<ul><li> generally recommended and required by some <a href="/wiki/Utilities" title="Utilities">utilities</a></li></ul>
+<h4>logging</h4>
+<ul><li>(Version j or higher only)</li></ul>
+<p>Adding Logging=1 in the [Misc] section of the stars.ini file will turn on logging for all command-line actions. Enabling logging will prevent any dialogs, alerts or other user interface elements from halting an automatic turn server. Logging is ignored if the host dialog or player interface is visible. It is only meaningful for command line actions such as turn generation and game creation via a .def file. A .log file looks like this:
+</p>
+<pre>  Stars! Version 2.60j
+  09/28/98 12:01:17 - Generating year 2400
+  09/29/98 12:01:22 - Succeeded
+  09/29/98 15:55:41 - Generating year 2401
+  09/29/98 15:55:44 - Succeeded
+  09/30/98 15:48:37 - Generating year 2402
+  09/30/98 15:48:41 - Succeeded
+</pre>
+<p>There are a large number of possible things that might get recorded in a log file including any error message that could normaly pop up during turn generation. You can also enable logging by use of the -l <a href="/wiki/Options_for_Launching_Stars!" title="Options for Launching Stars!">commandline option</a>.
+</p>
+<h4>fonts</h4>
+<p>Adding (or editing) a [fonts] section can cure some <a href="/wiki/Known_Bugs#Font_Problems_When_Using_a_Non-English_Version_of_Windows" title="Known Bugs">font problems</a>. Here are the default settings for the various languages, though others can be substituted. 
+</p><p>English: 
+</p>
+<dl><dd>[fonts]</dd>
+<dd>Arial=Arial</dd>
+<dd>ArialBold=Arial Bold</dd>
+<dd>ArialItalic=Arial Italic</dd>
+<dd>ArialBoldItalic=Arial Bold Italic </dd></dl>
+<p><br />
+German: 
+</p>
+<dl><dd>[fonts]</dd>
+<dd>Arial=Arial</dd>
+<dd>ArialBold=Arial Fett</dd>
+<dd>ArialItalic=Arial Kursiv</dd>
+<dd>ArialBoldItalic=Arial Fett Kursiv</dd></dl>
+<p><br />
+Danish: 
+</p>
+<dl><dd>[fonts]</dd>
+<dd>Arial=Arial</dd>
+<dd>ArialBold=Arial fed</dd>
+<dd>ArialItalic=Arial kursiv</dd>
+<dd>ArialBoldItalic=Arial fed kursiv</dd></dl>
+<p><br />
+Finnish: 
+</p>
+<dl><dd>[fonts]</dd>
+<dd>Arial=Arial</dd>
+<dd>ArialBold=Arial Lihavoitu</dd>
+<dd>ArialItalic=Arial Kursivoitu</dd>
+<dd>ArialBoldItalic=Arial Lihavoitu Kursivoitu</dd></dl>
+<p><br />
+Swedish: 
+</p>
+<dl><dd>[fonts]</dd>
+<dd>Arial=Arial</dd>
+<dd>ArialBold=Arial Fet</dd>
+<dd>ArialItalic=Arial Kursiv</dd>
+<dd>ArialBoldItalic=Arial Fet Kursiv</dd></dl>
+<p><br />
+Russian: 
+</p>
+<dl><dd>[fonts]</dd>
+<dd>Arial=Arial Cyr</dd>
+<dd>ArialBold=Arial Cyr</dd>
+<dd>ArialItalic=Arial Cyr</dd>
+<dd>ArialBoldItalic=Arial Cyr</dd></dl>
+<h3>Default Location</h3>
+<p><b>3.11/95/98/ME/2000/XP</b>: C:\Windows
+</p><p><b>Vista/7</b>: [drive]:\users\[user]\AppData\Local\VirtualStore\Windows
+</p>
+<h3>When the ini file is Written</h3>
+<p>The stars.ini file is written the first time you play Stars and save a game. If you start Stars! and exit from the splash screen without saving a game, the file isn't written. You can delete this file, if you find a need. This will cause Stars! to ask for your registration number again, however. An absent ini file is just one of the conditions that triggers <a href="/wiki/Copy_Protection" title="Copy Protection">Stars! copy protection</a>.</p>
+
+</body>
+</html>

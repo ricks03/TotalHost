@@ -1,0 +1,380 @@
+Appendix ?
+
+(Robert Ashcroft, being Australian uses this spelling standard)
+
+Alternate Reality (AR)
+
+This race is probably the hardest race to understand.  The lack of
+factories, mines, defences and the fact you live in orbit are probably
+the hardest thing to adjust to.  You will be popular among the mineral
+poor races but the War Monger tend to use your orbiting colonies for
+target practice.  Not that there is anything new in that, they use
+everything for target practice.
+
+If being really different is your thing, and living on the sharp edge     
+is where you want to be, then this is  the race for you.  It is not
+for the faint of heart but for the tenacious.  The AR will excel at
+mining, fast early growth, the capacity to build forever when other
+races run out of minerals.  There is a price, you have to plan and
+plan carefully.
+
+Advantages
+
+The most obvious advantage is the Alternate Reality do not waste
+resources building planetary installations.  That is, they have no
+need for planet based factories, mines, planet defences or scanners.
+Their world is confined to the very agreeable orbital structure
+positioned above their choice worlds.  The orbital provides living
+space and a platform for viewing the universe.  Consequentially the
+race is also immune to the effects of comet strike, and some mineral
+packet attacks assuming that environmental changes are of no
+influence.
+
+Note: Building planetary infrastructure is only possible in earlier
+versions of stars. Don't waste resources building factories, mines and
+planetary defences with these early versions of stars.
+
+As an energy based life form their orbital structure becomes a scanner
+with all contributing to the effective scanner range.  Range increases
+with population.
+
+The most powerful advantage is that because this race live on orbital
+structures they build these with ease.  They gain a permanent but not
+accumulative 20% discount on building orbiting structures.  They also
+gain from a new type of orbiting structure.  The Death Star hull.
+This enables them to approach most races in productive capacity.  It
+is also harder to kill this hull design as it can carry more weapons
+and armour for the same resource investment that other races would
+require.
+
+Remote mining is another large advantage this race has.  They can
+remote mine every world that they colonise and every world that is not
+occupied by another race.  At their home world the production of
+minerals can be impressive and accounts for their real power.  They
+will continue to produce material indefinitely because with care they
+will never run out of minerals.
+
+The coloniser available to the Alternative Reality also comes with
+built in bombing capacity.  Allow them to clear worlds without bombers         
+with time and numbers.
+
+Orbital Structures
+
+Orbital Fort:   Allows for a maximum population of 250,000
+Space Dock:*    Allows for a maximum population of 500,000
+Space Station:  Allows for a maximum population of 1,000,000
+Ultra Station:* Allows for a maximum population of 2,000,000
+Death Star:     Allows for a maximum population of 3,000,000
+
+* If Improved Starbases is taken, but you do not gain an extra 20%
+reduction in building orbital structures.
+
+Race design
+
+The governing factor for the Alternate Reality is the following
+resource formula.
+
+Annual resources = Habitability Value x SQRT(Population x Energy Tech
+Level / Efficiency Coefficient)
+
+The effective way of driving home the effect of this formula is to  
+claim that one colony of 100,000 produces less resource than 4
+colonies with 25,000.  Assuming 100% habitability, an energy
+technology level of 10 and an efficiency coefficient of 10.  Then a
+single colony of 100,000 produce 316 resources, where as, 4 colonies
+of 25,000 produce 632 resources.  In this example you loose half of
+you productive capacity by having your population in one location.
+
+Now you have to choose.  You will find that a 6% growth rate with all
+habitats checked to immune can be equivalent to the standard design
+starting point for this race. (Selecting all the habitats to immune is
+referred as Tri-immune.)  This is not the case with other races and it
+occurs due to the way in which resources are gained by the race.  Also
+the fact that the Alternate Realty are the only race that can load up
+to the total population of an orbiting structure without loss of
+colonists occurring due to the Habitability Factor that reduces
+populations for other races.    Races that are have habitat immunity
+to the 3 habitat factors have a habitability value of 100% for all
+planets.  The effect of this is enhanced in the case of the Alternate
+Reality.
+
+The next most popular choice is to select one of the habitats as
+immune and adjust the other 2 to narrow off centred ranges.  This has         
+a similar effect to choosing all habitat factors as immune.  These
+types of race designs tend to have a 1 in 10 through to a 1 in 21
+habitable planet chance.  While this may seem poor it is not something
+that will cripple the race.  This is because the planet values tend to
+be high and are easily improved with the judicious use of colonists.
+Also the race gains from being spread out, even if this means
+colonising systems that are red (negative habitability factors).
+
+The next factor is the choice for the Efficiency Coefficient that is
+applied in the above formula.  Since it is a divisor the lower the
+number the higher your total productive efficiency.   Ranges possible
+are 7 through 25.  Brave is the player who choses 7 or above 15.  The
+typical choice is nearer to 10.
+
+Lesser Racial Traits
+
+Improved Fuel Efficiency (IEF), is a real bonus to the race that must
+colonise and spread out quickly, the real gain from this trait is the
+Fuel Mizer that will be yours regardless of the selection of No Ram
+Scoop Engines trait.  The next bonus is the fuel cost of travel.
+These are critical to early development.                                         
+                                                      
+Advanced Remote Mining (ARM), your options in this regard are limited,
+you have no choice but to choose unless you have a style of game that
+allows it to be ignored.  The need to produce minerals particularly
+Ironium is critical and this gives you a head start. (Note: earlier
+versions require a Germanium bias)
+
+Improved Starbases (ISB), again depending on the style of game this
+can be a bonus, something worth considering seriously.  The main
+reason is for the gaining of space docks and ultra space stations and
+certainly a must for lower growth race designs.  It is also a major
+enhancement to transporting networks that hide your ships. The main
+advantage comes for building of remote miners when you gain the space
+dock at construction level 4.
+
+No Ram Scoop Engines (NRSE), if you choose improved fuel efficiency
+this will return points to your design with added benefits.  With a
+propulsion technology of 11 the universe is yours at warp 10.
+Significantly earlier that without.  For a race where internal
+commerce and mobile forces are needed something that should not be
+ignored.
+
+Low Starting Population (LSP), this trait can be of significant        
+advantage.  Even with a 6% growth rate the effects of a reduction of
+starting population can be minimised.  This is because of the way the
+resources are gained by the Alternate Reality race, but choose this
+only if you are having to make up for a deficiency in points.
+
+For the lower growth rate race designs consider Mineral Alchemy (MA)
+and Ultimate Recycling (UR).  These can aid such designs.
+
+Generalized Research (GR) can work or hinder, definitely something
+that is game style dependent.  If the game is going to skip forward in
+multi turn generates of say 100-1000 years then consider it but in the
+main it is probably better to ignore it.
+
+Total Terraforming (TT) can in prove habitability only if you are not
+choosing a tri-immune race design.  It like Generalised Research can
+hinder or help.  The game style that you play in has a bigger impact
+on using this trait.
+
+Taking the remaining traits is to be avoided.  No Advanced Scanners
+(NAS) can work but it is only recommended to the advanced player.
+Cheap Engines (CE) can really hurt the Alternate Reality as it needs
+reliable ship movement. Only Basic Remote Mining (ORBM) could be    
+considered for special games but usually hurts the Alternate Reality.
+Bleeding Edge Technology (BET) makes your most effective ship designs
+more expensive in the late game.  Regenerating Shields (RS) offers
+nothing for a race that needs all the defence it can muster.
+
+Research
+
+The two most important factors for the Alternate Reality are the cost
+of Energy and Construction technology.  Energy technology levels
+directly impact the resources the race gets to have for production.
+Construction determines the availability of the various orbital
+structures that the race will live in.  Consequentially you should
+choose the cheapest option for both of these research categories.
+That is Costs 50% less.
+
+Weapons are important, but you have also got a competing need for
+propulsion.  If possible go for costs 50% less or normal.  If you have
+taken the Improved Fuel Efficiency lesser trait then propulsion could
+be set to costs 75% extra as the research target is propulsion level
+11 for warp 10.
+
+Electrical and Biotechnology research is usually expensive to get the     
+point value for the race design to a non-negative value.  Due to
+Biotechnology being set to costs 75%, the designs tend to ignore total
+terraforming.
+
+All 'Costs 75%' research fields start at tech 4, if you have the
+points and propulsion is costs 75% extra and you have chosen Improved
+Fuel Efficiency then take it.  Your ships have the Fuel Mizer as
+standard and it will improve initial growth.
+
+Remaining points
+
+If you have them your only real choices are Surface minerals or
+Improved mineral concentrations. Surface minerals gives you a larger
+stock pile to begin with, and it can kick start initial growth.
+
+Strategy
+
+Here is where it all happens for the Alternate Reality race.  Getting
+it wrong after race design flaws can see this race relegated to
+producer of minerals or extinction.  The key to the success of the
+Alternate Reality is to expand as fast as possible in a way that
+allows you to defend what you claim.
+
+This race suffers a major problem.  Loss of the orbital results in the
+loss of the system and colonists.  It is the only race that you cannot
+find out the population statistics for.  Other races are not so easily
+identified.  This knowledge in the hands of aggressive players will
+spell dangers for your new empire but this problem can be easily
+countered.  For the first 50 turns your race will win the technology
+war, and maybe the game.
+
+To do this you have to explore quickly and aggressively colonise the
+good worlds you find.  You are aiming to have your important colonies
+established by 2420 to 2430 at the very latest.  If you are slower
+than this your cause will be lost.  This means you colonise everything
+you can reach with 3-5 turns of movement with 2200 colonists per
+world.  You are aiming for at least 31 systems before 2425.
+
+So how to do it?  First set the build queue to build 1 Pinta, 1
+Smaugarian Peeping Tom alternatively for the entire capacity of the
+build queue (about 20 sets of colonist fleets). Set your research tax
+to 0%, Don't worry about this as you will still achieve an energy tech
+level of 5 within 5 turns, 10 by 2408.
+                                             
+first.  If you have a war monger for a neighbour, and they will not be
+friends then weapon 6 is an absolute must.  No point in building an
+empire if you are going to loose it to War Monger scouts.  Beta
+torpedoes on an orbital will swing the balance to your favour.
+
+If you can, colonise every world within a 3 or 5 turn reach of your
+home world.  This will allow you to do 2 things, give you a research
+base level that can help early game, and space docks or starbases that
+will enhance your transport network.  A side effect is that it will
+prevent other's from colonising worlds that can be used as a base to
+attack.  Again you are buying time.  The side effect is that you will
+gain technology faster as the discovery rate is dependent on colonies
+established.  This will enhance your initial research efforts and with
+fortune on your side, explode your energy research.
+
+Within the first 30 turns you are looking to establish an empire and
+shipping network, after this you are concentrating on defences, but
+this does not mean ignoring defence.  With this in mind consider that
+a torpedo can go a long way.
+
+Defending the empire
+
+By 2420 you should have achieved Energy 10, Construction 4, and
+Weapons 10, with Weapons 12 and Construction 12 in the offing by
+2430-2435.   So what do you build to defend yourself?  Ships or
+Orbital structures.  Well it is a difficult choice but some things to
+make it easier.  Alternate Reality get a 20% discount for orbital
+structures.  This factor is decisive in the choice.  Sure ships can
+aid but effective orbital structures are more efficient in using your
+valuable resource allocation.
+
+The golden rule it to fire first and fire further than your opponent
+does.  Torpedoes do both.  You gain a +1 range to torpedoes and
+missiles housed in the orbital structures.  You do not gain this when
+you use ships.  Ships will take 3-4 turns to get into range to fire
+this means you get 3-4 shots before they become a problem.  Use the
+advantage you have.
+
+Orbital structure designs to consider.
+
+Orbital Fort, 250 points of Armour and Shields, 6 computers and 4-16
+Delta torpedoes or Jihad missiles
+Space Station, 800 points of Armour and Shields, 8 computers and 8-16
+Delta torpedoes or Jihad missiles   
+Ultra Station, 2000 points of armour and shields, 12 computers and 16
+Jihad missiles
+Death Star, 3000 points of armour and shields, 24 computers and 32
+Jihad missiles.
+
+All of the above are relatively cheap to produce and effective in
+their use of minerals and resources.  Each design in progression uses
+approximately double the resources of its predecessor, and with care
+in producing can more than easily account with most threats until
+about 2450 when your neighbours will start to gain the production
+edge.
+
+How does this compare with ships?  The answer to this question is
+dependent on the designs.  You are not going to be able to get the
+initiative advantage that the orbital will have.   You gain mobile
+defence.   Compare the costs and then decide.
+
+Lets assume that you have Construction 13 to make this easier.  Your
+choices in ship defence are the Freighter, Destroyer, Cruiser and
+Battle ship.  For this discussion freighter like hulls Galleon and
+Privateer are ignored.  Further lets assume that you have Jihads and
+battle computers.  In the case of the orbital structures assume 16         
+Jihads and a bit of armour and shields as indicated above. (Note:
+numbers may be slightly out due to miniaturisation effects, in this
+case costs given may be higher.)
+
+Hull                    Ir      Bo      Ge      Res     Comment
+
+Orbital Fort    111     40      47      71
+Space Station   154     64      142     272
+Ultra Station   153     67      185     317
+Death Star              298     126     328     796
+
+Frigate         52      19      14      24      6 to equal an Orbital
+fort
+Destroyer               56      19      21      34      6 to equal an
+Orbital fort
+Cruiser         115     38      41      73      3 to equal an Orbital
+fort
+Battleship              326     108     120     230     1 to equal an
+Space Station
+
+In all cases the orbital hulls have the superior initiative and range,
+they will have 2 rounds of fire.  The ships have no armour beyond the
+basics of the hull.  Definitely something that will result in the
+destruction of the ships providing no large numbers of ships.
+
+The orbital structures can be easily augmented with more missiles to
+increase fire power at a cost of  112 kton Ironium, 38 kton Boranium,
+35 kton Germanium and 38 Resources per stack of 16 Jihad missiles.
+This is discounted to the ship equivalent costs of the same stack on
+ships being 256 kton Ironium, 96 kton Boranium, 64 kton Germanium and
+96 Resources.  Now if you want to waste the resources in building a
+stack of ships when you can get 2 missile stacks of 16 for the same
+investment then fine.
+
+When the game turns to more powerful weapons near 2450 you will have
+to augment your orbital defence with ships.  Generally you will find
+that investment in orbital defence is more effective to ship based
+defence.  But this changes when you maxout on orbital defences you
+need to build ships later in the game, and they need to fire first and
+destroy.  In the early turns you only need ships to defend transports
+and attacks on transports, this is not something that is common in the
+early turns of a game.
+
+The only thing to add to the ship discussion is the construction of        
+mine fields.  Scouts with mine layers do an excellent job.  Frigates
+with mines and scanners do a bit better, but Nubians are the final
+goal.
+
+The only thing that will enhance your defence is the gaining of
+stargates.  The first achieved will be the 100/250 gate.  Adding this
+to an orbital will cost 10 kton Ironium, 4 kton Boranium, 4 kton
+Germanium and 40 resource points.  The immediate benefit is that you
+shrink transport cycles by at least 1/2.  This greatly aids
+everything.  Development and defence are boosted.
+
+A 300/500 gate is probably the preferred choice but not likely much
+before 2440.  It will add 29 kton Ironium, 7 kton Boranium, 8
+Germanium and 230 resources to the cost of an orbital.  The advantage
+gained is that heavier ships can be moved between systems to augment
+defence.
+
+Summary
+
+The Alternate Reality is definitely the race for those who want a
+challenge.  They are powerful early and late game but in the middle
+real care is required to keep them running.  They can easily supply
+the mineral needs of their own empire and 5 besides.  This alone
+allows them to build ships when other races begin to suffer minerals
+shortages.  As an ally they boost the overall efficiency.  For a War
+Monger they represent an easy target, more so than any other race.  If
+basic War Monger nature is held in check, the boost to the War Monger
+by AR minerals supply can be devastating on the opposition.  All in
+all a valuable ally but they tend to remember long after, the
+destruction of their colonies.
+
+
+
+                                   
+         
+                                          
