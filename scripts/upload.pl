@@ -75,12 +75,12 @@ sub ValidateFileUpload {
 	my $GameValues;
 	# Save the file out so we can do further analysis with it
 	my $File_Loc = &Save_File($File); 
-	&LogOut(200, "File_Loc = $File_Loc",$LogFile);
+	&LogOut(400, "File_Loc = $File_Loc",$LogFile);
   # Clean up the file name for IE6 which includs path
   $File = basename($File);
 	# Break the filename apart into component parts
 	my ($game_file, $file_player, $file_type, $file_ext) = &FileData ($File); 
-	&LogOut(200,"File type = $file_type",$LogFile); 
+	&LogOut(300,"File type = $file_type",$LogFile); 
 	#&LogOut(200, "File Data: $game_file, $file_player, $file_type, $file_ext", $LogFile);     In StarStat.pm
 	# If it's not the right type of file at all, who cares about anything else; toss it but give the user a vague hint
 	unless (&Check_FileType($file_type)) { $invalid = "<P>Invalid File Type for $File, $File_Loc by $userlogin: $file_type, $file_ext"; print $invalid . "\n"; &LogOut(0, "$invalid", $ErrorLog); return 0; }
@@ -175,7 +175,7 @@ sub ValidateFileUpload {
 		}
 	} elsif ($file_type eq 'x') { # A turn file
 		($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
-		&LogOut(200,"DTS2: $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware", $LogFile);
+		&LogOut(300,"DTS2: $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware", $LogFile);
 		if ( ($dt == 1) && &Check_Magic($Magic, $File_Loc) && &Check_Version($ver, $File_Loc) && &Check_GameFile($game_file) && &Check_Player($file_player,$iPlayer) && &Check_Turn($game_file, $turn) && &Check_GameID($game_file, $lidGame)) {
 			&LogOut(100,"Valid Turn file $File_Loc, moving it",$LogFile);
 			# Do whatever you would do with a turn (.x) file

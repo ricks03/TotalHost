@@ -1,7 +1,8 @@
 #!/usr/bin/perl
+# Formerly a RallyPt File
 
 $debug=0;
-$WWW_HomePage = 'http://totahost.domain.com:999';
+$WWW_HomePage = '';
 # Local Path
 $PerlLocation='c:/perl/bin/perl.exe';
 
@@ -15,7 +16,7 @@ $PerlLocation='c:/perl/bin/perl.exe';
 $logging = 300; 
 
 # Where the accounts logs go
-$path_Log = 'C:/TH/logs';
+$path_Log = 'd:/TH/logs';
 $file_Log = '/th.log';
 $LogFile = $path_Log . $file_Log;
 $file_ErrorLog = '/Error.log';
@@ -34,32 +35,43 @@ $max_inactivity = 14; # The longest a game can stay active, in days, with no tur
 $max_forcegen = 50; # The maxumum number of turns that can be force generated. 
 
 $dsn = 'TotalHost';
-$executable= 'c:/TH/stars!/stars26j/';
+$executable= 'd:/th/stars!/stars26j/';
+#$SleepTime = 60; # number of seconds between checks for turn generation
 $FormMethod = 'Post'; # Method used for forms, Post or Get
-$File_Upload = 'c:/TH/Uploads';
-$File_UploadRace = 'c:/TH/Uploads';
-$File_UploadGame = 'c:/TH/Uploads';
-$File_Races = 'c:/TH/Races';
-$FileRaces = 'c:\TH\Races';
-$File_HST = 'c:/TH/Games'; # Location of the actual game files used for turn gen
-$FileHST = 'c:\TH\Games'; # Location of the actual game files used for turn gen
-$File_Download = 'c:/TH/Download'; #Location where turns & .xy are downloaded
-$FileDownload = 'c:\TH\Download'; #Location where turns & .xy are downloaded
-$File_WWWRoot = 'c:/TH/html';
+$File_Upload = 'd:/TH/Uploads';
+$File_UploadRace = 'd:/TH/Uploads';
+#$File_UploadTurn = 'd:/TH/Uploads';
+$File_UploadGame = 'd:/TH/Uploads';
+$File_Races = 'd:/TH/Races';
+$FileRaces = 'd:\TH\Races';
+#$File_Email = 'd:/TH/Email';
+#$FileEmail = 'd:\TH\Email';
+$File_HST = 'd:/TH/Games'; # Location of the actual game files used for turn gen
+$FileHST = 'd:\TH\Games'; # Location of the actual game files used for turn gen
+$File_Download = 'd:/TH/Download'; #Location where turns & .xy are downloaded
+$FileDownload = 'd:\TH\Download'; #Location where turns & .xy are downloaded
+#$File_Scripts = 'd:/TH/scripts';
+#$ScriptLocation='d:/TH/scripts';
+$File_WWWRoot = 'd:/TH/html';
 $WWW_Image = '/images/';
 $WWW_Notes = '/Notes/';
+#$WWW_Download = '/Download/';
 $Location_Scripts = '/scripts';
 $Location_Index = $WWW_HomePage . $Location_Scripts . '/index.pl';
 # Email
 $mail_present = 1;
-$mail_server = 'smtp.domain.com';
+$mail_server = '';
+#$mail_user = 'ricks@nc.rr.com';
 #$mail_password = '';
-$mail_from = 'th@domain.com';
+$mail_from = '';
 $mail_prefix = '[TH]: ';
+#$pop3_server = '';
+#$pop3_user = '';
+#$pop3_password = '';
 
 $min_players = 2; # The minimum number of players to create/launch a game
 # Sessions
-$session_dir = 'c:/th/sessions/';
+$session_dir = 'd:/th/sessions/';
 # Note if you change this all the current passwords will invalidate. 
 $secret_key = 'secret_key_for_md5_hashing';
 %TurnResult = ("turned in" => "In", "still out" => "Out", "right game" => "Wrong Game", "dead" => "Deceased", "right year" => "Wrong Year", "file corrupt" => "Corrupt");

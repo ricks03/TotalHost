@@ -330,7 +330,7 @@ sub login {
 				($User_ID, $User_Login, $User_Password, $User_Email) = $db->Data("User_ID", "User_Login", "User_Password", "User_Email");
 				$hash = $submit_hash . $secret_key;
 				$passhash = sha1_hex($hash); 
-				&LogOut(200,"Attempting a match on  1: $User_Login 2: $User_Password 3: $passhash  4: $submit_hash",$LogFile);		
+				&LogOut(300,"Attempting a match on  1: $User_Login 2: $User_Password 3: $passhash  4: $submit_hash",$LogFile);		
 				if ($User_Password eq $passhash && $submit_user eq $User_Login) {
 					$id = $User_ID;
 					&LogOut(200,"Login user match success on $User_Login",$LogFile);
