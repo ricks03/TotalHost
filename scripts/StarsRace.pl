@@ -1,9 +1,28 @@
 # StarsRace.pl
+# Not functional/Under development
 #
 # Rick Steeves
 # starsah@corwyn.net
 # Version History
 # 180815  Version 1.0
+#
+#     Copyright (C) 2019 Rick Steeves
+# 
+#     This file is part of TotalHost, a Stars! hosting utility.
+#     TotalHost is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+# 
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 #
 # Gets Race attributes
 # Example Usage: decryptor.pl c:\stars\game.m1
@@ -37,17 +56,8 @@ my $filename = $ARGV[0]; # input file
 my $outfilename = $ARGV[1];
 if (!($filename)) { 
   print "\n\nUsage: StarsRace.pl <input file> <output file (optional)>\n\n";
-  print "Please enter the input file (.M or .HST). Example: \n";
-  print "  StarsPWD.pl c:\\games\\test.m6\n\n";
-  print "Removes the password from a .M file. The password must be\n";
-  print "  set when the turn is submitted or the password will revert.\n\n";
-  print "Removes all player passwords from a .HST file. On the next\n";
-  print "  turn generation all .M files will have no password.\n\n"; 
-  print "Removes any administrative password on the .HST file.\n\n";
-  print "Sets a password in a .X file to blank.\n\n";
-  print "By default, a new file will be created: <filename>.clean\n\n";
-  print "You can create a different file with StarsRace.pl <filename> <newfilename>\n";
-  print "  StarsRace.pl <filename> <filename> will overwrite the original file.\n\n";
+  print "Please enter the input file (.R). Example: \n";
+  print "  StarsRace.pl c:\\games\\test.r1\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
 }
@@ -59,10 +69,6 @@ my ($basefile, $dir, $ext);
 $basefile = basename($filename);    # mygamename.m1
 $dir  = dirname($filename);         # c:\stars
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
-
-# Passwords in .R files are also stored in Block 6. The script correctly
-# IDs and blanks the password, but they're corrupt nonetheless. 
-#if (uc($ext) eq ".R1") { print "Doesn't work for Race Files -- Sorry!\n"; exit; }
 
 # Read in the binary Stars! file, byte by byte
 my $FileValues;
@@ -78,21 +84,6 @@ close(StarFile);
 my ($outBytes) = &decryptBlock(@fileBytes);
 my @outBytes = @{$outBytes};
 
-# Create the output file name
-# my $newFile; 
-# if ($outfilename) {   $newFile = $outfilename;  } 
-# else { $newFile = $dir . '\\' . $basefile . '.clean'; }
-# if ($debug) { $newFile = "f:\\clean_" . $basefile;  } # Just for me
-
-# Output the Stars! File with blank password(s)
-# open (OutFile, '>:raw', "$newFile");
-# for (my $i = 0; $i < @outBytes; $i++) {
-#   print OutFile $outBytes[$i];
-# }
-# close (OutFile);
-# 
-# print "File output: $newFile\n";
-# unless ($ARGV[1]) { print "Don't forget to rename the file\n"; }
 
 ################################################################
 sub StarsRandom {
