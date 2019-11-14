@@ -1,12 +1,28 @@
 # StarsPWD.pl
+# Strips the passwords off of Stars! files
 #
 # Rick Steeves
 # starsah@corwyn.net
 # Version History
 # 180815  Version 1.0
 #
-# Strips the passwords off of Stars! files
-# Example Usage: decryptor.pl c:\stars\game.m1
+#     Copyright (C) 2019 Rick Steeves
+# 
+#     This file is part of TotalHost, a Stars! hosting utility.
+#     TotalHost is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+# 
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Example Usage: StarsPWD.pl c:\stars\game.m1
 #
 # Removes the password from a .M file
 # Removes the password from a .HST file
@@ -18,6 +34,7 @@
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
+
 
 use strict;
 use warnings;   
