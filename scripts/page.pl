@@ -232,7 +232,6 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
 	if ($First{'GameFile'}) {
     unless ($First{'GameStatus'} == 7) { &show_game($First{'GameFile'});}
     else { &show_game($First{'GameFile'}); }
-#	180306 } else {	&show_html($welcome); }
 	} else {	print "No games found. Are you in any games?\n"; }
 	print "</td>";
 } elsif ($in{'cp'} eq 'show_new') { 
@@ -365,9 +364,20 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
     &show_game($in{'GameFile'}); print "</td>";
 } elsif ($in{'cp'} eq 'force_gen') {
 		print "<td>"; 
-    &process_forcegen($in{'Turns'},$in{'GameFile'}, $userlogin, $in{'EmailPlayers'});
+    &process_forcegen($in{'Turns'},$in{'GameFile'}, $userlogin, $in{'EmailPlayers'}, $in{'decrementforcegentimes'});
     &display_warning; 
     &show_game($in{'GameFile'}); 
+    print "</td>";
+} elsif ($in{'cp'} eq 'Remove Password') {
+		print "<td>"; 
+    &display_warning; 
+    &show_game($in{'GameFile'});
+    print "</td>";
+} elsif ($in{'cp'} eq 'Reset Password') {
+		print "<td>"; 
+    &process_remove_password($in{'GameFile'}, $in{'PlayerID'});
+    &display_warning; 
+    &show_game($in{'GameFile'});
     print "</td>";
 } elsif ($in{'cp'} eq 'DEF File') {
 		print "<td>"; &create_game_size($in{'GameFile'}, $in{'GameName'}); print "</td>";
@@ -524,7 +534,7 @@ print <<eof;
 <tr><td>Email Address: </td><td><input type=text name="User_Email" value="$User_Email" size=32 maxlength=32></td></tr>
 <tr><td>Bio: </td><td><textarea name="User_Bio" value="$User_Bio" cols="40" rows="5">$User_Bio</textarea></td></tr>
 </table>
-<INPUT type="Checkbox" name="EmailTurn" value = $EmailTurn $Checked[$EmailTurn]>Send turns via Email </P>
+<INPUT type="Checkbox" name="EmailTurn" value = $EmailTurn $Checked[$EmailTurn]>Send Notifications via Email </P>
 <INPUT type="Checkbox" name="EmailList" value = $EmailList $Checked[$EmailList]>Join email list for new game notification</P>
 <input type=submit name="Submit" value="Update">
 </form>
@@ -646,7 +656,6 @@ sub show_new_games {	# Display new games
 			$table .= "<tr>\n"; 
 			$table .= qq|<td><img src="$StatusBall{$GameStatus[$GameValues{'GameStatus'}]}" alt='Status' border="0">$GameStatus[$GameValues{'GameStatus'}]</td>\n|;  
 			$table .= qq|<td><A href="$Location_Scripts/page.pl?lp=game&cp=show_game&rp=&GameFile=$GameValues{'GameFile'}">$GameValues{'GameName'}</a></td>\n|;
-#			$table .= "<td>$GameValues{'GameFile'}</td>\n";
 			$table .= "<td>$GameValues{'HostName'}</td>\n";
 			$table .= "<td>$GameValues{'GameDescrip'}</td>\n";
 			$table .= "</tr>"; 
@@ -739,7 +748,7 @@ sub show_turngeneration {
 }
 
 # merge of show_game and show_Game_new
-sub show_game {  #merge copy
+sub show_game {  
  	my ($GameFile) = @_;
 	my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware);
 	my $NextTurn;
@@ -770,7 +779,6 @@ sub show_game {  #merge copy
     # We need this early to display the year
     if ($GameValues{'GameStatus'} != 7 && $GameValues{'GameStatus'} != 6  && $GameValues{'GameStatus'} != 0) { 
   		($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
-#	    @CHK = &Get_CHK($GameFile); 
 	    @CHK = &Read_CHK($GameFile); 
       print qq|<td align="center">Year $HST_Turn</td></tr>\n|; 
     } else { print qq|<td align="center">Year 2399</td></tr>\n|; }
@@ -783,7 +791,7 @@ sub show_game {  #merge copy
       print "<td align=left>Game Status: @GameStatus[$GameValues{'GameStatus'}] </td>\n"; 
       unless ($GameValues{'GameStatus'} eq 9) { print qq|<td align="center"><A HREF=\"$Location_Scripts/download.pl?file=$GameFile.xy\">$GameFile.xy</A></td>\n|; }
     }
-		print "</tr>";
+		print "</tr>\n";
     #########
     
     # Display the Host ID and email
@@ -808,22 +816,25 @@ sub show_game {  #merge copy
 			# Fix the display time for DST
 			my $NextTurnDST = &FixNextTurnDST($GameValues{'NextTurn'},$GameValues{'LastTurn'},1);
 			if ($GameValues{'GameStatus'} == 4) {
-				print "<br><font color=red>[PAUSED] Next turn due on or before: " . localtime($NextTurnDST) . " EST</font>\n";  #Need to be using DailyTime from database
-
+#				print "<br><font color=red>[PAUSED] Next turn due on or before: " . localtime($NextTurnDST) . " EST</font>\n";  #BUG Need to be using DailyTime from database
+				print "<br><font color=red>[PAUSED]</font>\n";
 			} else {
 				if ($GameValues{'GameStatus'} != 9) {
 					print "<br>Next turn due on or before: " . localtime($NextTurnDST) . " EST\n";  #BUG Need to be using DailyTime from database
 				}
 			}
 		} 
-    
+
 		# Useful when debugging turn issues to know when the system currently thinks it is.
 		print "<P>Now: ". localtime(time()); 
 		# If next turn is undefined(0) AND it's a game in progress somehow, display that the 
 		# next generation will be immediate
-		if ($GameValues{'NextTurn'} ne 0 && $GameValues{'GameStatus'} ne 7 && $GameValues{'GameStatus'} ne 9) { print "<P>Will gen with/on the next automated generation"; }
-    if ($GameValues{'AsAvailable'}) { print " or when all turns are in"; }
-    print ".\n";
+		if ($GameValues{'NextTurn'} ne 0 && $GameValues{'GameStatus'} ne 7 && $GameValues{'GameStatus'} ne 9 && $GameValues{'GameStatus'} ne 4) { 
+      print "<P>Will gen with/on the next automated generation"; 
+      if ($GameValues{'AsAvailable'}) { print " or when all turns are in"; }
+      print ".\n";
+    }
+    print "\n";
       
     # Display the player information
     # Active Game
@@ -833,9 +844,12 @@ sub show_game {  #merge copy
       print "<P>\n";
       # Display Active Game data If an active game and this data exists
 		  # display the game and player information from the CHK File
+      
+      
   		print "<table>\n";
       # This won't execute without a CHK file (not available if the game isn't started)
   		my($Position) = '3';
+      # Display player status, one line for each player in the CHK file
   		while (@CHK[$Position]) {  #Write .m file lines
   			my ($CHK_Status, $CHK_Name) = &Eval_CHKLine(@CHK[$Position]);    
   			my($Player) = $Position -2;
@@ -848,6 +862,8 @@ sub show_game {  #merge copy
   			if (&DB_Call($db,$sql)) { while ($db->FetchRow()) { %PlayerValues = $db->DataHash(); } }
   			# If the player isn't active indicate such
   			if ($PlayerValues{'PlayerStatus'} == 1) { $del = ""; $del2 = ""; } else { $del = "<del>"; $del2 = "</del>";}
+
+##################        
   			print qq|<tr>\n|;
   			if (($CHK_Status eq 'Out') && $del ) { print qq|<td><img src="$TurnBall{Inactive}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|;} 
   			else { print qq|<td><img src="$TurnBall{$CHK_Status}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|; }  
@@ -856,8 +872,8 @@ sub show_game {  #merge copy
   			if (!($GameValues{'AnonPlayer'} ) || ($PlayerValues{'User_Login'} eq $userlogin) || ($GameValues{'GameStatus'} == 9 ) ) { print "$PlayerValues{'User_Login'}</td>"; }
         else { print "Player $Player: </td>"; }
         print "<td>$del$CHK_Name$del2</td>";
-#  			print "$del2</td>\n";
         
+        # Display the .m file link
         if ($del) {
           # no link if the player is dead
           print "<td>.m$Player</td>\n";
@@ -869,13 +885,13 @@ sub show_game {  #merge copy
           print "<td><A href=\"$Location_Scripts/download.pl?file=$GameFile.m$Player\">.m$Player</A></td>\n"; 
   			} else { print "<td>.m$Player</td>\n"; }
 
-
-  			print qq|<td>\n|;
-  			if ($TurnYears > 1) { print "($TurnYears years)\n"; }
+        # Display the number of years included in the .m file
+  			print qq|<td>|;
+  			if ($TurnYears > 1) { print "($TurnYears years)"; }
   			print "</td>\n";
   			if ($CHK_Status eq 'Wrong Year') { 	print "<td><font color=red>$CHK_Status</font></td>\n"; 
   			} else {	
-          if ($del) { print "<td>Deceased</td>\n";
+          if ($del) { print "<td>$CHK_Status</td>\n";
           } else { print "<td>$CHK_Status</td>\n"; }
         }
         
@@ -887,9 +903,26 @@ sub show_game {  #merge copy
     			} elsif ($del || $CHK_Status eq 'Deceased') { print "<td><i>Inactive</i></td>\n";
     			} else { print "<td>Not Submitted</td>\n"; }
         }
-  			print "</tr>";
         
-  			# Store the current player ID for future reference
+        # Display the Remove Password button if applicable
+        if ($in{'cp'} eq "Remove Password" && $session->param("userlogin") eq $GameValues{'HostName'}) {
+          print qq|<td align=center>|;
+          print "<form>\n";
+          print qq|<BUTTON $host_style type="submit" name="Reset Password" value="Reset Password" | . &button_help('RemovePWD') .  qq|>Reset Password</BUTTON>\n|;
+          print qq|<input type=hidden name="Reset Password" value="Reset Password">\n|;
+          print qq|<input type=hidden name="lp" value="profile_game">\n|;
+          print qq|<input type=hidden name="rp" value="my_games">\n|;
+          print qq|<input type=hidden name="cp" value="Reset Password">\n|;
+          print qq|<input type=hidden name="GameFile" value="$GameValues{'GameFile'}">\n|;
+          print qq|<input type=hidden name="GameName" value="$GameValues{'GameName'}">\n|;
+          print qq|<input type=hidden name="PlayerID" value="$Player">\n|;
+          print "</form>\n";
+          print qq|</td>|;
+        }
+  			print "</tr>\n";
+#############################        
+  			
+        # Store the current player ID for future reference
   			# BUG: Likely to fail if the player is in the game twice
   			if ($PlayerValues{'User_Login'} eq $userlogin) { 
   				$current_player = $PlayerValues{'User_Login'}; 
@@ -929,7 +962,7 @@ sub show_game {  #merge copy
   				$table .= "<tr>\n";
   				$table .= qq|<td>$UserValues{'User_Login'}</td>|;
           # Don't show the race name unless its your own
-          if ($userlogin eq $UserValues{'User_Login'}) {$table .= qq|<td>$UserValues{'RaceName'}</td>|; }
+          if ($userlogin eq $UserValues{'User_Login'}) {$table .= qq|<td align="center">$UserValues{'RaceName'}</td>|; }
           else { $table .= qq|<td><center>-----</center></td>|; }
           if ($userlogin eq $UserValues{'User_Login'}) {$table .= qq|<td>$UserValues{'RaceFile'}</td>|; }
           else { $table .= qq|<td><center>-----</center></td>|; }
@@ -971,11 +1004,6 @@ sub show_game {  #merge copy
   				$sql = qq|SELECT * FROM Races WHERE User_Login = '$userlogin' ORDER BY RaceName;|;
           # Check to see if the player has any uploaded races
           if (&DB_Call($db,$sql)) { 
-#   			    if ($db->FetchRow()) { 
-#               $races_exist = 1; 
-#             }
-#   		    } 
-#           if ($races_exist) {
   				  print "<P>Select from my Available Races:\n";
   				  print qq|<SELECT name=\"RaceFile\">\n|;
   				  if (&DB_Call($db,$sql)) {
@@ -995,13 +1023,11 @@ sub show_game {  #merge copy
 		  &show_turngeneration($GameValues{'GameFile'}, $GameValues{'GameType'}, $GameValues{'DailyTime'}, $GameValues{'HourlyTime'}, $GameValues{'HourFreq'}, $GameValues{'DayFreq'}, $GameValues{'AsAvailable'});
       print "<P>\n";
     }
-    
+    print "</FORM>";
+   
     print "<P>\n";
     # Display the Buttons
     # Add all the Host and game related buttons
-#   in config.pl
-#		my $host_style = qq|style="color:red;width:120px;height:24;"|;
-#		my $user_style = qq|style="width:120px;height:24;"|;
 		print qq|<FORM action="$Location_Scripts/page.pl" method=$FormMethod>\n|;
 		print qq|<input type=hidden name="lp" value="profile_game">\n|;
 		print qq|<input type=hidden name="rp" value="my_games">\n|;
@@ -1046,9 +1072,11 @@ sub show_game {  #merge copy
 		# Email Players
 		if ($GameValues{'HostName'} eq $session->param("userlogin") && $players) { print qq|<BUTTON $host_style type="submit" name="cp" value="Email Players" | . &button_help('EmailPlayers') . qq|>Email Players</BUTTON>\n|; }
  		# Download the zip file. Don't bother displaying zip file option when there IS no history.
-		if (($HST_Turn > 2400) && ($current_player eq $userlogin) ) { print qq|<button $user_style type ="button" name="Download" | . &button_help('GetHistory') . qq| onClick = window.open("$Location_Scripts/download.pl?file=$GameValues{'GameFile'}.zip")>Get History</BUTTON>|; }
+		if (($HST_Turn > 2400) && ($current_player eq $userlogin) ) { print qq|<BUTTON $user_style type ="button" name="Download" | . &button_help('GetHistory') . qq| onClick = window.open("$Location_Scripts/download.pl?file=$GameValues{'GameFile'}.zip")>Get History</BUTTON>|; }
 		# Delete the game
 		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} eq '0' || $GameValues{'GameStatus'} eq '7' || $GameValues{'GameStatus'} eq '6' || $GameValues{'GameStatus'} eq '4' || $GameValues{'GameStatus'} eq '9')) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Delete Game" | . &button_help('DeleteGame') .  qq|>Delete Game</BUTTON>\n|; }
+		# Remove Password
+		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[23459]$/)) 	{print qq|<BUTTON $host_style type="submit" name="cp" value="Remove Password" | . &button_help('RemovePWD') .  qq|>Remove Password</BUTTON>\n|; }
     # Start Game
 		if ( $GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '0') { print qq|<BUTTON $host_style type="submit" name="cp" value="Start Game" | . &button_help('StartGame') . qq|>Start Game</BUTTON>\n|; }
 		# Set the DEF File
@@ -1159,9 +1187,11 @@ sub process_game_launch {
 	# Confirm that there are enough players to launch, otherwise abort. 
 	if ($counter >= $min_players) {
 		# Update all of the the player IDs in the database
-		# Based on the sort order from the random Player IDs
+		# based on the sort order from the random Player IDs
 		for (my $i=1; $i <=$counter; $i++) {
-			$sql = 	qq|UPDATE GameUsers SET PlayerID = $i WHERE PlayerID = $GameUserData[$i]{'PlayerID'} AND GameFile = '$GameFile';|;
+      # Attempt to make the SQL query unique. 
+      # BUG: Will fail if the same user joined twice in the same second.
+			$sql = 	qq|UPDATE GameUsers SET PlayerID = $i WHERE PlayerID = $GameUserData[$i]{'PlayerID'} AND GameFile = '$GameFile' AND JoinDate = $GameUserData[$i]{'JoinDate'};|;
 			&DB_Call($db,$sql);
 		}
 		# Read the DEF file in, and push it back out with the race file information	
@@ -2427,43 +2457,60 @@ sub process_game_status {
     if ($GameValues{'GamePause'}) {
       # If players are allowed to pause the game
       $sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET Games.GameStatus = 4 WHERE Games.GameFile = \'$in{'GameFile'}\' AND GameUsers.User_Login=\'$userlogin\' AND Games.GamePause=1;|;
+      $GameValues{'GameStatus'} = 4; # When used later
       $state_set = 1;
     } else {
       # Only the host can update the game
       $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+      $GameValues{'GameStatus'} = 4; # When used later
       $state_set = 1;
     }
+    # Rebuild the .CHK file in case there's a problem
+    &Make_CHK($GameValues{'GameFile'});
   } elsif ($state eq 'UnPause') {
     # Try to figure out when the next turn is due and update the date so
     # it doesn't just start generating
 		($Second, $Minute, $Hour, $DayofMonth, $Month, $Year, $WeekDay, $WeekofMonth, $DayofYear, $IsDST, $CurrentDateSecs) = &GetTime; 
-		if ($GameValues{'GameType'} == 1 ) {
+		if ($GameValues{'GameType'} == 1 ) {     
 			# Determine when the next possible time is that turns are due
 			($DaysToAdd1, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'},$WeekDay);
 			# now advance one interval from that, so you have a full interval
 			($DaysToAdd2, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'},$NextDayOfWeek);
 			# Set the time for the next turn on the right day
 			$NewTurn = $CurrentDateSecs + $DaysToAdd1*86400 + $DaysToAdd2*86400 +($GameValues{'DailyTime'} *60*60); 
+      if (!$isDST) { $NewTurn = $NewTurn + (60*60); }
+      $GameValues{'GameStatus'} = 2; # So the value is changed if used later before a query.
 			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+      $GameValues{'GameStatus'} = 2; # When used later
       $state_set = 1;
 		} else { # BUG: Doesn't fix next turn for other game types
 			$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+      $GameValues{'GameStatus'} = 2; # When used later
       $state_set = 1;
 		}
+    # Rebuild the .CHK file in case there's a problem
+    &Make_CHK($GameValues{'GameFile'});
   } elsif ($state eq 'Lock') {
    	$sql = qq|UPDATE Games SET GameStatus = 0 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+    $GameValues{'GameStatus'} = 0; # When used later
     $state_set = 1;
   } elsif ($state eq 'Launched') {
     $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+    $GameValues{'GameStatus'} = 4; # When used later
     $state_set = 1;
+    # Rebuild the .CHK file in case there's a problem
+    &Make_CHK($GameValues{'GameFile'});
   } elsif ($state eq 'Unlocked') {
     $sql = qq|UPDATE Games SET GameStatus = 7 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+    $GameValues{'GameStatus'} = 7; # When used later
     $state_set = 1;
   } elsif ($state eq 'Ended') {
     $sql = qq|UPDATE Games SET GameStatus = 9 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+    $GameValues{'GameStatus'} = 9; # When used later
     $state_set = 1;
   } elsif ($state eq 'Restart') {
     $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\' AND GameStatus = 9;|;
+    $GameValues{'GameStatus'} = 4; # When used later
     $state_set = 1;
   } else {
 		&LogOut(100,"process_game_status for $GameFile failed: $state", $ErrorLog);
@@ -2524,8 +2571,8 @@ sub process_join_game {
   		print "<P><font color=red>This game does not permit you to join more than once.</font>\n"; 
   		&LogOut(50,"$userlogin attempted to join $GameFile more than once", $ErrorLog);
   	} else {
-  		# the player IDs must be unique. This number will be user to determine player order in
-  		# the game when it's created, and will reset to 1-16
+  		# the player IDs must be unique. This number will be used to determine player order in
+  		# the game when it's created, and will be reset to 1-16 then
   		my $random_number = rand(); $random_number = int($random_number*100000);
   		# Insert the user into the game 
   		my $now = time();
@@ -2690,7 +2737,8 @@ sub process_delay {
 			} elsif ( $GameValues{'GameType'} == 2) {
 				my ($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $IsDST) = localtime($NextTurn); 
 				$NextTurn = $NextTurn + (($GameValues{'HourlyTime'} * 60 * 60) );
- 				while (&ValidTurnTime($NextTurn,'Hour',\%GameValues) ne 'True') { 
+# 				while (&ValidTurnTime($NextTurn,'Hour',\%GameValues) ne 'True') { 
+ 				while (&ValidTurnTime($NextTurn,'Hour',$GameValues{'DayFreq'}, $GameValues{'HourFreq'}) ne 'True') { 
  					# Get the weekday of the new turn so we can see if it's ok
  					($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST, $CSecOfDay) = localtime($NextTurn);
  					# Move to the next available hour
@@ -2733,17 +2781,18 @@ sub process_delay {
 # Display File Upload
 sub show_upload { # Uses $GameName and $GameFile
 	my($GameName,$GameFile) = @_;
-	print qq|<table><tr><td></td>\n|;
-	print qq|<td><FORM method="$FormMethod" action="$Location_Scripts/upload.pl" name="my_form" enctype="multipart/form-data">\n|;
-	print qq|<INPUT type="file" name="File" size="30">\n|;
-	print qq|<INPUT type="submit" name="submit" value="Upload Turn" | . &button_help('SendFile') . qq|>\n|;
+	print qq|<FORM method="$FormMethod" action="$Location_Scripts/upload.pl" name="my_form" enctype="multipart/form-data">\n|;
+	print qq|<table><tr>\n|;
+	print qq|<td><INPUT type="file" name="File" size="30"></td>\n|;
+	print qq|<td><INPUT type="submit" name="submit" value="Upload Turn" | . &button_help('SendFile') . qq|></td>\n|;
+	print qq|</td></tr></table>\n|;
 	# send GameName
 	print qq|<INPUT type="hidden" name="GameName" value="$GameName">\n|;
 	print qq|<INPUT type="hidden" name="GameFile" value="$GameFile">\n|;
 	print qq|<INPUT type="hidden" name="lp" value="profile_game">\n|;
 	print qq|<INPUT type="hidden" name="cp" value="show_game">\n|;
 	print qq|<INPUT type="hidden" name="rp" value="show_news">\n|;
-	print qq|</FORM></td></tr></table>\n|;
+  print qq|</FORM>\n|;
 }
 
 # Show current player status
@@ -2855,7 +2904,7 @@ sub process_player_status {
   }
   &Mail_Close($smtp); 
 }
-
+  
 sub submit_forcegen {
 # Display the interface to force generate turns. 
 	my ($GameFile) = @_;
@@ -2882,15 +2931,18 @@ sub submit_forcegen {
 	print qq|</SELECT></td>\n|;
 	print qq|<td>turn(s)</td></tr>\n|;
 	print qq|<tr><td>Email Turn to Players with Email enabled:</td><td><INPUT type="checkbox" name="EmailPlayers" onFocus="Help( 'EmailPlayersForceGen' )" onMouseOver="Help( \'EmailPlayersForceGen\' )" onMouseOut="Help( \'blank\' )" CHECKED></td></tr>\n|;
-	print qq|<td><INPUT type="submit" name="submit" value="Force Generate Turns"></td>\n|;
+	if ($GameValues{'ForceGenTimes'} > 0) {
+    print qq|<tr><td>Decrement ForceGen Times:</td><td><INPUT type="checkbox" name="decrementforcegentimes" onFocus="Help( 'DecrementForceGenTimes' )" onMouseOver="Help( \'DecrementForceGenTimes\' )" onMouseOut="Help( \'blank\' )" CHECKED></td></tr>\n|;
+	}
+  print qq|<td><INPUT type="submit" name="submit" value="Force Generate Turns"></td>\n|;
 	print qq|</tr></table>\n|;
-}
+}  
 
 sub process_forcegen {
 # Process turn force generation
-	my($NumberofTurns, $GameFile, $userlogin, $EmailPlayers) = @_;
+	my($NumberofTurns, $GameFile, $userlogin, $EmailPlayers, $decrementforcegentimes) = @_;
 	my %GameValues;
-	my $sql = qq|SELECT * FROM Games WHERE HostName = \'$userlogin\' AND GameFile = \'$GameFile\';|;
+	my $sql = qq|SELECT * FROM Games WHERE HostName = \'$userlogin\' AND GameFile = \'$GameFile\';|;     
 	my $db = &DB_Open($dsn);
 	if (&DB_Call($db,$sql)) { while ($db->FetchRow()) { %GameValues = $db->DataHash(); } }
 	# Only the game host can force gen
@@ -2898,6 +2950,21 @@ sub process_forcegen {
 		&GenerateTurn($NumberofTurns, $GameFile);
 		print "<P>$NumberofTurns turn(s) force generated for: $GameValues{'GameName'}\n";
 		&UpdateLastTurn($db, time(), $GameFile); # update the last gen date. 
+    # If the user selected to update the forcegen counter
+    if (&checkbox($decrementforcegentimes)) {
+    	$NumberofTimes = $GameValues{'ForceGenTimes'} -1;
+			# Update NumberofTimes
+			$sql = "UPDATE Games SET ForceGenTimes = $NumberofTimes WHERE GameFile = \'$GameValues{'GameFile'}\'";
+			if (&DB_Call($db,$sql)) { &LogOut(200,"Decremented ForceGenTimes for $GameValues{'GameFile'}",$LogFile); }
+			else { &LogOut(200,"Failed to Decrement ForceGenTimes for $GameValues{'GameFile'}",$ErrorLog);}
+			if ($NumberofTimes <= 0) { #If the game is no longer forced, unforce game
+				$sql = "UPDATE Games SET ForceGen = 0 WHERE GameFile = \'$GameValues{'GameFile'}\'";
+				if (&DB_Call($db,$sql)) { &LogOut(200,"Forcegen set to 0 for $GameValues{'GameFile'}",$LogFile) }
+				else { &LogOut(0,"Failed to set forcegen to 0 for $GameValues{'GameFile'}",$ErrorLog); }
+			}
+		}
+    # Update for other references to this value (in emails) without having to repoll database
+    $GameValues{'ForceGenTimes'} = $NumberofTimes ;    
 	} else { my $x = "$GameValues{'GameFile'} $GameValues{'HostName'}: $userlogin is not authorized to ForceGen: $GameValues{'HostForce'}"; print $x; &LogOut(0,$x,$ErrorLog); }
 	&DB_Close($db);
 
@@ -2912,6 +2979,36 @@ sub process_forcegen {
 		$GameValues{'HST_Turn'} = $HST_Turn;
 		&Email_Turns($GameFile, \%GameValues, 1);
 	}
+}
+
+sub process_remove_password {
+  my ($GameFile, $PlayerID) = @_;
+  use StarsPWD;  
+  use File::Copy;
+  # Get the relevant Game Data
+ 	my $sql = qq|SELECT * FROM Games WHERE HostName = \'$userlogin\' AND GameFile = \'$GameFile\';|;
+  my $db = &DB_Open($dsn);
+ 	if (&DB_Call($db,$sql)) { if ($db->FetchRow()) { %GameValues = $db->DataHash(); } }
+  # Backup the existing .m file
+  my $Backup_Source_File      = $File_HST . '/' .  $GameValues{'GameFile'} . '/' . $GameValues{'GameFile'} . '.m' . $PlayerID;
+  my $Backup_Destination_File = $Backup_Source_File . '.bak'; 
+ 	copy($Backup_Source_File, $Backup_Destination_File);
+ 	&LogOut(100,"Copy $Backup_Source_File to $Backup_Destination_File",$LogFile);
+  # Remove the password
+  my $PasswordRemove = &StarsPWD($GameFile, $PlayerID);
+  if ($PasswordRemove) { print  "Password removed"; }
+  # Email the player and host the password has been reset
+  # my $EmailPlayers = &checkboxnull($GameValues{'EmailPlayers'});
+  # This is a big deal, so we always want to notify everyone.
+# 	if ($EmailPlayers) {
+ 		print "<P>Emailing players...\n";
+ 		$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Password Reset for Player $PlayerID|;
+ 		$GameValues{'Message'} = "The Host has reset the password for Player $PlayerID in $GameValues{'GameName'}\n";
+ 		&Email_Turns($GameFile, \%GameValues, 0);
+# 	}
+  &LogOut(100,"Password reset for $GameFile, $PlayerID", $LogFile);
+  print 'Password removed. Remember to Save and Submit with a new password.';
+	&DB_Close($db);
 }
 
 sub show_email {
@@ -2956,6 +3053,7 @@ sub optionloop {
 sub display_warning {
     print "<P><font color=red>Warning: Using the Browser Reload function will repeat the last Action.</font>";
 }
+
 # sub GetTime {
 # 	# Figure out all time values for this iteration. Global Values
 # 	$CurrentEpoch = time();

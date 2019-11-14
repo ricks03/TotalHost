@@ -37,7 +37,7 @@ our @EXPORT = qw(
 	DB_Open DB_Close DB_Call DB_Check 
 	Mail_Open Mail_Close Mail_Send MailAttach
 	Email_Turns Load_EmailAddresses
-	GetTime GetTimeString LogOut
+	GetTime CheckTime GetTimeString LogOut
 	validate
 	show_html
 	html_top html_head html_banner
@@ -52,6 +52,7 @@ our @EXPORT = qw(
 	Game_Backup File_Date
 	clean clean_filename
 	DaysToAdd ValidTurnTime ValidFreq CheckHolidays LoadHolidays ShowHolidays
+
 );
 # Remarked out functions: FileData FixTime MakeGameStatus checkboxes checkboxnull
 
@@ -202,14 +203,14 @@ sub Email_Turns { #email turns out to the appropropriate players
 		$Message = $GameVals{'Message'};
 		$Message .= "\n\n";
     # If there's a next turn scheduled, and the game isn't over
-		if ($GameVals{'NextTurn'} > 0 && $GameVals{'GameStatus'} != 9) {
+		if ($GameVals{'NextTurn'} > 0 && $GameVals{'GameStatus'} != 9 && $GameVals{'GameStatus'} != 4 ) {
 			$Message .= "Next turn generation on or after " . localtime($GameVals{'NextTurn'});
-			if ($GameVals{'AsAvailable'} == 1 ) { $Message .= " or when all turns are in"; }
+			if (&checkbox($GameVals{'AsAvailable'}) == 1 ) { $Message .= " or when all turns are in"; }
 			$Message .= ".\n\n";
 		}
-		if ($GameVals{'ForceGen'} == 1 ) { 
+		if ($GameVals{'ForceGen'} == 1  && $GameVals{'GameStatus'} != 4 ) { 
 			$Message .= qq|Automated generation will force $GameVals{'ForceGenTurns'} years at a time for the next $GameVals{'ForceGenTimes'} turns|;
-			if ($HST_Turn eq '2400' || $HST_Turn eq '2401' || $HST_Turn eq '') { $Message .= " not including years 2400 and 2401, which will generate only one year"; }
+			if ($HST_Turn eq '2400' || $HST_Turn eq '2401' ) { $Message .= " not including years 2400 and 2401, which will generate only one year"; }
 			$Message .= ".\n";
 		}
 		&LogOut(200, "Message: $Message", $LogFile);
@@ -262,6 +263,16 @@ sub GetTime {
 	elsif ($DayofMonth >28 && $DayofMonth <=31) { $WeekofMonth = 5;}
   
   return  ($Second, $Minute, $Hour, $DayofMonth, $Month, $Year, $WeekDay, $WeekofMonth, $DayofYear, $IsDST, $CurrentDateSecs);
+}
+
+# Returns CSecofDay along with everything else
+sub CheckTime { #Determine information for a specified time in seconds of a day
+	my($TimetoCheck) = @_;  # Pass in Epoch Time
+	($CSecond, $CMinute, $CHour, $CDayofMonth, $CWrongMonth, $CWrongYear, $CWeekDay, $CDayofYear, $CIsDST) = localtime($TimetoCheck); 
+	$CMonth = $CWrongMonth + 1; 
+	$CYear = $CWrongYear + 1900;
+	$CSecOfDay = ($CMinute * 60) + ($CHour*60*60) + $CSecond;
+	return ($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST, $CSecOfDay);
 }
 
 sub GetTimeString {
@@ -480,7 +491,7 @@ sub html_left {
 	print qq|</table>\n|;
 # added for help system 120214
 	print qq|<P><hr>|;
-	print qq|<iframe id = "ifr" src="$WWW_Notes| . qq|blank.htm" name="your_name" marginwidth=0 marginheight=0 width="$lp_width" height="$height_help" frameborder="0" scrolling="auto"></iframe>|;
+	print qq|<iframe id = "ifr" src="$WWW_Notes| . qq|blank.htm" name="your_name" marginwidth=0 marginheight=0 width="$lp_width" height="$height_help" frameborder="0" scrolling="auto"></iframe>\n|;
 	print qq|<table border=0>\n|;
 	print qq|<tr><td id="help" align=left>\n|;
 	print qq|</td></tr>\n|;
@@ -618,8 +629,9 @@ sub fixdate {
 sub SubmitTime{
 	my ($daytime) = @_;
 	my $answer = '';
- 	if ($daytime < .0006944) { $answer = int($daytime*86400) . " seconds ago\n";}
-	elsif ($daytime < .04167) { $answer = int($daytime * 1440 ) . " minute(s) ago\n"; }
+#  	if ($daytime < .0006944) { $answer = int($daytime*86400) . " seconds ago\n";}
+# 	elsif ($daytime < .04167) { $answer = int($daytime * 1440 ) . " minute(s) ago\n"; }
+  if ($daytime < .04167) { $answer = " recently\n";}
 	elsif ($daytime < 1) { $answer = int($daytime * 24 ) . " hour(s) ago\n";}
 	elsif ($daytime >= 1) { $answer = int($daytime) . " day(s) ago\n";}
 	return $answer;
@@ -926,12 +938,13 @@ sub Game_Backup {  # Backup the current game
 	my @turn_files = ();
 	opendir(DIR, $Game_Source) or &LogOut(0,"<P>Can\'t opendir $Game_Source for Backup",$ErrorLog); 
 	mkdir $Game_Backup;
+  &LogOut(100,"Backup: $Game_Backup", $LogFile);
 	while (defined($file = readdir(DIR))) {
 		# Skip forward unless it's actually a file
  		next unless (-f "$Game_Source/$file");
 	 	my($Game_Source)= $Game_Source . '/' . $file;  #
 	 	my($Game_Destination)= $Game_Backup . '/' . $file;  #w
-		&LogOut(200,"Backup: $Game_Source > $Game_Destination", $LogFile);
+		&LogOut(300,"Backup: $Game_Source > $Game_Destination", $LogFile);
 	 	copy($Game_Source, $Game_Destination);
 	}
 	closedir(DIR);
@@ -989,31 +1002,29 @@ sub DaysToAdd {
 }
 
 sub ValidTurnTime { #Determine whether submitted time is valid to generate a turn
-  # BUG: $db aren't actaully used, so why is it passed? 
-  # That's the real difference between this and the &ValidTurnTime in TurnMake
+  # BUG: $db aren't actaully used, so why is it passed?  That's the real difference between this and the &ValidTurnTime in TurnMake
   # GameValues is converted into a hash in TurnMake
   # Better to just pass the relevant array values.
-  #$GameValues{'DayFreq'}
-  #$GameValues{'HourFreq'}
-  #$GameValues{'ObserveHoliday'}
-
-	my($ValidTurnTimeTest, $WhentoTestFor, $GameValues, $db) = @_;	
-	my $GameValues = %$GameValues;
+	my($ValidTurnTimeTest, $WhentoTestFor, $Day, $Hour) = @_;	
+#	my($ValidTurnTimeTest, $WhentoTestFor, $GameValues) = @_;	
+#	my $GameValues = %$GameValues;
 	&LogOut(100,"ValidTurnTimeTest: $ValidTurnTimeTest, WhentoTestfor: $WhentoTestFor",$LogFile);
 	my($Valid) = 'True';
 	#Check to see if it's a holiday
-	if ($GameValues{'ObserveHoliday'} > 0){ 
-			local($Holiday) = &CheckHolidays($ValidTurnTimeTest, $db);
-			if ($Holiday eq 'True') { $Valid = 'False'; }
-	}
-	my ($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST) = localtime($ValidTurnTimeTest);
+# 	if ($GameValues{'ObserveHoliday'} > 0){ 
+# 			local($Holiday) = &CheckHolidays($ValidTurnTimeTest, $db);
+# 			if ($Holiday eq 'True') { $Valid = 'False'; }
+# 	}
+	my ($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST, $CSecOfDay) = localtime($ValidTurnTimeTest);
 	#Check to see if it's a valid Day
-	my($DayFreq_local) = &ValidFreq($GameValues{'DayFreq'},$CWeekDay);
-	if ($DayFreq_local eq 'False') { $Valid = 'False'; }
+#	my($DayFreq_local) = &ValidFreq($GameValues{'DayFreq'},$CWeekDay);	if (($WhentoTestFor) eq 'Day') {
+  my($DayFreq) = &ValidFreq($Day,$CWeekDay);
+  if ($DayFreq eq 'False') { $Valid = 'False'; }
 	#Check to see if it's a valid hour
 	if (($WhentoTestFor) eq 'Hour') {
-		my($HourlyTime_local) = &ValidFreq($GameValues{'HourFreq'},$CHour);
-		if ($HourlyTime_local eq 'False') { $Valid = 'False'; }
+#		my($HourlyTime_local) = &ValidFreq($GameValues{'HourFreq'},$CHour);
+  	my($HourlyTime) = &ValidFreq($Hour,$CHour);
+  	if ($HourlyTime eq 'False') { $Valid = 'False'; }
 	}
 	&LogOut(200,"   Valid = $Valid ",$LogFile);
 	return($Valid);

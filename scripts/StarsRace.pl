@@ -1,28 +1,25 @@
-# StarsPWD.pl
+# StarsRace.pl
 #
 # Rick Steeves
 # starsah@corwyn.net
 # Version History
 # 180815  Version 1.0
 #
-# Strips the passwords off of Stars! files
+# Gets Race attributes
 # Example Usage: decryptor.pl c:\stars\game.m1
 #
-# Removes the password from a .M file
-# Removes the password from a .HST file
-# Removes the password from a .X file
-# Removes the passwords for all players from a .HST file
-#
-# TBD: add ability to create .x file with password reset
-# TBD: Remove password from .r file (should work, doesn't).
+# Gets the values from a Race File
+# Note that the rece file has a checksum value, so writing out changes will 
+# fail.
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
+# Not currently functional
 
 use strict;
 use warnings;   
 use File::Basename;  # Used to get filename components
-my $debug = 0;
+my $debug = 1;
 
 #Stars random number generator class used for encryption
 my @primes = ( 
@@ -39,7 +36,7 @@ my @primes = (
 my $filename = $ARGV[0]; # input file
 my $outfilename = $ARGV[1];
 if (!($filename)) { 
-  print "\n\nUsage: StarsPWD.pl <input file> <output file (optional)>\n\n";
+  print "\n\nUsage: StarsRace.pl <input file> <output file (optional)>\n\n";
   print "Please enter the input file (.M or .HST). Example: \n";
   print "  StarsPWD.pl c:\\games\\test.m6\n\n";
   print "Removes the password from a .M file. The password must be\n";
@@ -49,8 +46,8 @@ if (!($filename)) {
   print "Removes any administrative password on the .HST file.\n\n";
   print "Sets a password in a .X file to blank.\n\n";
   print "By default, a new file will be created: <filename>.clean\n\n";
-  print "You can create a different file with StarsPWD.pl <filename> <newfilename>\n";
-  print "  StarsPWD.pl <filename> <filename> will overwrite the original file.\n\n";
+  print "You can create a different file with StarsRace.pl <filename> <newfilename>\n";
+  print "  StarsRace.pl <filename> <filename> will overwrite the original file.\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
 }
@@ -65,7 +62,7 @@ $dir  = dirname($filename);         # c:\stars
 
 # Passwords in .R files are also stored in Block 6. The script correctly
 # IDs and blanks the password, but they're corrupt nonetheless. 
-if (uc($ext) eq ".R1") { print "Doesn't work for Race Files -- Sorry!\n"; exit; }
+#if (uc($ext) eq ".R1") { print "Doesn't work for Race Files -- Sorry!\n"; exit; }
 
 # Read in the binary Stars! file, byte by byte
 my $FileValues;
@@ -82,20 +79,20 @@ my ($outBytes) = &decryptBlock(@fileBytes);
 my @outBytes = @{$outBytes};
 
 # Create the output file name
-my $newFile; 
-if ($outfilename) {   $newFile = $outfilename;  } 
-else { $newFile = $dir . '\\' . $basefile . '.clean'; }
-if ($debug) { $newFile = "f:\\clean_" . $basefile;  } # Just for me
+# my $newFile; 
+# if ($outfilename) {   $newFile = $outfilename;  } 
+# else { $newFile = $dir . '\\' . $basefile . '.clean'; }
+# if ($debug) { $newFile = "f:\\clean_" . $basefile;  } # Just for me
 
 # Output the Stars! File with blank password(s)
-open (OutFile, '>:raw', "$newFile");
-for (my $i = 0; $i < @outBytes; $i++) {
-  print OutFile $outBytes[$i];
-}
-close (OutFile);
-
-print "File output: $newFile\n";
-unless ($ARGV[1]) { print "Don't forget to rename the file\n"; }
+# open (OutFile, '>:raw', "$newFile");
+# for (my $i = 0; $i < @outBytes; $i++) {
+#   print OutFile $outBytes[$i];
+# }
+# close (OutFile);
+# 
+# print "File output: $newFile\n";
+# unless ($ARGV[1]) { print "Don't forget to rename the file\n"; }
 
 ################################################################
 sub StarsRandom {
@@ -257,7 +254,7 @@ sub decryptBytes {
   ($byteArray, $padding) = &addPadding (\@byteArray);
   @byteArray = @ {$byteArray };
   my $paddedSize = $size + $padding;
-  # Now decrypt, processing 4 bytes at a time
+ # Now decrypt, processing 4 bytes at a time
   @decryptedBytes = ();
   for (my $i = 0; $i <  $paddedSize; $i+=4) {
     # Swap bytes using indexes in this order:  4 3 2 1
@@ -379,8 +376,8 @@ sub decryptBlock {
     ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
     @data = @{ $data }; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-    if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-    if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
+#     if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+#     if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) {
       # We always have this data before getting to block 6, because block 8 is first
@@ -398,37 +395,147 @@ sub decryptBlock {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
-      if ($debug) { print "\nDATA DECRYPTED:\n" . join (" ", @decryptedData), "\n"; }
+#      if ($debug) { print "\nDATA DECRYPTED:\n" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
-        if (($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) {
-        print "Password replaced!\n";
-          # Replace the password with blank
-          $decryptedData[12] = 0;
-          $decryptedData[13] = 0;
-          $decryptedData[14] = 0;
-          $decryptedData[15] = 0;  
-        } else { 
-          # In .HST some Player blocks could be password protected, and some not 
-          unless (uc($ext) eq '.HST' ) { die "This file isn't password-protected!\n"; }
+    if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+    if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
+        if ($debug) { print "\nPLAYER BLOCK:\n" . join (" ", @decryptedData), "\n"; }
+        my @PRT = qw(HE SS WM CA IS SD PP IT AR JOAT );
+        my $playerNumber = $decryptedData[0] & 0xFF; print "Player Number: $playerNumber\n";
+        my $shipDesigns = $decryptedData[1] & 0xFF;  print " Ship Designs: $shipDesigns\n";
+        my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); print " Planets: $planets\n";
+        my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);  print " Fleets: $fleets\n";
+        my $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); print " Starbase Designs: $starbaseDesigns\n";
+	      my $logo = (($decryptedData[6] & 0xFF) >> 3); print " Logo: $logo\n";
+        my $fullDataFlag = ($decryptedData[6] & 0x04); print " fullDataFlag: $fullDataFlag\n";
+        my $index = 8;
+        if ($fullDataFlag) {
+        	# $fullDataBytes = new byte[0x68]; ASCII
+          my $fullDataBytes = $decryptedData[8] + $decryptedData[9]; 
+          my $index = 0x70;
+          print "index: $index\n";
+          my $playerRelationsLength = $decryptedData[$index] & 0xFF; print "Player Relations Length: $playerRelationsLength\n";
+          my $playerRelations = $decryptedData[11]; print "PlayerRelations: $playerRelations\n";
+          # arraycopy(Object source_arr, int sourcePos,  Object dest_arr, int destPos, int len)
+          # System.arraycopy(decryptedData, index + 1, playerRelations, 0, playerRelationsLength);
+          # Skip ahead that many places
+          $index = $index + 1 + $playerRelationsLength;
         }
+        print "index: $index\n";
+        my $namesStart = $index;
+        $index++; $index++;
+        $index = 16;
+        my $singularNameLength = $decryptedData[$index] & 0xFF;  print "singularNameLength: $singularNameLength\n";
+  	    $index += $singularNameLength;
+        $index++;
+  	    my $pluralNameLength = $decryptedData[$index] & 0xFF;  print "pluralNameLength: $pluralNameLength\n";
+  	    $index += $pluralNameLength;
+        
+        my $f1 = $decryptedData[55]; print "f1: $f1\n";
+        my $f2 = $decryptedData[56]; print "f2: $f2\n";
+        my $f3 = $decryptedData[57]; print "f3: $f3\n";
+        my $m1 = $decryptedData[58]; print "m1: $m1\n";
+        my $m2 = $decryptedData[59]; print "m2: $m2\n";
+        my $m3 = $decryptedData[60]; print "m3: $m3\n";
+
+        
+        
+        
+# # Unpack the FileHeaderBlock data
+# # 2 bytes
+# $bytes = $fileBytes[0] . $fileBytes[1];
+# $Header = unpack ("S", $bytes);
+# # 4 bytes
+# $bytes = $fileBytes[2] . $fileBytes[3] . $fileBytes[4] . $fileBytes[5];
+# $Magic = unpack ("A4", $bytes);
+# # 4 bytes
+# $bytes =  $fileBytes[6] . $fileBytes[7] . $fileBytes[8] . $fileBytes[9];
+# $lidGame = unpack ("L",  $bytes);
+# # 2 bytes
+# $bytes = $fileBytes[10] . $fileBytes[11];
+# $ver = unpack ("S", $bytes);
+# # 2 bytes
+# $bytes = $fileBytes[12] . $fileBytes[13];
+# $turn = unpack ("S", $bytes); # $turn + 2400 = turn
+# # 2 bytes
+# $bytes = $fileBytes[14] . $fileBytes[15];
+# $iPlayer = unpack ("s", $bytes);
+# # 2 bytes
+# $bytes = $fileBytes[16] . $fileBytes[17];
+# $dts = unpack ("S", $bytes);
+# # Convert the data to its usable form
+# $binHeader = dec2bin($Header);
+# $blocktype = (substr($binHeader, 0,6));
+# $blocktype = bin2dec($blocktype);
+# $blocksize = (substr($binHeader, 7,2)) . (substr($binHeader, 8,8));
+# $blocksize = bin2dec($blocksize);
+# # Game Version
+# $ver = dec2bin($ver);
+# $verInc = substr($ver,11,5);
+# $verMinor = substr($ver,4,7);
+# $verMajor = substr($ver,0,4);
+# $verMajor = bin2dec($verMajor);
+# $verMinor = bin2dec($verMinor);
+# $verInc = bin2dec($verInc);
+# $ver = $verMajor . "." . $verMinor . "." . $verInc;
+# $verClean = $verMajor . "." . $verMinor;
+# # Player Number
+# $iPlayer = &dec2bin($iPlayer);
+# $Player = substr($iPlayer,11,5);
+# $Player = bin2dec($Player); # note from 0-15
+# # Encryption Seed
+# $binSeed =  substr($iPlayer,0,11);
+# $Seed = bin2dec($binSeed);
+# # dts - Convert DTS to binary so we can pull the values back out
+# $dts = dec2bin($dts);
+# #Break DTS into its binary components
+# $dt = substr($dts, 8,15);
+# $dt = bin2dec($dt);
+# # File Type
+# # These are 1 character, so there's no need to convert them back to decimal
+# # Turn state (.x file only)
+# $fDone = substr($dts, 7,1);
+# # Host instance is using this file (dtHost, dtTurn).
+# $fInUse = substr($dts, 6, 1);
+# # Are multiple turns included (.m only)
+# $fMulti = substr($dts, 5,1);
+# # Is the Game Over
+# $fGameOver = substr($dts, 4,1);  # Probably 4
+# # Shareware
+# $fShareware = substr($dts, 3, 1);
+
+
+
+        
+#         if (($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) {
+#         print "Password replaced!\n";
+#           # Replace the password with blank
+#           $decryptedData[12] = 0;
+#           $decryptedData[13] = 0;
+#           $decryptedData[14] = 0;
+#           $decryptedData[15] = 0;  
+#         } else { 
+#           # In .HST some Player blocks could be password protected, and some not 
+#           unless (uc($ext) eq '.HST' ) { die "This file isn't password-protected!\n"; }
+#         }
       }
       if ($typeId == 36) { # .x file Change Password Block
-        if (($decryptedData[0]  != 0) | ($decryptedData[1] != 0) | ($decryptedData[2] != 0) | ($decryptedData[3] != 0)) {
-          print "Password replaced!\n";
-          # Replace the password with blank
-          $decryptedData[0] = 0;
-          $decryptedData[1] = 0;
-          $decryptedData[2] = 0;
-          $decryptedData[3] = 0; 
-        } 
+#         if (($decryptedData[0]  != 0) | ($decryptedData[1] != 0) | ($decryptedData[2] != 0) | ($decryptedData[3] != 0)) {
+#           print "Password replaced!\n";
+#           # Replace the password with blank
+#           $decryptedData[0] = 0;
+#           $decryptedData[1] = 0;
+#           $decryptedData[2] = 0;
+#           $decryptedData[3] = 0; 
+#         } 
       }
       # END OF MAGIC
       #reencrypt the data for output
-      ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
-      @encryptedBlock = @ { $encryptedBlock };
-      if ($debug) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
-      push @outBytes, @encryptedBlock;
+#       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
+#       @encryptedBlock = @ { $encryptedBlock };
+#       if ($debug) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
+#       push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
   }

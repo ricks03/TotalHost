@@ -1,103 +1,106 @@
-# StarsPWD.pl
+# StarsPWD.pm
 #
 # Rick Steeves
 # starsah@corwyn.net
 # Version History
 # 180815  Version 1.0
+#     Copyright (C) 2019 Rick Steeves
+# 
+#     This file is part of TotalHost, a Stars! hosting utility.
+#     TotalHost is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+# 
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 #
 # Strips the passwords off of Stars! files
-# Example Usage: decryptor.pl c:\stars\game.m1
 #
 # Removes the password from a .M file
 # Removes the password from a .HST file
 # Removes the password from a .X file
 # Removes the passwords for all players from a .HST file
-#
 # TBD: add ability to create .x file with password reset
-# TBD: Remove password from .r file (should work, doesn't).
+# TBD: Remove password from .r file (should work, doesn't). Checksum problem
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
 
-use strict;
-use warnings;   
-use File::Basename;  # Used to get filename components
-my $debug = 0;
+use TotalHost;
+package StarsPWD;
+do 'config.pl';
 
-#Stars random number generator class used for encryption
-my @primes = ( 
-                3, 5, 7, 11, 13, 17, 19, 23, 
-                29, 31, 37, 41, 43, 47, 53, 59,
-                61, 67, 71, 73, 79, 83, 89, 97,
-                101, 103, 107, 109, 113, 127, 131, 137,
-                139, 149, 151, 157, 163, 167, 173, 179,
-                181, 191, 193, 197, 199, 211, 223, 227,
-                229, 233, 239, 241, 251, 257, 263, 279,
-                271, 277, 281, 283, 293, 307, 311, 313 
-        );
-        
-my $filename = $ARGV[0]; # input file
-my $outfilename = $ARGV[1];
-if (!($filename)) { 
-  print "\n\nUsage: StarsPWD.pl <input file> <output file (optional)>\n\n";
-  print "Please enter the input file (.M or .HST). Example: \n";
-  print "  StarsPWD.pl c:\\games\\test.m6\n\n";
-  print "Removes the password from a .M file. The password must be\n";
-  print "  set when the turn is submitted or the password will revert.\n\n";
-  print "Removes all player passwords from a .HST file. On the next\n";
-  print "  turn generation all .M files will have no password.\n\n"; 
-  print "Removes any administrative password on the .HST file.\n\n";
-  print "Sets a password in a .X file to blank.\n\n";
-  print "By default, a new file will be created: <filename>.clean\n\n";
-  print "You can create a different file with StarsPWD.pl <filename> <newfilename>\n";
-  print "  StarsPWD.pl <filename> <filename> will overwrite the original file.\n\n";
-  print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
-  exit;
+require Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT = qw( 
+  StarsPWD
+  nextRandom StarsRandom
+  initDecryption getFileHeaderBlock
+  encryptBytes decryptBytes
+  read16 parseBlock
+  dec2bin bin2dec
+  encryptBlock decryptBlock
+  stripPadding addPadding
+);
+
+my $debug = 1;
+
+#############################################
+sub StarsPWD {
+  my ($GameFile, $Player) = @_;
+  use File::Copy;
+  #Stars random number generator class used for encryption
+  my @primes = ( 
+                  3, 5, 7, 11, 13, 17, 19, 23, 
+                  29, 31, 37, 41, 43, 47, 53, 59,
+                  61, 67, 71, 73, 79, 83, 89, 97,
+                  101, 103, 107, 109, 113, 127, 131, 137,
+                  139, 149, 151, 157, 163, 167, 173, 179,
+                  181, 191, 193, 197, 199, 211, 223, 227,
+                  229, 233, 239, 241, 251, 257, 263, 279,
+                  271, 277, 281, 283, 293, 307, 311, 313 
+          );
+  
+  my $MFile = $File_HST . '/' . $GameFile . '/' . $GameFile . '.m' . $Player;
+  &PLogOut(300, "Password Reset Started for : $MFile", $LogFile);
+#   # Backup the current .m file
+# 	my $Backup_Destination_File   = $MFile . '.bak';
+# 	copy($MFile, $Backup_Destination_File);
+# 	&PLogOut(100,"Copy $MFile to $Backup_Destination_File",$LogFile);
+   
+  # Read in the binary Stars! file, byte by byte
+  my $FileValues = '';
+  my @fileBytes=();
+  open(StarFile, "<$MFile");
+  binmode(StarFile);
+  while (read(StarFile, $FileValues, 1)) {
+    push @fileBytes, $FileValues; 
+  }
+  close(StarFile);
+  
+  # Decrypt the data, block by block, removing the password
+  my ($outBytes) = &decryptBlock(@fileBytes);
+  # If the decrypt Bytes returned 0, there's no password
+  unless ($outbytes) { return 0; }
+  my @outBytes = @{$outBytes};
+  # Output the Stars! File with blank password(s)
+  open (OutFile, '>:raw', "$MFile");
+  for (my $i = 0; $i < @outBytes; $i++) {
+    print OutFile $outBytes[$i];
+  }
+  close (OutFile);
+  return 1;
 }
-# Validate that the file exists
-unless (-e $ARGV[0]) { print "File $filename does not exist!\n"; exit; }
 
-my ($basefile, $dir, $ext);
-# for c:\stars\mygamename.m1
-$basefile = basename($filename);    # mygamename.m1
-$dir  = dirname($filename);         # c:\stars
-($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
 
-# Passwords in .R files are also stored in Block 6. The script correctly
-# IDs and blanks the password, but they're corrupt nonetheless. 
-if (uc($ext) eq ".R1") { print "Doesn't work for Race Files -- Sorry!\n"; exit; }
-
-# Read in the binary Stars! file, byte by byte
-my $FileValues;
-my @fileBytes;
-open(StarFile, "<$filename");
-binmode(StarFile);
-while (read(StarFile, $FileValues, 1)) {
-  push @fileBytes, $FileValues; 
-}
-close(StarFile);
-
-# Decrypt the data, block by block
-my ($outBytes) = &decryptBlock(@fileBytes);
-my @outBytes = @{$outBytes};
-
-# Create the output file name
-my $newFile; 
-if ($outfilename) {   $newFile = $outfilename;  } 
-else { $newFile = $dir . '\\' . $basefile . '.clean'; }
-if ($debug) { $newFile = "f:\\clean_" . $basefile;  } # Just for me
-
-# Output the Stars! File with blank password(s)
-open (OutFile, '>:raw', "$newFile");
-for (my $i = 0; $i < @outBytes; $i++) {
-  print OutFile $outBytes[$i];
-}
-close (OutFile);
-
-print "File output: $newFile\n";
-unless ($ARGV[1]) { print "Don't forget to rename the file\n"; }
-
-################################################################
+#################################
 sub StarsRandom {
   my ($seedA, $seedB, $initRounds) = @_;  
   my $randomNumber;
@@ -107,7 +110,7 @@ sub StarsRandom {
   }
   return $seedA, $seedB;
 }
-        
+
 sub nextRandom {
   my ($seedA, $seedB) = @_; 
   my ($seedApartA, $seedApartB);
@@ -207,10 +210,10 @@ sub getFileHeaderBlock {
   $fGameOver = substr($dts, 4,1);  # Probably 4
   # Shareware
   $fShareware = substr($dts, 3, 1);
-  if ($debug) { print "binSeed:$binSeed,Shareware:$fShareware,Player:$Player,Turn:$turn,GameID:$lidGame\n"; }
+  &PLogOut(400,"binSeed:$binSeed,Shareware:$fShareware,Player:$Player,Turn:$turn,GameID:$lidGame", $LogFile);
   return $binSeed, $fShareware, $Player, $turn, $lidGame;
 }
-    
+
 sub initDecryption {
   # Need the values from the FileHeaderBlock to seed the encryption
   my ($binSeed, $fShareware, $Player, $turn, $lidGame) = @_;
@@ -245,7 +248,7 @@ sub initDecryption {
 	($seedA, $seedB) = &StarsRandom($primes[$index1], $primes[$index2], $rounds);
   return  $seedA, $seedB;
 }
-    
+
 sub decryptBytes {
   my ($byteArray, $seedA, $seedB) = @_;
   my @byteArray = @{ $byteArray }; 
@@ -257,7 +260,7 @@ sub decryptBytes {
   ($byteArray, $padding) = &addPadding (\@byteArray);
   @byteArray = @ {$byteArray };
   my $paddedSize = $size + $padding;
-  # Now decrypt, processing 4 bytes at a time
+ # Now decrypt, processing 4 bytes at a time
   @decryptedBytes = ();
   for (my $i = 0; $i <  $paddedSize; $i+=4) {
     # Swap bytes using indexes in this order:  4 3 2 1
@@ -322,8 +325,8 @@ sub encryptBytes {
   # Strip off any padding
   @encryptedBytes = &stripPadding(\@encryptedBytes, $padding);
   return \@encryptedBytes, $seedX, $seedY;
-}   
-      
+} 
+  
 sub parseBlock {
   # This returns the 3 relevant parts of a block: typeId, size, raw block data
   my ($fileBytes, $offset) = @_;
@@ -379,8 +382,9 @@ sub decryptBlock {
     ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
     @data = @{ $data }; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-    if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-    if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
+    &PLogOut(400, "BLOCK typeId: $typeId, Offset: $offset, Size: $size", $LogFile);
+    my $BlockRaw = "BLOCK RAW: Size " . @block . ":\n" . join ("", @block);
+    &PLogOut(400, $BlockRaw, $LogFile);
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) {
       # We always have this data before getting to block 6, because block 8 is first
@@ -393,16 +397,16 @@ sub decryptBlock {
      } elsif ($typeId == 7) {
       # Note that planet's data requires something extra to decrypt. 
       # Fortunately block 7 isn't in my test files
-      print "BLOCK 7 found. ERROR!\n"; die;
+      &PLogOut(0, "BLOCK 7 found. ERROR!", $ErrorLog); die;
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
-      if ($debug) { print "\nDATA DECRYPTED:\n" . join (" ", @decryptedData), "\n"; }
+      &PLogOut(400, "DATA DECRYPTED:" . join (" ", @decryptedData), $LogFile);
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
         if (($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) {
-        print "Password replaced!\n";
+        &PLogOut(200,"Password replaced for M $GameFile, $Player", $LogFile);
           # Replace the password with blank
           $decryptedData[12] = 0;
           $decryptedData[13] = 0;
@@ -410,12 +414,12 @@ sub decryptBlock {
           $decryptedData[15] = 0;  
         } else { 
           # In .HST some Player blocks could be password protected, and some not 
-          unless (uc($ext) eq '.HST' ) { die "This file isn't password-protected!\n"; }
+          print "This file isn't password-protected!\n"; return 0;
         }
       }
       if ($typeId == 36) { # .x file Change Password Block
         if (($decryptedData[0]  != 0) | ($decryptedData[1] != 0) | ($decryptedData[2] != 0) | ($decryptedData[3] != 0)) {
-          print "Password replaced!\n";
+        &PLogOut(200,"Password replaced for X $GameFile, $Player", $LogFile);
           # Replace the password with blank
           $decryptedData[0] = 0;
           $decryptedData[1] = 0;
@@ -427,7 +431,7 @@ sub decryptBlock {
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
       @encryptedBlock = @ { $encryptedBlock };
-      if ($debug) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
+      &PLogOut(400, "BLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), $LogFile); 
       push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
@@ -472,5 +476,27 @@ sub stripPadding {
     }
   return @byteArray;
 }
-#################################
+
+sub PLogOut {
+	my($Logging, $PrintString, $LogFile) = (@_);
+  # Get Date information to set up logs to roll over weekly
+  my $CurrentEpoch = time();
+	my ($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $IsDST) = localtime($CurrentEpoch); 
+	my $Month = $WrongMonth + 1; 
+	my $Year = $WrongYear + 1900;
+  if ($DayofMonth <=7) { $WeekofMonth = 1;}
+	elsif ($DayofMonth >7 && $DayofMonth <=14) { $WeekofMonth = 2;}
+	elsif ($DayofMonth >14 && $DayofMonth <=21) { $WeekofMonth = 3;}
+	elsif ($DayofMonth >22 && $DayofMonth <=28) { $WeekofMonth = 4;}
+	elsif ($DayofMonth >28 && $DayofMonth <=31) { $WeekofMonth = 5;}
+
+  my $LogFileDate = $LogFile . '.' . $Year . '.' . $Month . '.' . $WeekofMonth; 
+	if ($Logging <= $logging) { 
+#		print $PrintString . "\n";
+		$PrintString = localtime(time()) . " : " . $Logging . " : " . $PrintString;
+		open (LOGFILE, ">>$LogFileDate");
+		print LOGFILE "$PrintString\n\n";
+		close LOGFILE;
+	}
+}
 

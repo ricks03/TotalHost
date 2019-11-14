@@ -331,8 +331,7 @@ sub Fix_Version {
 
 sub SLogOut {
 	my($Logging, $PrintString, $LogFile) = (@_);
-  
-    # Get Date information to set up logs to roll over weekly
+  # Get Date information to set up logs to roll over weekly
   my $CurrentEpoch = time();
 	my ($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $IsDST) = localtime($CurrentEpoch); 
 	my $Month = $WrongMonth + 1; 
