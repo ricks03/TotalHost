@@ -7,8 +7,9 @@ TotalHost, much like AutoHost, is a web-based interface for game and turn-manage
 but adds a nubmer of features such as: 
 - Web-based game creation
 - More options for host, player and game management
-- A Player-pause system, permitting ergulation of player pauses, much like timeouts in sports. 
+- A Player-pause system, permitting regulation of player pauses, much like timeouts in sports. 
 - The ability to download the game history (to better recreate the .H file, view in retrospect, and/or recover from system failure).
+- The ability to reset a dropped player's password.
 
 For simplicity, the entire implementation is on a Windows VM running Apache, and ODBC calls to an Access database. 
 The entire implementation is in Perl.
@@ -19,8 +20,7 @@ closed-source,  primarily due to trying to protect the encryption model  and pre
 This in turn has stifled development of tools and utilities.  Towards that end, I'm open-sourcing TotalHost, warts and all.
 
 TBD:
-While the core code already exists as standalone modules, integrating player password resets (for easy player-replacement) 
-and movie creation into the web interface.
+While the core code already exists as standalone modules, I'd like to integrate movie creation into the web interface.
 
 If I ever get really motivated, I'll separate the code base into the web front end running on a Linux box with MariaDB, 
-and a backend running Wnidows (to run the Stars! exe).
+and a backend running Windows (to run the Stars! exe).
