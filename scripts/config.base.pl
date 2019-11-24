@@ -107,3 +107,27 @@ $width_news = 300;
 # Add all the Host and game related buttons
 $host_style = qq|style="color:red;width:120px;height:24;"|;
 $user_style = qq|style="width:120px;height:24;"|;
+
+# Block variables
+#$hexDigits      = "0123456789ABCDEF";
+my $encodesOneByte = " aehilnorst";
+my $encodesB       = "ABCDEFGHIJKLMNOP";
+my $encodesC       = "QRSTUVWXYZ012345";
+my $encodesD       = "6789bcdfgjkmpquv";
+my $encodesE       = "wxyz+-,!.?:;\'*%\$";
+
+my (@singularRaceName, @pluralRaceName);
+$singularRaceName[0] = "Everyone";
+
+#Stars random number generator class used for encryption
+my @primes = ( 
+                3, 5, 7, 11, 13, 17, 19, 23, 
+                29, 31, 37, 41, 43, 47, 53, 59,
+                61, 67, 71, 73, 79, 83, 89, 97,
+                101, 103, 107, 109, 113, 127, 131, 137,
+                139, 149, 151, 157, 163, 167, 173, 179,
+                181, 191, 193, 197, 199, 211, 223, 227,
+                229, 233, 239, 241, 251, 257, 263, 279,
+                271, 277, 281, 283, 293, 307, 311, 313 
+        );
+

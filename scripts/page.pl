@@ -27,7 +27,7 @@ CGI::Session->name('TotalHost');
 $CGI::POST_MAX=1024 * 25;  # max 25K posts
 use Win32::ODBC;
 use TotalHost;
-use StarStat;
+use StarStat; 
 do 'config.pl';
 
 my %in;
@@ -1454,6 +1454,7 @@ sub list_races {
 
 sub show_race {
 	my ($sql) = @_;
+  use StarsBlock;
 	my %RaceValues;
 	$db = &DB_Open($dsn);
 	my $c=0; 
@@ -1473,6 +1474,12 @@ sub show_race {
 <tr><td>Race File Name:</td><td><A HREF="/scripts/download.pl?file=$RaceValues{'RaceFile'}">$RaceValues{'RaceFile'}</A></td></tr>
 <tr><td>Stars! Version:</td><td>$ver</td></tr>
 </table>
+eof
+
+my $racefile =  $racepath . '\\' . $RaceValues{'RaceFile'};
+&StarsRace($racefile);
+
+print <<eof;
 <form name="login" method=$FormMethod action="$Location_Scripts/page.pl">
 <input type="hidden" name="lp" value="profile_race">
 <input type="hidden" name="cp" value="delete_race">
@@ -2983,7 +2990,7 @@ sub process_forcegen {
 
 sub process_remove_password {
   my ($GameFile, $PlayerID) = @_;
-  use StarsPWD;  
+  use StarsBlock;  
   use File::Copy;
   # Get the relevant Game Data
  	my $sql = qq|SELECT * FROM Games WHERE HostName = \'$userlogin\' AND GameFile = \'$GameFile\';|;
