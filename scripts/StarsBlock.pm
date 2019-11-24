@@ -59,7 +59,7 @@ our @EXPORT = qw(
   showPRT, showLRT
   showFactoriesCost1LessGerm
   showMTItems
-  decodeBytesforStarsString
+  decodeBytesForStarsString
   StarsClean
   getPlayers resetPlayers
   resetRace showRace
