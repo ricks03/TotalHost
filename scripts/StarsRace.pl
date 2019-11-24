@@ -1,10 +1,10 @@
 # StarsRace.pl
-# Not functional/Under development
 #
 # Rick Steeves
 # starsah@corwyn.net
 # Version History
 # 180815  Version 1.0
+# 191123 Version 1.1 mostly working to display all race info
 #
 #     Copyright (C) 2019 Rick Steeves
 # 
@@ -25,20 +25,29 @@
 
 #
 # Gets Race attributes
-# Example Usage: decryptor.pl c:\stars\game.m1
+# Example Usage: StarsRace.pl c:\stars\game.m1
 #
 # Gets the values from a Race File
-# Note that the rece file has a checksum value, so writing out changes will 
+# Note that the race file has a checksum value, so writing out changes will 
 # fail.
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
-# Not currently functional
 
 use strict;
 use warnings;   
 use File::Basename;  # Used to get filename components
 my $debug = 1;
+
+#$hexDigits      = "0123456789ABCDEF";
+my $encodesOneByte = " aehilnorst";
+my $encodesB       = "ABCDEFGHIJKLMNOP";
+my $encodesC       = "QRSTUVWXYZ012345";
+my $encodesD       = "6789bcdfgjkmpquv";
+my $encodesE       = "wxyz+-,!.?:;\'*%\$";
+
+my @singularRaceName;
+my @pluralRaceName;
 
 #Stars random number generator class used for encryption
 my @primes = ( 
@@ -56,7 +65,7 @@ my $filename = $ARGV[0]; # input file
 my $outfilename = $ARGV[1];
 if (!($filename)) { 
   print "\n\nUsage: StarsRace.pl <input file> <output file (optional)>\n\n";
-  print "Please enter the input file (.R). Example: \n";
+  print "Please enter the input file (.R|.M|.HST). Example: \n";
   print "  StarsRace.pl c:\\games\\test.r1\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
@@ -195,7 +204,7 @@ sub getFileHeaderBlock {
   $fGameOver = substr($dts, 4,1);  # Probably 4
   # Shareware
   $fShareware = substr($dts, 3, 1);
-  if ($debug) { print "binSeed:$binSeed,Shareware:$fShareware,Player:$Player,Turn:$turn,GameID:$lidGame\n"; }
+  if ($debug>2) { print "binSeed:$binSeed,Shareware:$fShareware,Player:$Player,Turn:$turn,GameID:$lidGame\n"; }
   return $binSeed, $fShareware, $Player, $turn, $lidGame;
 }
     
@@ -367,8 +376,8 @@ sub decryptBlock {
     ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
     @data = @{ $data }; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-#     if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-#     if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
+    if ($debug > 1) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+    if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) {
       # We always have this data before getting to block 6, because block 8 is first
@@ -381,170 +390,135 @@ sub decryptBlock {
      } elsif ($typeId == 7) {
       # Note that planet's data requires something extra to decrypt. 
       # Fortunately block 7 isn't in my test files
-      print "BLOCK 7 found. ERROR!\n"; die;
+      die "BLOCK 7 found. ERROR!\n";
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
-#      if ($debug) { print "\nDATA DECRYPTED:\n" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
-    if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-    if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
-        if ($debug) { print "\nPLAYER BLOCK:\n" . join (" ", @decryptedData), "\n"; }
-        my @PRT = qw(HE SS WM CA IS SD PP IT AR JOAT );
-        my $playerNumber = $decryptedData[0] & 0xFF; print "Player Number: $playerNumber\n";
+        if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+        if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
+        my $playerId = $decryptedData[0] & 0xFF; print "Player Id: $playerId\n";
         my $shipDesigns = $decryptedData[1] & 0xFF;  print " Ship Designs: $shipDesigns\n";
         my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); print " Planets: $planets\n";
         my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);  print " Fleets: $fleets\n";
         my $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); print " Starbase Designs: $starbaseDesigns\n";
-	      my $logo = (($decryptedData[6] & 0xFF) >> 3); print " Logo: $logo\n";
-        my $fullDataFlag = ($decryptedData[6] & 0x04); print " fullDataFlag: $fullDataFlag\n";
-        my $index = 8;
-        if ($fullDataFlag) {
-        	# $fullDataBytes = new byte[0x68]; ASCII
-          my $fullDataBytes = $decryptedData[8] + $decryptedData[9]; 
-          my $index = 0x70;
-          print "index: $index\n";
-          my $playerRelationsLength = $decryptedData[$index] & 0xFF; print "Player Relations Length: $playerRelationsLength\n";
-          my $playerRelations = $decryptedData[11]; print "PlayerRelations: $playerRelations\n";
-          # arraycopy(Object source_arr, int sourcePos,  Object dest_arr, int destPos, int len)
-          # System.arraycopy(decryptedData, index + 1, playerRelations, 0, playerRelationsLength);
-          # Skip ahead that many places
-          $index = $index + 1 + $playerRelationsLength;
+        my $logo = (($decryptedData[6] & 0xFF) >> 3); print " Logo: $logo\n";
+        my $fullDataFlag = ($decryptedData[6] & 0x04); print "fullDataFlag: $fullDataFlag\n";
+        # We figure out names here, because they're here at 8 when not fullDataFlag 
+        my $index = 8; 
+        my $playerRelations;
+        if ($fullDataFlag) { 
+          # The player names are at the end and are not a fixed length,
+          # The number of player relations bytes change where the names start   
+          # That also changes whether it's a fullData set or not. 
+          $index = 112;
+          my $playerRelationsLength = $decryptedData[112]; 
+          $index = $index + $playerRelationsLength + 1;
+        }  
+        my $singularNameLength = $decryptedData[$index] & 0xFF;
+        my $singularMessageEnd = $index + $singularNameLength;
+        my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
+        $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+        $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
+        print "playerName $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
+        
+        if ($fullDataFlag) { 
+          my $homeWorld = &read16(\@decryptedData, 8);
+          print "Homeworld: $homeWorld\n";
+          # BUG: the references say this is two bytes, but I don't think it is.
+          # That means I don't know what byte 11 is tho. 
+          #my $rank = &read16(\@decryptedData, 10);
+          my $rank = $decryptedData[10];
+          print "Player Rank: $rank\n";
+          # Bytes 12..15 are the password;
+          my $centreGravity = $decryptedData[16]; # (base 65), 255 if immune 
+          my $centreTemperature = $decryptedData[17]; #(base 35), 255 if immune  
+          my $centreRadiation = $decryptedData[18]; # , 255 if immune 
+          my $lowGravity      = $decryptedData[19];
+          my $lowTemperature  = $decryptedData[20];
+          my $lowRadiation    = $decryptedData[21];
+          my $highGravity     = $decryptedData[22];
+          my $highTemperature = $decryptedData[23];
+          my $highRadiation   = $decryptedData[24];
+          my $growthRate      = $decryptedData[25];
+          print "Grav: " . &showHab($lowGravity,$centreGravity,$highGravity) . ", Temp: " . &showHab($lowTemperature,$centreTemperature,$highTemperature) . ", Rad: " . &showHab($lowRadiation,$centreRadiation,$highRadiation) . ", Growth: $growthRate\%\n"; 
+                    # Worth noting all of these are +18 when in the fullDataFlag
+          my $energyLevel           = $decryptedData[26];
+          my $weaponsLevel          = $decryptedData[27];
+          my $propulsionLevel       = $decryptedData[28];
+          my $constructionLevel     = $decryptedData[29];
+          my $electronicsLevel      = $decryptedData[30];
+          my $biotechLevel          = $decryptedData[31];
+          print "Tech Level: $energyLevel, $weaponsLevel, $propulsionLevel, $constructionLevel, $electronicsLevel, $biotechLevel\n";    
+          my $energyLevelPointsSincePrevLevel         = $decryptedData[32]; # (4 bytes) 
+          my $weaponsLevelPointsSincePrevLevel        = $decryptedData[36]; # (4 bytes) 
+          my $propulsionLevelPointsSincePrevLevel     = $decryptedData[42]; # (4 bytes) 
+          my $constructionLevelPointsSincePrevLevel   = $decryptedData[46]; # (4 bytes) 
+          my $electronicsLevelPointsSincePrevLevel     = $decryptedData[50]; # (4 bytes)
+          my $biologyLevelPointsSincePrevLevel         = $decryptedData[54]; # (4 bytes)
+          print "Tech Points: $energyLevelPointsSincePrevLevel, $weaponsLevelPointsSincePrevLevel, $propulsionLevelPointsSincePrevLevel, $constructionLevelPointsSincePrevLevel, $electronicsLevelPointsSincePrevLevel, $biologyLevelPointsSincePrevLevel \n";
+          my $researchPercentage    = $decryptedData[56];
+          print "Research Percentage: $researchPercentage\n";
+          my $currentResourcePriority = $decryptedData[57] >> 4; # (right 4 bits) [same, energy ..., lowest]
+          print "Research Priority: " . &showResearchPriority($currentResourcePriority) . "\n";
+          my $nextResourcePriority  = $decryptedData[57] & 0x04; # (left 4 bits)
+          print "Next Priority: " . &showResearchPriority($nextResourcePriority) . "\n";
+          my $researchPointsPreviousYear = $decryptedData[58]; # (4 bytes)
+          print "researchPointsPreviousYear: $researchPointsPreviousYear\n";
+          my $resourcePerColonist = $decryptedData[62]; # ? 55? 
+          my $producePerFactory = $decryptedData[63];
+          my $toBuildFactory = $decryptedData[64];
+          my $operateFactory = $decryptedData[65];
+          my $producePerMine = $decryptedData[66];
+          my $toBuildMine = $decryptedData[67];
+          my $operateMine = $decryptedData[68];
+          print "Productivity: Colonist: $resourcePerColonist, Factory: $producePerFactory, $toBuildFactory, $operateFactory, Mine: $producePerMine, $toBuildMine, $operateMine\n";
+          my $spendLeftoverPoints = $decryptedData[69]; # ?  (3:factories)  
+          my $researchEnergy        = $decryptedData[70]; # (0:+75%, 1: 0%, 2:-50%) 
+          my $researchWeapons       = $decryptedData[71]; # (0:+75%, 1: 0%, 2:-50%)
+          my $researchProp          = $decryptedData[72]; # (0:+75%, 1: 0%, 2:-50%)
+          my $researchConstruction  = $decryptedData[73]; # (0:+75%, 1: 0%, 2:-50%)
+          my $researchElectronics   = $decryptedData[74]; # (0:+75%, 1: 0%, 2:-50%)
+          my $researchBiotech       = $decryptedData[75]; # (0:+75%, 1: 0%, 2:-50%)
+          print "Research Cost:  " . &showResearchCost($researchEnergy) . ", " . &showResearchCost($researchWeapons) . ", " . &showResearchCost($researchProp). ", " . &showResearchCost($researchConstruction) . ", " . &showResearchCost($researchElectronics) . ", " . &showResearchCost($researchBiotech) . "\n";
+          my $PRT = $decryptedData[76]; # HE SS WM CA IS SD PP IT AR JOAT  
+          print "PRT: " . &showPRT($PRT) . "\n";
+          #$decryptedData[77]; unknown , always 0
+          my $LRT =  $decryptedData[78]  + ($decryptedData[79] * 0x100); 
+          my @LRTs = &showLRT($LRT);
+          print "LRTs: " . join(',',@LRTs) . "\n";
+          my $checkBoxes = $decryptedData[81]; 
+            #<Unknown bits="5"/> 
+            my $expensiveTechStartsAt3 = &bitTest($checkBoxes, 5);
+            # Unknown bit 6
+            my $factoriesCost1LessGerm = &bitTest($checkBoxes, 7);
+          print "Expensive Tech Starts at 3: " . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n";
+          print "FactoriesCost1LessGerm: " . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
+          my $MTItems =  $decryptedData[82] + ($decryptedData[83] * 0x100);
+          my @MTItems = &showMTItems($MTItems);
+          print "MT Items: " . join(',',@MTItems) . "\n";
+          #$decryptedData[82-109]; unknown, but in pairs
+          # Interestingly, if the player relations have never been set, the
+          # player relations length will be 0, with no bytes after it
+          # For the player relations values
+          # So the result here CAN be 0.
+          my $playerRelationsLength = $decryptedData[112];
+          if ( $playerRelationsLength ) { 
+            for (my $i = 1; $i <= $playerRelationsLength; $i++) {
+              my $id = $i-1;
+              if ($id == $playerId) { next; } # Skip for self
+              print "Player " . $id . ": " . &showPlayerRelations($decryptedData[$i+112]) . "\n";
+            } 
+          } else { print "Player Relations never set\n"; }
         }
-        print "index: $index\n";
-        my $namesStart = $index;
-        $index++; $index++;
-        $index = 16;
-        my $singularNameLength = $decryptedData[$index] & 0xFF;  print "singularNameLength: $singularNameLength\n";
-  	    $index += $singularNameLength;
-        $index++;
-  	    my $pluralNameLength = $decryptedData[$index] & 0xFF;  print "pluralNameLength: $pluralNameLength\n";
-  	    $index += $pluralNameLength;
-        
-        my $f1 = $decryptedData[55]; print "f1: $f1\n";
-        my $f2 = $decryptedData[56]; print "f2: $f2\n";
-        my $f3 = $decryptedData[57]; print "f3: $f3\n";
-        my $m1 = $decryptedData[58]; print "m1: $m1\n";
-        my $m2 = $decryptedData[59]; print "m2: $m2\n";
-        my $m3 = $decryptedData[60]; print "m3: $m3\n";
-
-        
-        
-        
-# # Unpack the FileHeaderBlock data
-# # 2 bytes
-# $bytes = $fileBytes[0] . $fileBytes[1];
-# $Header = unpack ("S", $bytes);
-# # 4 bytes
-# $bytes = $fileBytes[2] . $fileBytes[3] . $fileBytes[4] . $fileBytes[5];
-# $Magic = unpack ("A4", $bytes);
-# # 4 bytes
-# $bytes =  $fileBytes[6] . $fileBytes[7] . $fileBytes[8] . $fileBytes[9];
-# $lidGame = unpack ("L",  $bytes);
-# # 2 bytes
-# $bytes = $fileBytes[10] . $fileBytes[11];
-# $ver = unpack ("S", $bytes);
-# # 2 bytes
-# $bytes = $fileBytes[12] . $fileBytes[13];
-# $turn = unpack ("S", $bytes); # $turn + 2400 = turn
-# # 2 bytes
-# $bytes = $fileBytes[14] . $fileBytes[15];
-# $iPlayer = unpack ("s", $bytes);
-# # 2 bytes
-# $bytes = $fileBytes[16] . $fileBytes[17];
-# $dts = unpack ("S", $bytes);
-# # Convert the data to its usable form
-# $binHeader = dec2bin($Header);
-# $blocktype = (substr($binHeader, 0,6));
-# $blocktype = bin2dec($blocktype);
-# $blocksize = (substr($binHeader, 7,2)) . (substr($binHeader, 8,8));
-# $blocksize = bin2dec($blocksize);
-# # Game Version
-# $ver = dec2bin($ver);
-# $verInc = substr($ver,11,5);
-# $verMinor = substr($ver,4,7);
-# $verMajor = substr($ver,0,4);
-# $verMajor = bin2dec($verMajor);
-# $verMinor = bin2dec($verMinor);
-# $verInc = bin2dec($verInc);
-# $ver = $verMajor . "." . $verMinor . "." . $verInc;
-# $verClean = $verMajor . "." . $verMinor;
-# # Player Number
-# $iPlayer = &dec2bin($iPlayer);
-# $Player = substr($iPlayer,11,5);
-# $Player = bin2dec($Player); # note from 0-15
-# # Encryption Seed
-# $binSeed =  substr($iPlayer,0,11);
-# $Seed = bin2dec($binSeed);
-# # dts - Convert DTS to binary so we can pull the values back out
-# $dts = dec2bin($dts);
-# #Break DTS into its binary components
-# $dt = substr($dts, 8,15);
-# $dt = bin2dec($dt);
-# # File Type
-# # These are 1 character, so there's no need to convert them back to decimal
-# # Turn state (.x file only)
-# $fDone = substr($dts, 7,1);
-# # Host instance is using this file (dtHost, dtTurn).
-# $fInUse = substr($dts, 6, 1);
-# # Are multiple turns included (.m only)
-# $fMulti = substr($dts, 5,1);
-# # Is the Game Over
-# $fGameOver = substr($dts, 4,1);  # Probably 4
-# # Shareware
-# $fShareware = substr($dts, 3, 1);
-
-
-
-        
-#         if (($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) {
-#         print "Password replaced!\n";
-#           # Replace the password with blank
-#           $decryptedData[12] = 0;
-#           $decryptedData[13] = 0;
-#           $decryptedData[14] = 0;
-#           $decryptedData[15] = 0;  
-#         } else { 
-#           # In .HST some Player blocks could be password protected, and some not 
-#           unless (uc($ext) eq '.HST' ) { die "This file isn't password-protected!\n"; }
-#         }
-      }
-      if ($typeId == 36) { # .x file Change Password Block
-#         if (($decryptedData[0]  != 0) | ($decryptedData[1] != 0) | ($decryptedData[2] != 0) | ($decryptedData[3] != 0)) {
-#           print "Password replaced!\n";
-#           # Replace the password with blank
-#           $decryptedData[0] = 0;
-#           $decryptedData[1] = 0;
-#           $decryptedData[2] = 0;
-#           $decryptedData[3] = 0; 
-#         } 
       }
       # END OF MAGIC
-      #reencrypt the data for output
-#       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
-#       @encryptedBlock = @ { $encryptedBlock };
-#       if ($debug) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
-#       push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
   }
   return \@outBytes;
-}
-
-sub encryptBlock {
-  my ($block, $decryptedData, $padding, $seedX, $seedY) = @_; 
-  my @block = @{$block};
-  my @header = ($block[0], $block[1]); # Get the original header from the block
-  my @decryptedData = @{$decryptedData};
-  my @encryptedData;
-  my $encryptedData;
-  # reencrypt the data
-  ($encryptedData, $seedX, $seedY) = &encryptBytes(\@decryptedData, $seedX, $seedY, $padding); 
-  @encryptedData = @{ $encryptedData };
-  unshift (@encryptedData, @header); # Prefix the encrypted data with the header
-  return \@encryptedData, $seedX, $seedY;
 }
 
 sub addPadding {
@@ -570,5 +544,170 @@ sub stripPadding {
     }
   return @byteArray;
 }
-#################################
 
+sub decodeBytesForStarsString {
+  my (@res) = @_;
+  my $hexChars='';
+  my ($b, $b1,$b2, $firstChar, $secondChar);
+  my ($ch1, $ch2, $index, $result);
+
+  for (my $i = 1; $i < scalar(@res); $i++) {
+    $b = $res[$i];
+    $b1 = ($b & 0xff) >> 4; # the left nibble of the byte
+    $b2 = ($b & 0xff) % 16; # the right nibble of the byte
+    $firstChar = &nibbleToChar($b1);
+    $secondChar = &nibbleToChar($b2);
+    $hexChars .= $firstChar;
+    $hexChars .= $secondChar;
+  }
+  for (my $t = 0; $t < length($hexChars); $t++) {
+  	$ch1 = substr($hexChars,$t,1);
+  	if ($ch1 eq 'F'){
+      # do nothing?
+      # I think this happens when we skip past the end of the array.
+  	}
+  	elsif ($ch1 eq 'E'){
+  		$ch2 = substr($hexChars,$t+1,1);
+  		$index = &parseInt($ch2,16);
+  		$result .= substr($encodesE, $index, 1);
+  		$t++;
+  	}
+  	elsif ($ch1 eq 'D'){
+  		$ch2 = substr($hexChars,$t+1,1);
+  		$index = &parseInt($ch2,16);
+  		$result .= substr($encodesD, $index, 1);
+  		$t++;
+  	}
+  	elsif ($ch1 eq 'C'){
+  		$ch2 = substr($hexChars,$t+1,1);
+  		$index = &parseInt($ch2,16);
+  		$result .= substr($encodesC, $index, 1);
+		$t++;
+  	}
+  	elsif ($ch1 eq 'B'){
+  		$ch2 = substr($hexChars,$t+1,1);
+  		$index = &parseInt($ch2,16);
+  		$result .= substr($encodesB, $index, 1);
+  		$t++;
+  	}
+  	else {
+  		$index = &parseInt($ch1,16);
+  		$result .= substr($encodesOneByte, $index, 1);
+  	}
+  }
+	return $result;
+}
+
+sub parseInt {
+	my ($parse,$base) = @_;
+  return hex($parse);		
+}
+
+sub bitTest {
+  # Returns 0 if the associated bit in a decimal number is zero.
+  # Useful given the number of times data is stored by bit.
+  my ($value, $bit) = @_;
+  return $value & (1 << $bit);
+} 
+
+sub nibbleToChar{
+  my ($b) = @_; # this is sent as a 4-bit nibble, 0 to 15
+	my $i1 = ($b & 0xff) + ord('0'); 
+	my $i2 = ($b & 0xff) + ord('A') - 10;  
+	my $i3 = ($b & 0xff) + ord('a') - 10;
+	if ($i1 >= ord('0') && $i1 <= ord('9')) { return chr($i1);  }
+	if ($i2 >= ord('A') && $i2 <= ord('F')) { return chr($i2);  }
+	if ($i3 >= ord('a') && $i3 <= ord('f')) { return chr($i3); }
+	die "Could not find correct char\n";
+}
+
+sub showHab {
+ my ($low,$center,$high) = @_;
+ if ($center == 255) {return "Immune"; }
+ else { return "$low/$center/$high"; }
+}
+
+sub showResearchCost {
+#(0:+75%, 1: 0%, 2:-50%) 
+   my ($value) = @_;
+   if    ($value eq '2') {     return '-50%';
+   } elsif  ($value eq '1') {  return 'Standard'; 
+   } else {                  return '+75%'; 
+  }
+}
+
+sub showPlayerRelations {
+  # If relations have never been changed, no value will be present.
+  my ($relation) = @_;
+  my @relations = qw ( neutral friend enemy ) ;
+  return $relations[$relation];
+}
+
+sub showResearchPriority {
+  my ($value) = @_;
+  my @nextResearch = qw (Same Energy Weapons Propulsion Construction Electronics Biotech Lowest);
+  if ($nextResearch[$value]) {return $nextResearch[$value]; }
+  else {return "Error: $value\n"; }
+}
+
+sub showPRT {
+  my ($prt) = @_;
+  my @prts = qw (HE SS WM CA IS SD PP IT AR JOAT );
+  return $prts[$prt]; 
+}
+
+sub showLRT {
+  my ($lrts) = @_;
+  my @string = ();
+  if (&bitTest($lrts, 0)) { push @string, 'ImprovedFuelEfficiency';  }
+  if (&bitTest($lrts, 1)) { push @string, 'TotalTerraforming'; }
+  if (&bitTest($lrts, 2)) { push @string, 'AdvancedRemoteMining';  }
+  if (&bitTest($lrts, 3)) { push @string, 'ImprovedStarbases';  }
+  if (&bitTest($lrts, 4)) { push @string, 'GeneralisedResearch';    }
+  if (&bitTest($lrts, 5)) { push @string, 'UltimateRecycling';    }
+  if (&bitTest($lrts, 6)) { push @string, 'MineralAlchemy'; }
+  if (&bitTest($lrts, 7)) { push @string, 'NoRamScoopEngines'; }
+  if (&bitTest($lrts, 8)) { push @string, 'CheapEngines';     }
+  if (&bitTest($lrts, 9)) { push @string, 'OnlyBasicRemoteMining';   }
+  if (&bitTest($lrts, 10)) { push @string, 'NoAdvancedScanners';  }
+  if (&bitTest($lrts, 11)) { push @string, 'LowStartingPopulation';     }
+  if (&bitTest($lrts, 12)) { push @string, 'BleedingedgeTechnology';     }
+  if (&bitTest($lrts, 13)) { push @string, 'RegeneratingShields';     }
+  if (&bitTest($lrts, 14)) { push @string, 'Unused';     }
+  if (&bitTest($lrts, 15)) { push @string, 'Unused';     }
+  if (@string) { return join (',', @string);  }
+  else { $string[0] = "None"; return @string; }
+}
+
+sub showExpensiveTechStartsAt3 {
+ my ($value) = @_;
+ if ($value == 32) {return "Checked"; }
+ else {return "Not Checked"; }
+}
+
+sub showFactoriesCost1LessGerm {
+ my ($value) = @_;
+ if ($value == 128) {return "Checked"; }
+ else {return "Not Checked"; }
+}
+
+sub showMTItems {
+  my ($itemBits) = @_;
+  my @string = ();
+   if (&bitTest($itemBits, 0)) { push @string, 'Multi Cargo Pod';    }
+   if (&bitTest($itemBits, 1)) { push @string, 'Multi Function Pod'; }
+   if (&bitTest($itemBits, 2)) { push @string, 'Langston Shield';    }
+   if (&bitTest($itemBits, 3)) { push @string, 'Mega Poly Shell';    }
+   if (&bitTest($itemBits, 4)) { push @string, 'Alien Miner';        }
+   if (&bitTest($itemBits, 5)) { push @string, 'Hush-a-Boom';        }
+   if (&bitTest($itemBits, 6)) { push @string, 'Anti Matter Torpedo'; }
+   if (&bitTest($itemBits, 7)) { push @string, 'Multi Contained Munition'; }
+  if (&bitTest($itemBits, 0)) { push @string, 'Mini Morph';         }
+  if (&bitTest($itemBits, 1)) { push @string, 'Enigma Pulsar';      }
+  if (&bitTest($itemBits, 2)) { push @string, 'Genesis Device';    }
+  if (&bitTest($itemBits, 3)) { push @string, 'Jump Gate';         }
+  #     Unused bits="4"/>
+  if (@string) { return @string; }
+  else { $string[0] = "None"; return @string }
+}
+ 

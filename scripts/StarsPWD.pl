@@ -54,7 +54,7 @@ my @primes = (
         );
         
 my $filename = $ARGV[0]; # input file
-my $outfilename = $ARGV[1];
+my $outFileName = $ARGV[1];
 if (!($filename)) { 
   print "\n\nUsage: StarsPWD.pl <input file> <output file (optional)>\n\n";
   print "Please enter the input file (.M or .HST). Example: \n";
@@ -100,7 +100,7 @@ my @outBytes = @{$outBytes};
 
 # Create the output file name
 my $newFile; 
-if ($outfilename) {   $newFile = $outfilename;  } 
+if ($outFileName) {   $newFile = $outFileName;  } 
 else { $newFile = $dir . '\\' . $basefile . '.clean'; }
 if ($debug) { $newFile = "f:\\clean_" . $basefile;  } # Just for me
 
@@ -112,7 +112,7 @@ for (my $i = 0; $i < @outBytes; $i++) {
 close (OutFile);
 
 print "File output: $newFile\n";
-unless ($ARGV[1]) { print "Don't forget to rename the file\n"; }
+unless ($ARGV[1]) { print "Don't forget to rename $newFile\n"; }
 
 ################################################################
 sub StarsRandom {
@@ -488,6 +488,5 @@ sub stripPadding {
       pop @byteArray;
     }
   return @byteArray;
-}
+}                      
 #################################
-
