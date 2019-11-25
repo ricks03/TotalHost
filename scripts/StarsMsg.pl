@@ -94,7 +94,7 @@ if (!($inName)) {
 
 #Validate directory or file 
 unless (-e $inName ) { 
-  print "Requested object $inName does not exist!\n"; exit; 
+  print "Requested file:> $inName <: does not exist!\n"; exit; 
 }
 
 my ($basefile, $dir, $ext);
@@ -117,7 +117,6 @@ close(StarFile);
 my ($outBytes) = &decryptBlock(@fileBytes);
 my @outBytes = @{$outBytes};
   
-
 ################################################################
 sub StarsRandom {
   my ($seedA, $seedB, $initRounds) = @_;  
@@ -512,10 +511,6 @@ sub processData {
     my $index = 8;
     if ($fullDataFlag) { 
       # The player names are at the end which is not a fixed length
-#       my $playerRelationsLength = $decryptedData[$index] & 0xFF; 
-#       # BUG: I found a better way to do this in StarsRace.pl
-#       my $playerRelations = ($playerRelationsLength / 2) *8; # string represetation of a byte array;
-#       $index = $index + 1 + $playerRelations;
       $index = 112;
       my $playerRelationsLength = $decryptedData[112]; 
       $index = $index + $playerRelationsLength + 1;
@@ -537,7 +532,8 @@ sub processData {
     my $message = &decodeBytesForStarsString(@decryptedData[11..$messageLength]);
     if ($debug) { print "blockId: $blockId\n"; }
     if ($debug) { print "\nDATA DECRYPTED:" . join ( " ", @decryptedData ), "\n"; }
-    print "From: $senderId, To: $recipientId, \"$message\"\n"; 
+#    print "From: $senderId, To: $recipientId, \"$message\"\n"; 
+    print "From: $singularRaceName[$senderId], To: $singularRaceName[$recipientId-1], \"$message\"\n"; 
     if ($debug) { print "b0: $byte0, b2: $byte2, b8: $byte8\n"; }
   }
   return @decryptedData;
