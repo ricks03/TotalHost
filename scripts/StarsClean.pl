@@ -151,7 +151,7 @@ if (!($inName)) {
 
 #Validate directory or file 
 unless (-d $inName || -e $inName ) { 
-  print "Requested object $inName does not exist!\n"; exit; 
+  print "Requested object: $inName does not exist!\n"; exit; 
 }
 
 # Get all the file names in the directory, or just the one name
@@ -1005,6 +1005,7 @@ sub processData {
 	      $canSee = &read16(\@decryptedData, 8);
 	      $beenThrough = &read16(\@decryptedData, 10);
 	      $targetId = &read16(\@decryptedData, 12) % 4096;   
+        # BUG: One of these fields is likely wormhole AGE.
         $unk4 =  &read16(\@decryptedData, 12); #possibly random amount added to last stability value ?
         $unk4 = &dec2bin ($unk4);                        
         $unk5 =  &read16(\@decryptedData, 14);  # Always zeros? 

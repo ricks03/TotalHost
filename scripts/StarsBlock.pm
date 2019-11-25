@@ -356,28 +356,23 @@ sub encryptBytes {
   return \@encryptedBytes, $seedX, $seedY;
 } 
   
+# sub parseBlock {
+#   # This returns the 3 relevant parts of a block: typeId, size, raw block data
+#   my ($fileBytes, $offset) = @_;
+#   my @fileBytes = @{ $fileBytes };
+#   my @blockdata;
+#   my ($blocktype, $blocksize) = &read16(\@fileBytes, $offset);
+#   for (my $i = $offset+2; $i < $offset+$blocksize+2; $i++) {   #skipping over the TypeID
+#     push @blockdata, $fileBytes[$i];
+#   }
+#   return ($blocktype, $blocksize, \@blockdata);
+# } 
+
 sub parseBlock {
-  # This returns the 3 relevant parts of a block: typeId, size, raw block data
+  # This returns the 3 relevant parts of a block: blockId, size, raw block data
   my ($fileBytes, $offset) = @_;
   my @fileBytes = @{ $fileBytes };
   my @blockdata;
-  my ($blocktype, $blocksize) = &read16(\@fileBytes, $offset);
-  for (my $i = $offset+2; $i < $offset+$blocksize+2; $i++) {   #skipping over the TypeID
-    push @blockdata, $fileBytes[$i];
-  }
-  return ($blocktype, $blocksize, \@blockdata);
-} 
-
-sub read8 {
-# Convert unsigned byte to integer.
-  my ($b) = @_;
-	return $b & 0xFF;
-}
-
-sub read16 {
-  # For a given offset, determine the block size and blocktype
-  my ($fileBytes, $offset) = @_; 
-  my @fileBytes = @{ $fileBytes };
   my ($FileValues, @FileValues, $Header);
   my ($binHeader, $blocktype, $blocksize);
   $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
@@ -388,7 +383,42 @@ sub read16 {
   $blocktype = bin2dec($blocktype);
   $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
   $blocksize = bin2dec($blocksize);
-  return ($blocktype, $blocksize);
+  for (my $i = $offset+2; $i < $offset+$blocksize+2; $i++) {   #skipping over the blockId
+    push @blockdata, $fileBytes[$i];
+  }
+  return ($blocktype, $blocksize, \@blockdata);
+}   
+
+sub read8 {
+# Convert unsigned byte to integer.
+  my ($b) = @_;
+	return $b & 0xFF;
+}
+
+#BUG: this was here when I merged all the new functions, which means likely commenting this
+# out breaks any other functions calling it, as they're different. In particular, StarsPWD.
+# sub read16 {
+#   # For a given offset, determine the block size and blocktype
+#   my ($fileBytes, $offset) = @_; 
+#   my @fileBytes = @{ $fileBytes };
+#   my ($FileValues, @FileValues, $Header);
+#   my ($binHeader, $blocktype, $blocksize);
+#   $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+#   @FileValues = unpack("S",$FileValues);
+#   ($Header) =  @FileValues;
+#   $binHeader = dec2bin($Header);
+#   $blocktype = (substr($binHeader, 8,6));
+#   $blocktype = bin2dec($blocktype);
+#   $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
+#   $blocksize = bin2dec($blocksize);
+#   return ($blocktype, $blocksize);
+# }
+
+sub read16 {
+#	 Read a 16 bit little endian integer from a byte array
+  my ($data, $offset) = @_;
+  my @data = @{ $data };
+	return &read8($data[$offset+1]) << 8 | &read8($data[$offset]);
 }
 
 sub read32 {

@@ -62,16 +62,15 @@ my @primes = (
         );
         
 my $filename = $ARGV[0]; # input file
-my $outfilename = $ARGV[1];
 if (!($filename)) { 
-  print "\n\nUsage: StarsRace.pl <input file> <output file (optional)>\n\n";
+  print "\n\nUsage: StarsRace.pl <input file>\n\n";
   print "Please enter the input file (.R|.M|.HST). Example: \n";
   print "  StarsRace.pl c:\\games\\test.r1\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
 }
 # Validate that the file exists
-unless (-e $ARGV[0]) { print "File $filename does not exist!\n"; exit; }
+unless (-e $ARGV[0]) { print "File: $filename does not exist!\n"; exit; }
 
 my ($basefile, $dir, $ext);
 # for c:\stars\mygamename.m1
@@ -321,22 +320,23 @@ sub encryptBytes {
   return \@encryptedBytes, $seedX, $seedY;
 }   
       
+# sub parseBlock {
+#   # This returns the 3 relevant parts of a block: typeId, size, raw block data
+#   my ($fileBytes, $offset) = @_;
+#   my @fileBytes = @{ $fileBytes };
+#   my @blockdata;
+#   my ($blocktype, $blocksize) = &read16(\@fileBytes, $offset);
+#   for (my $i = $offset+2; $i < $offset+$blocksize+2; $i++) {   #skipping over the TypeID
+#     push @blockdata, $fileBytes[$i];
+#   }
+#   return ($blocktype, $blocksize, \@blockdata);
+# } 
+
 sub parseBlock {
-  # This returns the 3 relevant parts of a block: typeId, size, raw block data
+  # This returns the 3 relevant parts of a block: blockId, size, raw block data
   my ($fileBytes, $offset) = @_;
   my @fileBytes = @{ $fileBytes };
   my @blockdata;
-  my ($blocktype, $blocksize) = &read16(\@fileBytes, $offset);
-  for (my $i = $offset+2; $i < $offset+$blocksize+2; $i++) {   #skipping over the TypeID
-    push @blockdata, $fileBytes[$i];
-  }
-  return ($blocktype, $blocksize, \@blockdata);
-}   
-
-sub read16 {
-  # For a given offset, determine the block size and blocktype
-  my ($fileBytes, $offset) = @_; 
-  my @fileBytes = @{ $fileBytes };
   my ($FileValues, @FileValues, $Header);
   my ($binHeader, $blocktype, $blocksize);
   $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
@@ -347,7 +347,40 @@ sub read16 {
   $blocktype = bin2dec($blocktype);
   $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
   $blocksize = bin2dec($blocksize);
-  return ($blocktype, $blocksize);
+  for (my $i = $offset+2; $i < $offset+$blocksize+2; $i++) {   #skipping over the blockId
+    push @blockdata, $fileBytes[$i];
+  }
+  return ($blocktype, $blocksize, \@blockdata);
+}     
+
+# sub read16 {
+#   # For a given offset, determine the block size and blocktype
+#   my ($fileBytes, $offset) = @_; 
+#   my @fileBytes = @{ $fileBytes };
+#   my ($FileValues, @FileValues, $Header);
+#   my ($binHeader, $blocktype, $blocksize);
+#   $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+#   @FileValues = unpack("S",$FileValues);
+#   ($Header) =  @FileValues;
+#   $binHeader = dec2bin($Header);
+#   $blocktype = (substr($binHeader, 8,6));
+#   $blocktype = bin2dec($blocktype);
+#   $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
+#   $blocksize = bin2dec($blocksize);
+#   return ($blocktype, $blocksize);
+# }
+
+sub read8 {
+# Convert unsigned byte to integer.
+  my ($b) = @_;
+	return $b & 0xFF;
+}
+
+sub read16 {
+#	 Read a 16 bit little endian integer from a byte array
+  my ($data, $offset) = @_;
+  my @data = @{ $data };
+	return &read8($data[$offset+1]) << 8 | &read8($data[$offset]);
 }
 
 sub dec2bin {
@@ -694,14 +727,14 @@ sub showFactoriesCost1LessGerm {
 sub showMTItems {
   my ($itemBits) = @_;
   my @string = ();
-   if (&bitTest($itemBits, 0)) { push @string, 'Multi Cargo Pod';    }
-   if (&bitTest($itemBits, 1)) { push @string, 'Multi Function Pod'; }
-   if (&bitTest($itemBits, 2)) { push @string, 'Langston Shield';    }
-   if (&bitTest($itemBits, 3)) { push @string, 'Mega Poly Shell';    }
-   if (&bitTest($itemBits, 4)) { push @string, 'Alien Miner';        }
-   if (&bitTest($itemBits, 5)) { push @string, 'Hush-a-Boom';        }
-   if (&bitTest($itemBits, 6)) { push @string, 'Anti Matter Torpedo'; }
-   if (&bitTest($itemBits, 7)) { push @string, 'Multi Contained Munition'; }
+  if (&bitTest($itemBits, 0)) { push @string, 'Multi Cargo Pod';    }
+  if (&bitTest($itemBits, 1)) { push @string, 'Multi Function Pod'; }
+  if (&bitTest($itemBits, 2)) { push @string, 'Langston Shield';    }
+  if (&bitTest($itemBits, 3)) { push @string, 'Mega Poly Shell';    }
+  if (&bitTest($itemBits, 4)) { push @string, 'Alien Miner';        }
+  if (&bitTest($itemBits, 5)) { push @string, 'Hush-a-Boom';        }
+  if (&bitTest($itemBits, 6)) { push @string, 'Anti Matter Torpedo'; }
+  if (&bitTest($itemBits, 7)) { push @string, 'Multi Contained Munition'; }
   if (&bitTest($itemBits, 0)) { push @string, 'Mini Morph';         }
   if (&bitTest($itemBits, 1)) { push @string, 'Enigma Pulsar';      }
   if (&bitTest($itemBits, 2)) { push @string, 'Genesis Device';    }

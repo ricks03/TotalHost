@@ -1,10 +1,10 @@
-# StarsPWD.pl
-# Strips the passwords off of Stars! files
+# StarsByteChange.pl
+# Change Bytes in a StarsFile
 #
 # Rick Steeves
 # starsah@corwyn.net
 # Version History
-# 180815  Version 1.0
+# 191122  Version 1.0
 #
 #     Copyright (C) 2019 Rick Steeves
 # 
@@ -22,15 +22,8 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# Example Usage: StarsPWD.pl c:\stars\game.m1
+# Example Usage: StarsByteChange.pl c:\stars\game.m1
 #
-# Removes the password from a .M file
-# Removes the password from a .HST file
-# Removes the password from a .X file
-# Removes the passwords for all players from a .HST file
-#
-# TBD: add ability to create .x file with password reset
-# TBD: Remove password from .r file (should work, doesn't).
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
@@ -56,9 +49,9 @@ my @primes = (
 my $filename = $ARGV[0]; # input file
 my $outFileName = $ARGV[1];
 if (!($filename)) { 
-  print "\n\nUsage: StarsPWD.pl <input file> <output file (optional)>\n\n";
+  print "\n\nUsage: StarsByteChange.pl <input file> <output file (optional)>\n\n";
   print "Please enter the input file (.M or .HST). Example: \n";
-  print "  StarsPWD.pl c:\\games\\test.m6\n\n";
+  print "  StarsByteChange.pl c:\\games\\test.m6\n\n";
   print "Removes the password from a .M file. The password must be\n";
   print "  set when the turn is submitted or the password will revert.\n\n";
   print "Removes all player passwords from a .HST file. On the next\n";
@@ -66,8 +59,8 @@ if (!($filename)) {
   print "Removes any administrative password on the .HST file.\n\n";
   print "Sets a password in a .X file to blank.\n\n";
   print "By default, a new file will be created: <filename>.clean\n\n";
-  print "You can create a different file with StarsPWD.pl <filename> <newfilename>\n";
-  print "  StarsPWD.pl <filename> <filename> will overwrite the original file.\n\n";
+  print "You can create a different file with StarsByteChange.pl <filename> <newfilename>\n";
+  print "  StarsByteChange.pl <filename> <filename> will overwrite the original file.\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
 }
@@ -341,18 +334,6 @@ sub encryptBytes {
   return \@encryptedBytes, $seedX, $seedY;
 }   
       
-# sub parseBlock {
-#   # This returns the 3 relevant parts of a block: typeId, size, raw block data
-#   my ($fileBytes, $offset) = @_;
-#   my @fileBytes = @{ $fileBytes };
-#   my @blockdata;
-#   my ($blocktype, $blocksize) = &read16(\@fileBytes, $offset);
-#   for (my $i = $offset+2; $i < $offset+$blocksize+2; $i++) {   #skipping over the TypeID
-#     push @blockdata, $fileBytes[$i];
-#   }
-#   return ($blocktype, $blocksize, \@blockdata);
-# } 
-
 sub parseBlock {
   # This returns the 3 relevant parts of a block: blockId, size, raw block data
   my ($fileBytes, $offset) = @_;
@@ -373,23 +354,6 @@ sub parseBlock {
   }
   return ($blocktype, $blocksize, \@blockdata);
 }   
-  
-# sub read16 {
-#   # For a given offset, determine the block size and blocktype
-#   my ($fileBytes, $offset) = @_; 
-#   my @fileBytes = @{ $fileBytes };
-#   my ($FileValues, @FileValues, $Header);
-#   my ($binHeader, $blocktype, $blocksize);
-#   $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
-#   @FileValues = unpack("S",$FileValues);
-#   ($Header) =  @FileValues;
-#   $binHeader = dec2bin($Header);
-#   $blocktype = (substr($binHeader, 8,6));
-#   $blocktype = bin2dec($blocktype);
-#   $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
-#   $blocksize = bin2dec($blocksize);
-#   return ($blocktype, $blocksize);
-# }
 
 sub dec2bin {
 	# This doesn't match stuff online because I changed from 32- to 16-bit
@@ -438,28 +402,13 @@ sub decryptBlock {
       @decryptedData = @{ $decryptedData };
       if ($debug) { print "\nDATA DECRYPTED:\n" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
-      if ($typeId == 6) { # Player Block
-        if (($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) {
-        print "Password replaced!\n";
-          # Replace the password with blank
-          $decryptedData[12] = 0;
-          $decryptedData[13] = 0;
-          $decryptedData[14] = 0;
-          $decryptedData[15] = 0;  
-        } else { 
-          # In .HST some Player blocks could be password protected, and some not 
-          unless (uc($ext) eq '.HST' ) { die "This file isn't password-protected!\n"; }
+      if ($typeId == 26) { # Message Block
+        print "TypeID Match\n";
+        my $designNumber = ($decryptedData[1] & 0x3C) >> 2; print "designNumber: $designNumber\n";
+        if ($designNumber eq '7') {  # Design number
+          print "Changing!\n";
+          $decryptedData[28] = 3;
         }
-      }
-      if ($typeId == 36) { # .x file Change Password Block
-        if (($decryptedData[0]  != 0) | ($decryptedData[1] != 0) | ($decryptedData[2] != 0) | ($decryptedData[3] != 0)) {
-          print "Password replaced!\n";
-          # Replace the password with blank
-          $decryptedData[0] = 0;
-          $decryptedData[1] = 0;
-          $decryptedData[2] = 0;
-          $decryptedData[3] = 0; 
-        } 
       }
       # END OF MAGIC
       #reencrypt the data for output
@@ -509,4 +458,6 @@ sub stripPadding {
       pop @byteArray;
     }
   return @byteArray;
-}                      
+}
+#################################
+

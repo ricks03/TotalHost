@@ -76,7 +76,7 @@ if (!($inName)) {
 
 #Validate directory or file 
 unless (-e $inName ) { 
-  print "Requested object $inName does not exist!\n"; exit; 
+  print "File: $inName does not exist!\n"; exit; 
 }
 
 my ($basefile, $dir, $ext);
@@ -99,8 +99,6 @@ close(StarFile);
 my ($outBytes) = &decryptBlock(@fileBytes);
 my @outBytes = @{$outBytes};
  
-
-
 ################################################################
 sub StarsRandom {
   my ($seedA, $seedB, $initRounds) = @_;  
@@ -314,21 +312,21 @@ sub parseBlock {
   return ($blocktype, $blocksize, \@blockdata);
 }   
 
-# Convert unsigned byte to integer.
 sub read8 {
+# Convert unsigned byte to integer.
   my ($b) = @_;
 	return $b & 0xFF;
 }
 	
-#	 Read a 16 bit little endian integer from a byte array
 sub read16 {
+#	 Read a 16 bit little endian integer from a byte array
   my ($data, $offset) = @_;
   my @data = @{ $data };
 	return &read8($data[$offset+1]) << 8 | &read8($data[$offset]);
 }
 
-#	 Read a 32 bit little endian integer from a byte array
 sub read32 {
+#	 Read a 32 bit little endian integer from a byte array
   my ($data, $offset) = @_;
   my @data = @{ $data };
 	return &read8($data[$offset+3]) << 24 | 
@@ -427,5 +425,3 @@ sub processData {
   } else {print "\t" . join ( "\t", @decryptedData ), "\n";}
   }
 }
-
-
