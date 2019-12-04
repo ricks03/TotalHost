@@ -76,9 +76,9 @@ sub ValidateFileUpload {
 	# Save the file out so we can do further analysis with it
 	my $File_Loc = &Save_File($File); 
 	&LogOut(400, "File_Loc = $File_Loc",$LogFile);
-  # Clean up the file name for IE6 which includs path
+  # Clean up the file name for IE6 which includes path
   $File = basename($File);
-	# Break the filename apart into component parts
+	# Break the filename into component parts
 	my ($game_file, $file_player, $file_type, $file_ext) = &FileData ($File); 
 	&LogOut(300,"File type = $file_type",$LogFile); 
 	#&LogOut(200, "File Data: $game_file, $file_player, $file_type, $file_ext", $LogFile);     In StarStat.pm
@@ -106,7 +106,7 @@ sub ValidateFileUpload {
 
     my $checkmagic = &Check_Magic($Magic, $File_Loc);
     my $checkversion = &Check_Version($ver, $File_Loc);
-		if ( $checkmagic && $checkversion ) { # If this is indeed a valid stars file
+		if ( $checkmagic && $checkversion ) { # If this is indeed a valid Stars file
 
 			if ( $dt == 5) { # If it is a race file
 				# If the file doesn't exist already
