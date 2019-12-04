@@ -95,7 +95,7 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-my ($outBytes) = &decryptBlock(@fileBytes);
+my ($outBytes) = &decryptPWD(@fileBytes);
 my @outBytes = @{$outBytes};
 
 # Create the output file name
@@ -225,7 +225,7 @@ sub getFileHeaderBlock {
   # Shareware
   $fShareware = substr($dts, 3, 1);
   if ($debug) { print "binSeed:$binSeed,Shareware:$fShareware,Player:$Player,Turn:$turn,GameID:$lidGame\n"; }
-  return $binSeed, $fShareware, $Player, $turn, $lidGame;
+  return $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic;
 }
     
 sub initDecryption {
@@ -400,7 +400,7 @@ sub bin2dec {
 	return unpack("N", pack("B32", substr("0" x 32 . shift, -32)));
 }
 
-sub decryptBlock {
+sub decryptPWD {
   my (@fileBytes) = @_;
   my @block;
   my @data;
@@ -408,7 +408,7 @@ sub decryptBlock {
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
   my ( $random, $seedA, $seedB, $seedX, $seedY);
   my ($typeId, $size, $data);
   my $offset = 0; #Start at the beginning of the file
@@ -423,7 +423,7 @@ sub decryptBlock {
     if ($typeId == 8) {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption

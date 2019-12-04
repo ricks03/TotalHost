@@ -4,7 +4,7 @@
 # Rick Steeves
 # starsah@corwyn.net
 # Version History
-# 191119
+# 191119 , 191126, 191203
 #
 #     Copyright (C) 2019 Rick Steeves
 # 
@@ -23,46 +23,21 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-# Displays Block 40 - Message Block
-# Still problems displaying some of the special characters
-# "   [254, 255] 34 0
-# #   [254, 255] 35 0
-# (   [254, 255] 40 0
-# )   [254, 255] 41 0
-# &   [254, 255] 42 0
-# |   [254, 255] 43 0
-# _   [254, 255] 45 0
-# <   [254, 255] 60 0
-# =   [254, 255] 61 0
-# >   [254, 255] 62 0
-# /   [254, 255] 63 0
-# [   [254, 255] 91 0
-# \   [254, 255] 92 0
-# ]   [254, 255] 93 0
-# ^   [254, 255] 94 0
-# `   [254, 255] 96 0
-# {   [254, 255] 123 0
-# }   [254, 255] 125 0
-
 # Example Usage: StarsMsg.pl c:\stars\game.m1
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
+#
+# Displays player messages.
+# This is intentionally standalone for a friend of mine.
 
 use strict;
 use warnings;   
 use File::Basename;  # Used to get filename components
 my $debug = 0; # Enable better debugging output. Bigger the better
 
-#$hexDigits      = "0123456789ABCDEF";
-my $encodesOneByte = " aehilnorst";
-my $encodesB       = "ABCDEFGHIJKLMNOP";
-my $encodesC       = "QRSTUVWXYZ012345";
-my $encodesD       = "6789bcdfgjkmpquv";
-my $encodesE       = "wxyz+-,!.?:;\'*%\$";
-
 my (@singularRaceName, @pluralRaceName);
-$singularRaceName[0] = "Everyone";
+$singularRaceName[0] = "Everyone"; # When there's no result
 
 #Stars random number generator class used for encryption
 my @primes = ( 
@@ -77,17 +52,12 @@ my @primes = (
         );
 
 ##########  
-my $inBlock = '';
-my $inBin = 0; 
 my $inName = $ARGV[0]; # input file
-$inBlock = $ARGV[1]; # Desired block Type
-$inBin = $ARGV[2]; # Desired block Type
-unless ($inBlock) { $inBlock = -1;}
 my $filename = $inName;
 
 if (!($inName)) { 
   print "\n\nDisplays the Player Messages in a Stars! file.\n";
-  print "\nUsage: StarsByte.pl <input> \n";
+  print "\nUsage: StarsMsg.pl <input> \n";
   print "  StarsMsg.pl c:\\games\\test.m6\n\n";
   exit;
 }
@@ -96,12 +66,13 @@ if (!($inName)) {
 unless (-e $inName ) { 
   print "Requested file:> $inName <: does not exist!\n"; exit; 
 }
+print "\nFor File: $inName\n";
 
 my ($basefile, $dir, $ext);
 # for c:\stars\mygamename.m1
 $basefile = basename($filename);    # mygamename.m1
 $dir  = dirname($filename);         # c:\stars
-($ext) = $basefile =~ /(\.[^.]+)$/; # .m  extension
+($ext) = $basefile =~ /(\.[^.]+)$/; # .m1  extension
 
 # Read in the binary Stars! file, byte by byte
 my $FileValues;
@@ -115,7 +86,7 @@ close(StarFile);
 
 # Decrypt the data, block by block
 my ($outBytes) = &decryptBlock(@fileBytes);
-my @outBytes = @{$outBytes};
+
   
 ################################################################
 sub StarsRandom {
@@ -391,7 +362,7 @@ sub decryptBlock {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
       @decryptedData = @{ $decryptedData };  
       # WHERE THE MAGIC HAPPENS
-      &processData(\@decryptedData,$blockId,$offset,$size);
+      &processData(\@decryptedData,$blockId,$offset,$size, $turn);
       # END OF MAGIC
     }
     $offset = $offset + (2 + $size); 
@@ -422,11 +393,160 @@ sub stripPadding {
   return @byteArray;
 }
 
+sub decodeBytesForStarsMessage {
+  my (@res) = @_;
+  my $hexChars='';
+  my ($b, $b1,$b2, $firstChar, $secondChar);
+  my ($ch1, $ch2, $index, $result);
+  #$hexDigits      = "0123456789ABCDEF";
+  my $encodesOneByte = " aehilnorst";
+  my $encodesB       = "ABCDEFGHIJKLMNOP";
+  my $encodesC       = "QRSTUVWXYZ012345";
+  my $encodesD       = "6789bcdfgjkmpquv";
+  my $encodesE       = "wxyz+-,!.?:;\'*%\$";
+
+  for (my $i = 1; $i < scalar(@res); $i++) {
+    $b = $res[$i];
+    $b1 = ($b & 0xff) >> 4; # the left nibble of the byte
+    $b2 = ($b & 0xff) % 16; # the right nibble of the byte
+    $firstChar = &nibbleToChar($b1);
+    $secondChar = &nibbleToChar($b2);
+    $hexChars .= $firstChar;
+    $hexChars .= $secondChar;
+  }
+  for (my $t = 0; $t < length($hexChars); $t++) {
+  	$ch1 = substr($hexChars,$t,1);
+  	if ($ch1 eq 'F'){
+      # Use 2 nibbles
+      # BUG: Should likely be using charToNibble here
+      # In some cases this is the last character
+      unless ($t+2 > length($hexChars)) {
+      my $ch3 = substr($hexChars,$t+2,1);  # Get hex character
+      $ch3 = hex ($ch3); # convert to decimal
+      $ch3 = &dec2bin($ch3);  # convert to binary
+      $ch3 = substr($ch3,-4);  # convert to nibble
+      my $ch4 = substr($hexChars,$t+1,1);
+      $ch4 = hex ($ch4); # convert to decimal
+      $ch4 = &dec2bin($ch4); # convert to binary
+      $ch4 = substr($ch4,-4); # convert to nibble
+      $ch2 = $ch3 . $ch4;
+      $ch2 = chr(&bin2dec($ch2));
+      $result .= $ch2;
+      }
+      $t++;  # need to advance twice (format to make more readable)
+  		$t++;  # need to advance twice
+  	}
+  	elsif ($ch1 eq 'E'){
+      # use next nibble
+      $ch2 = substr($hexChars,$t+1,1);
+  		$index = &parseInt($ch2,16);
+  		$result .= substr($encodesE, $index, 1);
+  		$t++;
+  	}
+  	elsif ($ch1 eq 'D'){
+      # use next nibble
+  		$ch2 = substr($hexChars,$t+1,1);
+  		$index = &parseInt($ch2,16);
+  		$result .= substr($encodesD, $index, 1);
+  		$t++;
+  	}
+  	elsif ($ch1 eq 'C'){
+      # use next nibble  		
+      $ch2 = substr($hexChars,$t+1,1);
+  		$index = &parseInt($ch2,16);
+  		$result .= substr($encodesC, $index, 1);
+		$t++;
+  	}
+  	elsif ($ch1 eq 'B'){
+      # use next nibble
+  		$ch2 = substr($hexChars,$t+1,1);
+  		$index = &parseInt($ch2,16);
+  		$result .= substr($encodesB, $index, 1);
+  		$t++;
+  	}
+  	else {
+      # use this nibble
+  		$index = &parseInt($ch1,16);
+  		$result .= substr($encodesOneByte, $index, 1);
+  	}
+  }
+	return $result;
+}
+
+sub parseInt {
+	my ($parse,$base) = @_;
+  return hex($parse);		
+}
+
+sub nibbleToChar {
+  my ($b) = @_; # this is sent as a 4-bit nibble, 0 to 15
+	my $i1 = ($b & 0xff) + ord('0'); 
+	my $i2 = ($b & 0xff) + ord('A') - 10;  
+	my $i3 = ($b & 0xff) + ord('a') - 10;
+	if ($i1 >= ord('0') && $i1 <= ord('9')) { return chr($i1);  }
+	if ($i2 >= ord('A') && $i2 <= ord('F')) { return chr($i2);  }
+	if ($i3 >= ord('a') && $i3 <= ord('f')) { return chr($i3); }
+	die "Could not find correct char\n";
+}
+
+sub processData {
+  # Display the messages in the file
+  my ($decryptedData,$blockId,$offset,$size, $turn)  = @_;
+  my @decryptedData = @{ $decryptedData };
+  # We need the names to display
+  # Check the Player Block so we can get the race names
+  # although there are no names in .x files
+  if ($blockId == 6) {
+    my $playerId = $decryptedData[0];
+    my $fullDataFlag = ($decryptedData[6] & 0x04);
+    my $index = 8;
+    if ($fullDataFlag) { 
+      # The player names are at the end which is not a fixed length
+      $index = 112;
+      my $playerRelationsLength = $decryptedData[112]; 
+      $index = $index + $playerRelationsLength + 1;
+     } 
+    my $singularNameLength = $decryptedData[$index] & 0xFF;
+    my $singularMessageEnd = $index + $singularNameLength;
+    my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
+    $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+    $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
+#    print "playerName $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
+  } elsif ($blockId == 40) { # check the Message block 
+    my $byte0 =  &read16(\@decryptedData, 0);  # unknown
+    my $byte2 =  &read16(\@decryptedData, 2);  # unknown
+    my $senderId = &read16(\@decryptedData, 4);
+    my $recipientId = &read16(\@decryptedData, 6);
+    my $byte8 =  &read16(\@decryptedData, 8); # unknown
+    my $messageBytes = &read16(\@decryptedData, 10);
+    my $messageLength = $size -1;
+    my $message = &decodeBytesForStarsMessage(@decryptedData[11..$messageLength]);
+    if ($debug) { print "blockId: $blockId\n"; }
+    if ($debug) { print "\nDATA DECRYPTED:" . join ( " ", @decryptedData ), "\n"; }
+#    print "From: $senderId, To: $recipientId, \"$message\"\n"; 
+    my $turn_fix = $turn + 2400;
+    if ($message) {
+      if ($ext =~ /x/) { 
+        # Different for x files, as we don't have player names in it.
+        print "\nTurn:$turn_fix, From: Me, To: Player $recipientId, \"$message\"\n";
+      } else { print "\nTurn:$turn_fix, From: $singularRaceName[$senderId], To: $singularRaceName[$recipientId-1], \"$message\"\n"; }
+      if ($debug) { print "b0: $byte0, b2: $byte2, b8: $byte8\n"; }
+    } else { print "No messages!\n"; }
+  }  
+  return @decryptedData;
+}
+
 sub decodeBytesForStarsString {
   my (@res) = @_;
   my $hexChars='';
   my ($b, $b1,$b2, $firstChar, $secondChar);
   my ($ch1, $ch2, $index, $result);
+  #$hexDigits      = "0123456789ABCDEF";
+  my $encodesOneByte = " aehilnorst";
+  my $encodesB       = "ABCDEFGHIJKLMNOP";
+  my $encodesC       = "QRSTUVWXYZ012345";
+  my $encodesD       = "6789bcdfgjkmpquv";
+  my $encodesE       = "wxyz+-,!.?:;\'*%\$";
 
   for (my $i = 1; $i < scalar(@res); $i++) {
     $b = $res[$i];
@@ -475,66 +595,3 @@ sub decodeBytesForStarsString {
 	return $result;
 }
 
-sub parseInt {
-	my ($parse,$base) = @_;
-  return hex($parse);		
-}
-
-sub nibbleToChar {
-  my ($b) = @_; # this is sent as a 4-bit nibble, 0 to 15
-	my $i1 = ($b & 0xff) + ord('0'); 
-	my $i2 = ($b & 0xff) + ord('A') - 10;  
-	my $i3 = ($b & 0xff) + ord('a') - 10;
-	if ($i1 >= ord('0') && $i1 <= ord('9')) { return chr($i1);  }
-	if ($i2 >= ord('A') && $i2 <= ord('F')) { return chr($i2);  }
-	if ($i3 >= ord('a') && $i3 <= ord('f')) { return chr($i3); }
-	die "Could not find correct char\n";
-}
-
-sub charToNibble {
-  # BUG: Untested
-  my ($ch) = @_; # this is sent as a 4-bit nibble, 0 to 15
-	if (ord($ch) >= ord('0') && ord($ch) <= ord('9')) { return (ord($ch) - ord('0')); }
-  if (ord($ch) >= ord('A') && ord($ch) <= ord('F')) { return (ord($ch) - ord('A') + 10); }
-  if (ord($ch) >= ord('a') && ord($ch) <= ord('f'))  { return (ord($ch) - ord('a') + 10); }
-}
-
-sub processData {
-  # Display the messages in the file
-  my ($decryptedData,$blockId,$offset,$size)  = @_;
-  my @decryptedData = @{ $decryptedData };
-  # We need the names to display
-  # although there are no names in .x files
-  if ($blockId == 6) { #Check the Player Block so we can get the race names
-    my $playerId = $decryptedData[0];
-    my $fullDataFlag = ($decryptedData[6] & 0x04);
-    my $index = 8;
-    if ($fullDataFlag) { 
-      # The player names are at the end which is not a fixed length
-      $index = 112;
-      my $playerRelationsLength = $decryptedData[112]; 
-      $index = $index + $playerRelationsLength + 1;
-     } 
-    my $singularNameLength = $decryptedData[$index] & 0xFF;
-    my $singularMessageEnd = $index + $singularNameLength;
-    my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
-    $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
-    $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
-    print "playerName $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
-  } elsif ($blockId == 40) { # check the Message block 
-    my $byte0 =  &read16(\@decryptedData, 0);  # unknown
-    my $byte2 =  &read16(\@decryptedData, 2);  # unknown
-    my $senderId = &read16(\@decryptedData, 4);
-    my $recipientId = &read16(\@decryptedData, 6);
-    my $byte8 =  &read16(\@decryptedData, 8); # unknown
-    my $messageBytes = &read16(\@decryptedData, 10);
-    my $messageLength = $size -1;
-    my $message = &decodeBytesForStarsString(@decryptedData[11..$messageLength]);
-    if ($debug) { print "blockId: $blockId\n"; }
-    if ($debug) { print "\nDATA DECRYPTED:" . join ( " ", @decryptedData ), "\n"; }
-#    print "From: $senderId, To: $recipientId, \"$message\"\n"; 
-    print "From: $singularRaceName[$senderId], To: $singularRaceName[$recipientId-1], \"$message\"\n"; 
-    if ($debug) { print "b0: $byte0, b2: $byte2, b8: $byte8\n"; }
-  }
-  return @decryptedData;
-}

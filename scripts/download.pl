@@ -178,7 +178,7 @@ elsif ($file =~ /^(\w+[\w.-]+\.m\d{1,2})$/) {
 # If the file type wasn't one of the predefined ones, error out.
 } else { &error('User $userlogin authorized. Invalid file type $file $filetype'); }
 
-if ($download_ok) { &download($file) or &error('User $userlogin authorized, but an unknown error has occured.');  }
+if ($download_ok) { &download($file) or &error("User $userlogin authorized, but an unknown error has occured.");  }
 else { &error("User $userlogin Unauthorized.") }
 
 ##########################################
@@ -188,20 +188,23 @@ sub download {
    #open(my $DLFILE, '<', "$File_HST/$file") or die "Can't open file '$File_HST/$file' : $!";
 	# For a race file, download from the race file location
 	if ($filetype eq 'r') {
-   	open(DLFILE, '<', "$FileRaces\\$file") or return(0);
-	   # this prints the download headers with the file size included
-	   # so you get a progress bar in the dialog box that displays during file downloads. 
-	   print $cgi->header(-type            => 'application/x-download',
+    $outputracefile = $FileRaces . "\\" . $RaceValues{'User_File'} . "\\$file";
+   	open(DLFILE, '<', "$outputracefile") or return(0);
+#   	open(DLFILE, '<', "$dlfile") or return(0);
+	  # this prints the download headers with the file size included
+	  # so you get a progress bar in the dialog box that displays during file downloads. 
+	  print $cgi->header(-type            => 'application/x-download',
 	                    -attachment      => $file,
-	                    -Content_length  => -s "$FileRaces\\$file",
+#	                    -Content_length  => -s "$FileRaces\\$file",
+	                    -Content_length  => -s "$outputracefile",
 		);
 	# download the zipped up game from the zip location.
 	} elsif ($filetype eq 'zip') {
 		$downloadzipfile = $GameFile . "1.zip";
    	open(DLFILE, '<', "$outputzipfile") or return(0);
-	   # this prints the download headers with the file size included
-	   # so you get a progress bar in the dialog box that displays during file downloads. 
-	   print $cgi->header(-type            => 'application/x-download',
+	  # this prints the download headers with the file size included
+	  # so you get a progress bar in the dialog box that displays during file downloads. 
+	  print $cgi->header(-type            => 'application/x-download',
 	                    -attachment      => "$downloadzipfile",
 	                    -Content_length  => -s "$outputzipfile",
 		);
