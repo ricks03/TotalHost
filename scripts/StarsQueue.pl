@@ -1,4 +1,4 @@
-# StarsShip.pl
+# StarsQueue.pl
 #
 # Rick Steeves
 # starsah@corwyn.net
@@ -23,13 +23,12 @@
 #
 
 #
-# Gets Ship attributes
-# Example Usage: StarsShip.pl c:\stars\game.m1
+# Gets information from Queue
+# Example Usage: StarsQueue.pl c:\stars\game.m1
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
-# Doesn't really work completely, too much to do with design slots.
-# But detects the colonizer, spacedock, and 10 starbase issues
+# Doesn't really work completely
 
 use strict;
 use warnings;   
@@ -67,9 +66,9 @@ my $shipName;
 #########################################        
 my $filename = $ARGV[0]; # input file
 if (!($filename)) { 
-  print "\n\nUsage: StarsShip.pl <input file>\n\n";
-  print "Please enter the input file (.R|.M|.HST). Example: \n";
-  print "  StarsShip.pl c:\\games\\test.m1\n\n";
+  print "\n\nUsage: StarsQueue.pl <input file>\n\n";
+  print "Please enter the input file (.R|.M|.X|.HST). Example: \n";
+  print "  StarsQueue.pl c:\\games\\test.m1\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
 }
@@ -114,7 +113,7 @@ sub decryptShip {
     ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
     @data = @{ $data }; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-    if ($debug > 1) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+    if ($debug  > 1 ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) {
@@ -134,112 +133,13 @@ sub decryptShip {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
-      # Detect the Colonizer, Spack Dock SuperLatanuim, and 10 starbase design bugs
-      if ($typeId == 26 || $typeId == 27) { # Design & Design Change block
-        if ( $debug  ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-        if ( $debug  ) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-        my $index = 0;
-        if ( $typeId == 27 ) { 
-          $index = 2; # there are two extra bytes in a .x file
-          $deleteDesign = $decryptedData[0] % 16;
-          if ($deleteDesign == 0) { 
-            print "Design to Delete: true " . $decryptedData[0] % 16 . "\n";
-            $designToDelete = $decryptedData[1] % 16;  print "designToDelete: $designToDelete\n";
-            $isStarbase = ($decryptedData[1] >> 4) % 2; print "isStarbase: $isStarbase\n";
-          }
-        }
-        $isFullDesign =  ($decryptedData[$index] & 0x04); print "isFullDesign: $isFullDesign\n";
-        my $byte1 = $decryptedData[$index+1];
-        $isTransferred = ($decryptedData[$index+1] & 0x80); print "isTransferred: $isTransferred\n";
-        $isStarbase = ($decryptedData[$index+1] & 0x40);  print "isStarbase: $isStarbase\n";
-        $designNumber = ($decryptedData[$index+1] & 0x3C) >> 2; print "designNumber: $designNumber\n";
-        $hullId = $decryptedData[$index+2] & 0xFF; print "HullId: $hullId " . &showHull($hullId) . "\n";
-        $pic = $decryptedData[$index+3] & 0xFF; print "pic: $pic\n";
-        if ($isFullDesign) {
-          $armor = &read16(\@decryptedData, $index+4);  print "armor: $armor\n";
-          $slotCount = $decryptedData[$index+6] & 0xFF; print "slotCount: $slotCount\n";  # Actual number of slots
-          $slotEnd = $index+17+($slotCount*4); print "slotEnd: $slotEnd\n";
-          $shipNameLength = $decryptedData[$slotEnd];          
-          $turnDesigned = &read16(\@decryptedData, $index+7); print "turnDesigned: " . $turnDesigned . "\n";
-          $totalBuilt = &read16(\@decryptedData, $index+9); print "totalBuilt: $totalBuilt\n";
-          $totalRemaining = &read16(\@decryptedData, $index+13); print "totalRemaining: $totalRemaining\n";
-          print "Ship slots: $slotCount\n";
-          my $counter =0;
-          print "Index: $index, slotEnd: $slotEnd\n";
-          for (my $i = $index+19; $i < $slotEnd-1; $i+=4) {
-            $itemId = $decryptedData[$i]; #print "$i: ItemId: $itemId \n";
-            $itemCount =  $decryptedData[$i+1]; #print "$i: itemCount: $itemCount \n";
-            # BUG: I really wish I'd figured out a better way to get this.
-            $itemCategory0 = $decryptedData[$i+2]; #print "$i: slotId: $slotId \n";
-            $itemCategory1 = $decryptedData[$i+3]; #print "$i: itemCategory: $itemCategory \n";  # Whether in the first or second set of 8
-            if ($debug) { print "Slot $counter ($i): Cat0: $itemCategory0\tCat1: $itemCategory1\tItemId: $itemId\tCount: $itemCount\n"; }
-            #############################################################3
-            # Detect (and potentially fix) ship design issues
-            # Fix the colonizer bug
-            if ($itemCategory0 == 0 &&  $itemCategory1 == 16 &&  $itemId == 0 && $itemCount == 0) {
-              print "***Colonizer bug\n";
-              $decryptedData[$i+3] = 0; # fixing bug by setting the slot to empty
-            }
-            # Detect Space Dock Armor slot Buffer Overflow
-            if ( $isStarbase && $hullId == 33 && $itemId == 11  && $itemCategory0 == 8 && $itemCount >=22  && $armor  >= 49518) {
-              #BUG: Should fix Spacedock. But How? 
-              # Currently fixed by changing it back to 21. The Armor value will still be wrong. 
-              print "***Spacedock Bug!\n";
-              $decryptedData[$i+1] = 21;
-            }
-            # Detect the 10th starbase design
-          }
-          if ($isStarbase &&  $designNumber == 9) {
-            print "***10 Starbases - Potential Crash if Player #1 has fleet #1 in orbit of a starbase and refuels when the Last (?) Player has a 10th starbase design\n";
-          }
-          $counter++;
-        } else { $slotEnd = 6; $shipNameLength = $decryptedData[$slotEnd]; }
-        print "shipNameLength: $shipNameLength  (this is in bytes, not necessarily characters, as we're using nibbles)\n";
-        $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
-        print "shipName: $shipName\n";
-         
+      if ( $typeId == 9  ) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
+
+      if ($typeId == 28 || $typeId == 29) { # Design & Design Change block
+#        if ( $debug  ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+#        if ( $debug  ) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
         print "\n";
       }
-      # Part of the detection of the minefield 0-coordinate bug, but 
-      # the fleet block isn't mapped well-enough for me to figure out the coordinates
-      # easily
-#       if ($typeId == 4 || $typeId == 5) { # waypoint block (add/change) in .x files
-#         if ($debug ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-#         if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-#         # Detect ships moving pure east/west or pure north/south
-#         # BUG: Doesn't work yet. Will need starting coordinates of fleet.
-#         my $fleetId = $decryptedData[0]; 
-#         my $ownerId = $decryptedData[1]; 
-#         my $positionObjectId = &read16(\@decryptedData, 2);
-# 			  my $xDest = &read16(\@decryptedData, 4);  # CORRECT!!!
-#         my $yDest = &read16(\@decryptedData, 6);  # CORRECT!!!
-#         my $test = &read16(\@decryptedData, 8);  
-#         my $unknownBitsWithWarp = $decryptedData[6] & 0x0F;
-#         my $positionObjectType = $decryptedData[7] & 0xFF;
-#         my $fullWaypointData;
-#         my $warp =  $decryptedData[10] >> 4; # CORRECT!!!
-#         print "fleetId: $fleetId, ownerId: $ownerId, test: $test, xdest: $xDest, yDest: $yDest, positionId: $positionObjectId, unk = $unknownBitsWithWarp, PositionType: $positionObjectType, warp: $warp\n";
-#       }
-#       # BUG: I need the fleet IDs to be able to determine the Mine Bug, as the Fleet info includes
-#       # current coordinates. But the block isn't mapped well enough for met o determine it. 
-#       if ($typeId == 16 || $typeId == 17) { # Fleet block and partial fleet block
-#         if ($debug  ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-#         if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-#         
-#         # BUG: Missing many of the variables
-#         my $fleetId = $decryptedData[0]; # Correct
-#         my $ownerId = $decryptedData[1]; # Correct
-#         my $fleetIronium =  $decryptedData[2];
-#         my $fleetBoranium =  $decryptedData[3];
-#         my $fleetGermanium =  $decryptedData[4];
-#         my $fleetPopulation =  $decryptedData[5];
-#         my $fleetFuel =  $decryptedData[6];
-#         my $fleetBattlePlan =  $decryptedData[7];
-#         
-#         my $x = &read16(\@decryptedData, 8); # Correct  (likely only in full block?)
-#         my $y = &read16(\@decryptedData, 10); # Correct (likely only in full block?)
-#         print "fleetId: $fleetId, ownerId: $ownerId, x: $x, y: $y, \n";
-#      }
       # END OF MAGIC
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);

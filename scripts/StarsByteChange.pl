@@ -32,6 +32,7 @@
 use strict;
 use warnings;   
 use File::Basename;  # Used to get filename components
+use StarsBlock; # A Perl Module from TotalHost
 my $debug = 0;
 
 #Stars random number generator class used for encryption
@@ -73,10 +74,6 @@ $basefile = basename($filename);    # mygamename.m1
 $dir  = dirname($filename);         # c:\stars
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
 
-# Passwords in .R files are also stored in Block 6. The script correctly
-# IDs and blanks the password, but they're corrupt nonetheless. 
-if (uc($ext) eq ".R1") { print "Doesn't work for Race Files -- Sorry!\n"; exit; }
-
 # Read in the binary Stars! file, byte by byte
 my $FileValues;
 my @fileBytes;
@@ -108,262 +105,6 @@ print "File output: $newFile\n";
 unless ($ARGV[1]) { print "Don't forget to rename $newFile\n"; }
 
 ################################################################
-sub StarsRandom {
-  my ($seedA, $seedB, $initRounds) = @_;  
-  my $randomNumber;
-  # Now initialize a few rounds
-  for (my $i = 0; $i < $initRounds; $i++) { 
-    ($randomNumber, $seedA, $seedB) = &nextRandom($seedA, $seedB);
-  }
-  return $seedA, $seedB;
-}
-        
-sub nextRandom {
-  my ($seedA, $seedB) = @_; 
-  my ($seedApartA, $seedApartB);
-  my ($seedBpartA, $seedBpartB);
-  my ($newSeedA, $newSeedB);
-  my $randomNumber;
-  # First, calculate new seeds using some constants
-  $seedApartA = ($seedA % 53668) * 40014;
-  $seedApartB = int(($seedA / 53668)) * 12211; # integer division OK
-  $newSeedA = $seedApartA - $seedApartB;
-  $seedBpartA = ($seedB % 52774) * 40692;
-  $seedBpartB = int(($seedB / 52774)) * 3791;
-  $newSeedB = $seedBpartA - $seedBpartB;
-  # If negative add a whole bunch (there's probably some weird bit math
-  # going on here that the disassembler didn't make obvious)
-  if ($newSeedA < 0) { $newSeedA += 0x7fffffab; }
-  if ($newSeedB < 0) { $newSeedB += 0x7fffff07; }
-  # Generate "random" number.  This will fit into an unsigned 32-bit integer
-  $randomNumber = $newSeedA - $newSeedB;
-#  if ($seedA < $seedB) { $randomNumber += 0x100000000l; }  # 2^32
-  if ($newSeedA < $newSeedB) { $randomNumber += 4294967296; }  # 2^32
-  # Now return our random number
-  return $randomNumber, $newSeedA, $newSeedB;
-}
-
-sub getFileHeaderBlock {
-#$Header-S, $Magic=A4, $lidGame-h8, $ver-S, $turn-S $iPlayer-S, $dts-S)
-# S/s - Unsigned/signed Short     (exactly 16-bits, 2 bytes) 
-# h/H -  hex string, low/high nybble first. 1 byte?
-# A - ASCII string, blank padded. 1 byte
-# L - unsigned long, 32 bits, 4 bytes
-  my ($fileBytes) = @_;
-  my @fileBytes = @{ $fileBytes };
-  my ($bytes, $Header, $Magic, $lidGame, $ver, $turn, $iPlayer); 
-  my ($dts, $binHeader, $blocktype, $blocksize, $verInc);
-  my ($verMinor, $verMajor, $verClean, $Player, $binSeed, $Seed, $dt); 
-  my ($fDone, $fInUse, $fMulti, $fGameOver, $fShareware);
-  # Unpack the FileHeaderBlock data
-  # 2 bytes
-  $bytes = $fileBytes[0] . $fileBytes[1];
-  $Header = unpack ("S", $bytes);
-  # 4 bytes
-  $bytes = $fileBytes[2] . $fileBytes[3] . $fileBytes[4] . $fileBytes[5];
-  $Magic = unpack ("A4", $bytes);
-  # 4 bytes
-  $bytes =  $fileBytes[6] . $fileBytes[7] . $fileBytes[8] . $fileBytes[9];
-  $lidGame = unpack ("L",  $bytes);
-  # 2 bytes
-  $bytes = $fileBytes[10] . $fileBytes[11];
-  $ver = unpack ("S", $bytes);
-  # 2 bytes
-  $bytes = $fileBytes[12] . $fileBytes[13];
-  $turn = unpack ("S", $bytes); # $turn + 2400 = turn
-  # 2 bytes
-  $bytes = $fileBytes[14] . $fileBytes[15];
-  $iPlayer = unpack ("s", $bytes);
-  # 2 bytes
-  $bytes = $fileBytes[16] . $fileBytes[17];
-  $dts = unpack ("S", $bytes);
-  # Convert the data to its usable form
-  $binHeader = dec2bin($Header);
-  $blocktype = (substr($binHeader, 0,6));
-  $blocktype = bin2dec($blocktype);
-  $blocksize = (substr($binHeader, 7,2)) . (substr($binHeader, 8,8));
-  $blocksize = bin2dec($blocksize);
-  # Game Version
-  $ver = dec2bin($ver);
-  $verInc = substr($ver,11,5);
-  $verMinor = substr($ver,4,7);
-  $verMajor = substr($ver,0,4);
-  $verMajor = bin2dec($verMajor);
-  $verMinor = bin2dec($verMinor);
-  $verInc = bin2dec($verInc);
-  $ver = $verMajor . "." . $verMinor . "." . $verInc;
-  $verClean = $verMajor . "." . $verMinor;
-  # Player Number
-  $iPlayer = &dec2bin($iPlayer);
-  $Player = substr($iPlayer,11,5);
-  $Player = bin2dec($Player); # note from 0-15
-  # Encryption Seed
-  $binSeed =  substr($iPlayer,0,11);
-  $Seed = bin2dec($binSeed);
-  # dts - Convert DTS to binary so we can pull the values back out
-  $dts = dec2bin($dts);
-  #Break DTS into its binary components
-  $dt = substr($dts, 8,15);
-  $dt = bin2dec($dt);
-  # File Type
-  # These are 1 character, so there's no need to convert them back to decimal
-  # Turn state (.x file only)
-  $fDone = substr($dts, 7,1);
-  # Host instance is using this file (dtHost, dtTurn).
-  $fInUse = substr($dts, 6, 1);
-  # Are multiple turns included (.m only)
-  $fMulti = substr($dts, 5,1);
-  # Is the Game Over
-  $fGameOver = substr($dts, 4,1);  # Probably 4
-  # Shareware
-  $fShareware = substr($dts, 3, 1);
-  if ($debug) { print "binSeed:$binSeed,Shareware:$fShareware,Player:$Player,Turn:$turn,GameID:$lidGame\n"; }
-  return $binSeed, $fShareware, $Player, $turn, $lidGame;
-}
-    
-sub initDecryption {
-  # Need the values from the FileHeaderBlock to seed the encryption
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame) = @_;
-  my ($salt, $index1, $index2);
-  my ($part1, $part2, $part3, $part4); 
-  my ($rounds, $random, $seedA, $seedB);
-  # Convert fileBytes back to an array. Use two prime numbers as random seeds.
-	# First one comes from the lower 5 bits of the salt
-  $salt = bin2dec($binSeed);
- 	$index1 = $salt & 0x1F;
-	# Second index comes from the next higher 5 bits
-	$index2 = ($salt >> 5) & 0x1F;
-  #Adjust our indexes if the highest bit (bit 11) is set
-	#If set, change index1 to use the upper half of our primes table
-	if(($salt >> 10) == 1) { $index1 += 32; 
-	#else index2 uses the upper half of the primes table
-	} else { $index2 += 32; }
-  #Determine the number of initialization rounds from 4 other data points
-	#0 or 1 if shareware (I think this is correct, but may not be - so far
-	#I have not encountered a shareware flag
-	$part1 = $fShareware;
-  #Lower 2 bits of player number, plus 1
-	$part2 = ($Player & 0x3) + 1;
-	#Lower 2 bits of turn number, plus 1
-	$part3 = ($turn & 0x3) + 1;
-	#Lower 2 bits of gameId, plus 1
-	$part4 = ($lidGame & 0x3) + 1;
-  #Now put them all together, this could conceivably generate up to 65 
-	# rounds  (4 * 4 * 4) + 1
-	$rounds = ($part4 * $part3 * $part2) + $part1;
-  #Now initialize our random number generator
-	($seedA, $seedB) = &StarsRandom($primes[$index1], $primes[$index2], $rounds);
-  return  $seedA, $seedB;
-}
-    
-sub decryptBytes {
-  my ($byteArray, $seedA, $seedB) = @_;
-  my @byteArray = @{ $byteArray }; 
-  my $size = @byteArray;
-  my @decryptedBytes;
-  my ($decryptedChunk, $decryptedBytes, $newRandom, $chunk);
-  my $padding;
-  # Add padding to 4 bytes
-  ($byteArray, $padding) = &addPadding (\@byteArray);
-  @byteArray = @ {$byteArray };
-  my $paddedSize = $size + $padding;
-  # Now decrypt, processing 4 bytes at a time
-  @decryptedBytes = ();
-  for (my $i = 0; $i <  $paddedSize; $i+=4) {
-    # Swap bytes using indexes in this order:  4 3 2 1
-    $chunk =  (
-        (ord($byteArray[$i+3]) << 24) | 
-        (ord($byteArray[$i+2]) << 16) | 
-        (ord($byteArray[$i+1]) << 8)  | 
-         ord($byteArray[$i])
-    );
-    # XOR with a (semi) random number
-    ($newRandom, $seedA, $seedB) = &nextRandom($seedA, $seedB);
-    # Store the random value being used to start the decryption, as I'll 
-    # need it to reencrypt the player information
-    $decryptedChunk = $chunk ^ $newRandom;
-    # Write out the decrypted data, swapped back
-    my $decryptedBytes = $decryptedChunk & 0xFF;
-    push @decryptedBytes, $decryptedBytes;
-    $decryptedBytes = ($decryptedChunk >> 8) & 0xFF;
-    push @decryptedBytes, $decryptedBytes;
-    $decryptedBytes = ($decryptedChunk >> 16) & 0xFF;
-    push @decryptedBytes, $decryptedBytes;
-    $decryptedBytes = ($decryptedChunk >> 24) & 0xFF;
-    push @decryptedBytes, $decryptedBytes;
-  }    
-  # Strip off any padding
-  @decryptedBytes = &stripPadding(\@decryptedBytes, $padding);
-  return \@decryptedBytes, $seedA, $seedB, $padding;
-}      
-
-sub encryptBytes {
-  my ($byteArray, $seedX, $seedY, $padding) = @_; 
-  my @byteArray = @{ $byteArray };
-  my @encryptedBytes;
-  my ($chunk, $newRandom, $encryptedBytes, $encryptedChunk);
-  my $size = @byteArray;
-  # Add padding to 4 bytes
-  ($byteArray, $padding) = &addPadding(\@byteArray);
-  @byteArray = @ {$byteArray };
-  my $paddedSize = $size + $padding;
-  # Now encrypt, processing 4 bytes at a time
-  for(my $i = 0; $i <$paddedSize; $i+=4) {
-  # Swap bytes:  4 3 2 1
-    $chunk = (
-        ($byteArray[$i+3] << 24) | 
-        ($byteArray[$i+2] << 16) | 
-        ($byteArray[$i+1] << 8)  | 
-         $byteArray[$i]
-    );
-    # XOR with a (semi) random number
-    ($newRandom, $seedX, $seedY) = &nextRandom($seedX, $seedY);
-    $encryptedChunk = $chunk ^ $newRandom;
-    # Write out the decrypted data, swapped back
-    $encryptedBytes = chr($encryptedChunk         & 0xFF);
-    push @encryptedBytes, $encryptedBytes;
-    $encryptedBytes = chr(($encryptedChunk >> 8)  & 0xFF);
-    push @encryptedBytes, $encryptedBytes;
-    $encryptedBytes = chr(($encryptedChunk >> 16) & 0xFF);
-    push @encryptedBytes, $encryptedBytes;
-    $encryptedBytes = chr(($encryptedChunk >> 24) & 0xFF);
-    push @encryptedBytes, $encryptedBytes;
-  }
-  # Strip off any padding
-  @encryptedBytes = &stripPadding(\@encryptedBytes, $padding);
-  return \@encryptedBytes, $seedX, $seedY;
-}   
-      
-sub parseBlock {
-  # This returns the 3 relevant parts of a block: blockId, size, raw block data
-  my ($fileBytes, $offset) = @_;
-  my @fileBytes = @{ $fileBytes };
-  my @blockdata;
-  my ($FileValues, @FileValues, $Header);
-  my ($binHeader, $blocktype, $blocksize);
-  $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
-  @FileValues = unpack("S",$FileValues);
-  ($Header) =  @FileValues;
-  $binHeader = dec2bin($Header);
-  $blocktype = (substr($binHeader, 8,6));
-  $blocktype = bin2dec($blocktype);
-  $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
-  $blocksize = bin2dec($blocksize);
-  for (my $i = $offset+2; $i < $offset+$blocksize+2; $i++) {   #skipping over the blockId
-    push @blockdata, $fileBytes[$i];
-  }
-  return ($blocktype, $blocksize, \@blockdata);
-}   
-
-sub dec2bin {
-	# This doesn't match stuff online because I changed from 32- to 16-bit
-	return unpack("B16", pack("n", shift));
-}
-
-sub bin2dec {
-	return unpack("N", pack("B32", substr("0" x 32 . shift, -32)));
-}
-
 sub decryptBlock {
   my (@fileBytes) = @_;
   my @block;
@@ -372,7 +113,7 @@ sub decryptBlock {
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
   my ( $random, $seedA, $seedB, $seedX, $seedY);
   my ($typeId, $size, $data);
   my $offset = 0; #Start at the beginning of the file
@@ -387,7 +128,7 @@ sub decryptBlock {
     if ($typeId == 8) {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -422,42 +163,5 @@ sub decryptBlock {
   return \@outBytes;
 }
 
-sub encryptBlock {
-  my ($block, $decryptedData, $padding, $seedX, $seedY) = @_; 
-  my @block = @{$block};
-  my @header = ($block[0], $block[1]); # Get the original header from the block
-  my @decryptedData = @{$decryptedData};
-  my @encryptedData;
-  my $encryptedData;
-  # reencrypt the data
-  ($encryptedData, $seedX, $seedY) = &encryptBytes(\@decryptedData, $seedX, $seedY, $padding); 
-  @encryptedData = @{ $encryptedData };
-  unshift (@encryptedData, @header); # Prefix the encrypted data with the header
-  return \@encryptedData, $seedX, $seedY;
-}
-
-sub addPadding {
-  # Add padding to 4 bytes
-  my ($byteArray) = @_;
-  my @byteArray = @ { $byteArray }; 
-  my $size = @byteArray;
-  my $padding;
-  $padding = ((($size / 4) - (int ($size / 4))) * 4);
-  if ($padding) { $padding = 4 - $padding; }
-  for (my $i = 0; $i < $padding; $i++) { 
-    push  @byteArray, 0;
-  }
-  return \@byteArray, $padding;
-}
-
-sub stripPadding {
-  # Strip off any padding
-  my ($byteArray, $padding) = @_;
-  my @byteArray = @ { $byteArray };
-    for (my $i = 0; $i < $padding; $i++) {
-      pop @byteArray;
-    }
-  return @byteArray;
-}
 #################################
 

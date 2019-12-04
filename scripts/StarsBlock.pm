@@ -26,7 +26,7 @@
 # https://github.com/stars-4x/starsapi  
 
 #StarsPWD and StarsRace are both integrated into TotalHost
-#StarsMsg and StarsClean are included, but not tested or implemented in TotalHost
+#Subs for StarsMsg and StarsClean are included, but not tested or implemented in TotalHost
 
 package StarsBlock;
 use TotalHost;
@@ -35,6 +35,7 @@ do 'config.pl';
 require Exporter;
 our @ISA = qw(Exporter);
 # Don't stick comments in the Export array.
+# Don't use commas
 our @EXPORT = qw( 
   StarsPWD
   nextRandom StarsRandom
@@ -42,7 +43,7 @@ our @EXPORT = qw(
   encryptBytes decryptBytes
   read8 read16 read32 write16 parseBlock
   dec2bin bin2dec
-  encryptBlock decryptBlock
+  encryptBlock decryptPWD
   stripPadding addPadding
   isMinefield getMineType getmineDetonate
   isPacketOrSalvage getPacketType
@@ -50,16 +51,16 @@ our @EXPORT = qw(
   isMT getMTPartName
   StarsRace
   displayBlockRace
-  parseInt, bitTest
-  nibbleToChar, charToNibble
-  showHab
-  showResearchCost, showExpensiveTechStartsAt3
+  parseInt bitTest
+  nibbleToChar charToNibble
+  showHab showLeftoverPoints
+  showResearchCost showExpensiveTechStartsAt3
   showPlayerRelations
   showResearchPriority
-  showPRT, showLRT
+  showPRT showLRT
   showFactoriesCost1LessGerm
   showMTItems
-  decodeBytesForStarsString
+  decodeBytesForStarsString decodeBytesForStarsMessage
   StarsClean
   getPlayers resetPlayers
   resetRace showRace
@@ -103,7 +104,7 @@ sub StarsPWD {
   close(StarFile);
   
   # Decrypt the data, block by block, removing the password
-  my ($outBytes) = &decryptBlock(@fileBytes);
+  my ($outBytes) = &decryptPWD(@fileBytes);
   # If the decrypt Bytes returned 0, there's no password
   unless ($outbytes) { return 0; }
   my @outBytes = @{$outBytes};
@@ -228,7 +229,7 @@ sub getFileHeaderBlock {
   # Shareware
   $fShareware = substr($dts, 3, 1);
   &PLogOut(400,"binSeed:$binSeed,Shareware:$fShareware,Player:$Player,Turn:$turn,GameID:$lidGame", $LogFile);
-  return $binSeed, $fShareware, $Player, $turn, $lidGame;
+  return $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic;
 }
 
 sub initDecryption {
@@ -449,7 +450,7 @@ sub bin2dec {
 	return unpack("N", pack("B32", substr("0" x 32 . shift, -32)));
 }
 
-sub decryptBlock {
+sub decryptPWD {
   my (@fileBytes) = @_;
   my @block;
   my @data;
@@ -457,7 +458,7 @@ sub decryptBlock {
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
   my ( $random, $seedA, $seedB, $seedX, $seedY);
   my ($typeId, $size, $data);
   my $offset = 0; #Start at the beginning of the file
@@ -473,7 +474,7 @@ sub decryptBlock {
     if ($typeId == 8) {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -522,6 +523,59 @@ sub decryptBlock {
   }
   return \@outBytes;
 }
+
+# sub decryptBlock {
+#   my (@fileBytes) = @_;
+#   my @block;
+#   my @data;
+#   my ($decryptedData, $encryptedBlock, $padding);
+#   my @decryptedData;
+#   my @encryptedBlock;
+#   my @outBytes;
+#   my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+#   my ($random, $seedA, $seedB, $seedX, $seedY );
+#   my ($blockId, $size, $data );
+#   my $offset = 0; #Start at the beginning of the file
+#   while ($offset < @fileBytes) {
+#     # Get block info and data
+#     ($blockId, $size, $data ) = &parseBlock(\@fileBytes, $offset);
+#     @data = @{ $data }; # The non-header portion of the block
+#     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+#     if ($blockId == 43 ) { $debug = 1;  } else { $debug = 0;}
+#     if ($debug > 1) { print "\nBLOCK blockId: $blockId, Offset: $offset, Size: $size\n"; }  
+#     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
+#     # FileHeaderBlock, never encrypted
+#     if ($blockId == 8 ) {
+#       # We always have this data before getting to block 6, because block 8 is first
+#       # If there are two ( or more) block 8s, the seeds reset for each block 8
+#       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block );
+#       unless ($Magic eq "J3J3") { die "One of the files is not a .M file. Stopped along the way."; }
+#       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+#       $seedX = $seedA; # Used to reverse the decryption
+#       $seedY = $seedB; # Used to reverse the decryption
+#       push @outBytes, @block;
+#      } elsif ($blockId == 7) {
+#       # BUG: Note that planet's data requires something extra to decrypt. 
+#       # Fortunately block 7 isn't in my test files
+#       die "BLOCK 7 found. ERROR!\n"; 
+#     } else {
+#       # Everything else needs to be decrypted
+#       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
+#       @decryptedData = @{ $decryptedData };    
+#       if ($debug) { print "\nDATA DECRYPTED:" . join ( " ", @decryptedData ), "\n"; }
+#       # WHERE THE MAGIC HAPPENS
+#       &processData(\@decryptedData,$blockId,$offset,$size,$Player);
+#       # END OF MAGIC
+#       #reencrypt the data for output
+#       ($encryptedBlock, $seedX, $seedY) = &encryptBlock(\@block, \@decryptedData, $padding, $seedX, $seedY);
+#       @encryptedBlock = @ { $encryptedBlock };
+#       if ($debug > 1) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
+#       push @outBytes, @encryptedBlock;
+#     }
+#     $offset = $offset + (2 + $size); 
+#   }
+#   return \@outBytes;
+# }
 
 sub encryptBlock {
   my ($block, $decryptedData, $padding, $seedX, $seedY) = @_; 
@@ -673,7 +727,7 @@ sub displayBlockRace {
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
   my ( $random, $seedA, $seedB, $seedX, $seedY);
   my ($typeId, $size, $data);
   my $offset = 0; #Start at the beginning of the file
@@ -686,7 +740,7 @@ sub displayBlockRace {
     if ($typeId == 8) {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -804,6 +858,7 @@ sub displayBlockRace {
 #           } else { print "Player Relations never set\n"; }
           print "<img src=\"$WWW_Image" . "logo" . $logo . ".png\">\n";
           print "<P>$singularRaceName:$pluralRaceName\n"; 
+          print "<P>Spend Leftover Points: " . &showLeftoverPoints($spendLeftoverPoints) . "\n";
           print "<P>PRT: " . &showPRT($PRT) . "\n";
           print "<P>LRTs: " . join(',',@LRTs) . "\n";
           print "<P>Grav: " . &showHab($lowGravity,$centreGravity,$highGravity, 0) . ", Temp: " . &showHab($lowTemperature,$centreTemperature,$highTemperature,1) . ", Rad: " . &showHab($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
@@ -864,13 +919,18 @@ sub showHab {
  return "$low/$center/$high  (in clicks)"; 
 }
 
+sub showLeftoverPoints {
+   my ($points) = @_;
+   my @Leftover = qw ( SurfaceMinerals MineralConcentrations Mines Factories Defenses );
+   return $Leftover[$points];
+}
+
 sub showResearchCost {
 #(0:+75%, 1: 0%, 2:-50%) 
    my ($value) = @_;
    if    ($value eq '2') {     return '-50%';
    } elsif  ($value eq '1') {  return 'Standard'; 
-   } else {                  return '+75%'; 
-  }
+   } else {                  return '+75%'; }
 }
 
 sub showExpensiveTechStartsAt3 {
@@ -972,8 +1032,9 @@ sub decodeBytesForStarsString {
   for (my $t = 0; $t < length($hexChars); $t++) {
   	$ch1 = substr($hexChars,$t,1);
   	if ($ch1 eq 'F'){
-      # do nothing?
-      # I think this happens when we skip past the end of the array.
+      # I think this also happens when we skip past the end of the array.
+      $t++;
+      $t++;
   	}
   	elsif ($ch1 eq 'E'){
   		$ch2 = substr($hexChars,$t+1,1);
@@ -1000,6 +1061,83 @@ sub decodeBytesForStarsString {
   		$t++;
   	}
   	else {
+  		$index = &parseInt($ch1,16);
+  		$result .= substr($encodesOneByte, $index, 1);
+  	}
+  }
+	return $result;
+}
+
+sub decodeBytesForStarsMessage {
+  my (@res) = @_;
+  my $hexChars='';
+  my ($b, $b1,$b2, $firstChar, $secondChar);
+  my ($ch1, $ch2, $index, $result);
+  #$hexDigits      = "0123456789ABCDEF";
+  my $encodesOneByte = " aehilnorst";
+  my $encodesB       = "ABCDEFGHIJKLMNOP";
+  my $encodesC       = "QRSTUVWXYZ012345";
+  my $encodesD       = "6789bcdfgjkmpquv";
+  my $encodesE       = "wxyz+-,!.?:;\'*%\$";
+
+  for (my $i = 1; $i < scalar(@res); $i++) {
+    $b = $res[$i];
+    $b1 = ($b & 0xff) >> 4; # the left nibble of the byte
+    $b2 = ($b & 0xff) % 16; # the right nibble of the byte
+    $firstChar = &nibbleToChar($b1);
+    $secondChar = &nibbleToChar($b2);
+    $hexChars .= $firstChar;
+    $hexChars .= $secondChar;
+  }
+  for (my $t = 0; $t < length($hexChars); $t++) {
+  	$ch1 = substr($hexChars,$t,1);
+  	if ($ch1 eq 'F'){
+      # Use 2  nibbles
+      # BUG: Should likely be using charToNibble here
+      my $ch3 = substr($hexChars,$t+2,1);  # Get hex character
+      $ch3 = hex ($ch3); # convert to decimal
+      $ch3 = &dec2bin($ch3);  # convert to binary
+      $ch3 = substr($ch3,-4);  # convert to nibble
+      my $ch4 = substr($hexChars,$t+1,1);
+      $ch4 = hex ($ch4); # convert to decimal
+      $ch4 = &dec2bin($ch4); # convert to binary
+      $ch4 = substr($ch4,-4); # convert to nibble
+      $ch2 = $ch3 . $ch4;
+      $ch2 = chr(&bin2dec($ch2));
+      $result .= $ch2;
+      $t++;  # need to advance twice (format to make more readable)
+  		$t++;  # need to advance twice
+  	}
+  	elsif ($ch1 eq 'E'){
+      # use next nibble
+      $ch2 = substr($hexChars,$t+1,1);
+  		$index = &parseInt($ch2,16);
+  		$result .= substr($encodesE, $index, 1);
+  		$t++;
+  	}
+  	elsif ($ch1 eq 'D'){
+      # use next nibble
+  		$ch2 = substr($hexChars,$t+1,1);
+  		$index = &parseInt($ch2,16);
+  		$result .= substr($encodesD, $index, 1);
+  		$t++;
+  	}
+  	elsif ($ch1 eq 'C'){
+      # use next nibble  		
+      $ch2 = substr($hexChars,$t+1,1);
+  		$index = &parseInt($ch2,16);
+  		$result .= substr($encodesC, $index, 1);
+		$t++;
+  	}
+  	elsif ($ch1 eq 'B'){
+      # use next nibble
+  		$ch2 = substr($hexChars,$t+1,1);
+  		$index = &parseInt($ch2,16);
+  		$result .= substr($encodesB, $index, 1);
+  		$t++;
+  	}
+  	else {
+      # use this nibble
   		$index = &parseInt($ch1,16);
   		$result .= substr($encodesOneByte, $index, 1);
   	}
@@ -1311,6 +1449,7 @@ sub showRace {
     my $operateMine = $decryptedData[68];
     print "Productivity: Colonist: $resourcePerColonist, Factory: $producePerFactory, $toBuildFactory, $operateFactory, Mine: $producePerMine, $toBuildMine, $operateMine\n";
     my $spendLeftoverPoints = $decryptedData[69]; # ?  (3:factories)  
+    print "Spend Leftover Points On: " . &showLeftoverPoints($spendLeftoverPoints) . "\n";; 
     my $researchEnergy        = $decryptedData[70]; # (0:+75%, 1: 0%, 2:-50%) 
     my $researchWeapons       = $decryptedData[71]; # (0:+75%, 1: 0%, 2:-50%)
     my $researchProp          = $decryptedData[72]; # (0:+75%, 1: 0%, 2:-50%)
@@ -1654,7 +1793,7 @@ sub decryptMsg {
         my $byte8 =  &read16(\@decryptedData, 8); # unknown
         my $messageBytes = &read16(\@decryptedData, 10);
         my $messageLength = $size -1;
-        my $message = &decodeBytesForStarsString(@decryptedData[11..$messageLength]);
+        my $message = &decodeBytesForStarsMessage(@decryptedData[11..$messageLength]);
         if ($debug) { print "blockId: $blockId\n"; }
         if ($debug) { print "\nDATA DECRYPTED:" . join ( " ", @decryptedData ), "\n"; }
         print "From: $senderId, To: $recipientId, \"$message\"\n"; 
