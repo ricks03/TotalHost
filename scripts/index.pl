@@ -51,13 +51,10 @@ $userlogin = $session->param("userlogin");
 # 	print $cgi->redirect( -URL => "$redirect");
 # #	&print_redirect($cgi,$sessionid,$redirect);
 # 	&LogOut(0, "redirect: $redirect", $ErrorLog); 
-# 	die;
 # }
 
 print $cgi->header();
-
 &html_top($cgi, $session, $note);
-
 print "<P>\n";
 
 if ($id ) {
@@ -164,7 +161,6 @@ sub login_page {
 }
 
 sub reset_user {
-
 print <<eof;
 <td>
 <h2>Reset Password</h2>
@@ -216,7 +212,6 @@ eof
 }
 
 sub max_users {
-
 print <<eof;
 <td>
 <h2>Maxxed Users</h2>

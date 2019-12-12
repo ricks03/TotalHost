@@ -71,7 +71,7 @@ print end_html;
 ###########################################################
 sub ValidateFileUpload {
 	my ($File) = @_;
-	# BUG - Lower case the file name, so it's consistent everywhere. 
+	# BUG: Lower case the file name, so it's consistent everywhere. 
 	my $GameValues;
 	# Save the file out so we can do further analysis with it
 	my $File_Loc = &Save_File($File); 
@@ -206,7 +206,7 @@ sub ValidateFileUpload {
 #           &System($MakeTurn);
 #         }
 				&DB_Close($db);
-        &Make_CHK($game_file);   # BUG - should really pull value from database, not user-input
+        &Make_CHK($game_file);   # BUG: - should really pull value from database, not user-input
 				return 1; 
 			} else { 
 				&LogOut(0,"File $File $File_Loc, $game_file failed to move for $userlogin",$ErrorLog);
@@ -290,8 +290,7 @@ sub Print_Error {
 }
 
 # sub Check_FileName {
-# 	# BUG
-# 	# Feature not implemented
+# 	# BUG:  Check_FileName Feature not implemented
 # 	my ($file_file) = @_; 
 # 	&LogOut(0,"Check_FileName for $file_file not implemented",$LogFile);
 # 	# Check against the database that this is a valid Game Name

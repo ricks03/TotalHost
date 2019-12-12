@@ -111,7 +111,7 @@ sub CheckandUpdate {
 					$NewTurn = $NewTurn + $DaysToAdd * 86400;
 				}
 				# and just to be sure, make sure today is ok to generate before we approve everything
-        # Why are we checking to confirm it's a valid day? What if we miss the valid day?  ? ?  
+        # BUG: Why are we checking to confirm it's a valid day? What if we miss the valid day?  ? ?  
 #				if (&ValidTurnTime($CurrentEpoch, 'Day', $GameData[$LoopPosition]{'DayFreq'}, $GameData[$LoopPosition]{'HourFreq'}) eq 'True') { $TurnReady = 'True'; }
 				$TurnReady = 'True';
 				&LogOut(100,"#####New Turn : $NewTurn  TurnReady = $TurnReady",$LogFile);
@@ -137,7 +137,7 @@ sub CheckandUpdate {
 				if (&ValidTurnTime($CurrentEpoch, 'Day',$GameData[$LoopPosition]{'DayFreq'}, $GameData[$LoopPosition]{'HourFreq'}) eq 'True') { $TurnReady = 'True'; } 
 				&LogOut(100,"#####New Turn : $NewTurn  TurnReady = $TurnReady",$LogFile);
 
-# This needs to reset delays? 
+# BUG: This needs to reset delays? 
 
 	#Game Type = All In
 			} elsif ($GameData[$LoopPosition]{'GameType'} == 3) { #Turns only generated when all turns are in
@@ -260,7 +260,7 @@ sub CheckandUpdate {
         
         # Decide whether to set player to inactive
         # Read in the game and player information from the CHK File
-        # BUG Not going to work quite right if the player is in the game more than once. 
+        # BUG: Not going to work quite right if the player is in the game more than once. 
     		my($InactivePosition) = 3;
         my $InactiveMessage = "";
         &LogOut(300, "STARTING AUTOINACTIVE", $LogFile);
@@ -337,7 +337,7 @@ sub CheckandUpdate {
 
 # In th.pm sorta
 # sub ValidTurnTime { #Determine whether submitted time is valid to generate a turn
-#   # BUG: $loopposition is used to determine array location 
+#   # BUG: (remarked out functon): $loopposition is used to determine array location 
 #   # That's the real difference between this and the &ValidTurnTime in TurnMake
 #   # Better to just pass the relevant array values and merge the two functions
 # 	my($ValidTurnTimeTest, $WhentoTestFor, $LoopPosition) = @_;	

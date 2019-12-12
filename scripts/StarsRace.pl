@@ -206,7 +206,7 @@ sub decryptBlockRace {
           my $operateMine = $decryptedData[68];
           print "Productivity: Colonist: $resourcePerColonist, Factory: $producePerFactory, $toBuildFactory, $operateFactory, Mine: $producePerMine, $toBuildMine, $operateMine\n";
           my $spendLeftoverPoints = $decryptedData[69]; # ?  (3:factories) 
-          print "Leftover Points: " . &showLeftoverPoints($spendLeftoverPoints) . "\n";; 
+          print "Leftover Points: " . &showLeftoverPoints($spendLeftoverPoints) . "\n";
           my $researchEnergy        = $decryptedData[70]; # (0:+75%, 1: 0%, 2:-50%) 
           my $researchWeapons       = $decryptedData[71]; # (0:+75%, 1: 0%, 2:-50%)
           my $researchProp          = $decryptedData[72]; # (0:+75%, 1: 0%, 2:-50%)

@@ -354,7 +354,7 @@ sub decryptBlock {
     # FileHeaderBlock, never encrypted
     if ($blockId == 8 ) {
       # We always have this data before getting to block 6, because block 8 is first
-      # If there are two ( or more) block 8s, the seeds reset for each block 8
+      # If there are two (or more) block 8s, the seeds reset for each block 8
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block );
       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
     } else {

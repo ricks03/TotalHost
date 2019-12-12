@@ -211,8 +211,8 @@ sub download {
 	
 	} else {
    	open(DLFILE, '<', "$File_HST/$gamefile/$file") or return(0);
-	   # this prints the download headers with the file size included
-  		# so you get a progress bar in the dialog box that displays during file downloads. 
+	  # this prints the download headers with the file size included
+    # so you get a progress bar in the dialog box that displays during file downloads. 
  		print $cgi->header(-type            => 'application/x-download',
                     -attachment      => $file,
                     -Content_length  => -s "$File_HST/$gamefile/$file",
