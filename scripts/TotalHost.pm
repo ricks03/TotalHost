@@ -28,6 +28,7 @@ use CGI::Session qw/-ip-match/;
 CGI::Session->name('TotalHost');
 package TotalHost;
 use StarStat;
+use StarsBlock;
 do 'config.pl';
 
 require Exporter;
@@ -52,7 +53,8 @@ our @EXPORT = qw(
 	Game_Backup File_Date
 	clean clean_filename
 	DaysToAdd ValidTurnTime ValidFreq CheckHolidays LoadHolidays ShowHolidays
-
+  show_race_block
+  StarsClean decryptClean
 );
 # Remarked out functions: FileData FixTime MakeGameStatus checkboxes checkboxnull
 
@@ -204,7 +206,7 @@ sub Email_Turns { #email turns out to the appropropriate players
 		$Message .= "\n\n";
     # If there's a next turn scheduled, and the game isn't over
 		if ($GameVals{'NextTurn'} > 0 && $GameVals{'GameStatus'} != 9 && $GameVals{'GameStatus'} != 4 ) {
-			$Message .= "Next turn generation on or after " . localtime($GameVals{'NextTurn'});
+			$Message .= "Next scheduled turn generation on or after " . localtime($GameVals{'NextTurn'});
 			if (&checkbox($GameVals{'AsAvailable'}) == 1 ) { $Message .= " or when all turns are in"; }
 			$Message .= ".\n\n";
 		}
@@ -467,7 +469,7 @@ sub html_banner {
  		print qq|<td align=right width=5%><a href=$Location_Scripts/account.pl?action=logout>Log Out</a></td>\n|;
 # 		print qq|<td align=right width=5%><a href=$Location_Scripts/account.pl?action=logoutfull>Erase</a></td>\n|;
  	}
-	print qq|</td></tr></table>\n|;
+	print qq|</tr></table>\n|;
 }
 
 sub html_left {
@@ -629,11 +631,11 @@ sub fixdate {
 sub SubmitTime{
 	my ($daytime) = @_;
 	my $answer = '';
-#  	if ($daytime < .0006944) { $answer = int($daytime*86400) . " seconds ago\n";}
-# 	elsif ($daytime < .04167) { $answer = int($daytime * 1440 ) . " minute(s) ago\n"; }
+#  	if ($daytime < .0006944) { $answer = int($daytime*86400) . " seconds ago";}
+# 	elsif ($daytime < .04167) { $answer = int($daytime * 1440 ) . " minute(s) ago"; }
   if ($daytime < .04167) { $answer = " recently\n";}
-	elsif ($daytime < 1) { $answer = int($daytime * 24 ) . " hour(s) ago\n";}
-	elsif ($daytime >= 1) { $answer = int($daytime) . " day(s) ago\n";}
+	elsif ($daytime < 1) { $answer = int($daytime * 24 ) . " hour(s) ago";}
+	elsif ($daytime >= 1) { $answer = int($daytime) . " day(s) ago";}
 	return $answer;
 }
 
@@ -697,10 +699,11 @@ sub list_games {
 	my $countgames=0;
 	print qq|<h2>$type</h2>\n|;
 	print "<table border = 1>\n";
+  print "<tr><th></th><th>Name</th><th>Status</th><th>Host</th><th>Description</th></tr>\n";
 	if (&DB_Call($db,$sql)) {
 		while ($db->FetchRow()) {
 			$countgames++;
- 	      ($GameName, $GameFile, $GameStatus, $GameDescrip) = $db->Data("GameName", "GameFile", "GameStatus", "GameDescrip");
+ 	    ($GameName, $GameFile, $GameStatus, $GameDescrip, $HostName) = $db->Data("GameName", "GameFile", "GameStatus", "GameDescrip", "HostName");
  			print qq|<tr>|;
 			# Display Game Status
 			print qq|<td><img src="$StatusBall{$GameStatus[$GameStatus]}" alt='$GameStatus[$GameStatus]' border="0"></a></td>\n|;
@@ -714,6 +717,8 @@ sub list_games {
 			}
 			# Display Game Status
 			print qq|<td>$GameStatus[$GameStatus]</td>\n|;
+			# Display Game Host
+			print qq|<td>$HostName</td>\n|;
 			# Display Game Description
 			print qq|<td>$GameDescrip</td>\n|;
 			print qq|</tr>\n|;
@@ -901,12 +906,16 @@ sub GenerateTurn { # Generate a turn and refresh files
 	my($NumberofTurns, $GameFile) = @_;
 	# Backup the existing Turn
 	if ($turn = &Game_Backup($GameFile)) { &LogOut(200,"GameFile: $GameFile Backed up for Turn: $turn",$LogFile); }
-	# Generate the actual stars turns
-	# There's a bug that when you generate this way  from the command line with / the .x[n] file isn't deleted.
+	# Generate the actual Stars! turns
+	# There is a Stars! bug when you generate this way  from the command line with / the .x[n] file isn't deleted.
 	# So you have to use \ (eg d:\th\games instead of d:/th/games)
 	my($GenTurn) = $executable . 'stars.exe -g' . $NumberofTurns . ' ' . $File_HST . '\\' .  $GameFile . '\\' . $GameFile . '.hst';
 	system($GenTurn);
 	sleep 2;
+  #
+  # About here clean the .M files
+  # &StarsClean($GameFile)
+  #
   # Update the CHK File
   &Make_CHK($GameFile);
 	#Copy files to the correct (safe) location for download
@@ -916,7 +925,19 @@ sub GenerateTurn { # Generate a turn and refresh files
 	while (defined($file = readdir(DIR))) {
 		next unless (-f "$turn_dir/$file");
 		# Backup the log files, the turn files, the news file, and the CHK file
+    # Except this backup is done earlier in the Game_backup sub?
+    # BUG: 191204 Why exactly are we copying the files over to the download folder?
+    # Some old design point I've forgotten about? 
+    # Turns are currently downloaded from their native location.
+    # BUG: The delete game function likely doesn't look in the download folder for cleanup.
+    #  Download.pl looks in the actual game folder.
+    #
+    # Create the directory if it does not exist
+    my $newdir = $File_Download . '/' . $GameFile;
+    unless (-d  $newdir ) {  mkdir $newdir || &LogOut(0, "Cannot create $newdir, $userlogin", $ErrorLog); }
 		if ($file =~ /\.M|\.X|\.x|\.news|\.CHK/) {
+# 191204 If this is truly where things should download from, no need for the CHK And .X file
+#		if ($file =~ /\.M|\.X|\.x/) {
 	 		my($Game_Source)= $File_HST . '/' . $GameFile . '/' . $file;  
 	 		my($Game_Destination)= $File_Download . '/' . $GameFile . '/' . $file;  
 			&LogOut(200,"copy $Game_Source > $Game_Destination",$LogFile);
@@ -1002,9 +1023,6 @@ sub DaysToAdd {
 }
 
 sub ValidTurnTime { #Determine whether submitted time is valid to generate a turn
-  # BUG: $db aren't actaully used, so why is it passed?  That's the real difference between this and the &ValidTurnTime in TurnMake
-  # GameValues is converted into a hash in TurnMake
-  # Better to just pass the relevant array values.
 	my($ValidTurnTimeTest, $WhentoTestFor, $Day, $Hour) = @_;	
 #	my($ValidTurnTimeTest, $WhentoTestFor, $GameValues) = @_;	
 #	my $GameValues = %$GameValues;
@@ -1161,6 +1179,246 @@ sub db_sql {
 	# All is successful, return the statement handle
 	return $sth;
 }
+
+sub show_race_block {
+  # Displays Race attributes in TotalHost
+  # Note that the race file has a checksum value, so writing out changes will 
+  # fail.
+  my ($RaceFile, $Player) = @_;
+  use File::Basename;  # Used to get filename components
+  
+  $filename = $RaceFile;
+  
+  # Validate that the file exists
+  unless (-e $filename) { &LogOut(0,"RaceFile $filename does not exist!", $ErrorLog); }
+  
+  # Read in the binary Stars! file, byte by byte
+  my $FileValues;
+  my @fileBytes;
+  open(StarFile, "<$filename");
+  binmode(StarFile);
+  while (read(StarFile, $FileValues, 1)) {
+    push @fileBytes, $FileValues; 
+  }
+  close(StarFile);
+  
+  # Decrypt the data, block by block
+  &displayBlockRace(@fileBytes);
+}
+
+sub StarsClean {
+  my ($GameFile) = @_;
+  # Removes shared "privileged" information from a .m file for TotalHost
+  my $clean = 1; # 0, 1, 2: display, clean but don't write, write 
+  my @mFiles;      
+  my $filename;
+  my $inDir = $FileHST . "\\" . $GameFile;
+  
+  #Validate directory 
+  unless (-d $inDir  ) { 
+    &LogOut(0,"Failed to find $inDir for cleaning $GameFile", $ErrorLog);
+  }
+  
+  # Get all the file names in the directory
+  # Reading the dir is easier than figuring out the number of players in the game
+  opendir(BIN, $inDir) or &LogOut(0,"Failed to open $inDir for cleaning $GameFile", $ErrorLog);
+  my $file;
+  my $fullName;
+  while (defined ($file = readdir BIN)) {
+    next if $file =~ /^\.\.?$/; # skip . and ..
+    next unless ($file =~  /(^.*\.[Mm]\d*$)/); #prefiltering for .m files
+    $fullName = $inDir . '\\' . $file;
+    push @mFiles, $fullName;
+  }
+  if (@mFiles == 0) { &LogOut(0,"Failed to find any files in $inDir for cleaning $GameFile", $ErrorLog); }
+  
+  foreach my $mFile (@mFiles) {
+    # Read in the binary Stars! file(s), byte by byte
+    my $fileValues;
+    my @fileBytes;
+    open(StarFile, "<$mFile" );
+    binmode(StarFile);
+    while ( read(StarFile, $fileValues, 1)) {
+      push @fileBytes, $fileValues; 
+    }
+    close(StarFile);
+    
+    # Decrypt the data, block by block
+    # and modify appropriately
+    my ($outBytes) = &decryptClean(@fileBytes);
+    my @outBytes = @{$outBytes};
+    
+    # Output the Stars! File with modified data
+    &LogOut(0,"Cleaning $mFile for $GameFile", $LogFile);
+    if ($clean > 1) {  # Don't do unless in clean write mode
+      open ( outFile, '>:raw', "$mFile" );
+      for (my $i = 0; $i < @outBytes; $i++) {
+        print outFile $outBytes[$i];
+      }
+      close ( outFile);
+      &LogOut(0,"Cleaned $mFile for $GameFile", $LogFile);
+    }
+  }
+}
+
+sub decryptClean {
+  my (@fileBytes) = @_;
+  my @block;
+  my @data;
+  my ($decryptedData, $encryptedBlock, $padding);
+  my @decryptedData;
+  my @encryptedBlock;
+  my @outBytes;
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+  my ($random, $seedA, $seedB, $seedX, $seedY );
+  my ($blockId, $size, $data );
+    # For Object Block 43 
+  my $objectId;    
+  my $count = -1;
+  my $number;
+  my $owner;
+  my $type; # 0 = minefield, 1 = packet/salvage, 2 = wormhole, 3 = MT
+  # For MT
+  my ($warp, $metBits, $itemBits, $turnNo, $turnNoDisplay);
+  #For minefields
+  my ($mineCount, $mineDetonate, $mineType);
+  #For wormholes
+  my ($wormholeId, $targetId, $beenThrough, $canSee, $stability);
+  # For packets
+  my ($targetAndSpeed, $destPlanetId, $WarpSpeedMinus4, $WarpOverMDLimit);
+  
+  # For Player Block 6
+  my ($playerId, $ShipSlotsUsed, $PlanetCount);
+  my ($FleetAndStarBaseDesignCount, $FleetCount, $StarBaseDesignCount); 
+  my $logo;          # int
+  my ($fullDataFlag, $fullDataBytes);
+  my $playerRelations; # byte, 0 neutral, 1 friend, 2 enemy
+  my $nameBytes;     #byte
+  my $byte7 = 1;
+  my @singularRaceName;
+  my @pluralRaceName;
+  # The values used when cleaning race values. Defaults to Humanoids
+  my @resetRace =  ( 81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 );
+
+  my $LogOutput;
+
+  my $offset = 0; #Start at the beginning of the file
+  while ($offset < @fileBytes) {
+    # Get block info and data
+    ($blockId, $size, $data ) = &parseBlock(\@fileBytes, $offset);
+    @data = @{ $data }; # The non-header portion of the block
+    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+    if ($blockId == 43 ) { $debug = 1;  } else { $debug = 0;}
+    # FileHeaderBlock, never encrypted
+    if ($blockId == 8 ) {
+      # We always have this data before getting to block 6, because block 8 is first
+      # If there are two (or more) block 8s, the seeds reset for each block 8
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block );
+      unless ($Magic eq "J3J3") { &LogOut(100,"One of the files is not a .M file. Stopped along the way.", $ErrorLog); }
+      ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+      $seedX = $seedA; # Used to reverse the decryption
+      $seedY = $seedB; # Used to reverse the decryption
+      push @outBytes, @block;
+    } else {
+      # Everything else needs to be decrypted
+      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
+      @decryptedData = @{ $decryptedData };    
+      # WHERE THE MAGIC HAPPENS
+      # Process the decrypted bytes
+      if ($blockId == 43) { # Check for special attributes in the Object Block
+        if ($size == 2) {
+          my $count = &read16(\@decryptedData, 0);
+        } else {
+          $objectId =  &read16(\@decryptedData, 0);
+          $number = $objectId & 0x01FF;
+          $owner = ($objectId & 0x1E00) >> 9;
+          $type = $objectId >> 13;
+          # Mystery Trader
+          if (&isMT($type)) {
+      			$metBits = &read16(\@decryptedData, 12);
+      			$itemBits = &read16(\@decryptedData, 14);
+      			$turnNo = &read16(\@decryptedData, 16); # Which doesn't report turn like everything else
+            $turnNoDisplay =  $turnNo + 2401;
+            my $MTPart = &getMTPartName($itemBits);
+            $LogOutput = "Mystery Trader: met: " . &getPlayers($metBits) . ", $MTPart, turnNoDisplay=$turnNoDisplay";
+            &LogOut(100,$LogOutput, $LogFile);
+
+            if ($clean) { 
+              # Reset players who has traded with MT
+              ($decryptedData[12], $decryptedData[13]) = &resetPlayers($Player, &read16(\@decryptedData, 12));
+              # reset values for display
+              $metBits = &read16(\@decryptedData, 12);
+              # Reset the MT Part
+              $decryptedData[14] = 0;
+              $decryptedData[15] = 0;
+              # reset part values for display
+      			  $itemBits = &read16(\@decryptedData, 14);
+              $MTPart = &getMTPartName($itemBits);
+            }
+            $LogOutput = "Mystery Trader: met: " . &getPlayers($metBits) . ", $MTPart, turnNoDisplay=$turnNoDisplay";
+            &LogOut(100,$LogOutput, $LogFile);
+          # Minefields
+          } elsif (&isMinefield($type)) {
+            $canSee = &read16(\@decryptedData, 10);
+            $turnNo = &read16(\@decryptedData, 16);
+            $turnNoDisplay =  $turnNo + 2401;
+            $LogOutput = "MineField: canSee: " . &getPlayers($canSee) . ", turnNo:$turnNoDisplay\n";
+            &LogOut(100,$LogOutput, $LogFile);
+            if ($clean) {
+              # Hard to find any data here as not much is known of the format
+              # Reset players who can see the minefield
+              ($decryptedData[10], $decryptedData[11]) = &resetPlayers ($Player, &read16(\@decryptedData, 10));
+              # reset values for display
+              $canSee = &read16(\@decryptedData, 10);
+            }
+            $LogOutput = "MineField: canSee: " . &getPlayers($canSee) . ", turnNo:$turnNoDisplay\n";
+            &LogOut(100,$LogOutput, $LogFile);
+          #Wormholes
+          } elsif (isWormhole($type)) {
+    	      $canSee = &read16(\@decryptedData, 8);
+    	      $beenThrough = &read16(\@decryptedData, 10);
+    	      $targetId = &read16(\@decryptedData, 12) % 4096;   
+            $turnNo = &read16(\@decryptedData, 16);
+            $turnNoDisplay =  $turnNo + 2401;
+            $LogOutput = "Wormhole: beenThrough: " . &getPlayers($beenThrough) . ", canSee: " . &getPlayers($canSee) . ", turnNoDisplay=$turnNoDisplay\n";
+            &LogOut(100,$LogOutput, $LogFile);
+            if ($clean) { 
+              # Reset players who can see wormhole
+              ($decryptedData[8], $decryptedData[9]) = &resetPlayers ($Player, &read16(\@decryptedData, 8));
+              # reset values for display
+    	        $canSee = &read16(\@decryptedData, 8);
+              # Reset players who are known to have been through
+              ($decryptedData[10], $decryptedData[11]) = &resetPlayers ($Player, &read16(\@decryptedData, 10));
+              # reset values for display
+              $beenThrough = &read16(\@decryptedData, 10);
+            }
+            $LogOutput = "Wormhole: beenThrough: " . &getPlayers($beenThrough) . ", canSee: " . &getPlayers($canSee) . ", turnNoDisplay=$turnNoDisplay\n";
+            &LogOut(100,$LogOutput, $LogFile);
+          } elsif (&isMinefield($type)) {
+            # Packet
+            # nothing decoded enough to clean
+          } 
+        }
+      }
+      if ($blockId == 6) { # Player Block
+        # Reset the info the CA player can see
+        print &showRace(\@decryptedData,$size);
+        if ($clean) {   
+          @decryptedData = &resetRace(\@decryptedData,$Player);
+        }
+        print &showRace(\@decryptedData,$size);  
+      }
+    # END OF MAGIC
+    #reencrypt the data for output
+    ($encryptedBlock, $seedX, $seedY) = &encryptBlock(\@block, \@decryptedData, $padding, $seedX, $seedY);
+    @encryptedBlock = @ { $encryptedBlock };
+    push @outBytes, @encryptedBlock;
+  }
+  $offset = $offset + (2 + $size); 
+  }
+  return \@outBytes;
+}
+
 ##########################################
 
 # 

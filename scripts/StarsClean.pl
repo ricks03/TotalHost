@@ -104,7 +104,7 @@ my @singularRaceName;
 my @pluralRaceName;
 
 #my @resetRace =  ( 0,6,2,0,6,16,15,1,81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,2,2,6,183,222,219,22,116,214,7,183,222,219,22,116,214 );
-# The values used when cleaning a race file. Defaults to Humanoids
+# The values used when cleaning race values. Defaults to Humanoids
 my @resetRace =  ( 81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 );
 
 #Stars random number generator class used for encryption
@@ -190,7 +190,7 @@ foreach $filename (@mFiles) {
   close(StarFile);
   
   # Decrypt the data, block by block
-  my ($outBytes) = &decryptClean(@fileBytes);
+  my ($outBytes) = &decryptBlock(@fileBytes);
   my @outBytes = @{$outBytes};
   
   # Create the output file name(s)
@@ -227,7 +227,7 @@ foreach $filename (@mFiles) {
 } 
 
 ################################################################
-sub decryptClean {
+sub decryptBlock {
   my (@fileBytes) = @_;
   my @block;
   my @data;
@@ -249,7 +249,7 @@ sub decryptClean {
     # FileHeaderBlock, never encrypted
     if ($blockId == 8 ) {
       # We always have this data before getting to block 6, because block 8 is first
-      # If there are two ( or more) block 8s, the seeds reset for each block 8
+      # If there are two (or more) block 8s, the seeds reset for each block 8
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block );
       unless ($Magic eq "J3J3") { die "One of the files is not a .M file. Stopped along the way."; }
       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
@@ -395,7 +395,7 @@ sub processData {
         $ironium = &read16(\@decryptedData, 8);
         $boranium = &read16(\@decryptedData, 10);
         $germanium = &read16(\@decryptedData, 12);
-        # Bug: there's data that changes in byte 14. 
+        # BUG: there's data that changes in byte 14. 
         # fairly certain this isn't a player ID or CanSee??
         $unk5 = &dec2bin(&read16(\@decryptedData, 14)); 
         $turnNo = &read16(\@decryptedData, 16); # Doesn't appear to be turn info like the rest
@@ -414,11 +414,11 @@ sub processData {
   if ($blockId == 6) { # Player Block
     if ($debug) { print "\nBLOCK typeId: $blockId, Offset: $offset, Size: $size\n"; }
     if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-    &showRace(\@decryptedData,$size);
+    print &showRace(\@decryptedData,$size);
     if ($clean) {   
       @decryptedData = &resetRace(\@decryptedData,$Player);
       if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; } 
-      &showRace(\@decryptedData,$size);  
+      print &showRace(\@decryptedData,$size);  
     }
   }
   return @decryptedData;

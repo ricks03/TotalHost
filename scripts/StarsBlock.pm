@@ -49,7 +49,6 @@ our @EXPORT = qw(
   isPacketOrSalvage getPacketType
   isWormhole getWormholeType
   isMT getMTPartName
-  StarsRace
   displayBlockRace
   parseInt bitTest
   nibbleToChar charToNibble
@@ -61,7 +60,6 @@ our @EXPORT = qw(
   showFactoriesCost1LessGerm
   showMTItems
   decodeBytesForStarsString decodeBytesForStarsMessage
-  StarsClean
   getPlayers resetPlayers
   resetRace showRace
   StarsMsg decryptMsg
@@ -524,59 +522,6 @@ sub decryptPWD {
   return \@outBytes;
 }
 
-# sub decryptBlock {
-#   my (@fileBytes) = @_;
-#   my @block;
-#   my @data;
-#   my ($decryptedData, $encryptedBlock, $padding);
-#   my @decryptedData;
-#   my @encryptedBlock;
-#   my @outBytes;
-#   my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
-#   my ($random, $seedA, $seedB, $seedX, $seedY );
-#   my ($blockId, $size, $data );
-#   my $offset = 0; #Start at the beginning of the file
-#   while ($offset < @fileBytes) {
-#     # Get block info and data
-#     ($blockId, $size, $data ) = &parseBlock(\@fileBytes, $offset);
-#     @data = @{ $data }; # The non-header portion of the block
-#     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-#     if ($blockId == 43 ) { $debug = 1;  } else { $debug = 0;}
-#     if ($debug > 1) { print "\nBLOCK blockId: $blockId, Offset: $offset, Size: $size\n"; }  
-#     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
-#     # FileHeaderBlock, never encrypted
-#     if ($blockId == 8 ) {
-#       # We always have this data before getting to block 6, because block 8 is first
-#       # If there are two ( or more) block 8s, the seeds reset for each block 8
-#       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block );
-#       unless ($Magic eq "J3J3") { die "One of the files is not a .M file. Stopped along the way."; }
-#       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
-#       $seedX = $seedA; # Used to reverse the decryption
-#       $seedY = $seedB; # Used to reverse the decryption
-#       push @outBytes, @block;
-#      } elsif ($blockId == 7) {
-#       # BUG: Note that planet's data requires something extra to decrypt. 
-#       # Fortunately block 7 isn't in my test files
-#       die "BLOCK 7 found. ERROR!\n"; 
-#     } else {
-#       # Everything else needs to be decrypted
-#       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
-#       @decryptedData = @{ $decryptedData };    
-#       if ($debug) { print "\nDATA DECRYPTED:" . join ( " ", @decryptedData ), "\n"; }
-#       # WHERE THE MAGIC HAPPENS
-#       &processData(\@decryptedData,$blockId,$offset,$size,$Player);
-#       # END OF MAGIC
-#       #reencrypt the data for output
-#       ($encryptedBlock, $seedX, $seedY) = &encryptBlock(\@block, \@decryptedData, $padding, $seedX, $seedY);
-#       @encryptedBlock = @ { $encryptedBlock };
-#       if ($debug > 1) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
-#       push @outBytes, @encryptedBlock;
-#     }
-#     $offset = $offset + (2 + $size); 
-#   }
-#   return \@outBytes;
-# }
-
 sub encryptBlock {
   my ($block, $decryptedData, $padding, $seedX, $seedY) = @_; 
   my @block = @{$block};
@@ -691,32 +636,6 @@ sub getMTPartName {
   if (&bitTest($itemBits, 11)) { return 'Jump Gate';         }
   if (&bitTest($itemBits, 12)) { return 'Ship/MT Lifeboat';  }
  	return '';
-}
-
-sub StarsRace {
-  # Displays Race attributes
-  # Note that the race file has a checksum value, so writing out changes will 
-  # fail.
-  my ($RaceFile, $Player) = @_;
-  use File::Basename;  # Used to get filename components
-  
-  $filename = $RaceFile;
-  
-  # Validate that the file exists
-  unless (-e $filename) { print "File $filename does not exist!\n"; exit; }
-  
-  # Read in the binary Stars! file, byte by byte
-  my $FileValues;
-  my @fileBytes;
-  open(StarFile, "<$filename");
-  binmode(StarFile);
-  while (read(StarFile, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
-  close(StarFile);
-  
-  # Decrypt the data, block by block
-  &displayBlockRace(@fileBytes);
 }
 
 sub displayBlockRace {
@@ -1145,158 +1064,6 @@ sub decodeBytesForStarsMessage {
 	return $result;
 }
 
-sub StarsClean {
-  my ($GameFile, $Player) = @_;
-
-  # Clean shared information out of .m files
-  # Removes "privileged" information from a .m file
-  #
-  #Currently:
-  # Cleans MT cargo (sets to "research")
-  # Cleans who has visited mystery trader (only player)
-  # Cleans who has seen minefields (only player)
-  # Cleans who has seen wormholes (only player)
-  # Cleans who has been through a wormhole (only player)
-  # Cleans CA known player information
-  
-  use File::Basename;  # Used to get filename components
-  my $debug = 1; # Enable better debugging output. Bigger the better
-  my $clean = 1; # 0, 1, 2: display, clean but don't write, write 
-  
-  # For Object Block 43 
-  my $objectId;    
-  my $count = -1;
-  my $number;
-  my $owner;
-  my $type; # 0 = minefield, 1 = packet/salvage, 2 = wormhole, 3 = MT
-  my ($x, $y);
-  # For MT
-  my ($xDest, $yDest);
-  my $warp;
-  my $metBits;
-  my $itemBits;
-  my $turnNo;
-  my $turnNoDisplay;
-  #For minefields
-  my $mineCount;
-  my $mineDetonate;
-  my $mineType;
-  #For wormholes
-  my $wormholeId;
-  my $targetId;
-  my $beenThrough;    
-  my $canSee;
-  my $stability;
-  # For packets
-  my $targetAndSpeed;
-  my ($destPlanetId, $WarpSpeedMinus4, $WarpOverMDLimit);
-  my ($ironium, $boranium, $germanium);
-  #holding values for unknown variables
-  my ($unk1, $unk2, $unk3, $unk4, $unk5) = '';  
-  
-  # For Player Block 6
-  my $playerId;  # int , 1 byte
-  my $ShipSlotsUsed;   # intm 1 byte
-  my $PlanetCount;       # int, 2 bytes
-  my $FleetAndStarBaseDesignCount;        # int , 2 bytes
-    my $FleetCount; # 12 bits
-    my $StarBaseDesignCount; # 4 bits
-  my $logo;          # int
-  my $fullDataFlag;  # boolean
-  my $fullDataBytes; # byte
-  my $playerRelations; # byte, 0 neutral, 1 friend, 2 enemy
-  my $nameBytes;     #byte
-  my $byte7 = 1;
-  my @singularRaceName;
-  my @pluralRaceName;
-  
-  #my @resetRace =  ( 0,6,2,0,6,16,15,1,81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,2,2,6,183,222,219,22,116,214,7,183,222,219,22,116,214 );
-  # The values used when cleaning a race file. Defaults to Humanoids
-  my @resetRace =  ( 81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 );
-  
-  my @mFiles;      
-  my $inName = $ARGV[0]; # input file
-  my $outName = $ARGV[1];
-  my $filename;
-  
-  #Validate directory or file 
-  unless (-d $inName || -e $inName ) { 
-    print "Requested object $inName does not exist!\n"; exit; 
-  }
-  
-  # Get all the file names in the directory, or just the one name
-  # Note that directories test for files, but files don't test
-  # for directories
-  if (-d $inName) {  
-    # If a directory name was specified
-    my $file;
-    my $fullName;
-    opendir(BIN, $inName) or die "Cannot open directory $inName\n";
-    while (defined ($file = readdir BIN)) {
-      next if $file =~ /^\.\.?$/; # skip . and ..
-      next unless ($file =~  /(^.*\.[Mm]\d*$)/); #prefiltering for .m files
-      $fullName = $inName . '\\' . $file;
-      push @mFiles, $fullName;
-    }
-  } elsif (-e $inName) { 
-    # If a file name was specified
-    $mFiles[0] = $inName;
-  }
-    
-  if (@mFiles == 0) { die "Something went wrong. There\'s no information\n"; }
-  
-   my ($basefile, $dir, $ext);
-    # for c:\stars\mygamename.m1
-    $basefile = basename($filename);    # mygamename.m1
-    $dir  = dirname($filename);         # c:\stars
-    ($ext) = $basefile =~ /(\.[^.]+)$/; # .m  extension
-    # Read in the binary Stars! file, byte by byte
-    my $FileValues;
-    my @fileBytes;
-    open(StarFile, "<$filename" );
-    binmode(StarFile);
-    while ( read(StarFile, $FileValues, 1)) {
-      push @fileBytes, $FileValues; 
-    }
-    close(StarFile);
-    
-    # Decrypt the data, block by block
-    my ($outBytes) = &cleanBlock(@fileBytes);
-    my @outBytes = @{$outBytes};
-    
-    # Create the output file name(s)
-    # taking into account the paths provided. 
-    my $newFile; 
-    if (-e $inName) {
-      # if the outName was defined
-      if ($outName) {   $newFile = $outName;  } 
-      # Otherwise, safety first
-      else { $newFile = $dir . '\\' . $basefile . '.clean'; }
-      # and because I dont like fiddling with it when debugging
-      if ($debug) { $newFile = "f:\\clean_" . $basefile;  } # Just for me
-    } elsif (-d $inName && $inName eq $outName ) {
-      # if inName was a directory, and outName is the same location
-      # overwrite the existing files
-      $newFile = $dir . '\\' . $basefile;
-    } elsif (-d $outName) {
-      # Otherwise create the files in the new location.   
-      $newFile = $outName . '\\' . $basefile; 
-    } else { die "What happened to the name?\n"; }
-    
-    # Output the Stars! File with modified data
-    # Don't do unless in clean write mode
-    if ($clean > 1) {
-      open ( outFile, '>:raw', "$newFile" );
-      for (my $i = 0; $i < @outBytes; $i++) {
-        print outFile $outBytes[$i];
-      }
-      close ( outFile);
-      
-      print "File output: $newFile\n";
-      unless ($ARGV[1] || -d $inName ) { print "Don't forget to rename $newFile\n"; }
-    }
-}
-
 sub getPlayers {
   my ($getBits) = @_;
   my ($getString);
@@ -1369,13 +1136,14 @@ sub resetRace {
 sub showRace {
   my ($decryptedData, $size) = @_;
   my @decryptedData = @{$decryptedData};
-  my $playerId = $decryptedData[0] & 0xFF; print "Player Id: $playerId\n";
-  my $shipDesigns = $decryptedData[1] & 0xFF;  print " Ship Designs: $shipDesigns\n";
-  my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); print " Planets: $planets\n";
-  my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);  print " Fleets: $fleets\n";
-  my $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); print " Starbase Designs: $starbaseDesigns\n";
-  my $logo = (($decryptedData[6] & 0xFF) >> 3); print " Logo: $logo\n";
-  my $fullDataFlag = ($decryptedData[6] & 0x04); print "fullDataFlag: $fullDataFlag\n";
+  my $raceData;
+  my $playerId = $decryptedData[0] & 0xFF;
+  my $shipDesigns = $decryptedData[1] & 0xFF;
+  my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8);
+  my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);
+  my $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4);
+  my $logo = (($decryptedData[6] & 0xFF) >> 3);
+  my $fullDataFlag = ($decryptedData[6] & 0x04);
   # Byte 7 unknown
   # We figure out names here, because they're here at 8 when not fullDataFlag 
   my $index = 8; 
@@ -1395,16 +1163,14 @@ sub showRace {
   my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
   $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
   $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
-  print "playerName $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
+  $raceData = "playerName $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
   
   if ($fullDataFlag) { 
     my $homeWorld = &read16(\@decryptedData, 8);
-    print "Homeworld: $homeWorld\n";
 #    my $rank = &read16(\@decryptedData, 10);
 # BUG: the references say this is two bytes, but I don't think it is.
 # That means I don't know what byte 11 is tho. 
     my $rank = $decryptedData[10];
-    print "Player Rank: $rank\n";
     # Bytes 12..15 are the password;
     my $centreGravity = $decryptedData[16]; # (base 65), 255 if immune 
     my $centreTemperature = $decryptedData[17]; #(base 35), 255 if immune  
@@ -1416,7 +1182,6 @@ sub showRace {
     my $highTemperature = $decryptedData[23];
     my $highRadiation   = $decryptedData[24];
     my $growthRate      = $decryptedData[25];
-    print "Grav: " . &showHab($lowGravity,$centreGravity,$highGravity) . ", Temp: " . &showHab($lowTemperature,$centreTemperature,$highTemperature) . ", Rad: " . &showHab($lowRadiation,$centreRadiation,$highRadiation) . ", Growth: $growthRate\%\n"; 
       # Worth noting all of these are +18 when in the fullDataFlag
     my $energyLevel           = $decryptedData[26];
     my $weaponsLevel          = $decryptedData[27];
@@ -1424,22 +1189,16 @@ sub showRace {
     my $constructionLevel     = $decryptedData[29];
     my $electronicsLevel      = $decryptedData[30];
     my $biotechLevel          = $decryptedData[31];
-    print "Tech Level: $energyLevel, $weaponsLevel, $propulsionLevel, $constructionLevel, $electronicsLevel, $biotechLevel\n";    
     my $energyLevelPointsSincePrevLevel         = $decryptedData[32]; # (4 bytes) 
     my $weaponsLevelPointsSincePrevLevel        = $decryptedData[36]; # (4 bytes) 
     my $propulsionLevelPointsSincePrevLevel     = $decryptedData[42]; # (4 bytes) 
     my $constructionLevelPointsSincePrevLevel   = $decryptedData[46]; # (4 bytes) 
     my $electronicsLevelPointsSincePrevLevel     = $decryptedData[50]; # (4 bytes)
     my $biologyLevelPointsSincePrevLevel         = $decryptedData[54]; # (4 bytes)
-    print "Tech Points: $energyLevelPointsSincePrevLevel, $weaponsLevelPointsSincePrevLevel, $propulsionLevelPointsSincePrevLevel, $constructionLevelPointsSincePrevLevel, $electronicsLevelPointsSincePrevLevel, $biologyLevelPointsSincePrevLevel \n";
     my $researchPercentage    = $decryptedData[56];
-    print "Research Percentage: $researchPercentage\n";
     my $currentResourcePriority = $decryptedData[57] >> 4; # (right 4 bits) [same, energy ..., lowest]
-    print "Research Priority: " . &showResearchPriority($currentResourcePriority) . "\n";
     my $nextResourcePriority  = $decryptedData[57] & 0x04; # (left 4 bits)
-    print "Next Priority: " . &showResearchPriority($nextResourcePriority) . "\n";
     my $researchPointsPreviousYear = $decryptedData[58]; # (4 bytes)
-    print "researchPointsPreviousYear: $researchPointsPreviousYear\n";
     my $resourcePerColonist = $decryptedData[62]; # ? 55? 
     my $producePerFactory = $decryptedData[63];
     my $toBuildFactory = $decryptedData[64];
@@ -1447,32 +1206,32 @@ sub showRace {
     my $producePerMine = $decryptedData[66];
     my $toBuildMine = $decryptedData[67];
     my $operateMine = $decryptedData[68];
-    print "Productivity: Colonist: $resourcePerColonist, Factory: $producePerFactory, $toBuildFactory, $operateFactory, Mine: $producePerMine, $toBuildMine, $operateMine\n";
+    $raceData .=  "Productivity: Colonist: $resourcePerColonist, Factory: $producePerFactory, $toBuildFactory, $operateFactory, Mine: $producePerMine, $toBuildMine, $operateMine\n";
     my $spendLeftoverPoints = $decryptedData[69]; # ?  (3:factories)  
-    print "Spend Leftover Points On: " . &showLeftoverPoints($spendLeftoverPoints) . "\n";; 
+    $raceData .= "Spend Leftover Points On: " . &showLeftoverPoints($spendLeftoverPoints) . "\n"; 
     my $researchEnergy        = $decryptedData[70]; # (0:+75%, 1: 0%, 2:-50%) 
     my $researchWeapons       = $decryptedData[71]; # (0:+75%, 1: 0%, 2:-50%)
     my $researchProp          = $decryptedData[72]; # (0:+75%, 1: 0%, 2:-50%)
     my $researchConstruction  = $decryptedData[73]; # (0:+75%, 1: 0%, 2:-50%)
     my $researchElectronics   = $decryptedData[74]; # (0:+75%, 1: 0%, 2:-50%)
     my $researchBiotech       = $decryptedData[75]; # (0:+75%, 1: 0%, 2:-50%)
-    print "Research Cost:  " . &showResearchCost($researchEnergy) . ", " . &showResearchCost($researchWeapons) . ", " . &showResearchCost($researchProp). ", " . &showResearchCost($researchConstruction) . ", " . &showResearchCost($researchElectronics) . ", " . &showResearchCost($researchBiotech) . "\n";
+    $raceData .= "Research Cost:  " . &showResearchCost($researchEnergy) . ", " . &showResearchCost($researchWeapons) . ", " . &showResearchCost($researchProp). ", " . &showResearchCost($researchConstruction) . ", " . &showResearchCost($researchElectronics) . ", " . &showResearchCost($researchBiotech) . "\n";
     my $PRT = $decryptedData[76]; # HE SS WM CA IS SD PP IT AR JOAT  
-    print "PRT: " . &showPRT($PRT) . "\n";
+    $raceData .= "PRT: " . &showPRT($PRT) . "\n";
     #$decryptedData[77]; unknown , always 0?
     my $LRT =  $decryptedData[78]  + ($decryptedData[79] * 0x100); 
     my @LRTs = &showLRT($LRT);
-    print "LRTs: " . join(',',@LRTs) . "\n";
+    $raceData .= "LRTs: " . join(',',@LRTs) . "\n";
     my $checkBoxes = $decryptedData[81]; 
       #Unknown bits="5" 
       my $expensiveTechStartsAt3 = &bitTest($checkBoxes, 5);
       # Unknown bit 6
       my $factoriesCost1LessGerm = &bitTest($checkBoxes, 7);
-    print "Expensive Tech Starts at 3: " . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n";
-    print "FactoriesCost1LessGerm: " . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
+    $raceData .= "Expensive Tech Starts at 3: " . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n";
+    $raceData .= "FactoriesCost1LessGerm: " . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
     my $MTItems =  $decryptedData[82] + ($decryptedData[83] * 0x100);
     my @MTItems = &showMTItems($MTItems);
-    print "MT Items: " . join(',',@MTItems) . "\n";
+    $raceData .= "MT Items: " . join(',',@MTItems) . "\n";
     #$decryptedData[82-109]; unknown, but in pairs  
     # Interestingly, if the player relations have never been set, the
     #  player relations length will be 0, with no bytes after it
@@ -1483,204 +1242,12 @@ sub showRace {
       for (my $i = 1; $i <= $playerRelationsLength; $i++) {
         my $id = $i -1;
         if ($id == $playerId) { next; } # Skip for self
-        print "Player " . $id . ": " . &showPlayerRelations($decryptedData[$i+112]) . "\n";
+        $raceData .= "Player " . $id . ": " . &showPlayerRelations($decryptedData[$i+112]) . "\n";
       } 
-    } else { print "Player Relations never set\n"; }
+    } else { $raceData .= "Player Relations never set\n"; }
   }
-  print "\n";
-}
-
-sub cleanBlock {
-  my (@fileBytes) = @_;
-  my @block;
-  my @data;
-  my ($decryptedData, $encryptedBlock, $padding);
-  my @decryptedData;
-  my @encryptedBlock;
-  my @outBytes;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
-  my ($random, $seedA, $seedB, $seedX, $seedY );
-  my ($blockId, $size, $data );
-  my $offset = 0; #Start at the beginning of the file
-  while ($offset < @fileBytes) {
-    # Get block info and data
-    ($blockId, $size, $data ) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
-    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-    if ($blockId == 43 ) { $debug = 1;  } else { $debug = 0;}
-    if ($debug > 1) { print "\nBLOCK blockId: $blockId, Offset: $offset, Size: $size\n"; }  
-    if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
-    # FileHeaderBlock, never encrypted
-    if ($blockId == 8 ) {
-      # We always have this data before getting to block 6, because block 8 is first
-      # If there are two ( or more) block 8s, the seeds reset for each block 8
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block );
-      unless ($Magic eq "J3J3") { die "One of the files is not a .M file. Stopped along the way."; }
-      ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
-      $seedX = $seedA; # Used to reverse the decryption
-      $seedY = $seedB; # Used to reverse the decryption
-      push @outBytes, @block;
-     } elsif ($blockId == 7) {
-      # BUG: Note that planet's data requires something extra to decrypt. 
-      # Fortunately block 7 isn't in my test files
-      die "BLOCK 7 found. ERROR!\n"; 
-    } else {
-      # Everything else needs to be decrypted
-      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
-      @decryptedData = @{ $decryptedData };    
-      if ($debug) { print "\nDATA DECRYPTED:" . join ( " ", @decryptedData ), "\n"; }
-      # WHERE THE MAGIC HAPPENS
-      #&processData(\@decryptedData,$blockId,$offset,$size,$Player);
-      # Process the decrypted bytes
-      my ($decryptedData,$blockId,$offset,$size,$Player)  = @_;
-      my @decryptedData = @{ $decryptedData };
-      if ($blockId == 43) { # Check for special attributes in the Object Block
-        if ($size == 2) {
-          my $count = &read16(\@decryptedData, 0);
-        } else {
-          $objectId =  &read16(\@decryptedData, 0);
-          $number = $objectId & 0x01FF;
-          $owner = ($objectId & 0x1E00) >> 9;
-          $type = $objectId >> 13;
-          # BUG: MTID 12 bits, Type 4 bits.
-          # BUG: Wormhole ID 12 bits, Type ID 4 bits
-          
-          # Mystery Trader
-          if (&isMT($type)) {
-            $x = &read16(\@decryptedData, 2);
-            $y = &read16(\@decryptedData, 4);
-    	      $xDest = &read16(\@decryptedData, 6);
-      			$yDest = &read16(\@decryptedData, 8);
-      			$warp = $decryptedData[10] % 16;
-      			$metBits = &read16(\@decryptedData, 12);
-      			$itemBits = &read16(\@decryptedData, 14);
-      			$turnNo = &read16(\@decryptedData, 16); # Which doesn't report turn like everything else
-            $turnNoDisplay =  $turnNo + 2401;
-            my $MTPart = &getMTPartName($itemBits);
-            if ($debug) { print "blockId: $blockId, objectId: $objectId, number: $number, owner = $owner, typeId = $type\n"; }
-            print "Mystery Trader: x: $x, y: $y, xDest: $xDest, yDest: $yDest, warp: $warp, met: " . &getPlayers($metBits) . ", $MTPart, turnNoDisplay=$turnNoDisplay\n";
-            if ($clean) { 
-              # Reset players who has traded with MT
-              ($decryptedData[12], $decryptedData[13]) = &resetPlayers($Player, &read16(\@decryptedData, 12));
-              # reset values for display
-              $metBits = &read16(\@decryptedData, 12);
-              # Reset the MT Part
-              $decryptedData[14] = 0;
-              $decryptedData[15] = 0;
-              # reset part values for display
-      			  $itemBits = &read16(\@decryptedData, 14);
-              $MTPart = &getMTPartName($itemBits);
-            }
-            print "Mystery Trader: x: $x, y: $y, xDest: $xDest, yDest: $yDest, warp: $warp, met: " . &getPlayers($metBits) . ", $MTPart, turnNoDisplay=$turnNoDisplay\n";
-          # Minefields
-          } elsif (&isMinefield($type)) {
-            # BUG: decay rate? (might be calculated)
-            $x = &read16(\@decryptedData, 2); # 2 bytes
-            $y = &read16(\@decryptedData, 4); # 2 bytes
-            $mineCount = &read32(\@decryptedData, 6); # 4 bytes
-            $canSee = &read16(\@decryptedData, 10);
-            my $mineStatus = &read16(\@decryptedData, 12);   # includes detonating
-            $mineStatus = dec2bin($mineStatus);
-            my @mineStatus;
-            for (my $i=0; $i < 16; $i++)  {
-               $mineStatus[$i] = substr($mineStatus,$i,1); 
-            }
-            $mineDetonate = &getMineDetonate(\@mineStatus); # bit 7 is detonating  status
-            $mineType = &getMineType(\@mineStatus); # bit 14+15 = mine type
-            $unk4 = &read16(\@decryptedData, 14);  # BUG: What is this, not player ID
-            $turnNo = &read16(\@decryptedData, 16);
-            $turnNoDisplay =  $turnNo + 2401;
-            if ($debug) { print "blockId: $blockId, objectId: $objectId, minefieldId: $number, playerId: $owner, typeId: $type\n"; }
-            print "MineField: x: $x, y: $y, mineCount: $mineCount, canSee: " . &getPlayers($canSee) . ", $mineType, $mineDetonate, unk4: $unk4, turnNo:$turnNoDisplay\n";
-            if ($clean) {
-              # Hard to find any data here as not much is known of the format
-              # Reset players who can see the minefield
-              ($decryptedData[10], $decryptedData[11]) = &resetPlayers ($Player, &read16(\@decryptedData, 10));
-              # reset values for display
-              $canSee = &read16(\@decryptedData, 10);
-            }
-            print "MineField: x: $x, y: $y, mineCount: $mineCount, canSee: " . &getPlayers($canSee) . ", $mineType, $mineDetonate, unk4: $unk4, turnNo:$turnNoDisplay\n";
-    
-          #Wormholes
-          } elsif (isWormhole($type)) {
-            $x = &read16(\@decryptedData, 2);
-            $y = &read16(\@decryptedData, 4);
-            $stability = &read16(\@decryptedData, 6);
-            #$stability = &dec2bin($stability);
-    	      $canSee = &read16(\@decryptedData, 8);
-    	      $beenThrough = &read16(\@decryptedData, 10);
-    	      $targetId = &read16(\@decryptedData, 12) % 4096;   
-            $unk4 =  &read16(\@decryptedData, 12); #possibly random amount added to last stability value ?
-            $unk4 = &dec2bin ($unk4);                        
-            $unk5 =  &read16(\@decryptedData, 14);  # Always zeros? 
-            $unk5 = &dec2bin ($unk5);                        
-            $turnNo = &read16(\@decryptedData, 16);
-            $turnNoDisplay =  $turnNo + 2401;
-            if ($debug) { print "blockId: $blockId, objectId: $objectId, wormholeId: $number, typeId = $type\n"; }
-            print "Wormhole: x: $x, y: $y, TID: $targetId, stability: $stability, beenThrough: " . &getPlayers($beenThrough) . ", canSee: " . &getPlayers($canSee) . ", unk5: $unk5, unk4: $unk4, turnNoDisplay=$turnNoDisplay\n";
-            if ($clean) { 
-              # Reset players who can see wormhole
-              ($decryptedData[8], $decryptedData[9]) = &resetPlayers ($Player, &read16(\@decryptedData, 8));
-              # reset values for display
-    	        $canSee = &read16(\@decryptedData, 8);
-              # Reset players who are known to have been through
-              ($decryptedData[10], $decryptedData[11]) = &resetPlayers ($Player, &read16(\@decryptedData, 10));
-              # reset values for display
-              $beenThrough = &read16(\@decryptedData, 10);
-            }
-            print "Wormhole: x: $x, y: $y, TID: $targetId, beenThrough: " . &getPlayers($beenThrough) . ", canSee: " . &getPlayers($canSee) . ", turnNoDisplay=$turnNoDisplay\n";
-    
-          # Packet
-          } elsif (&isPacketOrSalvage($type)) {
-            $x = &read16(\@decryptedData, 2);
-            $y = &read16(\@decryptedData, 4);
-            $targetAndSpeed = &read16(\@decryptedData, 6);
-            $targetAndSpeed = &dec2bin($targetAndSpeed);
-            $destPlanetId = substr($targetAndSpeed,6,10);       # 10 bits
-            $destPlanetId = &bin2dec($destPlanetId);
-            $WarpSpeedMinus4 = substr($targetAndSpeed,2,4); #4 bits
-            $WarpSpeedMinus4 = &bin2dec($WarpSpeedMinus4);
-            $WarpOverMDLimit = substr($targetAndSpeed,2,2);# 2 bits 
-            $WarpOverMDLimit = &bin2dec($WarpOverMDLimit);
-            $ironium = &read16(\@decryptedData, 8);
-            $boranium = &read16(\@decryptedData, 10);
-            $germanium = &read16(\@decryptedData, 12);
-            # Bug: there's data that changes in byte 14. 
-            # fairly certain this isn't a player ID or CanSee??
-            $unk5 = &dec2bin(&read16(\@decryptedData, 14)); 
-            $turnNo = &read16(\@decryptedData, 16); # Doesn't appear to be turn info like the rest
-            $turnNoDisplay = $turnNo + 2401;
-            if ($debug) { print "blockID: $blockId, objectId: $objectId, salvageId: $number, ownerId: $owner, typeId: $type\n"; }
-            my $warpSpeed = $WarpSpeedMinus4 + 4;
-            print "Packet: x: $x, y: $y, DestPlanetId: $destPlanetId, " . &getPacketType($destPlanetId) . ", Warp Speed: " . $warpSpeed . ", WarpOverMDLimit: $WarpOverMDLimit,  ironium: $ironium, boranium: $boranium, germanium: $germanium, unk5: $unk5, turnNo:$turnNoDisplay\n";
-            if ($clean) {
-              # Decay rate wouldn't be public.
-              # Packet ownership must be included in here somewhere
-            }
-            print "Packet: x: $x, y: $y, DestPlanetId: $destPlanetId, " . &getPacketType($destPlanetId) . ", Warp Speed: $warpSpeed, WarpOverMDLimit: $WarpOverMDLimit,  ironium: $ironium, boranium: $boranium, germanium: $germanium, unk5: $unk5, turnNo:$turnNoDisplay\n";
-          }
-        }
-      }
-      if ($blockId == 6) { # Player Block
-        if ($debug) { print "\nBLOCK typeId: $blockId, Offset: $offset, Size: $size\n"; }
-        if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-        &showRace(\@decryptedData,$size);
-        if ($clean) {   
-          @decryptedData = &resetRace(\@decryptedData,$Player);
-          if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; } 
-          &showRace(\@decryptedData,$size);  
-        }
-      }
-    # END OF MAGIC
-    #reencrypt the data for output
-    ($encryptedBlock, $seedX, $seedY) = &encryptBlock(\@block, \@decryptedData, $padding, $seedX, $seedY);
-    @encryptedBlock = @ { $encryptedBlock };
-    if ($debug > 1) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
-    push @outBytes, @encryptedBlock;
-  }
-  $offset = $offset + (2 + $size); 
-  }
-  return \@outBytes;
+  $raceData .= "\n";
+  return $raceData;
 }
 
 sub StarsMsg {
@@ -1688,26 +1255,6 @@ sub StarsMsg {
 
     # Displays Stars! Messages
     # Displays Block 40 - Message Block
-    # Still problems displaying some of the special characters
-    # "   [254, 255] 34 0
-    # #   [254, 255] 35 0
-    # (   [254, 255] 40 0
-    # )   [254, 255] 41 0
-    # &   [254, 255] 42 0
-    # |   [254, 255] 43 0
-    # _   [254, 255] 45 0
-    # <   [254, 255] 60 0
-    # =   [254, 255] 61 0
-    # >   [254, 255] 62 0
-    # /   [254, 255] 63 0
-    # [   [254, 255] 91 0
-    # \   [254, 255] 92 0
-    # ]   [254, 255] 93 0
-    # ^   [254, 255] 94 0
-    # `   [254, 255] 96 0
-    # {   [254, 255] 123 0
-    # }   [254, 255] 125 0
-    
     # Derived from decryptor.py and decryptor.java from
     # https://github.com/stars-4x/starsapi  
     
@@ -1756,7 +1303,7 @@ sub decryptMsg {
     # FileHeaderBlock, never encrypted
     if ($blockId == 8 ) {
       # We always have this data before getting to block 6, because block 8 is first
-      # If there are two ( or more) block 8s, the seeds reset for each block 8
+      # If there are two (or more) block 8s, the seeds reset for each block 8
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block );
       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
     } else {

@@ -203,26 +203,26 @@ sub decryptShip {
       # Part of the detection of the minefield 0-coordinate bug, but 
       # the fleet block isn't mapped well-enough for me to figure out the coordinates
       # easily
-#       if ($typeId == 4 || $typeId == 5) { # waypoint block (add/change) in .x files
-#         if ($debug ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-#         if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-#         # Detect ships moving pure east/west or pure north/south
-#         # BUG: Doesn't work yet. Will need starting coordinates of fleet.
-#         my $fleetId = $decryptedData[0]; 
-#         my $ownerId = $decryptedData[1]; 
-#         my $positionObjectId = &read16(\@decryptedData, 2);
-# 			  my $xDest = &read16(\@decryptedData, 4);  # CORRECT!!!
-#         my $yDest = &read16(\@decryptedData, 6);  # CORRECT!!!
-#         my $test = &read16(\@decryptedData, 8);  
-#         my $unknownBitsWithWarp = $decryptedData[6] & 0x0F;
-#         my $positionObjectType = $decryptedData[7] & 0xFF;
-#         my $fullWaypointData;
-#         my $warp =  $decryptedData[10] >> 4; # CORRECT!!!
-#         print "fleetId: $fleetId, ownerId: $ownerId, test: $test, xdest: $xDest, yDest: $yDest, positionId: $positionObjectId, unk = $unknownBitsWithWarp, PositionType: $positionObjectType, warp: $warp\n";
-#       }
-#       # BUG: I need the fleet IDs to be able to determine the Mine Bug, as the Fleet info includes
-#       # current coordinates. But the block isn't mapped well enough for met o determine it. 
-#       if ($typeId == 16 || $typeId == 17) { # Fleet block and partial fleet block
+      if ($typeId == 4 || $typeId == 5) { # waypoint block (add/change) in .x files
+        if ($debug ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+        if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
+        # Detect ships moving pure east/west or pure north/south
+        # BUG: Doesn't work yet. Will need starting coordinates of fleet.
+        my $fleetId = $decryptedData[0]; 
+        my $ownerId = $decryptedData[1]; 
+        my $positionObjectId = &read16(\@decryptedData, 2);
+			  my $xDest = &read16(\@decryptedData, 4);  # CORRECT!!!
+        my $yDest = &read16(\@decryptedData, 6);  # CORRECT!!!
+        my $test = &read16(\@decryptedData, 8);  
+        my $unknownBitsWithWarp = $decryptedData[6] & 0x0F;
+        my $positionObjectType = $decryptedData[7] & 0xFF;
+        my $fullWaypointData;
+        my $warp =  $decryptedData[10] >> 4; # CORRECT!!!
+        print "fleetId: $fleetId, ownerId: $ownerId, test: $test, xdest: $xDest, yDest: $yDest, positionId: $positionObjectId, unk = $unknownBitsWithWarp, PositionType: $positionObjectType, warp: $warp\n";
+      }
+      # BUG: I need the fleet IDs to be able to determine the Mine Bug, as the Fleet info includes
+      # current coordinates. But the block isn't mapped well enough for me to determine it. 
+#       if ($typeId == 26 || $typeId == 27) { # Design & Design Change block
 #         if ($debug  ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
 #         if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
 #         
@@ -235,6 +235,83 @@ sub decryptShip {
 #         my $fleetPopulation =  $decryptedData[5];
 #         my $fleetFuel =  $decryptedData[6];
 #         my $fleetBattlePlan =  $decryptedData[7];
+#       }  
+#       if ($typeId == 16 || $typeId == 17) { # Fleet block and partial fleet block
+#         $fleetNumber = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
+#         $owner = $decryptedData[1] >> 1;
+#         my $kindByte = $decryptedData[4];
+#         $byte5 = $decryptedData[5];
+#         my $shipCountTwoBytes;
+#         if (($byte5 & 8) == 0) { $shipCountTwoBytes = 1; 
+#         } else  {$shipCountTwoBytes = 0; }
+#         $positionObjectId = &read16(\@decryptedData, 6);
+#         $x = &read16(\@decryptedData, 8);
+#         $y = &read16(\@decryptedData, 10);
+#         $shipTypes = &read16(\@decryptedData, 12);
+#         $index = 14;
+#         $mask = 1;
+#         for (my $bit = 0; $bit < 16; $bit++) {
+#           if (($shipTypes & $mask) != 0) {
+#             if ($shipCountTwoBytes) {
+#               $shipCount[$bit] = &read16(\@decryptedData, $index);
+#               $index += 2;
+#             } else {
+#               $shipCount[$bit] = &read8($decryptedData[$index]);
+#               $index += 1;
+#             }
+#           }
+#         }
+#         $mask <<= 1;
+#         # PARTIAL_KIND = 3, PICK_POCKET_KIND = 4, FULL_KIND = 7;
+#         #if ($kindByte != 7 && $kindByte != 4 && $kindByte != 3) {
+#         if ($kindByte == 7 || $kindByte == 4) {
+#           $contentsLengths = &read16(\@decryptedData, $index);
+#           $iLength = $contentsLengths & 0x03;
+#           $iLength = 4 >> (3 - $iLength);
+#           $bLength = ($contentsLengths & 0x0C) >> 2;
+#           $bLength = 4 >> (3 - $bLength);
+#           $gLength = ($contentsLengths & 0x30) >> 4;
+#           $gLength = 4 >> (3 - $gLength);
+#           $popLength = ($contentsLengths & 0xC0) >> 6;
+#           $popLength = 4 >> (3 - $popLength);
+#           $fuelLength = $contentsLengths >> 8;
+#           $fuelLength = 4 >> (3 - $fuelLength);
+#           $index += 2;
+#           $ironium = &readN(\@decryptedData, $index, $iLength);
+#           $index += $iLength;
+#           $boranium = &readN(\@decryptedData, $index, $bLength);
+#           $index += $bLength;
+#           $germanium = &readN(\@decryptedData, $index, $gLength);
+#           $index += $gLength;
+#           $population = &readN(\@decryptedData, $index, $popLength);
+#           $index += $popLength;
+#           $fuel = &readN(\@decryptedData, $index, $fuelLength);
+#           $index += $fuelLength;
+#         } 
+#         if ($kindByte == 7) {
+#           $damagedShipTypes = &read16(\@decryptedData, $index);
+#           $index += 2;
+#           $mask = 1;
+#           for (my $bit = 0; $bit < 16; $bit++) {
+#             if (($damagedShipTypes & $mask) != 0) {
+#               $damagedShipInfo[$bit] = \&read16(\@decryptedData, $index);
+#               $index += 2;
+#             }
+#             $mask <<= 1;
+#           }
+#           $battlePlan = &read8($decryptedData[$index++]);
+#           $waypointCount = &read8($decryptedData[$index++]);
+#         } else {
+#           $deltaX = &read8($decryptedData[$index++]);
+#           $deltaY = &read8($decryptedData[$index++]);
+#           $warp = $decryptedData[$index] & 15;
+#           $unknownBitsWithWarp = $decryptedData[$index] & 0xF0;
+#           $index++;
+#           $index++;
+#           $mass = &read32(\@decryptedData, $index);
+#           $index += 4;
+#         }
+#       }   
 #         
 #         my $x = &read16(\@decryptedData, 8); # Correct  (likely only in full block?)
 #         my $y = &read16(\@decryptedData, 10); # Correct (likely only in full block?)
