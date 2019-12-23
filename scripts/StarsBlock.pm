@@ -25,11 +25,13 @@
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
 
-#StarsPWD and StarsRace are both integrated into TotalHost
-#Subs for StarsMsg and StarsClean are included, but not tested or implemented in TotalHost
+# StarsPWD and StarsRace are both integrated into TotalHost
+# StarsClean implemented in TotalHost (clean .m files)
+# StarsMsg not implemented in TotalHost
+# StarsFix not integrated (fox .x files)
 
 package StarsBlock;
-use TotalHost;
+#use TotalHost;
 do 'config.pl';
 
 require Exporter;
@@ -45,7 +47,7 @@ our @EXPORT = qw(
   dec2bin bin2dec
   encryptBlock decryptPWD
   stripPadding addPadding
-  isMinefield getMineType getmineDetonate
+  isMinefield getMineType getMineDetonate
   isPacketOrSalvage getPacketType
   isWormhole getWormholeType
   isMT getMTPartName
@@ -951,9 +953,8 @@ sub decodeBytesForStarsString {
   for (my $t = 0; $t < length($hexChars); $t++) {
   	$ch1 = substr($hexChars,$t,1);
   	if ($ch1 eq 'F'){
-      # I think this also happens when we skip past the end of the array.
-      $t++;
-      $t++;
+      # do nothing?
+      # I think this happens when we skip past the end of the array.
   	}
   	elsif ($ch1 eq 'E'){
   		$ch2 = substr($hexChars,$t+1,1);
@@ -1011,19 +1012,22 @@ sub decodeBytesForStarsMessage {
   for (my $t = 0; $t < length($hexChars); $t++) {
   	$ch1 = substr($hexChars,$t,1);
   	if ($ch1 eq 'F'){
-      # Use 2  nibbles
+      # Use 3 nibbles
       # BUG: Should likely be using charToNibble here
-      my $ch3 = substr($hexChars,$t+2,1);  # Get hex character
-      $ch3 = hex ($ch3); # convert to decimal
-      $ch3 = &dec2bin($ch3);  # convert to binary
-      $ch3 = substr($ch3,-4);  # convert to nibble
-      my $ch4 = substr($hexChars,$t+1,1);
-      $ch4 = hex ($ch4); # convert to decimal
-      $ch4 = &dec2bin($ch4); # convert to binary
-      $ch4 = substr($ch4,-4); # convert to nibble
-      $ch2 = $ch3 . $ch4;
-      $ch2 = chr(&bin2dec($ch2));
-      $result .= $ch2;
+      # In some cases this is the last character
+      unless ($t+2 > length($hexChars)) {
+        my $ch3 = substr($hexChars,$t+2,1);  # Get hex character
+        $ch3 = hex ($ch3); # convert to decimal
+        $ch3 = &dec2bin($ch3);  # convert to binary
+        $ch3 = substr($ch3,-4);  # convert to nibble
+        my $ch4 = substr($hexChars,$t+1,1);
+        $ch4 = hex ($ch4); # convert to decimal
+        $ch4 = &dec2bin($ch4); # convert to binary
+        $ch4 = substr($ch4,-4); # convert to nibble
+        $ch2 = $ch3 . $ch4;
+        $ch2 = chr(&bin2dec($ch2));
+        $result .= $ch2;
+      }
       $t++;  # need to advance twice (format to make more readable)
   		$t++;  # need to advance twice
   	}
@@ -1136,7 +1140,7 @@ sub resetRace {
 sub showRace {
   my ($decryptedData, $size) = @_;
   my @decryptedData = @{$decryptedData};
-  my $raceData;
+  my $raceData = '';
   my $playerId = $decryptedData[0] & 0xFF;
   my $shipDesigns = $decryptedData[1] & 0xFF;
   my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8);
@@ -1362,16 +1366,18 @@ sub PLogOut {
   if ($DayofMonth <=7) { $WeekofMonth = 1;}
 	elsif ($DayofMonth >7 && $DayofMonth <=14) { $WeekofMonth = 2;}
 	elsif ($DayofMonth >14 && $DayofMonth <=21) { $WeekofMonth = 3;}
-	elsif ($DayofMonth >22 && $DayofMonth <=28) { $WeekofMonth = 4;}
+	elsif ($DayofMonth >21 && $DayofMonth <=28) { $WeekofMonth = 4;}
 	elsif ($DayofMonth >28 && $DayofMonth <=31) { $WeekofMonth = 5;}
 
   my $LogFileDate = $LogFile . '.' . $Year . '.' . $Month . '.' . $WeekofMonth; 
 	if ($Logging <= $logging) { 
 #		print $PrintString . "\n";
-		$PrintString = localtime(time()) . " : " . $Logging . " : " . $PrintString;
-		open (LOGFILE, ">>$LogFileDate");
-		print LOGFILE "$PrintString\n\n";
-		close LOGFILE;
+    if ($LogFile) {
+  		$PrintString = localtime(time()) . " : " . $Logging . " : " . $PrintString;
+  		open (LOGFILE, ">>$LogFileDate");
+  		print LOGFILE "$PrintString\n\n";
+  		close LOGFILE;
+    } else { print $PrintString . "\n"; }
 	}
 }
 

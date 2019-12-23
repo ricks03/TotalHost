@@ -312,7 +312,7 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
     &process_game_status($in{'GameFile'}, $sql, 'UnPause');
     &display_warning; 
     &show_game($in{'GameFile'}); print "</td>";
-} elsif ($in{'cp'} eq 'Delay Game') {
+} elsif ($in{'cp'} eq 'Delay Turn') {
 		print "<td>"; &show_delay($in{'GameFile'}); print "</td>";
 } elsif ($in{'cp'} eq 'Process Delay') {
 		print "<td>"; 
@@ -390,7 +390,7 @@ if ($in{'rp'} eq 'my_games') {
 	print "<td width=$rp_width>";
 #120715
 #	$sql = qq|SELECT Games.*, User.User_Login FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile) ON User.User_Login = GameUsers.User_Login WHERE (User.User_ID)=| . $session->param("userid") . qq|;|;
-	$sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.HostName FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile) ON User.User_Login = GameUsers.User_Login GROUP BY Games.GameFile, Games.GameName, Games.GameStatus, User.User_ID HAVING User.User_ID=| . $session->param("userid") . qq| ORDER BY Games.GameStatus;|;
+	$sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile) ON User.User_Login = GameUsers.User_Login GROUP BY Games.GameFile, Games.GameName, Games.GameStatus, User.User_ID HAVING User.User_ID=| . $session->param("userid") . qq| ORDER BY Games.GameStatus;|;
 	&rp_list_games($sql, 'My Games');
 	print "</td>";
 } elsif ($in{'rp'} eq 'show_news') { 
@@ -761,6 +761,7 @@ sub show_game {
     
     ######
     # Display the Game Status Data
+    if ($in{'status'}) { print &display_warning($in{'status'}); }
     print "<table width=100%>\n";
     # Print Game Name (and Year if applicable)
     print "<tr>\n";
@@ -778,7 +779,9 @@ sub show_game {
     if ($GameValues{'GameStatus'} eq 7) { print "<td>Game Status: New Game - Pending new players</td>\n";
 		} elsif ($GameValues{'GameStatus'} eq 0) { print "<td>Game Status: New Game - Locked, Waiting for Host to Start</td>\n";
     } else { 
-      print "<td align=left>Game Status: @GameStatus[$GameValues{'GameStatus'}] </td>\n"; 
+      print "<td align=left>Game Status: @GameStatus[$GameValues{'GameStatus'}]";
+      if  ($GameValues{'GameStatus'} == 3) { print " for $GameValues{'DelayCount'} turn generation(s)."; }
+      print "</td>\n";
       unless ($GameValues{'GameStatus'} eq 9) { print qq|<td align="center"><A HREF=\"$Location_Scripts/download.pl?file=$GameFile.xy\">$GameFile.xy</A></td>\n|; }
     }
 		print "</tr>\n";
@@ -1028,7 +1031,7 @@ sub show_game {
     $button_count = 1;  # Keep track of the number of buttons displayed
     # Display Refresh Button
     if ($GameValues{'GameStatus'} =~ /^[2349]$/) { print qq|<BUTTON $user_style type="submit" name="cp" value="Refresh" | . &button_help('Refresh') . qq|>Refresh</BUTTON>\n|; $button_count = &button_check($button_count);}
-    # Display Start Button
+    # Start Game Display Start Button
     if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '0') { print qq|<BUTTON $host_style type="submit" name="cp" value="Start Game" | . &button_help('StartGame') . qq|>Start Game</BUTTON>\n|; $button_count = &button_check($button_count);}
     # Lock the game and prepare to start
 		if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '7' && $playeringame) { print qq|<BUTTON $host_style type="submit" name="cp" value="Lock Game" | . &button_help('LockGame') . qq|>Lock Game</BUTTON>\n|; $button_count = &button_check($button_count);}
@@ -1037,7 +1040,7 @@ sub show_game {
     # Submit a news article
 		if ($GameValues{'NewsPaper'} && ($current_player eq $userlogin) && ($GameValues{'GameStatus'} ne '9'))	{ print qq|<BUTTON $user_style type="submit" name="cp" value="Report News" | . &button_help("NewsPaper") . qq|>Report News</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Delay the game
-		if ($GameValues{'GameDelay'} && ($GameValues{'GameType'} ne '3') && ($GameValues{'GameStatus'} ne '9') && ($current_player eq $userlogin))	{ print qq|<BUTTON $user_style type="submit" name="cp" value="Delay Game" | . &button_help('GameDelay') . qq|>Delay Game</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if ($GameValues{'GameDelay'} && ($GameValues{'GameType'} ne '3') && ($GameValues{'GameStatus'} ne '9') && ($current_player eq $userlogin))	{ print qq|<BUTTON $user_style type="submit" name="cp" value="Delay Turn" | . &button_help('GameDelay') . qq|>Delay Turn</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# BUG: Delete News doesn't quite work yet, don't delete
 	#	if ($GameValues{'HostName'} eq $session->param("userlogin") && ($GameValues{'NewsPaper'})) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="delete_news" | . &button_help('DeleteNews') . qq|>Delete News</BUTTON>\n|; }
 		# Force generate turns
@@ -1068,8 +1071,6 @@ sub show_game {
 		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[04679]$/)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Delete Game" | . &button_help('DeleteGame') .  qq|>Delete Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Remove Password
 		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[23459]$/)) 	{print qq|<BUTTON $host_style type="submit" name="cp" value="Remove PWD" | . &button_help('RemovePWD') .  qq|>Remove PWD</BUTTON>\n|; $button_count = &button_check($button_count);}
-    # Start Game
-		if ( $GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '0') { print qq|<BUTTON $host_style type="submit" name="cp" value="Start Game" | . &button_help('StartGame') . qq|>Start Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Set the DEF File
 		if ($GameValues{'HostName'} eq $userlogin && ($GameValues{'GameStatus'} eq '6' )) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="DEF File" | . &button_help('DEFFile') .  qq|>DEF File</BUTTON>\n|; $button_count = &button_check($button_count);}
 		print qq|</form>\n|;
@@ -1787,7 +1788,7 @@ sub edit_game {
 	unless ($GameValues{'ForceGenTimes'}) { $GameValues{'ForceGenTimes'} = 14; }
 	print qq|<INPUT name="ForceGenTimes" size=3 | . &button_help("ForceGenTimes") . qq| value=$GameValues{'ForceGenTimes'}> times.</P>\n|;
 	if ($type eq 'create') {$GameValues{'NumDelay'} = $default_numdelay; $GameValues{'MinDelay'} = $default_mindelay; }
-	print qq|<INPUT type="checkbox" name="GameDelay" | . &button_help("GameDelay") . qq| $Checked[$GameValues{'GameDelay'}]>Players can Delay game\n|;
+	print qq|<INPUT type="checkbox" name="GameDelay" | . &button_help("GameDelay") . qq| $Checked[$GameValues{'GameDelay'}]>Players can Delay turn\n|;
 	print qq|<INPUT name="NumDelay" size=3 | . &button_help("NumDelay") . qq| value=$GameValues{'NumDelay'}> times.\n|;
 	print qq|Delays reset when the sum drops below <INPUT name="MinDelay" size=3 | . &button_help("MinDelay") . qq| value=$GameValues{'MinDelay'}>.\n|;
 	unless ($GameValues{'AutoInactive'}) { if ($type eq 'create') { $GameValues{'AutoInactive'} = 0; }}
@@ -1903,7 +1904,7 @@ sub delete_game {
     }
 
     print qq|<P>Game \"$GameValues{'GameName'}\" Deleted!</H1>|;
-    &LogOut(0,"$GameValues{'GameName'}, $GameValues{'GameFile'} Deleted by $userlogin",$ErrorLog);
+    &LogOut(0,"$GameValues{'GameName'}, $GameValues{'GameFile'} Deleted by $userlogin",$LogFile);
   } else { 
     print "<P>Failed to delete $GameFile, $GameValues{'GameName'}, $GameValues{'GameFile'} for $userlogin\n";
     &LogOut(0,"$GameValues{'GameName'}, $GameValues{'GameFile'} FAILED TO DELETE by $userlogin",$ErrorLog);
@@ -2654,7 +2655,7 @@ sub show_delay {
 	else { print "Turns are due immediately.\n"; }
 
 	if ($GameValues{'DelaysLeft'} > 1 ) {print qq|<P>You have $GameValues{'DelaysLeft'} delays left for this game. Your available delays will restore to $GameValues{'NumDelay'} if the sum across all players drops below $GameValues{'MinDelay'}.\n|; }
-	elsif ($GameValues{'DelaysLeft'} == 1 ) { print qq|<P>You have $GameValues{'DelaysLeft'} delay left in this game. Use it wisely!\n|; }
+	elsif ($GameValues{'DelaysLeft'} == 1 ) { print qq|<P>You have $GameValues{'DelaysLeft'} delay left in this game. Use wisely!\n|; }
 	else { print qq|<P>You have no delays left in this game. Hope that they reset soon!\n|; }
   # If the player has delays left, display the option to select them
   if ($GameValues{'DelaysLeft'} > 0) {
@@ -2663,7 +2664,7 @@ sub show_delay {
   	if (&checkbox($GameValues{'NewsPaper'})) { print qq|<input type=hidden name="rp" value="show_news">\n|; }
    	print qq|<INPUT type=\"hidden\" name=\"GameFile\" value =\"$GameFile\">\n|;
   	print qq|<table><tr>\n|;
-  	print qq|<td>Delay Game</td>\n|;
+  	print qq|<td>Delay Turn</td>\n|;
    	print qq|<td><SELECT name="delay_turns">\n|;
   	for (my $i=1; $i<=$GameValues{'DelaysLeft'}; $i++) {
   		print qq|<OPTION value=$i>$i\n|;
@@ -2688,10 +2689,13 @@ sub process_delay {
 	$sql = qq|SELECT Games.GameName, Games.GameFile, Games.DailyTime, Games.NextTurn, Games.LastTurn, Games.GameType, Games.NumDelay, Games.MinDelay, Games.DayFreq, Games.HourlyTime, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.DelaysLeft FROM Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE (((Games.GameFile)='$GameFile') AND ((GameUsers.User_Login)='$userlogin') AND ((GameUsers.PlayerID) Is Not Null));|;
 	# make sure the user actually has a delay available, and get other game-related values
 	if (&DB_Call($db,$sql)) { if ($db->FetchRow()) { %GameValues = $db->DataHash(); } 	}
+  &LogOut(200, "process_delay: DELAYSLEFT: $GameValues{'DelaysLeft'}",$LogFile);
 	if ($GameValues{'DelaysLeft'} >= $delay_turns) {
 		#decrement the user's number of delays
 		if ( $delay_turns == 0) { $delay = 1; } else { $delay = $delay_turns; }
-		$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.DelaysLeft = [DelaysLeft]-$delay WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.User_Login)=\'$userlogin\') AND ((GameUsers.PlayerID) Is Not Null));|;
+    # Note if all the same player, the delays will get reset, drop below the limit
+    # and then get restored to full. 
+		$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.DelaysLeft = [GameUsers.DelaysLeft]-$delay WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.User_Login)=\'$userlogin\') AND ((GameUsers.PlayerID) Is Not Null));|;
 		if (&DB_Call($db,$sql)) { 
 			&LogOut(100, "$userlogin delays decreased by $delay for $GameValues{'GameFile'}.",$LogFile); 
 			#	Set Game Status to Player Delay [3] / Flag game as player timeout/delayed (so we can display it). 
@@ -2702,10 +2706,10 @@ sub process_delay {
 				$sql = qq|Update Games SET DelayCount = DelayCount + $delay WHERE GameFile = \'$GameFile\'|;
 				if (&DB_Call($db,$sql)) { 
           $ToDelay = 1; 
-          &LogOut(200, "prcoess_delay: Increase DelayCount + $delay for $GameFile by $userlogin.",$LogFile); 
+          &LogOut(200, "process_delay: Increase DelayCount + $delay for $GameFile by $userlogin.",$LogFile); 
         } else { &LogOut(200, "process_delay: Increase DelayCount failed for $GameFile by $userlogin.",$LogFile);}
 			} else { &LogOut(0,"process_delay: Game Status failed to Delay for $delay_turns turns for $GameFile by $userLogin",$ErrorLog); }
-		} else { &LogOut(0,"$userlogin delays failed to decrease for process_delays = $delay_turns  $delay", $ErrorLog); }
+		} else { &LogOut(0,"$userlogin delays failed to decrease for process_delays = $delay_turns  $delay for $GameFile by $userLogin", $ErrorLog); }
 		#Determine how long to delay the game
 		$NextTurn = $GameValues{'NextTurn'};
 		#Loop through for each delay separately, since the schedule could vary
@@ -2754,7 +2758,7 @@ sub process_delay {
 			$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.DelaysLeft = [NumDelay] WHERE (((Games.GameFile)=\'$GameFile\'));|;
 			if (&DB_Call($db,$sql)) { 
 				$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Turn Delays reset|;
-				$GameValues{'Message'} = qq|A recent player for the $GameValues{'GameName'} game has delayed the game, causnig a reset of the number of player delays available. You can now delay the game $GameValues{'NumDelay'} times.|;
+				$GameValues{'Message'} = qq|A recent player for the $GameValues{'GameName'} game has delayed the game, causing a reset of the number of player delays available. You can now delay the game $GameValues{'NumDelay'} times.|;
 				&Email_Turns($GameFile, \%GameValues, 0);
 				&LogOut(100, "process_delay: $GameFile delays reset to $GameValues{'NumDelay'} due to $userlogin request of $delay_turns",$LogFile); 
 			}
@@ -3039,13 +3043,18 @@ sub optionloop {
 }
 
 sub display_warning {
-    print "<P><font color=red>Warning: Using the Browser Reload function will repeat the last Action.</font>";
+    my ($warning) = @_;
+    if ($warning) {
+      print "<P><font color=red>$warning</font>\n";
+    } else {
+      print "<P><font color=red>Warning: Using the Browser Reload function will repeat the last Action.</font></P>\n";
+    }
 }
 
 sub button_check {
   my ($button_count) = @_;
   if  ( ($button_count / 5) == int ($button_count/5) ) {
-    print '<br>';
+    print "<br>\n";
   } 
   $button_count++;
   return $button_count;

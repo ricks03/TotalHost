@@ -168,7 +168,7 @@ if (-d $inName) {
 }
 
 if (@mFiles == 0) { 
-  die "Something went wrong. There\'s no information\nDid you specify a .m file?\n"; 
+  die "Something went wrong. There\'s no information\nDid you specify a .M file?\n"; 
 }
 
 foreach $filename (@mFiles) {
@@ -378,7 +378,7 @@ sub processData {
           # reset values for display
           $beenThrough = &read16(\@decryptedData, 10);
         }
-        print "turn:$turnNoDisplay, Wormhole: x: $x, y: $y, TID: $targetId, beenThrough: " . &getPlayers($beenThrough) . ", canSee: " . &getPlayers($canSee) . "\n";
+        print "turn:$turnNoDisplay, Wormhole: x: $x, y: $y, TID: $targetId, stability: $stability, beenThrough: " . &getPlayers($beenThrough) . ", canSee: " . &getPlayers($canSee) . "\n";
 
       # Packet
       } elsif (&isPacketOrSalvage($type)) {

@@ -15,6 +15,10 @@ $PerlLocation='c:/perl/bin/perl.exe';
 # 400 - who cares really
 $logging = 300; 
 
+# Clean .m files before giving them to the player, removing non-player info
+$cleanFiles = 1; # 0, 1, 2: display, clean but don't write, write 
+$fixFiles = 1; # 0, 1, 2: display, clean but don't write, write 
+
 # Where the accounts logs go
 $path_Log = 'd:/TH/logs';
 $file_Log = '/th.log';

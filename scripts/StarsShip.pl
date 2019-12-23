@@ -95,6 +95,7 @@ close(StarFile);
 # Decrypt the data, block by block
 my ($outBytes) = &decryptShip(@fileBytes);
 
+# Not actually do anything here to change the file
 
 ################################################################
 sub decryptShip {
@@ -176,6 +177,8 @@ sub decryptShip {
             #############################################################3
             # Detect (and potentially fix) ship design issues
             # Fix the colonizer bug
+            # If a ship is created, and then edited, it's going to put 2 entries in the .x file.
+            # Both of which I think are correct. They only get screwed up from the .exe? 
             if ($itemCategory0 == 0 &&  $itemCategory1 == 16 &&  $itemId == 0 && $itemCount == 0) {
               print "***Colonizer bug\n";
               $decryptedData[$i+3] = 0; # fixing bug by setting the slot to empty
@@ -188,11 +191,11 @@ sub decryptShip {
               $decryptedData[$i+1] = 21;
             }
             # Detect the 10th starbase design
+            if ($isStarbase &&  $designNumber == 9) {
+              print "***10 Starbases - Potential Crash if Player #1 has fleet #1 in orbit of a starbase and refuels when the Last (?) Player has a 10th starbase design\n";
+            }
+            $counter++;
           }
-          if ($isStarbase &&  $designNumber == 9) {
-            print "***10 Starbases - Potential Crash if Player #1 has fleet #1 in orbit of a starbase and refuels when the Last (?) Player has a 10th starbase design\n";
-          }
-          $counter++;
         } else { $slotEnd = 6; $shipNameLength = $decryptedData[$slotEnd]; }
         print "shipNameLength: $shipNameLength  (this is in bytes, not necessarily characters, as we're using nibbles)\n";
         $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
