@@ -89,9 +89,12 @@ sub CheckandUpdate {
 		#else {
 		#	print $WeekDay . " is a good day\n";
 		#}
-		if (($GameData[$LoopPosition]{'GameStatus'} != 9) && (&inactive_game($GameData[$LoopPosition]{'GameFile'}))) {  # Don't bother checking if the game is no longer active. BUG: Shouldn't this be filtered out by SQL?
+    
+    # Don't bother checking if the game is no longer active. BUG: Shouldn't this be filtered out by SQL?
+		if (($GameData[$LoopPosition]{'GameStatus'} != 9) && (&inactive_game($GameData[$LoopPosition]{'GameFile'}))) {  
 	   } elsif ($GameData[$LoopPosition]{'GameStatus'} == 2 || $GameData[$LoopPosition]{'GameStatus'} == 3) { # if it's an active game 		
-	#Game Type = Daily
+
+	    #Game Type = Daily
 			if ($GameData[$LoopPosition]{'GameType'} == 1 && $CurrentEpoch > $GameData[$LoopPosition]{'NextTurn'}) { # GameType: turn set to daily
 				&LogOut(200,"\t$GameData[$LoopPosition]{'GameName'} is a daily game $CurrentEpoch  $GameData[$LoopPosition]{'NextTurn'}",$LogFile);	
 				# Generate the next turn = midnight today +  days + hours (fixed)
@@ -104,9 +107,6 @@ sub CheckandUpdate {
 					my ($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST) = localtime($NewTurn);
 					# Move to the next available day
 					($DaysToAdd, $NextDayOfWeek) = &DaysToAdd($GameData[$LoopPosition]{'DayFreq'},$CWeekDay);
-#####
-# Reset to the way it was 190314
-#####
 					$NewTurn = $NewTurn + &DaysToAdd($GameData[$LoopPosition]{'DayFreq'},$CWeekDay);
 					$NewTurn = $NewTurn + $DaysToAdd * 86400;
 				}
@@ -124,7 +124,7 @@ sub CheckandUpdate {
 					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
 				}
 
-	#Game Type = Hourly
+	    #Game Type = Hourly
 			} elsif ($GameData[$LoopPosition]{'GameType'} == 2 && $CurrentEpoch > $GameData[$LoopPosition]{'NextTurn'}) { # GameType: set time to generate hourly
 				print "   " . $GameData[$LoopPosition]{'GameName'} . " is an hourly game\n";
 				# Generate the next turn now + number of hours (sliding)
@@ -135,35 +135,44 @@ sub CheckandUpdate {
 				while (&ValidTurnTime($NewTurn,'Hour',$GameData[$LoopPosition]{'DayFreq'}, $GameData[$LoopPosition]{'HourFreq'}) ne 'True') { $NewTurn = $NewTurn + 3600; } 
 				# and just to be sure, make sure today is ok to generate before we approve everything
 				if (&ValidTurnTime($CurrentEpoch, 'Day',$GameData[$LoopPosition]{'DayFreq'}, $GameData[$LoopPosition]{'HourFreq'}) eq 'True') { $TurnReady = 'True'; } 
-				&LogOut(100,"#####New Turn : $NewTurn  TurnReady = $TurnReady",$LogFile);
+				&LogOut(100,"#####Checkandupdate: New Turn : $NewTurn  TurnReady = $TurnReady",$LogFile);
+				# If there are any delays set, then we need to clear them out, and reset the game status
+				# since if we're generating with a turn missing we've clearly hit the window past the delays.
+				if ($GameData[$LoopPosition]{'DelayCount'} > 0) {
+					$sql = "UPDATE Games SET DelayCount = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
+					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: Delay reset to 0 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
+					$sql = "UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
+					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
+				}
 
-# BUG: This needs to reset delays? 
-
-	#Game Type = All In
+	    #Game Type = All In
 			} elsif ($GameData[$LoopPosition]{'GameType'} == 3) { #Turns only generated when all turns are in
 				print $GameData[$LoopPosition]{'GameName'} . " is an All turns required game\n";
 				$TurnReady = &Eval_CHK($GameData[$LoopPosition]{'GameFile'});
-				if ($TurnReady eq 'True') { &LogOut(50,"   All turns are in for $GameData[$LoopPosition]{'GameName'}", $LogFile);	}
+				if ($TurnReady eq 'True') { &LogOut(50,"   Checkandupdate: All turns are in for $GameData[$LoopPosition]{'GameName'}", $LogFile);	}
 				else { &LogOut(100,"   All turns are not in for $GameData[$LoopPosition]{'GameName'}",$LogFile); }
-	# Generate as Available
+        # No need to check for delays
+        
+	    # Generate as Available (assumes nothing else generated!)
+      # BUG: Needs to decrement delay? 
 			} elsif ($GameData[$LoopPosition]{'AsAvailable'} == 1 && (!(&Turns_Missing($GameData[$LoopPosition]{'GameFile'})))) { # only check Generate As Available ongoing game status if necessary, if not, then return false
 				$TurnReady = 'True';
-				# If the game is in a delay state, don't increase the interval, and decrement the delay
-				# if there's more than one delay
-				if ($GameData[$LoopPosition]{'DelayCount'} > 1) {
-					$sql = "UPDATE Games SET DelayCount = DelayCount -1 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
-					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: Delay decremented for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
-					$NewTurn = $GameData[$LoopPosition]{'NextTurn'};
-				} else { 
-					# If we're at the end of a delay we need to recalculate when the next turn is due
-					if ($GameData[$LoopPosition]{'DelayCount'} == 1) {
+				# If the game is in a delay state, decrement the delay 
+					if ($GameData[$LoopPosition]{'DelayCount'} > 0 ) {
 						$sql = "UPDATE Games SET DelayCount = DelayCount -1 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
 						if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: Delay decremented for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
 					}
+          # And reset the game to active if it's time
+          if ( $GameData[$LoopPosition]{'DelayCount'} == 1 ) { # which is now really 0
+  					$sql = "UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
+  					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
+          }
 
-					# Next turn is incremented by the correct # of days
+					# Recalculate when the next turn is due
+					# Next turn is incremented by the correct amount
+          #Daily Game
 					if ($GameData[$LoopPosition]{'GameType'} == 1) { #New Turn time = This turn time for today + X days
-						# Determine when the next turn would normally be from right now. 
+						# Determine when the next turn would NORMALLY be from right now. 
 						($DaysToAdd, $NextDayOfWeek) = &DaysToAdd($GameData[$LoopPosition]{'DayFreq'},$WeekDay,$GameData[$LoopPosition]{'DailyTime'},$SecOfDay);
 						my $NormalNextTurn = $CurrentDateSecs + ($DaysToAdd * 86400) + ($GameData[$LoopPosition]{'DailyTime'} *60*60); 			
 						($DaysToAdd, $NextDayOfWeek) = &DaysToAdd($GameData[$LoopPosition]{'DayFreq'},$NextDayOfWeek);
@@ -180,11 +189,10 @@ sub CheckandUpdate {
 						# This is generating from NextTurn, so should only increment in days, not Days + hours like you
 						# do when calculating from SecOfDay
 						($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST, $CSecOfDay) = &CheckTime($GameData[$LoopPosition]{'NextTurn'});
-
 						($DaysToAdd, $NextDayOfWeek) = &DaysToAdd($GameData[$LoopPosition]{'DayFreq'},$CWeekDay,$GameData[$LoopPosition]{'DailyTime'},$CSecOfDay);
 						$NewTurn = $GameData[$LoopPosition]{'NextTurn'} + ($DaysToAdd * 86400); 
 						print "1: New Turn = " . localtime($NewTurn) . " DaysToAdd = $DaysToAdd\n";
-						# Advance to the next valid day if $NormalNextTurn isn't on a valid day
+						# Advance to the next valid day if $NewTurn isn't on a valid day
 						while (&ValidTurnTime($NewTurn,'Day',$GameData[$LoopPosition]{'DayFreq'}, $GameData[$LoopPosition]{'HourFreq'}) ne 'True') { 
 							($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST, $CSecOfDay) = &CheckTime($NewTurn);
 							($DaysToAdd, $NextDayOfWeek) = &DaysToAdd($GameData[$LoopPosition]{'DayFreq'},$CWeekDay); 
@@ -192,19 +200,41 @@ sub CheckandUpdate {
 						}
 						print "2: New Turn Adjusted = " . localtime($NewTurn) . "\n";
 
-						# If the turn based on NextTurn is more than the normal next turn date, then there's no need
-						# to advance NextTurn; set the New Turn to not advance; instead stay the same.
-						if ($NewTurn > $NormalNextTurn) {  
-							&LogOut(200,"checkandupdate: $NewTurn > $NormalNextTurn",$LogFile); 
-							# Don't increase the turn if it's already far enough in the future. 
- 							$NewTurn = $GameData[$LoopPosition]{'NextTurn'};
-							print "3: New Turn True = " . localtime($NewTurn) . "\n";
-						} else {
-							&LogOut(200,"checkandupdate: $NewTurn <= $NormalNextTurn",$LogFile); 
-						}
+            # Right here we have three date variables: $NewTurn, $NormalNextTurn, $GameData[$LoopPosition]{'NextTurn'}
+            # $NewTurn - next turn based on  $GameData[$LoopPosition]{'NextTurn'}
+            # $NormalNewTurn - next turn based on "now"
+            # $GameData[$LoopPosition]{'NextTurn'} - Next turn from last time
+            #
+            # If the game is delayed, pick the larger of $NormalNewTurn and $GameData[$LoopPosition]{'NextTurn'}
+            # Otherwise pick the larger of $NormalNewTurn and $NewTurn
+            #If the turn based on NextTurn is more than the normal next turn date, 
+            # and the game is delayed, don't decrease when the turn is due
+            # Now we need to "protect" next turn in case a delayed game is even farther out  
+            # but only for games that are (still) delayed
+            if ($GameData[$LoopPosition]{'DelayCount'} > 1 && $GameData[$LoopPosition]{'GameStatus'} == 3)	{
+              if ( $GameData[$LoopPosition]{'NextTurn'} > $NormalNewTurn ) { 
+                $NewTurn = $GameData[$LoopPosition]{'NextTurn'}; 	
+                &LogOut(200,"checkandupdate: NewTurn: $NewTurn > DB: $GameData[$LoopPosition]{'NextTurn'}. Protecting.",$LogFile); 
+              } else { 
+                $NewTurn = $NormalNewTurn; 
+              } 
+            } else { 
+              # For a game that isn't currently delayed
+  						if ($NewTurn > $NormalNextTurn) {  
+  							&LogOut(200,"checkandupdate: NewTurn: $NewTurn > NormalNewTurn: $NormalNextTurn",$LogFile); 
+  							# Don't increase the turn if it's already far enough in the future. 
+   							$NewTurn = $NormalNextTurn;
+  							print "3: New Turn True = " . localtime($NewTurn) . "\n";
+#   						} else {
+#   							&LogOut(200,"checkandupdate: NewTurn: $NewTurn <= NormalNewTurn: $NormalNextTurn",$LogFile); 
+#                 $NewTurn = $NewTurn;
+  						}
+            }
+  					print "4: New Turn Final = " . localtime($NewTurn) . "\n";
 					}
+          # Hourly
 					# Next turn is generated Now + Game Interval
-					if ($GameData[$LoopPosition]{'GameType'} == 2) { #
+					elsif ($GameData[$LoopPosition]{'GameType'} == 2) { #
 						# Determine when the next turn would normally be. 
 						my $NormalNextTurn = $CurrentEpoch + (($GameData[$LoopPosition]{'HourlyTime'} *60 *60) * 2); 
 						while (&ValidTurnTime($NormalNextTurn, 'Day',$GameData[$LoopPosition]{'DayFreq'}, $GameData[$LoopPosition]{'HourFreq'}) ne 'True') { $NormalNextTurn = $NormalNextTurn + ($GameData[$LoopPosition]{'HourlyTime'}*60*60); }
@@ -216,8 +246,20 @@ sub CheckandUpdate {
 							&LogOut(200,"checkandupdate: $NewTurn > $NormalNextTurn",$LogFile); 
 							# Don't increase the turn if it's already far enough in the future. 
 							$NewTurn = $GameData[$LoopPosition]{'NextTurn'};
-			}	}	}	}
-	# If a turn is ready, generate it and process it through. 
+			      }
+            # Now we need to "protect" next turn in case a delayed game is even farther out
+            # but only for games that are (still) delayed
+            if ($GameData[$LoopPosition]{'DelayCount'} > 1 && $GameData[$LoopPosition]{'GameStatus'} == 3)	{
+              if ( $GameData[$LoopPosition]{'NextTurn'} > $NewTurn) { 
+                $NewTurn = $GameData[$LoopPosition]{'NextTurn'}; 	
+                &LogOut(200,"checkandupdate: $NewTurn > $GameData[$LoopPosition]{'NextTurn'}. Protecting.",$LogFile); 
+              }
+            }
+          }	
+#        }	
+      }
+      
+	    # If a turn is ready, generate it and process it through. 
 			if ($TurnReady eq 'True') {
 				&UpdateNextTurn($db,$NewTurn, $GameData[$LoopPosition]{'GameFile'}, $GameData[$LoopPosition]{'LastTurn'});		
 				&UpdateLastTurn($db,time(), $GameData[$LoopPosition]{'GameFile'});		
@@ -249,9 +291,6 @@ sub CheckandUpdate {
 				}
  
 				# Update the .chk file so it's current for the new turn
-        # Done in GenerateTurn
-        # &Make_CHK($GameData[$LoopPosition]{'GameFile'});
-#				sleep 2;  # And rest a moment so stars has time to think.
 				my @CHK = &Read_CHK($GameData[$LoopPosition]{'GameFile'});
 
 				# get the current turn so you can put it in the email, can vary based on force gen.
@@ -325,46 +364,6 @@ sub CheckandUpdate {
 	sleep 2;
 }
 
-# # Returns CSecofDay along with everything else
-# sub CheckTime { #Determine information for a specified time in seconds of a day
-# 	my($TimetoCheck) = @_;  # Pass in Epoch Time
-# 	($CSecond, $CMinute, $CHour, $CDayofMonth, $CWrongMonth, $CWrongYear, $CWeekDay, $CDayofYear, $CIsDST) = localtime($TimetoCheck); 
-# 	$CMonth = $CWrongMonth + 1; 
-# 	$CYear = $CWrongYear + 1900;
-# 	$CSecOfDay = ($CMinute * 60) + ($CHour*60*60) + $CSecond;
-# 	return ($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST, $CSecOfDay);
-# }
-
-# In th.pm sorta
-# sub ValidTurnTime { #Determine whether submitted time is valid to generate a turn
-#   # BUG: (remarked out functon): $loopposition is used to determine array location 
-#   # That's the real difference between this and the &ValidTurnTime in TurnMake
-#   # Better to just pass the relevant array values and merge the two functions
-# 	my($ValidTurnTimeTest, $WhentoTestFor, $LoopPosition) = @_;	
-# 	my($ValidTurnTimeTest, $WhentoTestFor, $Day, $Hour) = @_;	
-#   
-# 	&LogOut(100,"ValidTurnTimeTest: $ValidTurnTimeTest, WhentoTestfor: $WhentoTestFor",$LogFile);
-# 	my($Valid) = 'True';
-# 	#Check to see if it's a holiday
-# # 	if ($GameData[$LoopPosition]{'ObserveHoliday'}){ 
-# # 			local($Holiday) = &CheckHolidays($ValidTurnTimeTest,$db);  #BUG: How are we passing $db here? We don't have it.
-# # 			if ($Holiday eq 'True') { $Valid = 'False'; }
-# # 	}
-# 	my ($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST, $CSecOfDay) = &CheckTime($ValidTurnTimeTest);
-# 	#Check to see if it's a valid Day
-# #	my($DayFreq) = &ValidFreq($GameData[$LoopPosition]{'DayFreq'},$CWeekDay);
-# 	my($DayFreq) = &ValidFreq($Day,$CWeekDay);
-# 	if ($DayFreq eq 'False') { $Valid = 'False'; }
-# 	#Check to see if it's a valid hour
-# 	if (($WhentoTestFor) eq 'Hour') {
-# #		my($HourlyTime) = &ValidFreq($GameData[$LoopPosition]{'HourFreq'},$CHour);
-# 		my($HourlyTime) = &ValidFreq($Hour,$CHour);
-# 		if ($HourlyTime eq 'False') { $Valid = 'False'; }
-# 	}
-# 	&LogOut(200,"   Valid = $Valid ",$LogFile);
-# 	return($Valid);
-# }
-
 # Check to see if all the turns are in taking everything into account
 # Stars reported status, host-defined player status
 sub Turns_Missing {
@@ -374,11 +373,6 @@ sub Turns_Missing {
 	my %Values;
 #   my($CheckGame) = $executable . 'stars.exe -v ' . $FileHST . '\\' . $GameFile . '\\' . $GameFile . '.hst';
  	my $CHKFile = $FileHST . '\\' . $GameFile . '\\' . $GameFile . '.chk';
-# 	# Determine the number of players in the CHK file
-# 	&LogOut(200,"Create CHK $CheckGame",$LogFile);
-#   	system($CheckGame);
-# 	sleep 2; 
-# 	&LogOut(200,"Create CHK $CheckGame Complete",$LogFile);
   &Make_CHK($GameFile);
 	# Determine the number of players in the CHK File
 	if (-e $CHKFile) { #Check to see if .chk file is there.
@@ -441,3 +435,44 @@ sub inactive_game {
 	} else { return 0; }
 	&DB_Close($db); 
 }
+
+# # Returns CSecofDay along with everything else
+# sub CheckTime { #Determine information for a specified time in seconds of a day
+# 	my($TimetoCheck) = @_;  # Pass in Epoch Time
+# 	($CSecond, $CMinute, $CHour, $CDayofMonth, $CWrongMonth, $CWrongYear, $CWeekDay, $CDayofYear, $CIsDST) = localtime($TimetoCheck); 
+# 	$CMonth = $CWrongMonth + 1; 
+# 	$CYear = $CWrongYear + 1900;
+# 	$CSecOfDay = ($CMinute * 60) + ($CHour*60*60) + $CSecond;
+# 	return ($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST, $CSecOfDay);
+# }
+
+# In th.pm sorta
+# sub ValidTurnTime { #Determine whether submitted time is valid to generate a turn
+#   # BUG: (remarked out functon): $loopposition is used to determine array location 
+#   # That's the real difference between this and the &ValidTurnTime in TurnMake
+#   # Better to just pass the relevant array values and merge the two functions
+# 	my($ValidTurnTimeTest, $WhentoTestFor, $LoopPosition) = @_;	
+# 	my($ValidTurnTimeTest, $WhentoTestFor, $Day, $Hour) = @_;	
+#   
+# 	&LogOut(100,"ValidTurnTimeTest: $ValidTurnTimeTest, WhentoTestfor: $WhentoTestFor",$LogFile);
+# 	my($Valid) = 'True';
+# 	#Check to see if it's a holiday
+# # 	if ($GameData[$LoopPosition]{'ObserveHoliday'}){ 
+# # 			local($Holiday) = &CheckHolidays($ValidTurnTimeTest,$db);  #BUG: How are we passing $db here? We don't have it.
+# # 			if ($Holiday eq 'True') { $Valid = 'False'; }
+# # 	}
+# 	my ($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST, $CSecOfDay) = &CheckTime($ValidTurnTimeTest);
+# 	#Check to see if it's a valid Day
+# #	my($DayFreq) = &ValidFreq($GameData[$LoopPosition]{'DayFreq'},$CWeekDay);
+# 	my($DayFreq) = &ValidFreq($Day,$CWeekDay);
+# 	if ($DayFreq eq 'False') { $Valid = 'False'; }
+# 	#Check to see if it's a valid hour
+# 	if (($WhentoTestFor) eq 'Hour') {
+# #		my($HourlyTime) = &ValidFreq($GameData[$LoopPosition]{'HourFreq'},$CHour);
+# 		my($HourlyTime) = &ValidFreq($Hour,$CHour);
+# 		if ($HourlyTime eq 'False') { $Valid = 'False'; }
+# 	}
+# 	&LogOut(200,"   Valid = $Valid ",$LogFile);
+# 	return($Valid);
+# }
+

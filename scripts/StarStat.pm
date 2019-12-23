@@ -339,7 +339,7 @@ sub SLogOut {
   if ($DayofMonth <=7) { $WeekofMonth = 1;}
 	elsif ($DayofMonth >7 && $DayofMonth <=14) { $WeekofMonth = 2;}
 	elsif ($DayofMonth >14 && $DayofMonth <=21) { $WeekofMonth = 3;}
-	elsif ($DayofMonth >22 && $DayofMonth <=28) { $WeekofMonth = 4;}
+	elsif ($DayofMonth >21 && $DayofMonth <=28) { $WeekofMonth = 4;}
 	elsif ($DayofMonth >28 && $DayofMonth <=31) { $WeekofMonth = 5;}
   my $LogFileDate = $LogFile . '.' . $Year . '.' . $Month . '.' . $WeekofMonth; 
 
