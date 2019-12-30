@@ -376,7 +376,7 @@ sub Turns_Missing {
   &Make_CHK($GameFile);
 	# Determine the number of players in the CHK File
 	if (-e $CHKFile) { #Check to see if .chk file is there.
-		&LogOut(200,"Reading CHK File $CHKFile",$LogFile);
+		&LogOut(200,"Turns_Missing: Reading CHK File $CHKFile",$LogFile);
 		open (IN_CHK,$CHKFile) || &LogOut(0,"Cannot open .chk file $CHKFile", $ErrorLog);
 		chomp((@CHK) = <IN_CHK>);
 	 	close(IN_CHK);
@@ -384,7 +384,7 @@ sub Turns_Missing {
 			my $id = $i - 2;
 			$Status[$id] = @CHK[$i];
 		}
-	} else { &LogOut(0,'Cannot open .chk file - die die die ',$ErrorLog); die; }
+	} else { &LogOut(0,'Turns_Missing: Cannot open .chk file - die die die ',$ErrorLog); die; }
 	# Run through all the players in the database and check status	
 	$sql = qq|SELECT GameUsers.PlayerID, GameUsers.PlayerStatus FROM Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile WHERE GameUsers.GameFile = '$GameFile' AND GameUsers.PlayerStatus=1;|;
 	if (&DB_Call($db,$sql)) { 
@@ -394,7 +394,7 @@ sub Turns_Missing {
 			else { &LogOut(300,"IN $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile);  }
 		} 
 	}
-	if ($TurnsMissing) { &LogOut(200,".x files are missing for $GameFile",$LogFile) } else { &LogOut(200,"All .x files are in for $GameFile",$LogFile); }
+	if ($TurnsMissing) { &LogOut(200,"Turns_Missing: .x files are missing for $GameFile",$LogFile) } else { &LogOut(200,"All .x files are in for $GameFile",$LogFile); }
 	return $TurnsMissing;
 }
 
@@ -422,14 +422,14 @@ sub inactive_game {
 	# Can't use .x[n] file date because it gets removed when turns gen.
   # BUG: If no one has ever submitted a turn, don't deactivate game
 	if ((($currenttime - $LastSubmitted) > ($max_inactivity * 86400)) && ($LastSubmitted > 0)) {
-		my $log = "$GameFile Inactive, last submitted on " . localtime($LastSubmitted); 
+		my $log = "inactive_game: $GameFile Inactive, last submitted on " . localtime($LastSubmitted); 
 		&LogOut(50,$log, $ErrorLog);
 		# End/Pause the game
 		$sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameFile\'|;
 		if (&DB_Call($db,$sql)) {
-			&LogOut(100, "$GameFile Ended/Paused for lack of activity", $LogFile);
+			&LogOut(100, "inactive_game: $GameFile Ended/Paused for lack of activity", $LogFile);
 		} else {
-			&LogOut(0, "$GameFile Failed to end for lack of activity", $ErrorFile);
+			&LogOut(0, "inactive_game: $GameFile Failed to end for lack of activity", $ErrorFile);
 		}
 		return 1; 
 	} else { return 0; }

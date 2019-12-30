@@ -392,53 +392,53 @@ if ($in{'rp'} eq 'my_games') {
 #	$sql = qq|SELECT Games.*, User.User_Login FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile) ON User.User_Login = GameUsers.User_Login WHERE (User.User_ID)=| . $session->param("userid") . qq|;|;
 	$sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile) ON User.User_Login = GameUsers.User_Login GROUP BY Games.GameFile, Games.GameName, Games.GameStatus, User.User_ID HAVING User.User_ID=| . $session->param("userid") . qq| ORDER BY Games.GameStatus;|;
 	&rp_list_games($sql, 'My Games');
-	print "</td>";
+	print "</td>\n";
 } elsif ($in{'rp'} eq 'show_news') { 
 	if (&checkbox($GameValues{'NewsPaper'})) {
 		print qq|<td style="background-color:lightgrey;border:1px dashed black;padding: 4px;" width=$width_news><div style="height:$height_news| . qq|px;overflow:auto;">|;
 		&show_news($GameValues{'GameFile'}); 
-		print "</div></td>";
+		print "</div></td>\n";
 	}  else { print "<td></td>\n"; }
 # Display a list of games in progress
 } elsif ($in{'rp'} eq 'games') { 
 	print "<td width=$rp_width>";
 	$sql = "SELECT * FROM Games WHERE GameStatus>1 AND GameStatus<6;";
 	&rp_list_games($sql,'Games In Progress');
-	print "</td>";
+	print "</td>\n";
 # Display a list of new games
 } elsif ($in{'rp'} eq 'games_new') { 
 	print "<td width=$rp_width>";
 	$sql = "SELECT * FROM Games WHERE GameStatus = 7 OR GameStatus = 0;";
 	&rp_list_games($sql,'New Games');
-	print "</td>";
+	print "</td>\n";
 # Display a list of games needing a replacement player
 } elsif ($in{'rp'} eq 'games_replacement') { 
 	print "<td width=$rp_width>";
 	$sql = "SELECT * FROM Games WHERE GameStatus = 5;";
 	&rp_list_games($sql,'Games needing Players');
-	print "</td>";
+	print "</td>\n";
 # Display a list of completed games
 } elsif ($in{'rp'} eq 'games_complete') { 
 	print "<td width=$rp_width>";
 	$sql = "SELECT * FROM Games WHERE GameStatus = 9;";
 	&rp_list_games($sql,'Completed Games');
-	print "</td>";
+	print "</td>\n";
 # Display a list of my races
 } elsif ($in{'rp'} eq 'my_races') { 
 	print "<td width=$rp_width>";
 	$sql = qq|SELECT Races.*, User.User_ID FROM [User] INNER JOIN Races ON User.User_Login = Races.User_Login WHERE ((User.User_ID)=| . $session->param("userid") . qq|) ORDER BY RaceName;|;
 	&list_races($sql);
-	print "</td>";
+	print "</td>\n";
 # Display a list of players
 } elsif ($in{'rp'} eq 'list_players') { 
 	print "<td width=$rp_width>";
 	$sql = qq|SELECT User_Event.GameFile, User.User_Name, User.User_ID, User_Event.Invite_Status FROM User_Event INNER JOIN [User] ON User_Event.User_ID = User.User_ID WHERE (((User_Event.GameFile)=$in{'GameFile'}));|;
 	&list_players($sql);
-	print "</td>";
+	print "</td>\n";
 #} else { print qq|<td width="$rp_width"></td>\n|;
 }
 
-print "</tr></table>\n";
+print "</tr>\n</table>\n";
 &html_bottom;
 
 ##########
@@ -496,7 +496,7 @@ sub change_password {
   $smtp = &Mail_Open;
   &Mail_Send($smtp, $MailTo, $MailFrom, $Subject, $Message);
   &Mail_Close($smtp);
-	print "</td>";
+	print "</td>\n";
 }
 
 sub edit_profile {
@@ -587,7 +587,7 @@ sub update_profile {
 	&DB_Close($db);
 	# Need to close the database to get the channges to display immediately.
 	&show_profile("SELECT * FROM User WHERE User_ID = $id;");
-	print "</td>";
+	print "</td>\n";
 }
 
 sub show_my_new {
@@ -618,10 +618,10 @@ sub show_my_new {
 		$LoopPosition = 1; #Start with the first game in the array.
 		while ($LoopPosition <= ($#GameData)) { # work the way through the array
 			if ($GameData[$LoopPosition]{'GameStatus'} == 6) {
-				$table .= "<tr><td>$GameStatus[$GameData[$LoopPosition]{'GameStatus'}]</td><td>$GameData[$LoopPosition]{'GameName'}</td><td><a href=$Location_Scripts/page.pl?lp=game&cp=create_game_size&rp=&GameFile=$GameData[$LoopPosition]{'GameFile'}&GameName=$GameData[$LoopPosition]{'GameName'}>$GameData[$LoopPosition]{'GameFile'}</a></td></tr>";
+				$table .= "<tr><td>$GameStatus[$GameData[$LoopPosition]{'GameStatus'}]</td><td>$GameData[$LoopPosition]{'GameName'}</td><td><a href=$Location_Scripts/page.pl?lp=game&cp=create_game_size&rp=&GameFile=$GameData[$LoopPosition]{'GameFile'}&GameName=$GameData[$LoopPosition]{'GameName'}>$GameData[$LoopPosition]{'GameFile'}</a></td></tr>\n";
 			}
 			if ($GameData[$LoopPosition]{'GameStatus'} == 7 ) {
-				$table .= "<tr><td>$GameStatus[$GameData[$LoopPosition]{'GameStatus'}]</td><td>$GameData[$LoopPosition]{'GameName'}</td><td><a href=$Location_Scripts/page.pl?lp=game&cp=show_game&rp=&GameFile=$GameData[$LoopPosition]{'GameFile'}>$GameData[$LoopPosition]{'GameFile'}</a></td></tr>";
+				$table .= "<tr><td>$GameStatus[$GameData[$LoopPosition]{'GameStatus'}]</td><td>$GameData[$LoopPosition]{'GameName'}</td><td><a href=$Location_Scripts/page.pl?lp=game&cp=show_game&rp=&GameFile=$GameData[$LoopPosition]{'GameFile'}>$GameData[$LoopPosition]{'GameFile'}</a></td></tr>\n";
 			}
 			$LoopPosition++;
 		}
@@ -648,7 +648,7 @@ sub show_new_games {	# Display new games
 			$table .= qq|<td><A href="$Location_Scripts/page.pl?lp=game&cp=show_game&rp=&GameFile=$GameValues{'GameFile'}">$GameValues{'GameName'}</a></td>\n|;
 			$table .= "<td>$GameValues{'HostName'}</td>\n";
 			$table .= "<td>$GameValues{'GameDescrip'}</td>\n";
-			$table .= "</tr>"; 
+			$table .= "</tr>\n"; 
 			$new_found++;
 		}
 	} else { &LogOut(0, "show_new failed", $ErrorLog); }
@@ -699,16 +699,16 @@ sub show_turngeneration {
 	elsif ($GameType == 2) { 
 		print " Turns generated every $HourlyTime hours"; 
 		if ($AsAvailable) { print " or when all turns are in"; }
-		print ".";
-		print "<table border=1><tr>\n";
+		print ".\n";
+		print "<table border=1>\n<tr>\n";
 		for (my $i=0; $i < 7; $i++) { print "<th>$WeekDays[$i]</th>\n"; }
-		print "</tr><tr>\n";
+		print "</tr>\n<tr>\n";
 		for (my $i=0; $i < 7; $i++) {
 	 		my $day = substr($DayFreq, $i, 1);
 	 		if ($day) { print "<td align=center>Yes</td>\n"; }
 	 		else { print "<td align=center>No</td>\n"; }
 		}
-		print "</tr></table>\n";
+		print "</tr>\n</table>\n";
 		# Print the hours turns will generate
 		print "Hourly Restrictions:\n";
 		print "<table border=1><tr>\n";
@@ -718,7 +718,7 @@ sub show_turngeneration {
 		 		if ($hour) { print "<td align=center>$i:00</td>\n"; }
 		 		else { print "<td align=center><strike>$i:00<strike></td>\n"; }
 			}
-			print "</tr></table>\n";
+			print "</tr>\n</table>\n";
 	}
 	elsif ($GameType == 1) {
 		print " Turns generated daily"; 
@@ -726,7 +726,7 @@ sub show_turngeneration {
 		print ".";
 		print "<table border=1><tr>\n";
 		for (my $i=0; $i < 7; $i++) { print "<th>$WeekDays[$i]</th>\n"; }
-		print "</tr><tr>\n";
+		print "</tr>\n<tr>\n";
 		for (my $i=0; $i < 7; $i++) {
 	 		my $day = substr($DayFreq, $i, 1);
 	 		my $gen_time = &fixdate($DailyTime) . ':00'; 
@@ -765,14 +765,14 @@ sub show_game {
     print "<table width=100%>\n";
     # Print Game Name (and Year if applicable)
     print "<tr>\n";
-		print "<td align=left><h3>$GameValues{'GameName'}</h3></td>";
+		print "<td align=left><h3>$GameValues{'GameName'}</h3></td>\n";
     # If the game isn't started, it has no CHK or HST file, so checking would (obviously) error
     # We need this early to display the year
     if ($GameValues{'GameStatus'} != 7 && $GameValues{'GameStatus'} != 6  && $GameValues{'GameStatus'} != 0) { 
   		($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
 	    @CHK = &Read_CHK($GameFile); 
-      print qq|<td align="center">Year $HST_Turn</td>|; 
-    } else { print qq|<td align="center">Year 2399</td>|; }
+      print qq|<td align="center">Year $HST_Turn</td>\n|; 
+    } else { print qq|<td align="center">Year 2399</td>\n|; }
     print "</tr>\n";
     # Display the Game Status
     print "<tr>\n";
@@ -1484,9 +1484,9 @@ print <<eof;
 <input type="hidden" name="rp" value="my_races">
 eof
 print qq|	<TABLE>\n|;
-print qq|		<TR><TD>Race Name:</TD> <TD><INPUT type="text" | . &button_help("RaceName") . qq|name="RaceName" size="30"> (Mandatory)</TD></TR> \n|;
-print qq|		<TR><TD>Race Description:</TD> <TD><TEXTAREA name="RaceDescrip" | . &button_help("RaceDescrip") . qq| rows="4" cols="50"></TEXTAREA></TD></TR>  \n|;
-print qq|		<TR><TD>File:</TD> <TD><INPUT type="file" name="File" size="30"></TD></TR>        \n|;
+print qq|		<TR>\n<TD>Race Name:</TD> <TD><INPUT type="text" | . &button_help("RaceName") . qq|name="RaceName" size="30"> (Mandatory)</TD>\n</TR> \n|;
+print qq|		<TR>\n<TD>Race Description:</TD> <TD><TEXTAREA name="RaceDescrip" | . &button_help("RaceDescrip") . qq| rows="4" cols="50"></TEXTAREA></TD>\n</TR>  \n|;
+print qq|		<TR>\n<TD>File:</TD> <TD><INPUT type="file" name="File" size="30"></TD>\n</TR>        \n|;
 print qq|	</TABLE>       \n|;
 print qq|<INPUT type="submit" name="submit" value="Upload Race">  \n|;
 print qq|</FORM>   \n|;
@@ -2291,10 +2291,10 @@ sub read_def {
 			print "<td>$key</td>";$c++;
 			if ($c/$col == int($c/$col)) { print qq|</tr><tr>|; }
 		}	
-		print qq|</tr></table>|;
+		print qq|</tr></table>\n|;
 	} else { 
 		print "<P>Game Definition File not found!\n"; 
-		&LogOut(0,"Game Definition File $def_file not found for $userlogin",$ErrorLog);
+		&LogOut(0,"read_def: Game Definition File $def_file not found for $userlogin",$ErrorLog);
 	}
  	return \@Universe, \@Victory;
 }
@@ -2340,7 +2340,7 @@ sub read_game {
 		print "<td>$key</td>"; $c++;
 		if ($c/$col == int($c/$col)) { print qq|</tr><tr>|; }
 	}
-	print qq|</tr></table>|;
+	print qq|</tr></table>\n|;
  	return @Values;
 }
 
@@ -2773,10 +2773,10 @@ sub process_delay {
 sub show_upload { # Uses $GameName and $GameFile
 	my($GameName,$GameFile) = @_;
 	print qq|<FORM method="$FormMethod" action="$Location_Scripts/upload.pl" name="my_form" enctype="multipart/form-data">\n|;
-	print qq|<table><tr>\n|;
+	print qq|<table>\n<tr>\n|;
 	print qq|<td><INPUT type="file" name="File" size="30"></td>\n|;
 	print qq|<td><INPUT type="submit" name="submit" value="Upload Turn" | . &button_help('SendFile') . qq|></td>\n|;
-	print qq|</tr></table>\n|;
+	print qq|</tr>\n</table>\n|;
 	# send GameName
 	print qq|<INPUT type="hidden" name="GameName" value="$GameName">\n|;
 	print qq|<INPUT type="hidden" name="GameFile" value="$GameFile">\n|;

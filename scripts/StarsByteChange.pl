@@ -47,8 +47,15 @@ my @primes = (
                 271, 277, 281, 283, 293, 307, 311, 313 
         );
         
-my $filename = $ARGV[0]; # input file
+my $inBlock = '';
+my $inBin = 0; 
+my $inName = $ARGV[0]; # input file
 my $outFileName = $ARGV[1];
+$inBlock = $ARGV[1]; # Desired block Type
+$inBin = $ARGV[2]; # Desired block Type
+unless ($inBlock) { $inBlock = -1;}
+my $filename = $inName;
+
 if (!($filename)) { 
   print "\n\nUsage: StarsByteChange.pl <input file> <output file (optional)>\n\n";
   print "Please enter the input file (.M or .HST). Example: \n";
@@ -94,7 +101,6 @@ if ($outFileName) {   $newFile = $outFileName;  }
 else { $newFile = $dir . '\\' . $basefile . '.clean'; }
 if ($debug) { $newFile = "f:\\clean_" . $basefile;  } # Just for me
 
-# Output the Stars! File with blank password(s)
 open (OutFile, '>:raw', "$newFile");
 for (my $i = 0; $i < @outBytes; $i++) {
   print OutFile $outBytes[$i];
@@ -115,17 +121,17 @@ sub decryptBlock {
   my @outBytes;
   my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
   my ( $random, $seedA, $seedB, $seedX, $seedY);
-  my ($typeId, $size, $data);
+  my ($blockId, $size, $data);
   my $offset = 0; #Start at the beginning of the file
   while ($offset < @fileBytes) {
     # Get block info and data
-    ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
+    ($blockId, $size, $data) = &parseBlock(\@fileBytes, $offset);
     @data = @{ $data }; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-    if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+    if ($debug) { print "\nBLOCK typeId: $blockId, Offset: $offset, Size: $size\n"; }
     if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
-    if ($typeId == 8) {
+    if ($blockId == 8) {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
@@ -133,24 +139,13 @@ sub decryptBlock {
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
       push @outBytes, @block;
-     } elsif ($typeId == 7) {
-      # Note that planet's data requires something extra to decrypt. 
-      # Fortunately block 7 isn't in my test files
-      print "BLOCK 7 found. ERROR!\n"; die;
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       if ($debug) { print "\nDATA DECRYPTED:\n" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
-      if ($typeId == 26) { # Message Block
-        print "TypeID Match\n";
-        my $designNumber = ($decryptedData[1] & 0x3C) >> 2; print "designNumber: $designNumber\n";
-        if ($designNumber eq '7') {  # Design number
-          print "Changing!\n";
-          $decryptedData[28] = 3;
-        }
-      }
+      &processData(\@decryptedData,$blockId,$offset,$size);
       # END OF MAGIC
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
@@ -165,3 +160,21 @@ sub decryptBlock {
 
 #################################
 
+sub processData {
+  # Display the byte information
+  my ($decryptedData,$blockId,$offset,$size)  = @_;
+  my @decryptedData = @{ $decryptedData };
+
+  if ($inBlock == $blockId || $inBlock eq -1) {
+  print "BLOCK:$blockId,Offset:$offset,Bytes:$size\t";
+  if ($inBin) {
+    if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
+    my $counter =0;
+    foreach my $key ( @decryptedData ) { 
+      print "byte  $counter:\t$key\t" . &dec2bin($key); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
+      $counter++;
+    }  
+    print "\n";    
+  } else {print "\t" . join ( "\t", @decryptedData ), "\n";}
+  }
+}
