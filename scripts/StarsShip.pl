@@ -63,6 +63,11 @@ my $totalBuilt;
 my $totalRemaining;
 my $shipNameLength;
 my $shipName;
+# Array to track waypoint information
+my @fleet;
+my $fleetcounter = 0;
+my @waypoint;
+my $waypointcounter = 0;
 
 #########################################        
 my $filename = $ARGV[0]; # input file
@@ -95,6 +100,20 @@ close(StarFile);
 # Decrypt the data, block by block
 my ($outBytes) = &decryptShip(@fileBytes);
 
+
+my $fleetLoop =0;
+while ($fleetLoop <= ($#fleet)) {
+ print "Fleet: fleetId: $fleet[$fleetLoop]{'id'}, ownerId: $fleet[$fleetLoop]{'owner'}, x: $fleet[$fleetLoop]{'x'}, y: $fleet[$fleetLoop]{'y'}\n";
+ $fleetLoop++;
+}
+
+my $waypointLoop = 0;
+while ($waypointLoop <= ($#waypoint)) {
+ print "Waypoint: fleetId: $waypoint[$waypointLoop]{'id'}, ownerId: $waypoint[$waypointLoop]{'owner'}, xDest: $waypoint[$waypointLoop]{'x'}, yDest: $waypoint[$waypointLoop]{'y'}, positionId: $waypoint[$waypointLoop]{'position'}\n";
+ $waypointLoop++;
+}
+
+
 # Not actually do anything here to change the file
 
 ################################################################
@@ -110,6 +129,7 @@ sub decryptShip {
   my ($random, $seedA, $seedB, $seedX, $seedY);
   my ($typeId, $size, $data);
   my $offset = 0; #Start at the beginning of the file
+  
   while ($offset < @fileBytes) {
     # Get block info and data
     ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
@@ -126,17 +146,35 @@ sub decryptShip {
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
       push @outBytes, @block;
-    } elsif ($typeId == 7) {
-      # Note that planet's data requires something extra to decrypt. 
-      # Fortunately block 7 isn't in my test files
-      die "BLOCK 7 found. ERROR!\n";
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
+      
+      
+#   # This whole section isn't the Designblock???
+#       # BUG: I need the fleet IDs to be able to determine the Mine Bug, as the Fleet info includes
+#       # current coordinates. But the block isn't mapped well enough for me to determine it. 
+# #      if ($typeId == 26 || $typeId == 27) { # Design & Design Change block
+#       if ($typeId == 99 || $typeId == 99) { # Design & Design Change block
+#         if ($debug  ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+#         if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
+#         
+#         # BUG: Missing many of the variables
+#         my $fleetId = $decryptedData[0]; # Correct
+#         my $ownerId = $decryptedData[1]; # Correct
+#         my $fleetIronium =  $decryptedData[2];
+#         my $fleetBoranium =  $decryptedData[3];
+#         my $fleetGermanium =  $decryptedData[4];
+#         my $fleetPopulation =  $decryptedData[5];
+#         my $fleetFuel =  $decryptedData[6];
+#         my $fleetBattlePlan =  $decryptedData[7];
+#       }  
+      
       # Detect the Colonizer, Spack Dock SuperLatanuim, and 10 starbase design bugs
-      if ($typeId == 26 || $typeId == 27) { # Design & Design Change block
+#      if ($typeId == 26 || $typeId == 27) { # Design & Design Change block
+      if ($typeId == 99 || $typeId == 99) { # Design & Design Change block
         if ( $debug  ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
         if ( $debug  ) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
         my $index = 0;
@@ -177,7 +215,7 @@ sub decryptShip {
             #############################################################3
             # Detect (and potentially fix) ship design issues
             # Fix the colonizer bug
-            # If a ship is created, and then edited, it's going to put 2 entries in the .x file.
+            # If a colonizer hullp is created, and then edited, it's going to put 2 entries in the .x file.
             # Both of which I think are correct. They only get screwed up from the .exe? 
             if ($itemCategory0 == 0 &&  $itemCategory1 == 16 &&  $itemId == 0 && $itemCount == 0) {
               print "***Colonizer bug\n";
@@ -206,11 +244,12 @@ sub decryptShip {
       # Part of the detection of the minefield 0-coordinate bug, but 
       # the fleet block isn't mapped well-enough for me to figure out the coordinates
       # easily
-      if ($typeId == 4 || $typeId == 5) { # waypoint block (add/change) in .x files
-        if ($debug ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-        if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
+      if ($typeId == 4 || $typeId == 5 ) { # waypoint block (add/change) in .x files , waypoint block (20)
+#        if ($debug ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+#        if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
         # Detect ships moving pure east/west or pure north/south
         # BUG: Doesn't work yet. Will need starting coordinates of fleet.
+        my %waypoint; # to store waypoints in a hash
         my $fleetId = $decryptedData[0]; 
         my $ownerId = $decryptedData[1]; 
         my $positionObjectId = &read16(\@decryptedData, 2);
@@ -221,105 +260,157 @@ sub decryptShip {
         my $positionObjectType = $decryptedData[7] & 0xFF;
         my $fullWaypointData;
         my $warp =  $decryptedData[10] >> 4; # CORRECT!!!
-        print "fleetId: $fleetId, ownerId: $ownerId, test: $test, xdest: $xDest, yDest: $yDest, positionId: $positionObjectId, unk = $unknownBitsWithWarp, PositionType: $positionObjectType, warp: $warp\n";
+#        print "Waypoint4 Block: fleetId: $fleetId, ownerId: $ownerId, test: $test, xDest: $xDest, yDest: $yDest, positionId: $positionObjectId, unk = $unknownBitsWithWarp, PositionType: $positionObjectType, warp: $warp\n";
+        $waypoint{'id'} = $fleetId;
+        $waypoint{'owner'} = $ownerId;
+        $waypoint{'x'} = $xDest;
+        $waypoint{'y'} = $yDest;
+        $waypoint{'position'} = $positionObjectId;
+        $waypoint[$waypointcounter] = { %waypoint };
+        $waypointcounter++;
       }
-      # BUG: I need the fleet IDs to be able to determine the Mine Bug, as the Fleet info includes
-      # current coordinates. But the block isn't mapped well enough for me to determine it. 
-#       if ($typeId == 26 || $typeId == 27) { # Design & Design Change block
-#         if ($debug  ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-#         if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-#         
-#         # BUG: Missing many of the variables
-#         my $fleetId = $decryptedData[0]; # Correct
-#         my $ownerId = $decryptedData[1]; # Correct
-#         my $fleetIronium =  $decryptedData[2];
-#         my $fleetBoranium =  $decryptedData[3];
-#         my $fleetGermanium =  $decryptedData[4];
-#         my $fleetPopulation =  $decryptedData[5];
-#         my $fleetFuel =  $decryptedData[6];
-#         my $fleetBattlePlan =  $decryptedData[7];
-#       }  
-#       if ($typeId == 16 || $typeId == 17) { # Fleet block and partial fleet block
-#         $fleetNumber = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
-#         $owner = $decryptedData[1] >> 1;
-#         my $kindByte = $decryptedData[4];
-#         $byte5 = $decryptedData[5];
-#         my $shipCountTwoBytes;
-#         if (($byte5 & 8) == 0) { $shipCountTwoBytes = 1; 
-#         } else  {$shipCountTwoBytes = 0; }
-#         $positionObjectId = &read16(\@decryptedData, 6);
-#         $x = &read16(\@decryptedData, 8);
-#         $y = &read16(\@decryptedData, 10);
-#         $shipTypes = &read16(\@decryptedData, 12);
-#         $index = 14;
-#         $mask = 1;
-#         for (my $bit = 0; $bit < 16; $bit++) {
-#           if (($shipTypes & $mask) != 0) {
-#             if ($shipCountTwoBytes) {
-#               $shipCount[$bit] = &read16(\@decryptedData, $index);
-#               $index += 2;
-#             } else {
-#               $shipCount[$bit] = &read8($decryptedData[$index]);
-#               $index += 1;
-#             }
-#           }
-#         }
-#         $mask <<= 1;
-#         # PARTIAL_KIND = 3, PICK_POCKET_KIND = 4, FULL_KIND = 7;
-#         #if ($kindByte != 7 && $kindByte != 4 && $kindByte != 3) {
-#         if ($kindByte == 7 || $kindByte == 4) {
-#           $contentsLengths = &read16(\@decryptedData, $index);
-#           $iLength = $contentsLengths & 0x03;
-#           $iLength = 4 >> (3 - $iLength);
-#           $bLength = ($contentsLengths & 0x0C) >> 2;
-#           $bLength = 4 >> (3 - $bLength);
-#           $gLength = ($contentsLengths & 0x30) >> 4;
-#           $gLength = 4 >> (3 - $gLength);
-#           $popLength = ($contentsLengths & 0xC0) >> 6;
-#           $popLength = 4 >> (3 - $popLength);
-#           $fuelLength = $contentsLengths >> 8;
-#           $fuelLength = 4 >> (3 - $fuelLength);
-#           $index += 2;
-#           $ironium = &readN(\@decryptedData, $index, $iLength);
-#           $index += $iLength;
-#           $boranium = &readN(\@decryptedData, $index, $bLength);
-#           $index += $bLength;
-#           $germanium = &readN(\@decryptedData, $index, $gLength);
-#           $index += $gLength;
-#           $population = &readN(\@decryptedData, $index, $popLength);
-#           $index += $popLength;
-#           $fuel = &readN(\@decryptedData, $index, $fuelLength);
-#           $index += $fuelLength;
-#         } 
-#         if ($kindByte == 7) {
-#           $damagedShipTypes = &read16(\@decryptedData, $index);
-#           $index += 2;
-#           $mask = 1;
-#           for (my $bit = 0; $bit < 16; $bit++) {
-#             if (($damagedShipTypes & $mask) != 0) {
-#               $damagedShipInfo[$bit] = \&read16(\@decryptedData, $index);
-#               $index += 2;
-#             }
-#             $mask <<= 1;
-#           }
-#           $battlePlan = &read8($decryptedData[$index++]);
-#           $waypointCount = &read8($decryptedData[$index++]);
-#         } else {
-#           $deltaX = &read8($decryptedData[$index++]);
-#           $deltaY = &read8($decryptedData[$index++]);
-#           $warp = $decryptedData[$index] & 15;
-#           $unknownBitsWithWarp = $decryptedData[$index] & 0xF0;
-#           $index++;
-#           $index++;
-#           $mass = &read32(\@decryptedData, $index);
-#           $index += 4;
-#         }
-#       }   
-#         
-#         my $x = &read16(\@decryptedData, 8); # Correct  (likely only in full block?)
-#         my $y = &read16(\@decryptedData, 10); # Correct (likely only in full block?)
-#         print "fleetId: $fleetId, ownerId: $ownerId, x: $x, y: $y, \n";
-#      }
+      if ($typeId == 20 ) { # waypoint block in .m files , waypoint block (20)
+      # BUG: NOT WORKING
+#        if ($debug ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+#        if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
+        # Detect ships moving pure east/west or pure north/south
+        # BUG: Doesn't work yet. Will need starting coordinates of fleet.
+        my %waypoint; # to store waypoints in a hash
+#        my $fleetId = $decryptedData[0]; 
+#        my $ownerId = $decryptedData[1]; 
+#        my $positionObjectId = &read16(\@decryptedData, 2);
+			  my $xDest = &read16(\@decryptedData, 0);  #CORRECT
+        my $yDest = &read16(\@decryptedData, 2);  #CORRECT
+        my $fleetId = $decryptedData[3]; #Incorrect
+        my $ownerId = $decryptedData[4]; #Incorrect
+        
+#        my $yDest = &read16(\@decryptedData, 6);  
+#        my $unknownBitsWithWarp = $decryptedData[6] & 0x0F;
+#        my $positionObjectType = $decryptedData[7] & 0xFF;
+#        my $fullWaypointData;
+#        my $warp =  $decryptedData[10] >> 4; 
+        my $warp =  ($decryptedData[6] & 0xFF) >> 4;
+        my $waypointTask = $decryptedData[6] & 0x0F;
+        my $positionObject = &read16(\@decryptedData, 4);
+#        print "WaypointM Block: fleetId: $fleetId, ownerId: $ownerId, test: $test, xDest: $xDest, yDest: $yDest, positionId: $positionObjectId, unk = $unknownBitsWithWarp, PositionType: $positionObjectType, warp: $warp\n";
+        print "Waypoint20 Block: xDest: $xDest, yDest: $yDest, warp: $warp, task: $waypointTask, positionObject: $positionObject, " . &dec2bin($decryptedData[3]) . " " . &dec2bin($decryptedData[4]). " " . &dec2bin($decryptedData[5]). "\n";
+        $waypoint{'id'} = $fleetId;
+        $waypoint{'owner'} = $ownerId;
+        $waypoint{'x'} = $xDest;
+        $waypoint{'y'} = $yDest;
+        $waypoint{'position'} = 'null';
+        $waypoint[$waypointcounter] = { %waypoint };
+        $waypointcounter++;
+      }
+
+      if ($typeId == 16 ) { # Fleet block and partial fleet block
+        # don't care about a partial fleet block (17), as that would be a different
+        # player's fleet.
+        my %fleet; # To store the values in a hash
+        my ($byte5);
+        my ($fleetId, $ownerId, $hull);
+        my $kindByte;
+        my $positionObjectId;
+        my $index;
+        my $fileLength;
+        my ($iLength, $bLength, $gLength);
+        my ($popLength, $fuelLength);
+        my $contentsLengths;
+        my ($ironium, $boranium, $germanium);
+        my ($x, $y);
+        my ($deltaX, $deltaY);
+        my ($shipTypes, $damagedShipTypes);
+        my @damagedShipInfo;
+        my @shipCount;
+        my $mask;
+        my ($population, $fuel);
+        my ($warp, $waypointCount);
+        my ($unknownBitsWithWarp);
+        my $battlePlan;
+        $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
+        $ownerId = $decryptedData[1] >> 1;
+        $kindByte = $decryptedData[4];
+        $byte5 = $decryptedData[5];
+        my $shipCountTwoBytes;
+        if (($byte5 & 8) == 0) { $shipCountTwoBytes = 1; 
+        } else  {$shipCountTwoBytes = 0; }
+        $positionObjectId = &read16(\@decryptedData, 6);
+        $x = &read16(\@decryptedData, 8);
+        $y = &read16(\@decryptedData, 10);
+        $shipTypes = &read16(\@decryptedData, 12);
+        $index = 14;
+        $mask = 1;
+        for (my $bit = 0; $bit < 16; $bit++) {
+          if (($shipTypes & $mask) != 0) {
+            if ($shipCountTwoBytes) {
+              $shipCount[$bit] = &read16(\@decryptedData, $index);
+              $index += 2;
+            } else {
+              $shipCount[$bit] = &read8($decryptedData[$index]);
+              $index += 1;
+            }
+          }
+        }
+        $mask <<= 1;
+        # PARTIAL_KIND = 3, PICK_POCKET_KIND = 4, FULL_KIND = 7;
+        #if ($kindByte != 7 && $kindByte != 4 && $kindByte != 3) {
+        if ($kindByte == 7 || $kindByte == 4) {
+          $contentsLengths = &read16(\@decryptedData, $index);
+          $iLength = $contentsLengths & 0x03;
+          $iLength = 4 >> (3 - $iLength);
+          $bLength = ($contentsLengths & 0x0C) >> 2;
+          $bLength = 4 >> (3 - $bLength);
+          $gLength = ($contentsLengths & 0x30) >> 4;
+          $gLength = 4 >> (3 - $gLength);
+          $popLength = ($contentsLengths & 0xC0) >> 6;
+          $popLength = 4 >> (3 - $popLength);
+          $fuelLength = $contentsLengths >> 8;
+          $fuelLength = 4 >> (3 - $fuelLength);
+          $index += 2;
+#          $ironium = &readN(\@decryptedData, $index, $iLength);
+          $index += $iLength;
+#          $boranium = &readN(\@decryptedData, $index, $bLength);
+          $index += $bLength;
+#          $germanium = &readN(\@decryptedData, $index, $gLength);
+          $index += $gLength;
+#          $population = &readN(\@decryptedData, $index, $popLength);
+          $index += $popLength;
+#          $fuel = &readN(\@decryptedData, $index, $fuelLength);
+          $index += $fuelLength;
+        } 
+        if ($kindByte == 7) {
+          $damagedShipTypes = &read16(\@decryptedData, $index);
+          $index += 2;
+          $mask = 1;
+          for (my $bit = 0; $bit < 16; $bit++) {
+            if (($damagedShipTypes & $mask) != 0) {
+              $damagedShipInfo[$bit] = \&read16(\@decryptedData, $index);
+              $index += 2;
+            }
+            $mask <<= 1;
+          }
+          $battlePlan = &read8($decryptedData[$index++]);
+          $waypointCount = &read8($decryptedData[$index++]);
+        } else {
+          $deltaX = &read8($decryptedData[$index++]);
+          $deltaY = &read8($decryptedData[$index++]);
+          $warp = $decryptedData[$index] & 15;
+          $unknownBitsWithWarp = $decryptedData[$index] & 0xF0;
+          $index++;
+          $index++;
+          $mass = &read32(\@decryptedData, $index);
+          $index += 4;
+        }
+        $x = &read16(\@decryptedData, 8); # Correct  (likely only in full block?)
+        $y = &read16(\@decryptedData, 10); # Correct (likely only in full block?)
+#        print "Fleet Block: fleetId: $fleetId, ownerId: $ownerId, x: $x, y: $y \n";
+        $fleet{'id'} = $fleetId;
+        $fleet{'owner'} = $ownerId;
+        $fleet{'x'} = $x;
+        $fleet{'y'} = $y;
+        $fleet[$fleetcounter] = { %fleet };
+        $fleetcounter++;
+      }
       # END OF MAGIC
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
@@ -333,33 +424,33 @@ sub decryptShip {
 
 
 sub showHull {
-  my ($hull) = @_;
-  if ($hull == 0) { return "Small Freighter"; }
-  elsif ($hull == 1) { return "Medium Freighter"; }
-  elsif ($hull == 2) { return "Large Freighter"; }
-  elsif ($hull == 3) { return "Super Freighter"; }
-  elsif ($hull == 4) { return "Scout"; }
-  elsif ($hull == 5) { return "Frigate"; }
-  elsif ($hull == 6) { return "Destroyer"; }
-  elsif ($hull == 7) { return "Colonizer"; }
-  elsif ($hull == 8) { return "Battle Cruiser"; }
-  elsif ($hull == 9) { return "Battleship"; }
-  elsif ($hull == 10) { return "Dreadnaught"; }
-  elsif ($hull == 11) { return "Privateer"; }
-  elsif ($hull == 12) { return "Rogue"; }
-  elsif ($hull == 13) { return "Galleon"; }
-  elsif ($hull == 14) { return "Mini-Colony Ship"; }
-  elsif ($hull == 15) { return "Colony Ship"; }
-  elsif ($hull == 18) { return "Stealth Bomber"; }
-  elsif ($hull == 25) { return "Fuel Transport"; }
-  elsif ($hull == 27) { return "Mini Mine Layer"; }
-  elsif ($hull == 28) { return "Super Mine Layer"; }
-  elsif ($hull == 31) { return "Meta Morph"; }
-  elsif ($hull == 32) { return "Orbital Fort"; }
-  elsif ($hull == 33) { return "Space Dock"; }
-  elsif ($hull == 34) { return "Space Station"; }
-  elsif ($hull == 36) { return "Death Star"; }
-  else { return $hull; }
+  my ($hullType) = @_;
+  if ($hullType == 0) { return "Small Freighter"; }
+  elsif ($hullType == 1) { return "Medium Freighter"; }
+  elsif ($hullType == 2) { return "Large Freighter"; }
+  elsif ($hullType == 3) { return "Super Freighter"; }
+  elsif ($hullType == 4) { return "Scout"; }
+  elsif ($hullType == 5) { return "Frigate"; }
+  elsif ($hullType == 6) { return "Destroyer"; }
+  elsif ($hullType == 7) { return "Colonizer"; }
+  elsif ($hullType == 8) { return "Battle Cruiser"; }
+  elsif ($hullType == 9) { return "Battleship"; }
+  elsif ($hullType == 10) { return "Dreadnaught"; }
+  elsif ($hullType == 11) { return "Privateer"; }
+  elsif ($hullType == 12) { return "Rogue"; }
+  elsif ($hullType == 13) { return "Galleon"; }
+  elsif ($hullType == 14) { return "Mini-Colony Ship"; }
+  elsif ($hullType == 15) { return "Colony Ship"; }
+  elsif ($hullType == 18) { return "Stealth Bomber"; }
+  elsif ($hullType == 25) { return "Fuel Transport"; }
+  elsif ($hullType == 27) { return "Mini Mine Layer"; }
+  elsif ($hullType == 28) { return "Super Mine Layer"; }
+  elsif ($hullType == 31) { return "Meta Morph"; }
+  elsif ($hullType == 32) { return "Orbital Fort"; }
+  elsif ($hullType == 33) { return "Space Dock"; }
+  elsif ($hullType == 34) { return "Space Station"; }
+  elsif ($hullType == 36) { return "Death Star"; }
+  else { return $hullType; }
 }
 
 sub showItem {
@@ -428,7 +519,17 @@ sub Category {
 #   Planetary=1024 - Assumed since it appears to be the only missing one
 #   Electrical=2048
 #   Mechanical=4096
+}
 
-
+sub waypointTask {
+  my ($task) = @_;
+  if ($task == 0) { return "No Task"; }
+  elsif ($task == 1) { return "?"; }
+  elsif ($task == 3) { return "?"; }
+  elsif ($task == 4) { return "?"; }
+  elsif ($task == 5) { return "?"; }
+  elsif ($task == 6) { return "?"; }
+  elsif ($task == 7) { return "?"; }
+  elsif ($task == 9) { return "?"; }
 
 }

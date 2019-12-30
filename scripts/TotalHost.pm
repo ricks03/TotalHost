@@ -460,7 +460,7 @@ sub html_banner {
 	$id = $session->param("userid");
 	$login = $session->param("userlogin");
 	print qq|<table width=100%>\n|;
-	print qq|<tr height=50><td width=20% align=left><a href="$WWW_HomePage"><img src=$WWW_Image| . qq|TotalHost.jpg alt="Total Host" border=0></a></td>\n|;
+	print qq|<tr height=50>\n<td width=20% align=left><a href="$WWW_HomePage"><img src=$WWW_Image| . qq|TotalHost.jpg alt="Total Host" border=0></a></td>\n|;
 #	print qq|<td name=notes><iframe id ="ifr" src="$WWW_Notes| . qq|blank.htm" name="your_name" marginwidth=0 marginheight=0 width="400" height="25" frameborder="0" scrolling="auto"></iframe></td>|;
 	print qq|<td name="notes"></td>|;
 
@@ -471,7 +471,7 @@ sub html_banner {
  		print qq|<td align=right width=5%><a href=$Location_Scripts/account.pl?action=logout>Log Out</a></td>\n|;
 # 		print qq|<td align=right width=5%><a href=$Location_Scripts/account.pl?action=logoutfull>Erase</a></td>\n|;
  	}
-	print qq|</tr></table>\n|;
+	print qq|</tr>\n</table>\n|;
 }
 
 sub html_left {
@@ -494,11 +494,11 @@ sub html_left {
 	}
 	print qq|</table>\n|;
 # added for help system 120214
-	print qq|<P><hr>|;
+	print qq|<P><hr>\n|;
 	print qq|<iframe id = "ifr" src="$WWW_Notes| . qq|blank.htm" name="your_name" marginwidth=0 marginheight=0 width="$lp_width" height="$height_help" frameborder="0" scrolling="auto"></iframe>\n|;
 	print qq|<table border=0>\n|;
-	print qq|<tr><td id="help" align=left>\n|;
-	print qq|</td></tr>\n|;
+	print qq|<tr>\n<td id="help" align=left>\n|;
+	print qq|</td>\n</tr>\n|;
 	print qq|</table>\n|;
 }
 
