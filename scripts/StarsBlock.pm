@@ -72,7 +72,8 @@ my $debug = 1;
 
 #############################################
 sub StarsPWD {
-  my ($GameFile, $Player) = @_;
+#  my ($GameFile, $Player) = @_;
+  my ($File) = @_;   # .m File is full file path
   use File::Copy;
   #Stars random number generator class used for encryption
   my @primes = ( 
@@ -86,8 +87,8 @@ sub StarsPWD {
                   271, 277, 281, 283, 293, 307, 311, 313 
           );
   
-  my $MFile = $File_HST . '/' . $GameFile . '/' . $GameFile . '.m' . $Player;
-  &PLogOut(300, "Password Reset Started for : $MFile", $LogFile);
+#  my $MFile = $File_HST . '/' . $GameFile . '/' . $GameFile . '.m' . $Player;
+  &PLogOut(300, "Password Reset Started for : $File", $LogFile);
 #   # Backup the current .m file
 # 	my $Backup_Destination_File   = $MFile . '.bak';
 # 	copy($MFile, $Backup_Destination_File);
@@ -96,7 +97,7 @@ sub StarsPWD {
   # Read in the binary Stars! file, byte by byte
   my $FileValues = '';
   my @fileBytes=();
-  open(StarFile, "<$MFile");
+  open(StarFile, "<$File");
   binmode(StarFile);
   while (read(StarFile, $FileValues, 1)) {
     push @fileBytes, $FileValues; 
@@ -106,10 +107,10 @@ sub StarsPWD {
   # Decrypt the data, block by block, removing the password
   my ($outBytes) = &decryptPWD(@fileBytes);
   # If the decrypt Bytes returned 0, there's no password
-  unless ($outbytes) { return 0; }
+  unless ($outBytes) { return 0; }
   my @outBytes = @{$outBytes};
   # Output the Stars! File with blank password(s)
-  open (OutFile, '>:raw', "$MFile");
+  open (OutFile, '>:raw', "$File");
   for (my $i = 0; $i < @outBytes; $i++) {
     print OutFile $outBytes[$i];
   }
@@ -452,7 +453,7 @@ sub bin2dec {
 
 sub decryptPWD {
   my (@fileBytes) = @_;
-  my @block;
+  my @block=();
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
@@ -462,6 +463,7 @@ sub decryptPWD {
   my ( $random, $seedA, $seedB, $seedX, $seedY);
   my ($typeId, $size, $data);
   my $offset = 0; #Start at the beginning of the file
+  my $pwdreset = 0;
   while ($offset < @fileBytes) {
     # Get block info and data
     ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
@@ -490,26 +492,38 @@ sub decryptPWD {
       &PLogOut(400, "DATA DECRYPTED:" . join (" ", @decryptedData), $LogFile);
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
-        if (($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) {
-        &PLogOut(200,"Password replaced for M $GameFile, $Player", $LogFile);
+# So apparently there are player blocks from other players in the .M file, and
+# If you reset the password in those you corrupt at the very least the player race name 
+#        if (($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) {
+        # BUG: Fixing for only PlayerID = Player blocks will break for .HST
+        my $playerId = $decryptedData[0] & 0xFF; 
+        if ((($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) && ($playerId == $Player)){
+          &PLogOut(200,"Block $offset password blanked for M", $LogFile);
+          print "Block $offset password blanked for M\n";
           # Replace the password with blank
           $decryptedData[12] = 0;
           $decryptedData[13] = 0;
           $decryptedData[14] = 0;
           $decryptedData[15] = 0;  
+          $pwdreset = 1;
         } else { 
-          # In .HST some Player blocks could be password protected, and some not 
-          print "This file isn't password-protected!\n"; return 0;
+          if ($playerId != $Player) { print "Block $offset is for another player!\n"; }
+          # BUG: In .HST some Player blocks could be password protected, and some not
+          else { print "Block $offset isn't password-protected!\n"; }
+# BUG: This prevents this from working when there's more than one Type 6 block, and
+# the first one doesn't have a password.
+#          return 0;
         }
       }
       if ($typeId == 36) { # .x file Change Password Block
         if (($decryptedData[0]  != 0) | ($decryptedData[1] != 0) | ($decryptedData[2] != 0) | ($decryptedData[3] != 0)) {
-        &PLogOut(200,"Password replaced for X $GameFile, $Player", $LogFile);
+          &PLogOut(200,"Block $offset password blanked for X", $LogFile);
           # Replace the password with blank
           $decryptedData[0] = 0;
           $decryptedData[1] = 0;
           $decryptedData[2] = 0;
           $decryptedData[3] = 0; 
+          $pwdreset = 1;
         } 
       }
       # END OF MAGIC
@@ -521,7 +535,10 @@ sub decryptPWD {
     }
     $offset = $offset + (2 + $size); 
   }
-  return \@outBytes;
+  # If the password was not reset, no need to write the file back out
+  # Faster, less risk of corruption
+  if ( $pwdreset ) { return \@outBytes; }
+  else { return 0; }
 }
 
 sub encryptBlock {

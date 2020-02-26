@@ -71,7 +71,7 @@ $file =~ s/\"//g;
 $file =~ s/\'//g;
 $file =~ s/ //g;
 my $turn_id = $file;
-$turn_id =~ s/(^\w+[\w.-]+\.m)(\d{1,2})/$2/;
+$turn_id =~ s/(^\w+[\w.-]+\.[mM])(\d{1,2})/$2/;
 # Get the name of the game file (file name with no extensions)
 my $gamefile = $file; 
 $gamefile =~ s/(^\w+[\w.-]+)(\..*)/$1/;
@@ -84,7 +84,7 @@ my $sql;
 if ($file =~ /^(\w+[\w.-]+\.xy)$/) { $download_ok = 1; $filetype='xy';} 
 
 # if it's a .m[n] file, validate who wants it before they get it
-elsif ($file =~ /^(\w+[\w.-]+\.m\d{1,2})$/) { 
+elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) { 
 	$filetype='m';
 	# need to check the database to see whether the logged in user gets access
 	# does the game file, player ID, and user ID exist (aka permitted)? 
@@ -112,7 +112,8 @@ elsif ($file =~ /^(\w+[\w.-]+\.m\d{1,2})$/) {
 	&DB_Close($db);
 
 # If it's a .r[n] file, validate who wants it before they get it
-} elsif (($file =~ /^(\w+[\w.-]+\.R\d{1,2})$/) || ($file =~ /^(\w+[\w.-]+\.r\d{1,2})$/)) { 
+#} elsif (($file =~ /^(\w+[\w.-]+\.R\d{1,2})$/) || ($file =~ /^(\w+[\w.-]+\.r\d{1,2})$/)) { 
+} elsif (($file =~ /^(\w+[\w.-]+\.[Rr]\d{1,2})$/) ) { 
 	$filetype = 'r';
 	$db = &DB_Open($dsn);
 	$sql = qq|SELECT * FROM Races WHERE User_Login='$userlogin' AND RaceFile='$file';|;

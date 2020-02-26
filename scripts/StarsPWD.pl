@@ -412,6 +412,7 @@ sub decryptPWD {
   my ( $random, $seedA, $seedB, $seedX, $seedY);
   my ($typeId, $size, $data);
   my $offset = 0; #Start at the beginning of the file
+  my $pwdreset = 0;
   while ($offset < @fileBytes) {
     # Get block info and data
     ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
@@ -439,26 +440,31 @@ sub decryptPWD {
       if ($debug) { print "\nDATA DECRYPTED:\n" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
-        if (($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) {
-        print "Password replaced!\n";
+        # BUG: Fixing for only PlayerID = Player blocks will break for .HST
+        my $playerId = $decryptedData[0] & 0xFF; 
+        if ((($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) && ($playerId == $Player)){
+        print "Block $offset password replaced!\n";
           # Replace the password with blank
           $decryptedData[12] = 0;
           $decryptedData[13] = 0;
           $decryptedData[14] = 0;
           $decryptedData[15] = 0;  
+          $pwdreset = 1;
         } else { 
           # In .HST some Player blocks could be password protected, and some not 
-          unless (uc($ext) eq '.HST' ) { die "This file isn't password-protected!\n"; }
+          # Or in files with block 6 from multiple players
+          unless (uc($ext) eq '.HST' ) { print "Block $offset isn't password-protected!\n"; }
         }
       }
       if ($typeId == 36) { # .x file Change Password Block
         if (($decryptedData[0]  != 0) | ($decryptedData[1] != 0) | ($decryptedData[2] != 0) | ($decryptedData[3] != 0)) {
-          print "Password replaced!\n";
+          print "Block $offset password replaced!\n";
           # Replace the password with blank
           $decryptedData[0] = 0;
           $decryptedData[1] = 0;
           $decryptedData[2] = 0;
           $decryptedData[3] = 0; 
+          $pwdreset = 1;
         } 
       }
       # END OF MAGIC
@@ -470,7 +476,10 @@ sub decryptPWD {
     }
     $offset = $offset + (2 + $size); 
   }
-  return \@outBytes;
+  # If the password was not reset, no need to write the file back out
+  # Faster, less risk of corruption
+  if ( $pwdreset ) { return \@outBytes; }
+  else { return 0; }
 }
 
 sub encryptBlock {

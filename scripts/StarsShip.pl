@@ -113,7 +113,6 @@ while ($waypointLoop <= ($#waypoint)) {
  $waypointLoop++;
 }
 
-
 # Not actually do anything here to change the file
 
 ################################################################

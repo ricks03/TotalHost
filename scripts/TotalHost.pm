@@ -782,7 +782,7 @@ sub LoadGamesInProgress {
 # 	my @CHK;
 #   &LogOut(200, "Running Get_CHK", $LogFile);
 #   &Make_CHK($GameFile);
-# #   my($CheckGame) = $executable . 'stars.exe -v ' . $FileHST . '\\' . $GameFile . '\\' . $GameFile . '.hst';
+# #   my($CheckGame) = $executable . ' -v ' . $FileHST . '\\' . $GameFile . '\\' . $GameFile . '.hst';
 # #   system($CheckGame);
 # #	sleep 1;
 #   @CHK = &Read_CHK($GameFile);
@@ -796,7 +796,7 @@ sub LoadGamesInProgress {
 sub Make_CHK { 
 # Updates the CHK file for a game
 	my($GameFile) = @_;
-  my($CheckGame) = $executable . 'stars.exe -v ' . $FileHST . '\\' . $GameFile . '\\' . $GameFile . '.hst';
+  my($CheckGame) = $executable . ' -v ' . $FileHST . '\\' . $GameFile . '\\' . $GameFile . '.hst';
   &LogOut(200, "Make_CHK: Running for $GameFile, $CheckGame", $LogFile);
   system($CheckGame);
 	sleep 2;
@@ -914,12 +914,12 @@ sub GenerateTurn { # Generate a turn and refresh files
 	# Generate the actual Stars! turns
 	# There is a Stars! bug when you generate this way  from the command line with / the .x[n] file isn't deleted.
 	# So you have to use \ (eg d:\th\games instead of d:/th/games)
-	my($GenTurn) = $executable . 'stars.exe -g' . $NumberofTurns . ' ' . $File_HST . '\\' .  $GameFile . '\\' . $GameFile . '.hst';
+	my($GenTurn) = $executable . ' -g' . $NumberofTurns . ' ' . $File_HST . '\\' .  $GameFile . '\\' . $GameFile . '.hst';
 	system($GenTurn);
 	sleep 3;
   #
   # About here clean the .M files
-  &StarsClean($GameFile)
+  &StarsClean($GameFile);
   #
   # Update the CHK File
   &Make_CHK($GameFile);

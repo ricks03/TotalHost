@@ -39,8 +39,12 @@ $max_inactivity = 14; # The longest a game can stay active, in days, with no tur
 $max_forcegen = 50; # The maxumum number of turns that can be force generated. 
 
 $dsn = 'TotalHost';
-$executable= 'd:/th/stars!/stars26j/';
-#$SleepTime = 60; # number of seconds between checks for turn generation
+$executable= 'd:/th/stars!/stars26j/stars.exe';
+# Location of ImageMagic convert applications
+$imagemagick = 'C:\Program Files\ImageMagick-6.8.3-Q16\convert';
+# Location of the starmapper executable (Java)
+$starmapper = 'd:\th\utils\starmapper\starmapper121\starmapper.bat';
+
 $FormMethod = 'Post'; # Method used for forms, Post or Get
 $File_Upload = 'd:/TH/Uploads';
 $File_UploadRace = 'd:/TH/Uploads';
@@ -54,6 +58,7 @@ $File_HST = 'd:/TH/Games'; # Location of the actual game files used for turn gen
 $FileHST = 'd:\TH\Games'; # Location of the actual game files used for turn gen
 $File_Download = 'd:/TH/Download'; #Location where turns & .xy are downloaded
 $FileDownload = 'd:\TH\Download'; #Location where turns & .xy are downloaded
+$FileDownloads = 'd:\TH\Downloads'; #Location of movies
 #$File_Scripts = 'd:/TH/scripts';
 #$ScriptLocation='d:/TH/scripts';
 $File_WWWRoot = 'd:/TH/html';
