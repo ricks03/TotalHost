@@ -1,4 +1,4 @@
-Last Updated: 121231
+Last Updated: 200225
 
 Extremely brief instructions to get the TotalHost website running on a windows XP-32 system.
 
@@ -8,7 +8,7 @@ Install and patch XP
 	Do not install IIS
 
 Install Activestate Perl (version: 5.14.2.1402 32 bit)
-	Using PPM, install win32::ODBC and CGI/Session.pm, MIME::Lite, CGI::Session::Auth, MIME-tools, io-socket-ssl, mail::pop3client, MIME::Parser, Mail::POP3Client;
+	Using PPM, install win32::ODBC and CGI/Session.pm, MIME::Lite, CGI::Session::Auth, MIME-tools, io-socket-ssl, mail::pop3client, MIME::Parser, Mail::POP3Client, File::Copy::Recursive;
 
 Make sure you have cgi-lib.pl in c:\perl\lib
 
@@ -100,4 +100,18 @@ schtasks /create /sc minute /mo 1 /tn "Task Name" /tr c:\temp\filename.exe
 
 
 Movies
-For movies to work, you'll need to install imagemagick and update the information in the movies script. You'll also need java installed
+For movies to work, you'll need to install imagemagick and Starmappper 121 and update the information in the config.p; file. You'll also need java installed:
+jre-7u80-windows-i586.exe
+
+I also had to update starmapper.bat to run from a different directory: 
+@echo off
+set STARMAPPERPARAMS=
+:loop
+set STARMAPPERPARAMS=%STARMAPPERPARAMS% %1
+shift
+if %1.==. goto endargs
+goto loop
+:endargs
+::java -Xmx128MB -classpath .;Starmapper.jar jezuch.utils.starmapper.Starmapper %STARMAPPERPARAMS%
+java -classpath .;d:\th\utils\starmapper\starmapper121\Starmapper.jar jezuch.utils.starmapper.Starmapper %STARMAPPERPARAMS%
+set STARMAPPERPARAMS=
