@@ -29,6 +29,7 @@ use Win32::ODBC;
 use Digest::SHA1  qw(sha1 sha1_hex sha1_base64);
 use TotalHost;
 do 'config.pl';
+use Email::Valid;
 
 # The _new_ way (from like 10 years ago)
 foreach my $field (param()) { $in{$field} = param($field); }
@@ -110,29 +111,48 @@ sub add_user {
 	$User_Last = $in{'User_Last'};
 	$User_Login = $in{'User_Login'};
 	$User_Email = $in{'User_Email'};
-	$db = &DB_Open($dsn);
-	$Date =&GetTimeString();
-	$hash = $in{'User_Password'} . $secret_key;
-	$passhash = sha1_hex($hash); 
-	$sql = "INSERT INTO User ([User_Login], [User_Last], [User_First], [User_Password], [User_Email], [User_Status], [User_Creation], [User_Modified], [EmailTurn], [EmailList]) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', '-5','$Date','$Date', 1, 1);";
-	&LogOut(100,$sql,$SQLLog);
-	if (&DB_Call($db,$sql)) { print "<P>Done!  Check your email to activate your account. \n"; }
-	else { print "<P>Error creating account. Duplicate?"; &LogOut(10,"ERROR: Adding New User $in{'User_Login'} $in{'User_Email'}",$ErrorLog);}
-	# add an entry in the temp file to expect the account to be activated
-	&DB_Close($db);
-	# email user to activate the account
-	# Hash password before sending it back out
-	$hash = $passhash . $secret_key;
-	$tmphash = sha1_hex($hash); 
-	
-	$Subject = $mail_prefix . 'Account Creation';
-	$Message = "\n\nA request was submitted to create an account $User_Login.\n";
-	$Message .= "To activate your account, select the link below:\n";
-	$Message .= "$WWW_HomePage$Location_Scripts" . '/account.pl?action=activate_user&user=' . $in{'User_Login'} . '&new=' . $tmphash;
-	$smtp = &Mail_Open;
-	&Mail_Send($smtp, $in{'User_Email'}, $mail_from, $Subject, $Message);
-	&Mail_Close($smtp);
-	&LogOut(100,"Add Mail sent to $in{'User_Email'}",$LogFile);
+  my $valid_email = Email::Valid->address($User_Email);
+  
+  # Check to see that fields were filled out
+  if ($User_First && $User_Last && $User_Login && $User_Email && $valid_email) {
+  
+  	$db = &DB_Open($dsn);
+  	$Date =&GetTimeString();
+  	$hash = $in{'User_Password'} . $secret_key;
+  	$passhash = sha1_hex($hash); 
+  	$sql = "INSERT INTO User ([User_Login], [User_Last], [User_First], [User_Password], [User_Email], [User_Status], [User_Creation], [User_Modified], [EmailTurn], [EmailList]) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', '-5','$Date','$Date', 1, 1);";
+  	&LogOut(100,$sql,$SQLLog);
+  	if (&DB_Call($db,$sql)) { print "<P>Done!  Check your email to activate your account. \n"; }
+  	else { print "<P>Error creating account. Duplicate User ID?"; &LogOut(10,"ERROR: Adding New User $in{'User_Login'} $in{'User_Email'}",$ErrorLog);}
+  	# add an entry in the temp file to expect the account to be activated
+  	&DB_Close($db);
+  	# email user to activate the account
+  	# Hash password before sending it back out
+  	$hash = $passhash . $secret_key;
+  	$tmphash = sha1_hex($hash); 
+  	
+  	$Subject = $mail_prefix . 'Account Creation';
+  	$Message = "\n\nA request was submitted to create an account $User_Login.\n";
+  	$Message .= "To activate your account, select the link below:\n";
+  	$Message .= "$WWW_HomePage$Location_Scripts" . '/account.pl?action=activate_user&user=' . $in{'User_Login'} . '&new=' . $tmphash;
+  	$smtp = &Mail_Open;
+  	&Mail_Send($smtp, $in{'User_Email'}, $mail_from, $Subject, $Message);
+  	&Mail_Close($smtp);
+  	&LogOut(100,"Add Mail sent to $in{'User_Email'}",$LogFile);
+  
+  } else {
+    # tell the user they screwed up
+    print "<P>Sorry, but there was a problem with your submission:\n";
+    print "<ul>\n";
+    unless ($User_First) { print "<li>First Name is a required field.</li>\n"; }
+    unless ($User_Last) { print "<li>Last Name is a required field.</li>\n"; }
+    unless ($User_Login) { print "<li>User ID is a required field.</li>\n"; }
+    unless ($User_Email) { print "<li>Email Address is a required field.</li>\n";}
+    if ($User_Email && !$valid_email) { print "<li>The email address you entered ( $User_Email ) does not detect as valid.</li>\n";  }
+    print "</ul>\n";
+    print "<P>Please try again!\n";
+    &LogOut(100,"Account: User1: $User_First, User2: $User_Last, Login: $User_Login, Email: $User_Email",$ErrorLog);
+  }
 }
 
 sub activate_user {

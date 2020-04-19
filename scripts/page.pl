@@ -781,6 +781,15 @@ sub show_game {
 				%GameValues = $db->DataHash();
         #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
 		}
+
+		# Determine if the player is already in the game
+		$sql = qq|SELECT * FROM GameUsers WHERE User_Login = '$userlogin' AND GameFile = '$GameValues{'GameFile'}';|;
+		$playeringame = 0; 
+		if (&DB_Call($db,$sql)) { 
+			if ($db->FetchRow()) { 
+				$playeringame = 1; 
+			}
+		} 
     
     ######
     # Display the Game Status Data
@@ -907,8 +916,11 @@ sub show_game {
           # Always display link if .m files are shared
   	 			print qq|<td><A href=\"$Location_Scripts/download.pl?file=$GameFile.m$Player\">.m$Player</A></td>\n|;
   	 		} elsif ($PlayerValues{'User_Login'} eq $userlogin ) { 
-        # Display link if the logged in user is the player
+          # Display link if the logged in user is the player
           print "<td><A href=\"$Location_Scripts/download.pl?file=$GameFile.m$Player\">.m$Player</A></td>\n"; 
+        } elsif (!$playeringame && $GameValues{'HostName'} eq $userlogin) {
+          # Display link if player is host but not in game
+          print "<td><A href=\"$Location_Scripts/download.pl?file=$GameFile.m$Player\">.m$Player</A> (Host Access)</td>\n"; 
   			} else { print "<td>.m$Player</td>\n"; }
 
         # Display the number of years included in the .m file
@@ -1040,15 +1052,6 @@ sub show_game {
   			else { print "<h3><font color=red>No players yet.</font></h3>\n"; }
   		}
   
-  		# Determine if the player is already in the game
-  		$sql = qq|SELECT * FROM GameUsers WHERE User_Login = '$userlogin' AND GameFile = '$GameValues{'GameFile'}';|;
-  		$playeringame = 0; 
-  		if (&DB_Call($db,$sql)) { 
-  			if ($db->FetchRow()) { 
-  				$playeringame = 1; 
-  			}
-  		} 
-  
   		# Don't prompt to join game if you're already in it and the game doesn't permit duplicates
   		unless (&checknull($GameValues{'NoDuplicates'}) && $playeringame) {
   			# Display the player's races available to join the game.
@@ -1094,7 +1097,8 @@ sub show_game {
     # Start Game Display Start Button
     if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '0') { print qq|<BUTTON $host_style type="submit" name="cp" value="Start Game" | . &button_help('StartGame') . qq|>Start Game</BUTTON>\n|; $button_count = &button_check($button_count);}
     # Lock the game and prepare to start
-		if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '7' && $playeringame) { print qq|<BUTTON $host_style type="submit" name="cp" value="Lock Game" | . &button_help('LockGame') . qq|>Lock Game</BUTTON>\n|; $button_count = &button_check($button_count);}
+#		if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '7' && $playeringame) { print qq|<BUTTON $host_style type="submit" name="cp" value="Lock Game" | . &button_help('LockGame') . qq|>Lock Game</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '7') { print qq|<BUTTON $host_style type="submit" name="cp" value="Lock Game" | . &button_help('LockGame') . qq|>Lock Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Unlock the game 
 		if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '0') { print qq|<BUTTON $host_style type="submit" name="cp" value="Unlock Game" | . &button_help('UnlockGame') . qq|>Unlock Game</BUTTON>\n|; $button_count = &button_check($button_count);}
     # Submit a news article
