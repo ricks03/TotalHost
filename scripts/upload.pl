@@ -94,92 +94,98 @@ sub ValidateFileUpload {
 
 	# Race Files
 	if ($file_type eq 'r') {
-    # Confirm there's not already a entry with that name
-    $sql = qq|SELECT RaceName from Races where RaceName = '$RaceName' AND User_Login = '$userlogin';|;
-		$db=&DB_Open($dsn);
-    if (&DB_Call($db,$sql)) { $db->FetchRow(); %RaceValues = $db->DataHash(); }
-    &DB_Close($db);
-    if ($RaceValues{'RaceName'}) {
-				$err .= "Race Name $RaceName already exists in your profile.\n"; 
-				&LogOut (0,"ValidateFileUpload: Race Name $RaceName already exists in profile for UserLogin: $err", $ErrorLog);
-        &LogOut (0,"ValidateFileUpload: Invalid Race DB Entry: Deleted $File_Loc",$ErrorLog);
-        # BUG: Danger deleting user-defined files. 
-        unlink $File_Loc;
-        return 0;    
+    # Check to make sure the Rane Name was entered
+    if ($RaceName) {
+      # Confirm there's not already a entry with that name
+      $sql = qq|SELECT RaceName from Races where RaceName = '$RaceName' AND User_Login = '$userlogin';|;
+  		$db=&DB_Open($dsn);
+      if (&DB_Call($db,$sql)) { $db->FetchRow(); %RaceValues = $db->DataHash(); }
+      &DB_Close($db);
+      if ($RaceValues{'RaceName'}) {
+  				$err .= "Race Name $RaceName already exists in your profile.\n"; 
+  				&LogOut (0,"ValidateFileUpload: Race Name $RaceName already exists in profile for UserLogin: $err", $ErrorLog);
+          &LogOut (0,"ValidateFileUpload: Invalid Race DB Entry: Deleted $File_Loc",$ErrorLog);
+          # BUG: Danger deleting user-defined files. 
+          unlink $File_Loc;
+          return 0;    
+      }
+      
+  		# check the file for valid information
+  		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
+  
+      my $checkmagic = &Check_Magic($Magic, $File_Loc);
+      my $checkversion = &Check_Version($ver, $File_Loc);
+  		if ( $checkmagic && $checkversion ) { # If this is indeed a valid Stars file
+  
+  			if ( $dt == 5 ) { # If it is a race file
+  				# If the file doesn't exist already
+          # Read in the user information so we know where to put the race file
+          $sql = qq|SELECT * FROM User WHERE User_Login = '$userlogin';|;
+  				$db=&DB_Open($dsn);
+          if (&DB_Call($db,$sql)) { $db->FetchRow(); %UserValues = $db->DataHash(); }
+          &DB_Close($db);
+  	      &LogOut(200,"$sql",$SQLLog); 
+  
+          my $racefiledir = $FileRaces . '\\' . $UserValues{'User_File'};  
+          # If the User Race folder doesn't exist, create it. 
+          if (not(-e($racefiledir))) {
+            unless (mkdir $racefiledir) { &LogOut(0,"ValidateFileUpload: Failed to create Race Directory $racefiledir",$ErrorLog); }
+          }
+          #write out the race name to where it is supposed to go.
+   		    my $Race_Destination = $racefiledir . '\\' . $File;  
+          
+   				if (not(-e $Race_Destination)) { #if the file does not already exist
+  					# Add the new race to the database
+  					$db=&DB_Open($dsn);
+  					$sql = "INSERT INTO Races (RaceName, RaceFile, User_Login, RaceDescrip, User_File) VALUES ('$RaceName', '$File', '$userlogin', '$RaceDescrip', '$UserValues{'User_File'}');";
+  					if (&DB_Call($db,$sql)) { # If the SQL query is not a failure
+  							$err .= "Database Updated. ";
+  							&LogOut(200, "ValidateFileUpload: Race Database Updated for $userlogin, $File: $err",$LogFile);
+  							if (&Move_Race($File_Loc, $Race_Destination)) { # move the race to its final location
+   								$err .= "Race File $File Uploaded.\n";
+  								&LogOut(200,"ValidateFileUpload: $File $File_Loc moved to $Race_Destination for $userlogin: $err", $LogFile);
+  								return 1; 
+  							} else { 
+  								$err .= "RaceFile $File failed to move/upload\n"; 
+  								&LogOut(0,"ValidateFileUpload: $File $File_Loc failed to move to $Race_Destination for $userlogin: $err", $ErrorLog);
+                  &LogOut(0,"ValidateFileUpload: Race File Failed to Move: Deleted $File_Loc",$ErrorLog);
+                  return 0;
+  							}
+  					} else {
+  						$err .= "File $File failed to insert into database. Had you entered a race name?";
+  						&LogOut(0,"ValidateFileUpload: Failed to insert $File into database for $userlogin: $err", $ErrorLog);
+              # Danger deleting a user defined file. 
+              unlink $File_Loc;
+  						return 0;
+  					}
+  					&DB_Close($db);
+  				} else {
+  					$err .= "Race File with that name: $File already exists";
+            # Delete the temp file
+            unlink ($File_Loc);
+  					&LogOut(0, "ValidateFileUpload: Race File: $File $File_Loc already exists at $Race_Destination: $err", $ErrorLog); 
+  					return 0; 
+  				}
+  			} else { 
+  				$err .= "$File not a valid Race ( .r1 ) file\n"; 
+  				&LogOut (0,"ValidateFileUpload: Invalid race file $File in $File_Loc for $userlogin: $err", $ErrorLog);
+          &LogOut (0, "ValidateFileUpload: Invalid Race (.r1) File: Deleted $File_Loc",$ErrorLog);
+          # Danger deleting user defined files. 
+          unlink $File_Loc;
+  				return 0; 
+  			}
+  		} else {
+  			$err .= "Invalid Race File upload of $File by $userlogin\n";
+  			&LogOut(0, "ValidateFileUpload: Invalid race file upload of $File to $File_Loc by $userlogin. CheckMagic: $checkmagic, CheckVersion: $checkversion: $err", $ErrorLog);
+        # BUG: This is full of security errors, and you could be deleting a file that exists. 
+        unlink ($File_Loc);
+        &LogOut (0, "Invalid Race File: Deleted $File_Loc",$ErrorLog);
+  			return 0;
+  		}
+    } else {
+       $err .= "You must enter a Race Name for your race (this field is independent of the name in the file). Try Again!";
+       &LogOut (0, "Upload: No race name entered for $userlogin",$ErrorLog);
     }
-    
-		# check the file for valid information
-		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
-
-    my $checkmagic = &Check_Magic($Magic, $File_Loc);
-    my $checkversion = &Check_Version($ver, $File_Loc);
-		if ( $checkmagic && $checkversion ) { # If this is indeed a valid Stars file
-
-			if ( $dt == 5 ) { # If it is a race file
-				# If the file doesn't exist already
-        # Read in the user information so we know where to put the race file
-        $sql = qq|SELECT * FROM User WHERE User_Login = '$userlogin';|;
-				$db=&DB_Open($dsn);
-        if (&DB_Call($db,$sql)) { $db->FetchRow(); %UserValues = $db->DataHash(); }
-        &DB_Close($db);
-	      &LogOut(200,"$sql",$SQLLog); 
-
-        my $racefiledir = $FileRaces . '\\' . $UserValues{'User_File'};  
-        # If the User Race folder doesn't exist, create it. 
-        if (not(-e($racefiledir))) {
-          unless (mkdir $racefiledir) { &LogOut(0,"ValidateFileUpload: Failed to create Race Directory $racefiledir",$ErrorLog); }
-        }
-        #write out the race name to where it is supposed to go.
- 		    my $Race_Destination = $racefiledir . '\\' . $File;  
-        
- 				if (not(-e $Race_Destination)) { #if the file does not already exist
-					# Add the new race to the database
-					$db=&DB_Open($dsn);
-					$sql = "INSERT INTO Races (RaceName, RaceFile, User_Login, RaceDescrip, User_File) VALUES ('$RaceName', '$File', '$userlogin', '$RaceDescrip', '$UserValues{'User_File'}');";
-					if (&DB_Call($db,$sql)) { # If the SQL query is not a failure
-							$err .= "Database Updated. ";
-							&LogOut(200, "ValidateFileUpload: Race Database Updated for $userlogin, $File: $err",$LogFile);
-							if (&Move_Race($File_Loc, $Race_Destination)) { # move the race to its final location
- 								$err .= "Race File $File Uploaded.\n";
-								&LogOut(200,"ValidateFileUpload: $File $File_Loc moved to $Race_Destination for $userlogin: $err", $LogFile);
-								return 1; 
-							} else { 
-								$err .= "RaceFile $File failed to move/upload\n"; 
-								&LogOut(0,"ValidateFileUpload: $File $File_Loc failed to move to $Race_Destination for $userlogin: $err", $ErrorLog);
-                &LogOut(0,"ValidateFileUpload: Race File Failed to Move: Deleted $File_Loc",$ErrorLog);
-                return 0;
-							}
-					} else {
-						$err .= "File $File failed to insert into database. Had you entered a race name?";
-						&LogOut(0,"ValidateFileUpload: Failed to insert $File into database for $userlogin: $err", $ErrorLog);
-            # Danger deleting a user defined file. 
-            unlink $File_Loc;
-						return 0;
-					}
-					&DB_Close($db);
-				} else {
-					$err .= "Race File with that name: $File already exists";
-          # Delete the temp file
-          unlink ($File_Loc);
-					&LogOut(0, "ValidateFileUpload: Race File: $File $File_Loc already exists at $Race_Destination: $err", $ErrorLog); 
-					return 0; 
-				}
-			} else { 
-				$err .= "$File not a valid Race ( .r1 ) file\n"; 
-				&LogOut (0,"ValidateFileUpload: Invalid race file $File in $File_Loc for $userlogin: $err", $ErrorLog);
-        &LogOut (0, "ValidateFileUpload: Invalid Race (.r1) File: Deleted $File_Loc",$ErrorLog);
-        # Danger deleting user defined files. 
-        unlink $File_Loc;
-				return 0; 
-			}
-		} else {
-			$err .= "Invalid Race File upload of $File by $userlogin\n";
-			&LogOut(0, "ValidateFileUpload: Invalid race file upload of $File to $File_Loc by $userlogin. CheckMagic: $checkmagic, CheckVersion: $checkversion: $err", $ErrorLog);
-      # BUG: This is full of security errors, and you could be deleting a file that exists. 
-      unlink ($File_Loc);
-      &LogOut (0, "Invalid Race File: Deleted $File_Loc",$ErrorLog);
-			return 0;
-		}
 	} elsif ($file_type eq 'x') { # A turn file
 		($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
 		&LogOut(300,"ValidateFileUpload: DTS2: $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware", $LogFile);
@@ -202,7 +208,7 @@ sub ValidateFileUpload {
 				} else {
 					&LogOut(200, "ValidateFileUpload: Last Submitted update FAILED $File, $File_Loc, in $game_file for $userlogin", $ErrorLog); 
 				}
-        # Need to determine if the game is AsAvailable, to generate as turns are uploaded.
+        # BUG: Need to determine if the game is AsAvailable, to generate as turns are uploaded.
 # 				$sql = "SELECT * FROM Games WHERE GameFile = \'$game_file\';";
 # 				if (&DB_Call($db,$sql)) {
 # 					# Load all game values into the array
