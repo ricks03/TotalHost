@@ -112,7 +112,7 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
   # Check to permit the host who is not playing to download
   unless ($download_ok == 1) { # Don't need to check if they already can download
 		# Determine if the player is in the game
-    $sql = qq|SELECT Games.GameFile, Games.HostName, User.User_Login FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$gamefile\') AND ((Games.HostName)=\'$userlogin\'));|;  
+    $sql = qq|SELECT Games.GameFile, Games.HostName, User.User_Login, Games.HostAccess FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$gamefile\') AND ((Games.HostName)=\'$userlogin\'));|;  
 		my $playeringame = 0; 
 		if (&DB_Call($db,$sql)) { 
 			if ($db->FetchRow()) { 
@@ -120,7 +120,7 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
         if ($GameValues{'HostName'} eq $GameValues{'User_Login'} ) { $playeringame = 1; }
 			}
 		} 
-    if ($GameValues{'HostName'} eq $userlogin && !$playeringame) { $download_ok = 1; }
+    if ($GameValues{'HostName'} eq $userlogin && !$playeringame && $GameValues{'HostAccess'}) { $download_ok = 1; }
   }
 	&DB_Close($db);
 

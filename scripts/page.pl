@@ -918,7 +918,7 @@ sub show_game {
   	 		} elsif ($PlayerValues{'User_Login'} eq $userlogin ) { 
           # Display link if the logged in user is the player
           print "<td><A href=\"$Location_Scripts/download.pl?file=$GameFile.m$Player\">.m$Player</A></td>\n"; 
-        } elsif (!$playeringame && $GameValues{'HostName'} eq $userlogin) {
+        } elsif (!$playeringame && $GameValues{'HostName'} eq $userlogin && $GameValues{'HostAccess'}) {
           # Display link if player is host but not in game
           print "<td><A href=\"$Location_Scripts/download.pl?file=$GameFile.m$Player\">.m$Player</A> (Host Access)</td>\n"; 
   			} else { print "<td>.m$Player</td>\n"; }
@@ -1884,14 +1884,13 @@ sub edit_game {
 	# Default to No Duplicates when creating game
 	unless ($GameValues{'NoDuplicates'}) { if ($type eq 'create') { $GameValues{'NoDuplicates'} = 1; }}
 	print qq|<TD><INPUT type="checkbox" name="NoDuplicates" | . &button_help("NoDuplicates") . qq| $Checked[$GameValues{'NoDuplicates'}]>No Duplicate Players </TD>\n|;
-	print qq|</TR><TR>\n|;
 	# Default to Host can restore games from backup
 	unless ($GameValues{'GameRestore'}) { if ($type eq 'create') { $GameValues{'GameRestore'} = 1; }}
 	print qq|<TD><INPUT type="checkbox" name="GameRestore" | . &button_help("GameRestore") . qq| $Checked[$GameValues{'GameRestore'}]>Host can Restore Turns from Backup </TD>\n|;
+	print qq|</TR><TR>\n|;
 	# Default to Anonymous Players
 	unless ($GameValues{'AnonPlayer'}) { if ($type eq 'create') { $GameValues{'AnonPlayer'} = 1; }}
 	print qq|<TD><INPUT type="checkbox" name="AnonPlayer" | . &button_help("AnonPlayer") . qq| $Checked[$GameValues{'AnonPlayer'}]>Anonymous Players</TD>\n|;
-	print qq|</TR><TR>\n|;
 	print qq|<TD><INPUT type="checkbox" name="GamePause" | . &button_help("GamePause") . qq| $Checked[$GameValues{'GamePause'}]>Players can Pause game</TD>\n|;
 	print qq|<TD><INPUT type="checkbox" name="ObserveHoliday" | . &button_help("ObserveHoliday") . qq| $Checked[$GameValues{'ObserveHoliday'}]>Observe Holidays</TD>\n|;
 	print qq|</TR><TR>\n|;
@@ -1899,6 +1898,7 @@ sub edit_game {
 	# BUG: Email submit isn't implemented
 	#print qq|<TD><INPUT type="checkbox" name="EmailSubmit" | . &button_help("EmailSubmit") . qq| $Checked[$GameValues{'EmailSubmit'}]>Submit Via Email</TD>\n|;
 	print qq|<TD><INPUT type="checkbox" name="SharedM" | . &button_help("SharedM") . qq| $Checked[$GameValues{'SharedM'}]>Shared M Files	</TD>\n|;
+	print qq|<TD><INPUT type="checkbox" name="HostAccess" | . &button_help("HostAccess") . qq| $Checked[$GameValues{'HostAccess'}]>Host Access    </TD>\n|;
 	print qq|</TR></TABLE>\n|;
 	print qq|<P>Notes: <TEXTAREA name=Notes  rows=4 cols=80 | . &button_help("GameNotes") . qq| type=Text value="$GameValues{'Notes'}">$GameValues{'Notes'}</TEXTAREA>|;
 	print qq|<input type=hidden name="lp" value="profile_game">\n|;
@@ -1976,7 +1976,7 @@ sub delete_game {
 #      print "<P>$dir\n";
       print "<P>Game files deleted for: $GameValues{'GameName'}.";
     } else { 
-      print "<P>Game Directory $GameValues{'GameFile'} Does not Exist."; 
+      print "<P>Game Directory $GameValues{'GameFile'} does not exist."; 
       &LogOut(0,"Delete of Game Directory $GameValues{'GameFile'} by $userlogin failed as it does not exist.",$ErrorLog);
     }
 
@@ -2028,6 +2028,7 @@ sub update_game {
 	my $ObserveHoliday = &checkboxnull($in{'ObserveHoliday'});
 	my $NewsPaper = &checkboxnull($in{'Newspaper'});
 	my $SharedM = &checkboxnull($in{'SharedM'});
+	my $HostAccess = &checkboxnull($in{'HostAccess'});
 	$in{'Notes'} = &clean($in{'Notes'});
 
  	$db = &DB_Open($dsn);
@@ -2057,6 +2058,7 @@ sub update_game {
 								ObserveHoliday = '$ObserveHoliday',
 								NewsPaper = '$NewsPaper',
 								SharedM = '$SharedM',
+								HostAccess = '$HostAccess',
 								Notes = '$in{'Notes'}', 
 								MaxPlayers = $MaxPlayers, 
                 AutoInactive = $AutoInactive
@@ -2082,7 +2084,7 @@ sub update_game {
 			$CleanGameFile = substr(sha1_hex(time()), 5, 8); # Should be random enough
 			&LogOut(50,"Creating random GameFile $CleanGameFile for $in{'GameName'}",$LogFile);
 #180312		}
-		my $sql = qq|INSERT INTO Games (GameFile,HostName,GameName,GameDescrip,DailyTime,HourlyTime,GameType,GameStatus,AsAvailable,OnlyIfAvailable,DayFreq,HourFreq,ForceGen,ForceGenTurns,ForceGenTimes,HostMod,HostForce,NoDuplicates,GameRestore,AnonPlayer,GamePause,GameDelay,NumDelay,MinDelay,ObserveHoliday,NewsPaper,SharedM,Notes,MaxPlayers) VALUES ('$CleanGameFile','$userlogin','$in{'GameName'}','$in{'GameDescrip'}',$in{'DailyTime'},'$in{'HourlyTime'}',$in{'GameType'},6,'$AsAvailable','$OnlyIfAvailable','$DayFreq','$HourFreq','$ForceGen',$ForceGenTurns,$ForceGenTimes,'$HostMod','$HostForceGen','$NoDuplicates','$GameRestore','$AnonPlayer','$GamePause','$GameDelay',$NumDelay, $MinDelay,'$ObserveHoliday','$NewsPaper','$SharedM','$in{'Notes'}',$MaxPlayers);|;
+		my $sql = qq|INSERT INTO Games (GameFile,HostName,GameName,GameDescrip,DailyTime,HourlyTime,GameType,GameStatus,AsAvailable,OnlyIfAvailable,DayFreq,HourFreq,ForceGen,ForceGenTurns,ForceGenTimes,HostMod,HostForce,NoDuplicates,GameRestore,AnonPlayer,GamePause,GameDelay,NumDelay,MinDelay,ObserveHoliday,NewsPaper,SharedM,HostAccess,Notes,MaxPlayers) VALUES ('$CleanGameFile','$userlogin','$in{'GameName'}','$in{'GameDescrip'}',$in{'DailyTime'},'$in{'HourlyTime'}',$in{'GameType'},6,'$AsAvailable','$OnlyIfAvailable','$DayFreq','$HourFreq','$ForceGen',$ForceGenTurns,$ForceGenTimes,'$HostMod','$HostForceGen','$NoDuplicates','$GameRestore','$AnonPlayer','$GamePause','$GameDelay',$NumDelay, $MinDelay,'$ObserveHoliday','$NewsPaper','$SharedM','$HostAccess','$in{'Notes'}',$MaxPlayers);|;
 		if (&DB_Call($db,$sql)) { } 
 		else { 
       print "Create failed\n"; 
@@ -2406,6 +2408,7 @@ sub read_game {
 	if ($GameValues{'ObserveHoliday'}) { push (@Values, "Observe Holidays"); }
 	if ($GameValues{'NewsPaper'}) { push (@Values, "Galactic News"); }
 	if ($GameValues{'SharedM'}) { push (@Values, "Shared M Files"); }
+	if ($GameValues{'HostAccess'}) { push (@Values, "Host Access"); }
 	if ($GameValues{'AutoInactive'}) { push (@Values, "AutoInactive after $GameValues{'AutoInactive'} turns missed"); }
 	if ($GameValues{'MaxPlayers'}) { push (@Values, "Max $GameValues{'MaxPlayers'} players allowed to join"); }
 	my $c = 0;
