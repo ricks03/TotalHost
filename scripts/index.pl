@@ -188,7 +188,8 @@ sub account_create {
 	} else { &LogOut(10,"ERROR: account_create confirming user account",$LogFile);}
 	&DB_Close($db);
 	if ($User_Count > $max_users ) {
-		print $cgi->redirect( -URL => "$Location_Scripts/index.pl?cp=max");	
+		#print $cgi->redirect( -URL => "$WWW_HomePage$Location_Scripts/index.pl?cp=max");
+    &max_users;	
 		exit;
 	} 
 
@@ -217,7 +218,7 @@ print <<eof;
 <h2>Maxxed Users</h2>
 
 <P>Hard as it is to believe, the site has maxxed out on $max_users
-which is the current maximum permitted at this state. Please contact totalhost@corwyn.net if you'd like there to be more!
+which is the current configured maximum. Please contact $mail_from if you'd like there to be more!
 </td>
 eof
 }
