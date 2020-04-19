@@ -8,7 +8,7 @@ Install and patch XP
 	Do not install IIS
 
 Install Activestate Perl (version: 5.14.2.1402 32 bit)
-	Using PPM, install win32::ODBC and CGI/Session.pm, MIME::Lite, CGI::Session::Auth, MIME-tools, io-socket-ssl, mail::pop3client, MIME::Parser, Mail::POP3Client, File::Copy::Recursive;
+	Using PPM, install win32::ODBC and CGI/Session.pm, MIME::Lite, CGI::Session::Auth, MIME-tools, io-socket-ssl, mail::pop3client, MIME::Parser, Mail::POP3Client, File::Copy::Recursive, Email::Valid;
 
 Make sure you have cgi-lib.pl in c:\perl\lib
 
