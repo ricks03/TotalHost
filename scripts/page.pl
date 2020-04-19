@@ -131,13 +131,13 @@ my $welcome = $File_WWWRoot . '/' . 'welcome.htm';
 
 #### Center Panel
 if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
-} elsif ($in{'cp'} eq 'accept_game') { &accept_game;
-} elsif ($in{'cp'} eq 'invite_game') { &invite_game; 
-} elsif ($in{'cp'} eq 'invite_friends') { &invite_friends; 
-} elsif ($in{'cp'} eq 'accept_friend_invite') { &accept_friend_invite; 
-} elsif ($in{'cp'} eq 'add_friend') { &add_friend; 
-} elsif ($in{'cp'} eq 'display_invitations_detail') { 
-	print "<td>\n"; &display_invitations_detail; print "</td>\n";
+#} elsif ($in{'cp'} eq 'accept_game') { &accept_game;
+#} elsif ($in{'cp'} eq 'invite_game') { &invite_game; 
+#} elsif ($in{'cp'} eq 'invite_friends') { &invite_friends; 
+#} elsif ($in{'cp'} eq 'accept_friend_invite') { &accept_friend_invite; 
+#} elsif ($in{'cp'} eq 'add_friend') { &add_friend; 
+# } elsif ($in{'cp'} eq 'display_invitations_detail') { 
+# 	print "<td>\n"; &display_invitations_detail; print "</td>\n";
 # } elsif ($in{'cp'} eq 'display_game_detail') { 
 # 	$sql = qq|SELECT ;|; &display_game_detail($sql); 
 } elsif ($in{'cp'} eq 'edit_profile') {  
@@ -218,8 +218,10 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
 #	# If the game fails to launch, don't display the game status, show the new game.
 #	if (&process_game_launch($in{'GameFile'})) { &show_game($in{'GameFile'}); }
 #	else { &show_game($in{'GameFile'})}
-#	print "</td>";
-} elsif ($in{'cp'} eq 'DELETE') { &delete_game($in{'GameFile'}); 
+#	print "</td>";  
+# Two different ways to handle the delete request. Because depending on browser version
+# either the value is used, or the button label.
+} elsif ($in{'cp'} eq 'DELETE' || $in{'cp'} eq 'delete_game') { &delete_game($in{'GameFile'}); 
 } elsif ($in{'cp'} eq 'show_first_game') { 
 	print "<td>"; 	
 	my $sql = qq|SELECT Games.*, Games.GameStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((User.User_ID)=$id) AND ((Games.GameStatus)=2 Or (Games.GameStatus)=3 Or (Games.GameStatus)=4) Or (Games.GameStatus)=7 Or (Games.GameStatus)=0  );|;
@@ -243,8 +245,11 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
  	if ($in{'GameFile'}) { print "<td>"; &show_game($in{'GameFile'}); print "</td>"; }
 } elsif ($in{'cp'} eq 'Refresh') { 
 	if ($in{'GameFile'}) {  print "<td>"; &show_game($in{'GameFile'}); print "</td>"; }
-  $in{'rp'} = 'show_news';
-} elsif ($in{'cp'} eq 'show_games') {
+  $in{'rp'} = 'show_news';   
+# CANCEL is also here due to a browser defect
+# Depending on the browser, it uses the label instead of the value
+# And the CANCEL button uses the value of "show_games"
+} elsif ($in{'cp'} eq 'show_games' || $in{'cp'} eq 'CANCEL') {
 #	$sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile) ON User.User_Login = GameUsers.User_Login GROUP BY Games.GameFile, Games.GameName, Games.GameStatus, User.User_ID HAVING User.User_ID=| . $session->param("userid") . qq|;|;
 	$sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip, Games.HostName FROM Games ORDER BY Games.GameStatus;|;
 	print "<td>"; &list_games($sql, 'All Games'); print "</td>";
@@ -384,11 +389,12 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
 		print "<td>"; &create_game_size($in{'GameFile'}, $in{'GameName'}); print "</td>";
 } elsif ($in{'cp'} eq 'Delete Game') {
 		print "<td>"; &delete_confirm($in{'GameFile'}); print "</td>";
-} elsif ($in{'cp'} eq 'Movie') {
-	print "<td>"; 	
-	$sql = qq|SELECT * FROM Games WHERE GameFile = '$in{'GameFile'}';|;
-	&show_movie($sql); 
-	print "</td>"; 
+# Movies now built into page
+# } elsif ($in{'cp'} eq 'Movie') {
+# 	print "<td>"; 	
+# 	$sql = qq|SELECT * FROM Games WHERE GameFile = '$in{'GameFile'}';|;
+# 	&show_movie($sql); 
+# 	print "</td>"; 
 } elsif ($in{'cp'} eq 'welcome') {
 		&show_html($welcome);
 } else {	
@@ -811,7 +817,7 @@ sub show_game {
       my $movieFile = $FileDownloads . "\\movies\\movie_" . $GameValues{'GameFile'} . ".gif";
       if (-e $movieFile) {
         print "<tr><td><img align=left src=\"/Downloads/movies/movie_" . $GameValues{'GameFile'} . ".gif\"></td></tr>\n";
-      } 
+      } else { print "<tr><td><i>No movie available</i></td></tr>\n";}
     }
     
     # Display the Host ID and email
@@ -1129,12 +1135,15 @@ sub show_game {
 		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[23459]$/)) 	{print qq|<BUTTON $host_style type="submit" name="cp" value="Replace Player" | . &button_help('ReplacePlayer') .  qq|>Replace Player</BUTTON>\n|; $button_count = &button_check($button_count);}
 		#Movies
     my $movieFile = $FileDownloads . "\\movies\\movie_$GameFile.gif";
-      # Play Movie
-		if (($GameValues{'GameStatus'} =~ /^[9]$/) && (-e $movieFile)) 	{print qq|<BUTTON $user_style type="submit" name="cp" value="Movie" | . &button_help('Movie') .  qq|>Movie</BUTTON>\n|; $button_count = &button_check($button_count);}
+#       # Play Movie
+# Not really necessary now that it automatically displays on the page. 
+# 		if (($GameValues{'GameStatus'} =~ /^[9]$/) && (-e $movieFile)) 	{print qq|<BUTTON $user_style type="submit" name="cp" value="Movie" | . &button_help('Movie') .  qq|>Movie</BUTTON>\n|; $button_count = &button_check($button_count);}
 		  # Animate Movie
-      #We can't animate games that don't have this history, which in some cases I deleted prior to this functionality
+      # We can't animate games that don't have this history, which in some cases I deleted prior to this functionality
+      # Also check to see if Image Magick and and StarMapper are configured and exist
+      # Don't provide button if there's alerady a movie. 
     my $animateFile = $FileHST . "\\" . $GameValues{'GameFile'} . "\\2400"; 
-		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[9]$/) && (not -e $movieFile) && (-d $animateFile)) 	{print qq|<BUTTON $host_style type="submit" name="cp" value="Movie" | . &button_help('Animate') .  qq|>Animate</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[9]$/) && (not -e $movieFile) && (-d $animateFile) && (-e $imagemagick) && (-e $starmapper)) 	{print qq|<BUTTON $host_style type="submit" name="cp" value="Movie" | . &button_help('Animate') .  qq|>Animate</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Set the DEF File
 		if ($GameValues{'HostName'} eq $userlogin && ($GameValues{'GameStatus'} eq '6' )) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="DEF File" | . &button_help('DEFFile') .  qq|>DEF File</BUTTON>\n|; $button_count = &button_check($button_count);}
 		print qq|</form>\n|;
