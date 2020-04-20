@@ -4,34 +4,44 @@
 
 <P>Stars! is OLD. Windows 3.11 old. However, Stars! can be made to run almost anywhere.
 
+<P>See <a href="https://wiki.starsautohost.org/wiki/Stars_vs_OS">Stars vs OS</a> for even more information.
+
 <h3>Stars! on Various Operating Systems</h3>
 <ul>
-  <li>Windows 16-bit or 32-bit (Windows 98, 2000, XP, Vista, 7, 8) - Stars! will just run.
-  <li>Windows 64-bit 
+  <li>Windows 16-bit or 32-bit (Windows 98, 2000, XP, Vista, 7, 8) - Stars! will just run.</li>
+  <li>Windows 64-bit</li>
     <ul>
-    <li>Windows 7 64-bit will run <a href="https://www.microsoft.com/en-us/download/details.aspx?id=8002">XP Mode</a>. Note: this does not work with Windows 7 Home as XP Mode requires Windows 7 Professional, Enterprise or Ultimate. 
-    <li>Virtual PC. You can download <A href="http://www.microsoft.com/windows/virtual-pc/download.aspx">Virtual PC</a> from the Microsoft site and then install XP in a virtual machine. 
-    <li><a href="http://www.vmware.com/products/player/">VMWare Player</a> will let you run 32-bit Windows on a 64-bit system.
-    <li><a href="https://www.virtualbox.org/wiki/Downloads">Oracle VirtualBox</a> will let you run 32-bit Windows on a 64-bit system.
-    <li>DOSBox (Windows 7, XP, or Vista). See below.
+    <li>Windows 7 64-bit will run <a href="https://www.microsoft.com/en-us/download/details.aspx?id=8002">XP Mode</a>. Note: this does not work with Windows 7 Home as XP Mode requires Windows 7 Professional, Enterprise or Ultimate. </li>
+    <li>Virtual PC. You can download <A href="http://www.microsoft.com/windows/virtual-pc/download.aspx">Virtual PC</a> from the Microsoft site and then install XP in a virtual machine. </li>
+    <li><a href="http://www.vmware.com/products/player/">VMWare Player</a> will let you run 32-bit Windows on a 64-bit system.</li>
+    <li><a href="https://www.virtualbox.org/wiki/Downloads">Oracle VirtualBox</a> will let you run 32-bit Windows on a 64-bit system.</li>
+    <li>DOSBox (Windows 7, XP, or Vista). See below.</li>
+    <li><a href="http://wiki.starsautohost.org/files/starswine4.zip">StarsWine</a> on <a href="https://github.com/otya128/winevdm/releases">OTVDM</a>. Created by raptor. See below.<li>
     </ul>
   <li>Macs
     <ul>
-    <li>Wine is ported to MacOS X, and <a href="http://wiki.starsautohost.org/wiki/Stars!_on_Linux_Jason_Hissong_1997_v2.6/7">Stars! runs under Wine</a>.
-    <li>DosBOX runs on Mac - see below.
+    <li>Wine is ported to MacOS X, and <a href="http://wiki.starsautohost.org/wiki/Stars!_on_Linux_Jason_Hissong_1997_v2.6/7">Stars! runs under Wine</a>.</li>
+    <li>DosBOX runs on Mac - see below.</li>
     </ul>
-  <li>Linux: <a href="http://wiki.starsautohost.org/wiki/Stars!_on_Linux_Jason_Hissong_1997_v2.6/7">Using WINE</a>
+  <li>Linux: <a href="http://wiki.starsautohost.org/wiki/Stars!_on_Linux_Jason_Hissong_1997_v2.6/7">Using WINE</a></li>
 </ul>
 
 <P><b>DOSBox</b>:
 <P>To Run Stars! under DOSBox in 64-bit Windows:
-<P>
 <ol>
-<li>Download and install DOSBox from from <a href="http://www.dosbox.com/">http://www.dosbox.com/</a><br>
-<li>Download Stars! DOSBox <A HREF="/Downloads/DOSBoxStars.zip"><B>(ZIP)</B></A> or <A HREF="/Downloads/DOSBoxStars.rar"><B>(RAR)</B></A><br>
-<li>Extract Stars! DOSBox (If you extract to C: you won't even have to edit the .conf file, otherwise, edit the included dosbox.conf to point to the current location of Stars! DOSBox)
-<li>Create a shortcut on your desktop to:<br><font face="courier new" size=2>"C:\Program Files\DOSBox-0.72\dosbox.exe" -conf "C:\DOSBoxC\dosbox.conf"</font><br>  (Modify the location of DOSBox and the location of Stars! DOSBox as appropriate)
-<li>Launch shortcut
+<li>Download and install DOSBox from from <a href="http://www.dosbox.com/">http://www.dosbox.com/</a></li>
+<li>Download Stars! DOSBox <A HREF="/Downloads/DOSBoxStars.zip"><B>(ZIP)</B></A> or <A HREF="/Downloads/DOSBoxStars.rar"><B>(RAR)</B></A></li>
+<li>Extract Stars! DOSBox (If you extract to C: you won't even have to edit the .conf file, otherwise, edit the included dosbox.conf to point to the current location of Stars! DOSBox)</li>
+<li>Create a shortcut on your desktop to:<br><font face="courier new" size=2>"C:\Program Files\DOSBox-0.72\dosbox.exe" -conf "C:\DOSBoxC\dosbox.conf"</font><br>  (Modify the location of DOSBox and the location of Stars! DOSBox as appropriate)</li>
+<li>Launch shortcut</li>
+</ol>
+
+<P><b>StarsWine</b>:
+<P>To Run Stars! under StarsWine in 64-bit Windows:
+<ol>
+<li>Install <a href="http://wiki.starsautohost.org/files/starswine4.zip">StarsWine</a> which uses <a href="https://github.com/otya128/winevdm/releases">OTVDM</a></li>
+<li>Edit the path to your OTVDM within the install.reg on two places (in the middle and at the end of the file); if you don't want his black windows use otvdmw.exe instead of otvdm.exe</li>
+<li>Double Click on the install.reg</li>
 </ol>
 
 <P><b>Windows 16/32 bit</b>
