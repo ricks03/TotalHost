@@ -1586,7 +1586,7 @@ sub decryptFix {
             }
           } else { $slotEnd = 6; $shipNameLength = $decryptedData[$slotEnd]; }
           $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
-          &LogOut(100,"decryptFix: $LogOutput", $LogFile);
+          &LogOut(100,"decryptFix: $logOutput", $LogFile);
         }
       }
       # END OF MAGIC
