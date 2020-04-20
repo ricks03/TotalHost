@@ -793,7 +793,13 @@ sub show_game {
     
     ######
     # Display the Game Status Data
-    if ($in{'status'}) { print &display_warning($in{'status'}); }
+    if ($in{'status'}) { 
+      my $full_warning = $in{'status'};
+      &display_warning($full_warning); 
+      if ($full_warning =~ /Bug/) { print qq|<br>.x files include every change (create/delete) that turn in sequence. Changing/deleting a ship design does not remove the original design from the .x file.</br>|; }
+      if ($full_warning =~ /Fix/) { print qq|<br>But TH fixed it for you. Try not to do it again!</br>\n|; } else { print qq|<br>You have to delete and recreate the .x file to remove this alert.</br>|; }
+      
+    }
     print "<table width=100%>\n";
     # Print Game Name (and Year if applicable)
     print "<tr>\n";
@@ -3154,12 +3160,18 @@ sub optionloop {
 }
 
 sub display_warning {
-    my ($warning) = @_;
-    if ($warning) {
-      print "<P><font color=red>$warning</font>\n";
-    } else {
-      print "<P><font color=red>Warning: Using the Browser Reload function will repeat the last Action.</font></P>\n";
-    }
+  my ($warning) = @_;
+  my @warnings;
+  if ($warning) {
+    print "<font color=red><ul>\n";
+    @warnings = split (',',$warning);
+    foreach my $warned (@warnings) {
+      print "<li>$warned</li>\n";
+    } 
+    print "</ul></font>\n";
+  } else {
+    print "<P><font color=red>Warning: Using the Browser Reload function will repeat the last Action.</font></P>\n";
+  }
 }
 
 sub button_check {

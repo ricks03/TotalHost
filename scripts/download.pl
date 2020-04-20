@@ -286,5 +286,5 @@ sub log_error {
                       $params,
                       $error);
   my $logentry = $params . "::" . $error;
-  &LogOut(0, $error, $ErrorLog);
+  &LogOut(0, "download: $error", $ErrorLog);
 }

@@ -15,8 +15,9 @@ $PerlLocation='c:/perl/bin/perl.exe';
 # 400 - who cares really
 $logging = 300; 
 
-# Clean .m files before giving them to the player, removing non-player info
+# Clean .m files before giving them to the player, removing non-player info (mines, MT, etc)
 $cleanFiles = 1; # 0, 1, 2: display, clean but don't write, write 
+# Fixing negates or warns for bug effects. 
 $fixFiles = 1; # 0, 1, 2: display, clean but don't write, write 
 
 # Where the accounts logs go
@@ -84,7 +85,7 @@ $session_dir = 'd:/th/sessions/';
 # Note if you change this all the current passwords will invalidate. 
 $secret_key = 'secret_key_for_md5_hashing';
 %TurnResult = ("turned in" => "In", "still out" => "Out", "right game" => "Wrong Game", "dead" => "Deceased", "right year" => "Wrong Year", "file corrupt" => "Corrupt");
-%TurnBall = ("In" => "$WWW_Image"  . "greenball.gif", "Out" => "$WWW_Image"  . "yellowball.gif", "Wrong Game" => "$WWW_Image"  . "redball.gif", "Deceased" => "$WWW_Image"  . "blackball.gif", "Wrong Year" => "$WWW_Image"  . "redball.gif", "Corrupt" => "$WWW_Image"  . "redball.gif", "Inactive" => "$WWW_Image"  . "grayball.gif", "Abandoned" => "$WWW_Image"  . "grayball.gif");
+%TurnBall = ("In" => "$WWW_Image"  . "greenball.gif", "Out" => "$WWW_Image"  . "yellowball.gif", "Wrong Game" => "$WWW_Image"  . "redball.gif", "Deceased" => "$WWW_Image"  . "blackball.gif", "Wrong Year" => "$WWW_Image"  . "redball.gif", "Corrupt" => "$WWW_Image"  . "redball.gif", "Error" => "$WWW_Image"  . "redball.gif", "Inactive" => "$WWW_Image"  . "grayball.gif", "Abandoned" => "$WWW_Image"  . "grayball.gif");
 %StatusBall = ("Finished" => "$WWW_Image"  . "blackball.gif", "Awaiting Players" => "$WWW_Image"  . "yellowball.gif", "In Progress" => "$WWW_Image"  . "greenball.gif", "Delayed" => "$WWW_Image"  . "blueball.gif", "Active" => "$WWW_Image"  . "greenball.gif", "Inactive" => "$WWW_Image"  . "greyball.gif", "Creation in Progress" => "$WWW_Image"  . "yellowball.gif", "Pending Start" => "$WWW_Image"  . "yellowball.gif", "Paused" => "$WWW_Image"  . "yellowball.gif");
 @WeekDays = qw(Sun. Mon. Tues. Wed. Thurs. Fri. Sat.);
 @GameStatus = ('Pending Start', 'Pending Closed', 'Active','Delayed','Paused','Need Replacement','Creation in Progress','Awaiting Players','','Finished');
