@@ -66,7 +66,7 @@ if  ($valid_file) {
 } else { 
 # 191222 No longer any real need for a delay here, as we pass the error message to the main display
 #	print qq|<meta HTTP-EQUIV="REFRESH" content="5; url=| . $WWW_HomePage . $Location_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
-	print qq|<meta HTTP-EQUIV="REFRESH" content="0; url=| . $WWW_HomePage . $Location_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
+	print qq|<meta HTTP-EQUIV="REFRESH" content="0; url=| . $WWW_HomePage . $Location_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=\"$err\"">|;
 }
 
 print end_html;
@@ -94,7 +94,7 @@ sub ValidateFileUpload {
 
 	# Race Files
 	if ($file_type eq 'r') {
-    # Check to make sure the Rane Name was entered
+    # Check to make sure the Race Name was entered
     if ($RaceName) {
       # Confirm there's not already a entry with that name
       $sql = qq|SELECT RaceName from Races where RaceName = '$RaceName' AND User_Login = '$userlogin';|;
@@ -194,11 +194,12 @@ sub ValidateFileUpload {
       
       # Get the fix information
       # BUG: Logic will have to change here if we want a file which detects the need
-      # For a fix we don't currently fox for to not save. 
+      # for a fix we don't currently fix for to not save. 
       if ($fixFiles) { $err .= &StarsFix($File_Loc); }  #$File_Loc includes path 
       &LogOut(200, "ValidateFileUpload: fixFiles $fixFiles, $err, $File_Loc", $LogFile); 
       
 			# Do whatever you would do with a valid change (.x) file
+      # BUG: This implies we accept the errored file?
 			if (&Move_Turn($File, $game_file)) {
 				$db = &DB_Open($dsn);
 				# update the Last Submitted Field

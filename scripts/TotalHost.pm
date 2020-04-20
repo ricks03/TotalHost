@@ -842,7 +842,7 @@ sub Eval_CHKLine {
 # Evaluate one of the lines from a chk file
 	my ($ChkResult) = @_;
 	my $ChkStatus, $ChkPlayer = '';
-	# Possible results: turned in, still out, not in the right game, dead, not on the right year
+	# Possible results: turned in, still out, not in the right game, dead, not on the right year, error
 	foreach $key (keys(%TurnResult)) {
 		if (index($ChkResult, $key) >= 0 ) { $ChkStatus = $TurnResult{$key}; }
 	}
@@ -850,7 +850,7 @@ sub Eval_CHKLine {
 	$ChkPlayer =~ s/(.*: )(\")(.*)(\")(.*)/$3/;
 	if ($ChkStatus) { return $ChkStatus, $ChkPlayer; }
 	else { 
-    &LogOut(0,"Eval_CHKLine: Fail for no $ChkResult, $CHKStatus",$ErrorLog);
+    &LogOut(0,"Eval_CHKLine: Fail for no \$ChkResult in TurnResult array, $ChkResult",$ErrorLog);
     return 'Error'; }
 }
 
@@ -1328,8 +1328,8 @@ sub StarsFix {
   	&LogOut(300,"StarsFix: $xFile does not need fixing", $LogFile);
     return $warning; 
   }  # BUG: Right now, it will ALWAYS permit the file to save
-                        # If we don't want it to save when it shouldn't the this 
-                        # return should be a 0;
+     # If we don't want it to save when it shouldn't the this 
+     # return should be a 0;
 }
 
 sub decryptClean {
@@ -1540,48 +1540,54 @@ sub decryptFix {
         my $index = 2; # there are two extra bytes in a .x file
         $deleteDesign = $decryptedData[0] % 16;
         if ($deleteDesign == 0) { 
+          $designToDelete = $decryptedData[1] % 16;  $logOutput .= "designToDelete: $designToDelete\n";
           $isStarbase = ($decryptedData[1] >> 4) % 2; $logOutput .= "isStarbase: $isStarbase\n";
         }
-        $isFullDesign =  ($decryptedData[$index] & 0x04); $logOutput .= "isFullDesign: $isFullDesign\n";
-        my $byte1 = $decryptedData[$index+1];
-        $isStarbase = ($decryptedData[$index+1] & 0x40);  $logOutput .= "isStarbase: $isStarbase\n";
-        $designNumber = ($decryptedData[$index+1] & 0x3C) >> 2; $logOutput .= "designNumber: $designNumber\n";
-        if ($isFullDesign) {
-          $armor = &read16(\@decryptedData, $index+4);  $logOutput .= "armor: $armor\n";
-          $slotCount = $decryptedData[$index+6] & 0xFF; $logOutput .= "slotCount: $slotCount\n";  # Actual number of slots
-          $slotEnd = $index+17+($slotCount*4); $logOutput .= "slotEnd: $slotEnd\n";
-          $shipNameLength = $decryptedData[$slotEnd];          
-          for (my $i = $index+19; $i < $slotEnd-1; $i+=4) {
-            $itemId = $decryptedData[$i]; #print "$i: ItemId: $itemId \n";
-            $itemCount =  $decryptedData[$i+1]; #print "$i: itemCount: $itemCount \n";
-            $itemCategory0 = $decryptedData[$i+2]; #print "$i: slotId: $slotId \n";
-            $itemCategory1 = $decryptedData[$i+3]; #print "$i: itemCategory: $itemCategory \n";  # Whether in the first or second set of 8
-            #############################################################3
-            # Detect (and potentially fix) ship design issues
-            # Fix the colonizer bug
-            if ($itemCategory0 == 0 &&  $itemCategory1 == 16 &&  $itemId == 0 && $itemCount == 0) {
-              $warning .= "Bug Alert: New ship design with the Colonizer Bug. ";
-              if ($fixFiles > 1) {$warning .= " Fixing ... ";} else {$warning .= " ";}
-              $decryptedData[$i+3] = 0; # fixing bug by setting the slot to empty
-              $needsCleaning = 1;
+        # If the order is to delete a design, the rest of this isn't there.
+        unless (!$deleteDesign) { 
+          $isFullDesign =  ($decryptedData[$index] & 0x04); $logOutput .= "isFullDesign: $isFullDesign\n";
+          my $byte1 = $decryptedData[$index+1];
+          $isStarbase = ($decryptedData[$index+1] & 0x40);  $logOutput .= "isStarbase: $isStarbase\n";
+          $designNumber = ($decryptedData[$index+1] & 0x3C) >> 2; $logOutput .= "designNumber: $designNumber\n";
+          if ($isFullDesign) {
+            $armor = &read16(\@decryptedData, $index+4);  $logOutput .= "armor: $armor\n";
+            $slotCount = $decryptedData[$index+6] & 0xFF; $logOutput .= "slotCount: $slotCount\n";  # Actual number of slots
+            $slotEnd = $index+17+($slotCount*4); $logOutput .= "slotEnd: $slotEnd\n";
+            $shipNameLength = $decryptedData[$slotEnd];          
+            for (my $i = $index+19; $i < $slotEnd-1; $i+=4) {
+              $itemId = $decryptedData[$i]; #print "$i: ItemId: $itemId \n";
+              $itemCount =  $decryptedData[$i+1]; #print "$i: itemCount: $itemCount \n";
+              $itemCategory0 = $decryptedData[$i+2]; #print "$i: slotId: $slotId \n";
+              $itemCategory1 = $decryptedData[$i+3]; #print "$i: itemCategory: $itemCategory \n";  # Whether in the first or second set of 8
+              #############################################################3
+              # Detect (and potentially fix) ship design issues
+              # Fix the colonizer bug
+              # Note the "," at the end is used as a filter on display
+              if ($itemCategory0 == 0 &&  $itemCategory1 == 16 &&  $itemId == 0 && $itemCount == 0) {
+                $warning .= "Colonizer Bug detected in design slot $designNumber: ";
+                $warning .= "$shipName. ";
+                if ($fixFiles > 1) {$warning .= ' Fixing!!! ,';} else {$warning .= " ,";}
+                $decryptedData[$i+3] = 0; # fixing bug by setting the slot to empty
+                $needsCleaning = 1;
+              }
+              # Detect Space Dock Armor slot Buffer Overflow
+              if ( $isStarbase && $hullId == 33 && $itemId == 11  && $itemCategory0 == 8 && $itemCount >=22  && $armor  >= 49518) {
+                # BUG: Currently warning but not fixing spacedock bug
+                $warning .= "Spacedock Bug! Spacedock Armor Overflow (> 22 superlatanium slots) detected in design slot $designNumber: ";
+                $warning .= "$shipName. ,";
+                $needsCleaning = 0;
+              }
+              # Detect the 10th starbase design
             }
-            # Detect Space Dock Armor slot Buffer Overflow
-            if ( $isStarbase && $hullId == 33 && $itemId == 11  && $itemCategory0 == 8 && $itemCount >=22  && $armor  >= 49518) {
-              # BUG: Currently warning but not fixing spacedock bug
-              $warning .= "Bug Alert: Spacedock Bug! Spacedock Armor Overflow (> 22 superlatanium slots). ";
+            if ($isStarbase &&  $designNumber == 9) {
+              #BUG: Currently warning but not fixing Starbase bug
+              $warning .= "10 Starbases! Potential Crash if Player #1 has fleet #1 in orbit of a starbase and refuels when the Last (?) Player has a 10th starbase design. ,";
               $needsCleaning = 0;
             }
-            # Detect the 10th starbase design
-          }
-          if ($isStarbase &&  $designNumber == 9) {
-            #BUG: Currently warning but not fixing Starbase bug
-            $warning = "Bug Alert: 10 Starbases! Potential Crash if Player #1 has fleet #1 in orbit of a starbase and refuels when the Last (?) Player has a 10th starbase design. ";
-            $needsCleaning = 0;
-          }
-        } else { $slotEnd = 6; $shipNameLength = $decryptedData[$slotEnd]; }
-        $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
-        if ($warning) { $warning .= " Ship Name: $shipName. "; }
-        
+          } else { $slotEnd = 6; $shipNameLength = $decryptedData[$slotEnd]; }
+          $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
+          &LogOut(100,"decryptFix: $LogOutput", $LogFile);
+        }
       }
       # END OF MAGIC
       #reencrypt the data for output
