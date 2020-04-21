@@ -60,13 +60,13 @@ if ($File) {
 	&Print_Error; 
 }
 
-if  ($valid_file) { 
+if ($valid_file) { 
 ###	print qq|<meta HTTP-EQUIV="REFRESH" content="0; url=| . $WWW_HomePage . $Location_Scripts . qq|/page.pl?GameFile=$GameFile&lp=profile_game&cp=show_game&rp=show_news">|;
 	print qq|<meta HTTP-EQUIV="REFRESH" content="0; url=| . $WWW_HomePage . $Location_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
 } else { 
 # 191222 No longer any real need for a delay here, as we pass the error message to the main display
 #	print qq|<meta HTTP-EQUIV="REFRESH" content="5; url=| . $WWW_HomePage . $Location_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
-	print qq|<meta HTTP-EQUIV="REFRESH" content="0; url=| . $WWW_HomePage . $Location_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=\"$err\"">|;
+	print qq|<meta HTTP-EQUIV="REFRESH" content="0; url=| . $WWW_HomePage . $Location_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
 }
 
 print end_html;
@@ -87,8 +87,10 @@ sub ValidateFileUpload {
 	#&LogOut(200, "File Data: $game_file, $file_player, $file_type, $file_ext", $LogFile);     In StarStat.pm
 	# If it's not the right type of file at all, who cares about anything else; toss it but give the user a vague hint
 	unless (&Check_FileType($file_type)) { 
-    $invalid = "Invalid File Type for $File, $File_Loc by $userlogin: $file_type, $file_ext"; 
-    $err .= $invalid . "\n"; &LogOut(0, "$invalid", $ErrorLog); 
+    # Don't give users the file location
+    $err .= "Invalid File Type for $File by $userlogin"; 
+    $invalid = "Invalid File Type for $File, $File_Loc by $userlogin: $file_type $file_ext"; 
+    &LogOut(0, "$invalid", $ErrorLog); 
     return 0;
   }
 
@@ -190,7 +192,7 @@ sub ValidateFileUpload {
 		($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
 		&LogOut(300,"ValidateFileUpload: DTS2: $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware", $LogFile);
 		if ( ($dt == 1) && &Check_Magic($Magic, $File_Loc) && &Check_Version($ver, $File_Loc) && &Check_GameFile($game_file) && &Check_Player($file_player,$iPlayer) && &Check_Turn($game_file, $turn) && &Check_GameID($game_file, $lidGame)) {
-			&LogOut(100,"ValidateFileUpload: Valid Turn file $File_Loc, moving it",$LogFile);
+			&LogOut(100,"ValidateFileUpload: Valid Turn file $File_Loc, moving it", $LogFile);
       
       # Get the fix information
       # BUG: Logic will have to change here if we want a file which detects the need
@@ -199,7 +201,7 @@ sub ValidateFileUpload {
       &LogOut(200, "ValidateFileUpload: fixFiles $fixFiles, $err, $File_Loc", $LogFile); 
       
 			# Do whatever you would do with a valid change (.x) file
-      # BUG: This implies we accept the errored file?
+      # BUG: This implies we accept the errored StarsFix file?   In some cases we haven't fixed it.
 			if (&Move_Turn($File, $game_file)) {
 				$db = &DB_Open($dsn);
 				# update the Last Submitted Field
@@ -239,7 +241,11 @@ sub ValidateFileUpload {
 		} else { 
 			# display error messages when it's not a valid file. 
 			$err .= "$File not a valid Turn ( .x[n] ) file. \n"; 
-			unless (&Check_Player($file_player,$iPlayer)) { $err .= "Invalid Player ID\n"; &LogOut(0,"ValidateFileUpload: Invalid Player ID Turn file $File $File_Loc for $userlogin",$ErrorLog);}
+      # BUG: Check_Player checks the extension of the file against the starstat value of the player
+      # It doesn't actualy check the User ID to confirm that user ID can submit the file. 
+      # That function should probably be in Check_Player, but Check_player isn't aware
+      # Of the other data it will need to figure that out ($id, $userlogin). 
+			unless (&Check_Player($file_player,$iPlayer)) { $err .= "Invalid Player ID.\n"; &LogOut(0,"ValidateFileUpload: Invalid Player ID Turn file $File $File_Loc for $userlogin",$ErrorLog);}
 			unless (&Check_Turn($game_file, $turn)) { $err .= "Wrong Year!\n"; &LogOut(0,"ValidateFileUpload: Invalid Year Turn file $File $File_Loc for $userlogin",$ErrorLog);}
 			unless (&Check_GameID($game_file, $lidGame)) { $err .= "Wrong Game!\n"; &LogOut(0,"ValidateFileUpload: Invalid Game Turn file $File $File_Loc for $userlogin",$ErrorLog);}
 			# delete file from file system
@@ -250,7 +256,7 @@ sub ValidateFileUpload {
 	} elsif ($file_type eq 'z') {
 		# Extract Zip files and check all the files inside somehow :-)
 		################################################################
-		$err .= "<P>You've uploaded a zip file, and we\'re not sure what to do with that yet!\n";
+		$err .= "You've uploaded a zip file, and we\'re not sure what to do with that yet!\n";
 #		print $err;
 		&LogOut(0,$err,$ErrorLog);
 	} else { 
@@ -304,7 +310,7 @@ sub Save_File {
 }
 
 sub Print_Error {
-  $err .= "<P>File Name must be filled in to upload.</p>\n" ;
+  $err .= "File Name must be filled in to upload.\n" ;
 #  print "<P>$err";
   &LogOut(10,$err,$ErrorLog);
   return 0;

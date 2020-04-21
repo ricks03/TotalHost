@@ -797,7 +797,7 @@ sub show_game {
       my $full_warning = $in{'status'};
       &display_warning($full_warning); 
       if ($full_warning =~ /Bug/) { print qq|<br>.x files include every change (create/delete) that turn in sequence. Changing/deleting a ship design does not remove the original design from the .x file.</br>|; }
-      if ($full_warning =~ /Fix/) { print qq|<br>But TH fixed it for you. Try not to do it again!</br>\n|; } else { print qq|<br>You have to delete and recreate the .x file to remove this alert.</br>|; }
+      if ($full_warning =~ /Fix/) { print qq|<br>But TH fixed it for you. Try not to do it again!</br>\n|; } else { if ($full_warning =~ /Bug/) { print qq|<br>You have to delete and recreate the .x file to remove this alert.</br>|; }}
       
     }
     print "<table width=100%>\n";
