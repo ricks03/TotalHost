@@ -242,9 +242,9 @@ sub ValidateFileUpload {
 			# display error messages when it's not a valid file. 
 			$err .= "$File not a valid Turn ( .x[n] ) file. \n"; 
       # BUG: Check_Player checks the extension of the file against the starstat value of the player
-      # It doesn't actualy check the User ID to confirm that user ID can submit the file. 
-      # That function should probably be in Check_Player, but Check_player isn't aware
-      # Of the other data it will need to figure that out ($id, $userlogin). 
+      # It doesn't actually check the User ID to confirm that user ID can submit the file. 
+      # That function should probably be in Check_Player, but Check_Player isn't aware
+      # of the other data it will need to figure that out ($id, $userlogin). 
 			unless (&Check_Player($file_player,$iPlayer)) { $err .= "Invalid Player ID.\n"; &LogOut(0,"ValidateFileUpload: Invalid Player ID Turn file $File $File_Loc for $userlogin",$ErrorLog);}
 			unless (&Check_Turn($game_file, $turn)) { $err .= "Wrong Year!\n"; &LogOut(0,"ValidateFileUpload: Invalid Year Turn file $File $File_Loc for $userlogin",$ErrorLog);}
 			unless (&Check_GameID($game_file, $lidGame)) { $err .= "Wrong Game!\n"; &LogOut(0,"ValidateFileUpload: Invalid Game Turn file $File $File_Loc for $userlogin",$ErrorLog);}

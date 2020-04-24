@@ -52,7 +52,7 @@ our @EXPORT = qw(
 @fGameOver = ('Game In Progress', 'Game Over'); 
 @fShareware = ('Registered','Shareware'); 
 @fInUse = ('Host instance not using file','Host instance using file'); # No idea what this value is.
-%Version = ("1.2a" => "1.1a", "2.65" => "2.0a", "2.81j" => "2.6i", "2.83" => "2.6jrc4");
+%Version = ("1.2a" => "1.1a", "2.65" => "2.0a", "2.81j" => "2.6i", "2.83.0" => "2.6jrc4");
 
 sub dec2bin {
 	#my $str = unpack("B32", pack("N", shift));
@@ -126,7 +126,7 @@ sub Check_Version {
 		return 1; 
 	} else { 
 #		print "<P>Incorrect version $ver\n";
-		&SLogOut(0,"Incorrect version $ver in $File",$ErrorLog);
+		&SLogOut(0,"Incorrect version $ver ($Version{$ver}) in $File",$ErrorLog);
 		return 0; 
 	}
 }
@@ -325,8 +325,9 @@ sub ValidateFile {
 sub Fix_Version { 
 	# Make the stars version # display as the game version
 	my ($ver) = @_;
-	if ($ver eq '2.83.0') { return '2.6jrc4'; }
-	else { return $ver; }
+  return $Version{$ver};
+#	if ($ver eq '2.83.0') { return '2.6jrc4'; }
+#	else { return $ver; }
 }
 
 sub SLogOut {

@@ -946,6 +946,7 @@ sub showMTItems {
   else { $string[0] = "None"; return @string }
 }
 
+#Duplicate of decodeBytesforStarsMsg ??
 sub decodeBytesForStarsString {
   my (@res) = @_;
   my $hexChars='';
@@ -970,8 +971,24 @@ sub decodeBytesForStarsString {
   for (my $t = 0; $t < length($hexChars); $t++) {
   	$ch1 = substr($hexChars,$t,1);
   	if ($ch1 eq 'F'){
-      # do nothing?
-      # I think this happens when we skip past the end of the array.
+      # Use 3 nibbles
+      # BUG: Should likely be using charToNibble here
+      # In some cases this is the last character
+      unless ($t+2 > length($hexChars)) {
+        my $ch3 = substr($hexChars,$t+2,1);  # Get hex character
+        $ch3 = hex ($ch3); # convert to decimal
+        $ch3 = &dec2bin($ch3);  # convert to binary
+        $ch3 = substr($ch3,-4);  # convert to nibble
+        my $ch4 = substr($hexChars,$t+1,1);
+        $ch4 = hex ($ch4); # convert to decimal
+        $ch4 = &dec2bin($ch4); # convert to binary
+        $ch4 = substr($ch4,-4); # convert to nibble
+        $ch2 = $ch3 . $ch4;
+        $ch2 = chr(&bin2dec($ch2));
+        $result .= $ch2;
+      }
+      $t++;  # need to advance twice (format to make more readable)
+  		$t++;  # need to advance twice
   	}
   	elsif ($ch1 eq 'E'){
   		$ch2 = substr($hexChars,$t+1,1);
@@ -989,7 +1006,7 @@ sub decodeBytesForStarsString {
   		$ch2 = substr($hexChars,$t+1,1);
   		$index = &parseInt($ch2,16);
   		$result .= substr($encodesC, $index, 1);
-		$t++;
+		  $t++;
   	}
   	elsif ($ch1 eq 'B'){
   		$ch2 = substr($hexChars,$t+1,1);
@@ -1005,6 +1022,7 @@ sub decodeBytesForStarsString {
 	return $result;
 }
 
+# Duplicate of forStarsString?
 sub decodeBytesForStarsMessage {
   my (@res) = @_;
   my $hexChars='';

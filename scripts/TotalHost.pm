@@ -55,6 +55,7 @@ our @EXPORT = qw(
 	DaysToAdd ValidTurnTime ValidFreq CheckHolidays LoadHolidays ShowHolidays
   show_race_block
   StarsClean StarsFix decryptClean decryptFix
+  showCategory
 );
 # Remarked out functions: FileData FixTime MakeGameStatus checkboxes checkboxnull
 
@@ -92,7 +93,7 @@ sub DB_Call {
 	my ($db,$sqlin) = (@_);
   $db->Sql($sqlin);
   ($ErrNum, $ErrText, $ErrConn) = $db->Error();
-	&LogOut(100,$sqlin,$SQLLog);
+	&LogOut(200,$sqlin,$SQLLog);
 	return &DB_Check ($sqlin, $ErrNum, $ErrText, $ErrConn);
 }
 
@@ -1302,7 +1303,13 @@ sub StarsFix {
   # $needsFixing means write the file back out. 
   my ($outBytes, $needsFixing, $warning) = &decryptFix(@fileBytes);
   my @outBytes = @{$outBytes};
+  my %warning = %$warning;
   
+  # Need to return a string since passing an array through a URL is unlikely to work
+  my $warning = '';
+  foreach my $key (keys %warning) {
+    $warning .= $warning{$key} . ",";
+  }
   # Output the Stars! file with modified data
   # Since we don't need to rewrite the file if nothing needs cleaning, let's not (safer)
   if ($needsFixing) {
@@ -1311,7 +1318,7 @@ sub StarsFix {
     # backup is pre-turn generation, so random event will change.
     # BUG: File name is important here, as backups work from the filename
     #   So do we want these to be .x files?
-    if ($fixFiles > 1) {  # Don't do unless in clean write mode
+    if ($fixFiles > 1) {  # Don't do unless in write mode
       my $xFilePreFix = "preFix." . $xFile;
   	  &LogOut(300,"StarsFix Backup: $xFile > $xFilePreFix", $LogFile);
    	  copy($xFile, $xFilePreclean);
@@ -1328,7 +1335,7 @@ sub StarsFix {
   	&LogOut(300,"StarsFix: $xFile does not need fixing", $LogFile);
     return $warning; 
   }  # BUG: Right now, it will ALWAYS permit the file to save
-     # If we don't want it to save when it shouldn't the this 
+     # If we don't want it to save when it shouldn't then this 
      # return should be a 0;
 }
 
@@ -1511,7 +1518,6 @@ sub decryptFix {
   my @outBytes;
   my $needsCleaning = 0;
   my $logOutput;
-  my $warning;
   my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
   my ($random, $seedA, $seedB, $seedX, $seedY);
   my ($typeId, $size, $data);
@@ -1535,58 +1541,105 @@ sub decryptFix {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
-      # Detect the Colonizer, Spack Dock SuperLatanuim, and 10 starbase design bugs
-      if ($typeId == 27) { # Design & Design Change block in .x files
-        my $index = 2; # there are two extra bytes in a .x file
+      # Detect the Colonizer, Spack Dock SuperLatanium, and 10 starbase design bugs
+      if ($typeId == 27) { # Design Change block in .x files
+        my $hullId;
+        my $index = 0;
+        my $err = ''; # reset error for each time we check a hull, because it could be fixed in a later change.
         $deleteDesign = $decryptedData[0] % 16;
         if ($deleteDesign == 0) { 
-          $designToDelete = $decryptedData[1] % 16;  $logOutput .= "designToDelete: $designToDelete\n";
-          $isStarbase = ($decryptedData[1] >> 4) % 2; $logOutput .= "isStarbase: $isStarbase\n";
+          $designNumber = $decryptedData[1] % 16;  
+          $logOutput .= "Delete designNumber: $designNumber\n";
+          $isStarbase = ($decryptedData[1] >> 4) % 2; 
+          $logOutput .= "isStarbase: $isStarbase\n";
         }
-        # If the order is to delete a design, the rest of this isn't there.
-        unless (!$deleteDesign) { 
+        if ( $typeId == 27 ) { $index = 2; } # for the two extra bytes in a .x file  
+        # If the order is to delete a design, the rest of the data isn't there.  Don't expect it to be.
+        if ($deleteDesign) { 
           $isFullDesign =  ($decryptedData[$index] & 0x04); $logOutput .= "isFullDesign: $isFullDesign\n";
-          my $byte1 = $decryptedData[$index+1];
+          $isTransferred = ($decryptedData[$index+1] & 0x80); $logOutput .= "isTransferred: $isTransferred\n";
           $isStarbase = ($decryptedData[$index+1] & 0x40);  $logOutput .= "isStarbase: $isStarbase\n";
           $designNumber = ($decryptedData[$index+1] & 0x3C) >> 2; $logOutput .= "designNumber: $designNumber\n";
+          $hullId = $decryptedData[$index+2] & 0xFF; $logOutput .= "HullId: $hullId\n";
           if ($isFullDesign) {
+            # Since there can be a ship and base with the same hullId, 
+            # need to be able to keep them separate
+            if ($isStarbase) { $warnId = "base" . $designNumber; }
+            else { $warnId = "ship" . $designNumber; }
             $armor = &read16(\@decryptedData, $index+4);  $logOutput .= "armor: $armor\n";
+            $armorIndex = $index +4; # used to fix the Space Dock overflow
             $slotCount = $decryptedData[$index+6] & 0xFF; $logOutput .= "slotCount: $slotCount\n";  # Actual number of slots
             $slotEnd = $index+17+($slotCount*4); $logOutput .= "slotEnd: $slotEnd\n";
             $shipNameLength = $decryptedData[$slotEnd];          
-            for (my $i = $index+19; $i < $slotEnd-1; $i+=4) {
-              $itemId = $decryptedData[$i]; #print "$i: ItemId: $itemId \n";
-              $itemCount =  $decryptedData[$i+1]; #print "$i: itemCount: $itemCount \n";
-              $itemCategory0 = $decryptedData[$i+2]; #print "$i: slotId: $slotId \n";
-              $itemCategory1 = $decryptedData[$i+3]; #print "$i: itemCategory: $itemCategory \n";  # Whether in the first or second set of 8
-              #############################################################3
-              # Detect (and potentially fix) ship design issues
+            $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
+            $index = 17;  
+            if ($typeId == 27) { $index += 2; } # x files have 2 more bytes
+            # Loop through once for each slot
+            for (my $itemSlot = 0; $itemSlot < $slotCount; $itemSlot++) {
+              $itemCategory = &read16(\@decryptedData, $index);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
+              $index += 2;
+              $itemId = &read8($decryptedData[$index++]); # Use current value of index, and increment by 1
+              $itemCountIndex = $index; # used for the Space Dock overflow. 
+              $itemCount = &read8($decryptedData[$index++]);
+              my ( $category_str,$item_str ) = &showCategory($itemCategory, $itemId);
+              if ( $category_str && $item_str ) { $logOutput .= "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount\n"; }
+              else { $logOutput .= "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount\n";}
+
               # Fix the colonizer bug
-              # Note the "," at the end is used as a filter on display
-              if ($itemCategory0 == 0 &&  $itemCategory1 == 16 &&  $itemId == 0 && $itemCount == 0) {
-                $warning .= "Colonizer Bug detected in design slot $designNumber: ";
-                $warning .= "$shipName. ";
-                if ($fixFiles > 1) {$warning .= ' Fixing!!! ,';} else {$warning .= " ,";}
-                $decryptedData[$i+3] = 0; # fixing bug by setting the slot to empty
-                $needsCleaning = 1;
+              # Ships with a colonisation module removed and the slot left empty can still colonise planets
+              # If a colonizer hull is created, and then edited, it's going to put 2 (or more)  entries in the .x file.
+              # so also need to filter.
+              if ($itemId == 0 &&  $itemCategory == 4096 && $itemCount == 0) {
+                $err .= "***Colonizer bug detected in ship design slot $designNumber: $shipName (slot $itemSlot). ";
+                if ($fixFiles > 1) {
+                  $err .= "  Fixed!!!";
+                  ($decryptedData[$index-4], $decryptedData[$index-3]) = &write16(0);
+                  $needsFixing = 1;
+                } else {$err .= " ";}
+                $warning{$warnId} = $err;
               }
-              # Detect Space Dock Armor slot Buffer Overflow
-              if ( $isStarbase && $hullId == 33 && $itemId == 11  && $itemCategory0 == 8 && $itemCount >=22  && $armor  >= 49518) {
-                # BUG: Currently warning but not fixing spacedock bug
-                $warning .= "Spacedock Bug! Spacedock Armor Overflow (> 22 superlatanium slots) detected in design slot $designNumber: ";
-                $warning .= "$shipName. ,";
-                $needsCleaning = 0;
+              # Fix Space Dock Armor slot Buffer Overflow with super latanium
+              # If your race has ISB and RS, building a Space Dock with more than 21 SuperLat in the Armor slot 
+              # will result in some sort of error (of massively increased armor)
+              # Rick: I had hoped to fix this by simply rewriting the armor value. But it gets recalculated,
+              # so resetting the itemCount is the only choice. 
+              if ( $isStarbase && $hullId == 33 && $itemId == 11  && $itemCategory == 8 && $itemCount >=22  && $armor  >= 49518) {
+                $err = "***Spacedock Overflow bug of > 21 SuperLatanium detected in starbase design slot $designNumber: $shipName. ";
+                if ($fixFiles > 1) {
+                  $err .= "  Fixed!!! ";
+                  # reset the $itemCount 
+                  $decryptedData[$itemCountIndex] = 21;
+                  # Armor value should be 250 + (1500 * $itemCount) / 2
+                  $armor = 250 + (1500 * 21 ) / 2; # correct for 21 Super Latanium
+                  # reset the final armor value for the spacedock overflow bug
+                  ($decryptedData[$armorIndex], $decryptedData[$armorIndex+1]) = &write16($armor);
+                  $needsFixing = 1;
+                } else {$err .= " ";}
+                $warning{$warnId} = $err;
               }
-              # Detect the 10th starbase design
             }
-            if ($isStarbase &&  $designNumber == 9) {
-              #BUG: Currently warning but not fixing Starbase bug
-              $warning .= "10 Starbases! Potential Crash if Player #1 has fleet #1 in orbit of a starbase and refuels when the Last (?) Player has a 10th starbase design. ,";
-              $needsCleaning = 0;
-            }
-          } else { $slotEnd = 6; $shipNameLength = $decryptedData[$slotEnd]; }
-          $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
-          &LogOut(100,"decryptFix: $logOutput", $LogFile);
+          } else { # If it's not a full design
+          }
+          # Detect the 10th starbase design
+          if ( $isStarbase &&  $designNumber == 9 && $deleteDesign && $Player > 0 ) {
+            $err = "***Warning: Starbase ($shipName) in design slot 10 - Potential Crash if Player 1 Fleet 1 refuels when Last Player has a 10th starbase design";
+            $warning{'ten'} = $err;
+          } 
+        } 
+        # For the Colonizer bug & Spacedock overflow track whether the design was 
+        # created, but remove the warning if the design was subsequently changed/deleted.
+        # If this designNumber is broken, set warning. Otherwise clear warning
+        # (because a later .x file entry fixed this designnumber)
+        # Store the error in a hash so it's only one / ship / file
+        # Will handle for multi-turn .m files.
+        if (!$err && $warning{$warnId}) { 
+          delete($warning{$warnId} ); 
+        }
+        # If the 10th starbase has been deleted, clear the warning
+        if ( $isStarbase && $designNumber == 9 && $deleteDesign == 0 && $Player > 0 ){
+          if ($warning{'ten'}) { 
+            delete ( $warning{'ten'}); 
+          }
         }
       }
       # END OF MAGIC
@@ -1597,7 +1650,61 @@ sub decryptFix {
     }
     $offset = $offset + (2 + $size); 
   }
-  return \@outBytes, $needsCleaning, $warning;
+  return \@outBytes, $needsFixing, \%warning;
+}
+
+sub showCategory {
+  my ($category, $item) = @_;
+  my @category;
+  my %item;
+#             Empty = 0,
+#             Engine = 1,
+#             Scanners = 2,
+#             Shields = 4,
+#             Armor = 8,
+#             BeamWeapon = 0x10,
+#             Torpedo = 0x20
+#             Bomb = 0x40,
+#             MiningRobot = 0x80,
+#             MineLayer = 0x100,
+#             Orbital = 0x200,
+#             Planetary = 0x400,
+#             Electrical = 0x800,
+#             Mechanical = 0x1000,
+
+  $category[0] = "Empty";
+  $category[1] = "Engine";
+  $category[2] = "Scanners";
+  $category[4] = "Shields";
+  $category[8] = "Armor";
+  $category[16] = "BeamWeapon";
+  $category[32] = "Torpedo";
+  $category[64] = "Bomb";
+  $category[128] = "MiningRobot";
+  $category[256] = "MineLayer";
+  $category[512] = "Orbital";
+  $category[1024] = "Planetary"; # Assumed since it appears to be the only missing one
+  $category[2048] = "Electrical";
+  $category[4096] = "Mechanical";
+  $category[6144] = "Orbital Or Electrical";
+
+  $item{'0'} =  [ qw ( empty ) ]; 
+  $item{'1'} =  [ qw ( SettlerDelight Jump5 Mizer Hump6 Legs7 Alpha8 Trans9 Inter10 Enigma Trans10 NHRS Sub Trans TransSuper TransMizer Galaxy ) ];
+  $item{'2'} =  [ qw ( Bat Rhino Mole DNA Possum PickPocket Chameleon Ferret Dolphin Gazelle RNA Cheetah Elephant Eagle Robber Peerless) ];
+  $item{'4'} =  [ qw ( Mole Cow Wolverine Croby Shadow Bear Langston Gorilla Elephant Complete ) ];
+  $item{'8'} =  [ qw ( Tritanium Crobmium CarbonicArmor Strobnium OrganicArmor Kelarium FieldedKelarium DepletedNeutronium Neutronium MegaPoly Valanium Superlatanium ) ];
+  $item{'16'} = [ qw ( Laser X-Ray MiniGun YakimoraPhaser Blackjack Phaser PulsedSapper ColloidalPhaser GatlingGun MiniBlaster Bludgeon MarkIVBlaster PhasedSapper HeavyBlaster GatlingNeutrino MyopicDisruptor Blunderbuss Disruptor MultiContainedMunition SyncroSapper MegaDisruptor BigMuthaCannon StreamingPulverizer Anti-MatterPulverizer ) ]; 
+  $item{'32'} = [ qw ( Alpha Beta Delta Epsilon Rho Upsilon Omega Jihad Juggernaut Doomsday Armageddon ) ];
+  $item{'64'} = [ qw ( LadyFinger BlackCat M-70 M-80 Cherry LBU-17 LBU-32 LBU-74 HushaBoom Retro Smart Neutron EnrichedNeutron Peerless Annihilator ) ];
+  $item{'128'} = [ qw ( Midget Mini Miner Maxi Super Ultra Orbital ) ]; 
+  $item{'256'} = [ qw ( Mine40 Mine50 Mine80 Mine130 Heavy50 Heavy110 Heavy200 Speed20 Speed30 Speed50 ) ];
+  $item{'512'} = [ qw ( SG250 SG300 SG600 SG500 SGany SG800  SGanyany Mass5 Mass6 Mass7 Mass8 Mass9 Mass10 Mass11 Mass12 Mass13 ) ];
+  $item{'1024'} = [ qw ( Viewer50 Viewer90 Viewer150 Viewer220 Viewer280 Viewer320 Snooper400 Snooper500 Snooper620 ) ];
+  $item{'2048'} = [ qw ( TransportCloak StealthCloak Super-StealthCloak Ultra-StealthCloak MultiFunction BattleComputer BattleSuperComputer BattleNexus Jammer10 Jammer20 Jammer30 Jammer50 EnergyCapacitor FluxCapacitor EnergyDampener TachyonDetector Anti-matterGenerator) ];
+  $item{'4096'} = [ qw ( Colonization OrbitalCon Cargo SuperCargo MultiCargo Fuel SuperFuel ManeuveringJet Overthruster BeamDeflector ) ];
+  $item{'6194'} = [ qw ( empty ) ];
+
+  return ($category[$category],$item{$category}[$item]);
 }
 
 ##########################################

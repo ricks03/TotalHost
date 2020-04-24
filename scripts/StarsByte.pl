@@ -119,8 +119,8 @@ sub decryptBlock {
     ($blockId, $size, $data) = &parseBlock(\@fileBytes, $offset);
     @data = @{ $data }; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-    if ($debug) { print "\nBLOCK blockId: $blockId, Offset: $offset, Size: $size\n"; }
-    if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
+    #if ($debug) { print "\nBLOCK blockId: $blockId, Offset: $offset, Size: $size\n"; }
+    #if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
     if ($blockId == 8) {
       # We always have this data before getting to block 6, because block 8 is first
@@ -141,7 +141,7 @@ sub decryptBlock {
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
       @encryptedBlock = @ { $encryptedBlock };
-      if ($debug) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
+      if ($debug > 1) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
       push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
