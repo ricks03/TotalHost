@@ -155,13 +155,14 @@ sub processData {
   my @decryptedData = @{ $decryptedData };
 
   if ($inBlock == $blockId || $inBlock eq -1) {
-  print "BLOCK:$blockId,Offset:$offset,Bytes:$size\t";
+  print "BLOCK:$blockId,Offset:$offset,Bytes:$size\t\n";
   if ($inBin) {
     if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
     my $counter =0;
     foreach my $key ( @decryptedData ) { 
       print "byte  $counter:\t$key\t" . &dec2bin($key); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
       $counter++;
+      
     }  
     print "\n";    
   } else {print "\t" . join ( "\t", @decryptedData ), "\n";}

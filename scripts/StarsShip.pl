@@ -64,10 +64,13 @@ my $totalRemaining;
 my $shipNameLength;
 my $shipName;
 # Array to track waypoint information
-my @fleet;
+my @fleet;  # not used now? 
+my %fleetBlock;
 my $fleetcounter = 0;
 my @waypoint;
 my $waypointcounter = 0;
+my @fleetMerge;
+my $fleetMergeCounter = 0; #Array to track fleet merge orders
 
 my %hullType; 
 $hullType{'0'} = [ 15,1,"Small Freighter",0,0,0,0,0,0,0,25,20,12,0,17,0,70,130,25,1,1,6146,1,12,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,85,51,49,55,53,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
@@ -150,10 +153,23 @@ my ($outBytes, $needsFixing, $warning) = &decryptShip(@fileBytes);
 my @outBytes = @{$outBytes};
 %warning = %$warning;
 
-my $fleetLoop =0;
-while ($fleetLoop <= ($#fleet)) {
- print "Fleet: fleetId: $fleet[$fleetLoop]{'id'}, ownerId: $fleet[$fleetLoop]{'owner'}, x: $fleet[$fleetLoop]{'x'}, y: $fleet[$fleetLoop]{'y'}\n";
- $fleetLoop++;
+# my $fleetLoop =0;
+# while ($fleetLoop <= ($#fleet)) {
+#  print "Fleet: fleetId: $fleet[$fleetLoop]{'id'}, ownerId: $fleet[$fleetLoop]{'owner'}, x: $fleet[$fleetLoop]{'x'}, y: $fleet[$fleetLoop]{'y'}\n";
+#  $fleetLoop++;
+# }
+
+print "\n\nFLEET INFO:\n";
+
+for my $key (keys %fleetBlock) {
+  print "fleetId:$key  ownerId:$fleetBlock{$key}{'owner'}, x:$fleetBlock{$key}{'x'}, y:$fleetBlock{$key}{'y'}, battlePlan:$fleetBlock{$key}{'battlePlan'}\n";
+  my @shipCount = @{$fleetBlock{$key}{'shipCount'}};
+  my $shipct = 0;
+  foreach my $val (@shipCount) {
+    if ($val ) { print "\tdesignNumber: $shipct   shipCount: $val\n";}
+    else { print "\tdesignNumber: $shipct   shipCount: 0\n";}
+    $shipct++;
+  }
 }
 
 my $waypointLoop = 0;
@@ -250,10 +266,9 @@ sub decryptShip {
           $designNumber = ($decryptedData[$index+1] & 0x3C) >> 2; print "designNumber: $designNumber\n";
           $hullId = $decryptedData[$index+2] & 0xFF; print "HullId: $hullId (" . &showHull($hullId, 2) . ")\n";
           unless ($isStarbase) { $fuelCapacity = &showHull($hullId, 17); }
-          $pic = $decryptedData[$index+3] & 0xFF; print "pic: $pic\n";
+          $pic = $decryptedData[$index+3] & 0xFF; print "pic: $pic\n";  
           if ($hullId == 29) { $pic = 4*31; }  # No idea why these pics are swapped
           elsif ($hullId == 31) { $pic = 4*29; }
-  
           if ($isFullDesign) {
             # Since there can be a ship and base with the same hullId, 
             # need to be able to keep them separate
@@ -436,7 +451,8 @@ sub decryptShip {
         my %fleet; # To store the values in a hash
         my ($byte5);
         my ($fleetId, $ownerId, $hull);
-        my $kindByte;
+        my ($byte2, $byte3); # who knows
+        my $kindByte; # 3 for most partial, 4 for robber baron, 7 for full
         my $positionObjectId;
         my $index;
         my $fileLength;
@@ -445,17 +461,21 @@ sub decryptShip {
         my $contentsLengths;
         my ($ironium, $boranium, $germanium);
         my ($x, $y);
-        my ($deltaX, $deltaY);
-        my ($shipTypes, $damagedShipTypes);
-        my @damagedShipInfo;
+        my ($deltaX, $deltaY);  # partial fleet data
+        my ($shipTypes);
+        my ($damagedShipTypes); # full fleet data
+        my @damagedShipInfo;    # full fleet data
         my @shipCount;
         my $mask;
         my ($population, $fuel);
         my ($warp, $waypointCount);
-        my ($unknownBitsWithWarp);
-        my $battlePlan;
+        my ($unknownBitsWithWarp); # partial fleet data
+        my $battlePlan; # full fleet data
+        
         $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
         $ownerId = $decryptedData[1] >> 1;
+        $byte2 = $decryptedData[2];
+	      $byte3 = $decryptedData[3];
         $kindByte = $decryptedData[4];
         $byte5 = $decryptedData[5];
         my $shipCountTwoBytes;
@@ -477,8 +497,16 @@ sub decryptShip {
               $index += 1;
             }
           }
+          $mask <<= 1;
         }
-        $mask <<= 1;
+        print "\n\nshipTypes : " . &dec2bin($shipTypes) . "\n";
+        my $shipct =0 ;
+        foreach my $val (@shipCount) {
+          if ($val ) { print "designNumber: $shipct   shipCount: $val\n";}
+          else { print "designNumber: $shipct   shipCount: 0\n";}
+          $shipct++;
+        }
+        #die;
         # PARTIAL_KIND = 3, PICK_POCKET_KIND = 4, FULL_KIND = 7;
         #if ($kindByte != 7 && $kindByte != 4 && $kindByte != 3) {
         if ($kindByte == 7 || $kindByte == 4) {
@@ -494,15 +522,15 @@ sub decryptShip {
           $fuelLength = $contentsLengths >> 8;
           $fuelLength = 4 >> (3 - $fuelLength);
           $index += 2;
-#          $ironium = &readN(\@decryptedData, $index, $iLength);
+          $ironium = &readN(\@decryptedData, $index, $iLength);
           $index += $iLength;
-#          $boranium = &readN(\@decryptedData, $index, $bLength);
+          $boranium = &readN(\@decryptedData, $index, $bLength);
           $index += $bLength;
-#          $germanium = &readN(\@decryptedData, $index, $gLength);
+          $germanium = &readN(\@decryptedData, $index, $gLength);
           $index += $gLength;
-#          $population = &readN(\@decryptedData, $index, $popLength);
+          $population = &readN(\@decryptedData, $index, $popLength);
           $index += $popLength;
-#          $fuel = &readN(\@decryptedData, $index, $fuelLength);
+          $fuel = &readN(\@decryptedData, $index, $fuelLength);
           $index += $fuelLength;
         } 
         if ($kindByte == 7) {
@@ -530,13 +558,25 @@ sub decryptShip {
         }
         $x = &read16(\@decryptedData, 8); # Correct  (likely only in full block?)
         $y = &read16(\@decryptedData, 10); # Correct (likely only in full block?)
-        print "Fleet Block: fleetId: $fleetId, ownerId: $ownerId, x: $x, y: $y \n";
-        $fleet{'id'} = $fleetId;
+        print "Fleet Block: fleetId: $fleetId, ownerId: $ownerId, x: $x, y: $y, battlePlan: $battlePlan, shipTypes:" . &dec2bin($shipTypes) . "\n";
+        #$fleet{'id'} = $fleetId;
         $fleet{'owner'} = $ownerId;
         $fleet{'x'} = $x;
         $fleet{'y'} = $y;
-        $fleet[$fleetcounter] = { %fleet };
-        $fleetcounter++;
+        $fleet{'battlePlan'} = $battlePlan;
+        $fleet{'shipTypes'}  = &dec2bin($shipTypes);
+        $fleet{'shipCount'}  = \@shipCount;
+        #$fleet[$fleetcounter] = { %fleet };
+        $fleetBlock{$fleetId} = { %fleet };
+        #$fleetcounter++;
+      } elsif ($typeId == 37) {  # Fleet Merge block
+        my $fleetNumber1 = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
+        print "Fleet Number1: $fleetNumber1\n";
+        my $fleetNumber2 = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 1) << 8);
+        print "Fleet Number2: $fleetNumber2\n";
+        # Yeah, I could store this in binary. But why do that to myself.
+        $fleetMerge[$fleetMergeCounter] = "$fleetNumber1" . ',' . $fleetNumber2;
+        $fleetMergeCounter++;
       }
       # END OF MAGIC
       # reencrypt the data for output
