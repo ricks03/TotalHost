@@ -43,7 +43,7 @@ our @EXPORT = qw(
   nextRandom StarsRandom
   initDecryption getFileHeaderBlock
   encryptBytes decryptBytes
-  read8 read16 read32 write16 parseBlock
+  read8 read16 read32 readN write16 parseBlock
   dec2bin bin2dec
   encryptBlock decryptPWD
   stripPadding addPadding
@@ -431,6 +431,14 @@ sub read32 {
 				&read8($data[$offset+2]) << 16 | 
 				&read8($data[$offset+1]) << 8 | 
 				&read8($data[$offset]);
+}
+
+sub readN {
+my ($data, $offset, $byteLen) = @_;
+	if ($byteLen == 0) {return  0; }
+	elsif ($byteLen == 1) {return &read8($data);  }
+  elsif ($byteLen == 2) {return &read16($data, $offset);  }
+  elsif ($byteLen == 4) {return &read32($data, $offset);  }
 }
 
 #Write a 16 bit little endian integer into a byte array
