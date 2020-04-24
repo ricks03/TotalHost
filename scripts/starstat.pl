@@ -27,6 +27,7 @@
 @fGameOver = ('Game In Progress', 'Game Over'); 
 @fShareware = ('Registered','Shareware'); 
 @fInUse = ('Host instance not using file','Host instance using file'); # No idea what this value is.
+%Version = ("1.2a" => "1.1a", "2.65" => "2.0a", "2.81j" => "2.6i", "2.83.0" => "2.6jrc4");
 
 my $filename = $ARGV[0];
 print "File is $filename\n";
@@ -56,7 +57,7 @@ $verMajor = bin2dec($verMajor);
 $verMinor = bin2dec($verMinor);
 $verInc = bin2dec($verInc);
 $ver = $verMajor . "." . $verMinor . "." . $verInc;
-print "Version\t$ver\n";
+print "Version\t$ver (" . $Version{$ver} . ")\n";
 
 # Turn
 $turn=$turn + 2400;
