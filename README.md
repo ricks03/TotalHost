@@ -11,6 +11,7 @@ but adds a number of features such as:
 - The ability to download the game history (to better recreate the .H file, view in retrospect, and/or recover from system failure)
 - Storage and viewing of race files
 - The ability to reset a dropped player's Stars! password
+- detecting some of the common Stars! code bugs, and warning (or even correcting) for them.
 
 There are also standalone utilities (generally named stars*.pl) for resetting a password, viewing race and ship design information, extracting player messages in .X|.M files, creating movies from completed games, and the ability to clean some of the shared data from individual player .M files. These are/were developed generally as precursors to functionality added to TotalHost.
 
