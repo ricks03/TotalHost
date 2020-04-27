@@ -3,7 +3,7 @@ Stars! TotalHost Web-based Turn Management
 
 Stars! (https://en.wikipedia.org/wiki/Stars!) is a classic, turn-based, space-based 4X game, written for Windows, and originally designed to play hostseat or PBEM. 
 
-TotalHost, much like AutoHost, is a web-based interface for game and turn-management. TH builds off the concept of AutoHost, 
+TotalHost, much like AutoHost, is a web-based interface for Stars! game and turn-management. TH builds off the concept of AutoHost, 
 but adds a number of features such as: 
 - Web-based game creation
 - More options for host, player and game management & turn generation
@@ -16,7 +16,7 @@ but adds a number of features such as:
 There are also standalone utilities (generally named stars*.pl) for resetting a password, viewing race and ship design information, extracting player messages in .X|.M files, creating movies from completed games, and the ability to clean some of the shared data from individual player .M files. These are/were developed generally as precursors to functionality added to TotalHost.
 
 For simplicity, the entire implementation is on a Windows VM running Apache, and ODBC calls to an Access database. 
-The entire implementation is in Perl.
+The entire implementation is in Perl (except some Java for the movie-generating code).
 
 I began this project 20+ years ago as stop-and-start work, and I'm not a programmer. The code therefore has different coding styles and methodologies. The Stars! community has historically been very closed-source,  primarily due to trying to protect the encryption model and prevent hacking the game. This in turn has stifled development of tools and utilities.  Towards that end, I'm open-sourcing TotalHost, warts and all.
 
