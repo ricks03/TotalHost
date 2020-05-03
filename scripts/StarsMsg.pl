@@ -109,7 +109,7 @@ sub decryptBlock {
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
-    if ($blockId == 8 ) {
+    if ($blockId == 8 ) { # File Header Block
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block );
@@ -134,8 +134,9 @@ sub processData {
   # We need the names to display
   # Check the Player Block so we can get the race names
   # although there are no names in .x files
-  if ($blockId == 6) {
-    my $playerId = $decryptedData[0];
+  if ($blockId == 6) { # Player Block
+    # added 0xFF without testing 200424
+    my $playerId = $decryptedData[0] & 0xFF;
     my $fullDataFlag = ($decryptedData[6] & 0x04);
     my $index = 8;
     if ($fullDataFlag) { 

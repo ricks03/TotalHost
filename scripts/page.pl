@@ -1379,45 +1379,56 @@ sub process_news {
 	if (!(-e $newsfile)) { # If there's no news file, create one. 
 		&create_news($newsfile);
 	}
-	else { 
-		# Validate that the logged in user is a game member before we 
-		# let them submit news
+	# Validate that the logged in user is a game member before we 
+	# let them submit news
 
-		my $valid_submitter = 0; 
-		$sql = qq|SELECT * FROM GameUsers WHERE GameFile = \'$GameFile\';|; 
-		$db = &DB_Open($dsn);
+	my $valid_submitter = 0; 
+	$sql = qq|SELECT * FROM GameUsers WHERE GameFile = \'$GameFile\';|; 
+	$db = &DB_Open($dsn);
+	if (&DB_Call($db,$sql)) { 	
+		while ($db->FetchRow()) { 
+			my %UserValues = $db->DataHash(); 
+			&LogOut(200, "News User: $UserValues{'User_Login'}  $userlogin", $LogFile); 
+			if ($UserValues{'User_Login'} eq $userlogin) { 
+        $valid_submitter = 1; 
+        &LogOut(200, "Valid news from $userlogin", $LogFile); 
+      }
+		}
+	}
+  # And then check to see if they're a host instead
+  unless ($valid_submitter) {
+		$sql = qq|SELECT * FROM Games WHERE GameFile = \'$GameFile\';|; 
 		if (&DB_Call($db,$sql)) { 	
 			while ($db->FetchRow()) { 
 				my %UserValues = $db->DataHash(); 
-#				if ($UserValues{'User_Login'} eq $userlogin) { $valid_submitter = 1; }
-				&LogOut(200, "News User: $UserValues{'User_Login'}  $userlogin", $LogFile); 
-				if ($UserValues{'User_Login'} eq $userlogin) { 
+				&LogOut(200, "News Host: $UserValues{'HostName'}  $userlogin", $LogFile); 
+				if ($UserValues{'HostName'} eq $userlogin) { 
           $valid_submitter = 1; 
-          &LogOut(200, "Valid news from $userlogin", $LogFile); 
+          &LogOut(200, "Valid news from host $userlogin", $LogFile); 
         }
 			}
-		}
-		&DB_Close($db);
+    }
+  }
+	&DB_Close($db);
 
-		if ($valid_submitter) {
-			# Read in the old news
-			open (IN_FILE,$newsfile) || die("Can\'t open news file");
-			@news = <IN_FILE>;
-			close(IN_FILE);
-			# Write out the news with the current news at the beginning 
-			# (So the data is from new to old)
-			$newsfile = ">" . $newsfile;
-			open (OUTFILE, $newsfile) || die("Can\'t create news file!");
-			print OUTFILE $id . "\t";
-			# Get the actual Game Turn about here and store it. 
-			print OUTFILE time() . "\t";
-			print OUTFILE $HST_Turn . "\t";
-			print OUTFILE "$new_news\n";
-			print OUTFILE @news;
-			close (OUTFILE);
-		} else {
-			&LogOut (0,"Invalid attempt to update news by  $userlogin for $GameFile", $ErrorLog);
-		}
+	if ($valid_submitter) {
+		# Read in the old news
+		open (IN_FILE,$newsfile) || die("Can\'t open news file");
+		@news = <IN_FILE>;
+		close(IN_FILE);
+		# Write out the news with the current news at the beginning 
+		# (So the data is from new to old)
+		$newsfile = ">" . $newsfile;
+		open (OUTFILE, $newsfile) || die("Can\'t create news file!");
+		print OUTFILE $id . "\t";
+		# Get the actual Game Turn about here and store it. 
+		print OUTFILE time() . "\t";
+		print OUTFILE $HST_Turn . "\t";
+		print OUTFILE "$new_news\n";
+		print OUTFILE @news;
+		close (OUTFILE);
+	} else {
+		&LogOut (0,"Invalid attempt to update news by  $userlogin for $GameFile", $ErrorLog);
 	}
 }
 

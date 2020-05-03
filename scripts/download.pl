@@ -158,7 +158,7 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
   	 $id = $GameValues{'PlayerID'};
   	 $GameFile = $GameValues{'GameFile'};
   	 # Build an array of all of the .m[n], .x[n], and .xy files
-  	 # in the game directiory determines by $gamefile
+  	 # in the game directory determines by $gamefile
   	 find sub { 
         # Grab the files specific to that player, matching only the backup folders
   		  if (($File::Find::name =~ /$gamefile\/\d{4}\/$gamefile\.M$id/i) || ($File::Find::name =~ /$gamefile\/\d{4}\/$gamefile\.x$id/i) || ($File::Find::name =~ /$gamefile\/\d{4}\/$gamefile\.XY/i)) {

@@ -77,7 +77,7 @@ sub CheckandUpdate {
   # Heck, even if I read all the data in from the database, and then called this function one line/row
   # at a time. 
 	while ($LoopPosition <= ($#GameData)) { # work the way through the array
-		print 'Checking whether to generate for ' . $GameData[$LoopPosition]{'GameName'} . "...\n";
+		print 'Checking whether to generate for ' . $GameData[$LoopPosition]{'GameName'} . ":$GameData[$LoopPosition]{'GameFile'}...\n";
 		my($TurnReady) = 'False'; #Is it time to generate
 		my($NewTurn) = 0; #Localize the value for Next Turn. the next turn won't change unless told to
 #		if ($GameData[$LoopPosition]{'ObserveHoliday'} ) { &CheckHolidays($GameData[$LoopPosition]{'NextTurn'}); }

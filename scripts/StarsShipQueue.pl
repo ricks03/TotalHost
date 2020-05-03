@@ -1,4 +1,4 @@
-# StarsShip.pl
+# StarsShipQueue.pl
 #
 # Rick Steeves
 # starsah@corwyn.net
@@ -29,19 +29,21 @@
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
 # But detects the colonizer, spacedock, and 10 starbase issues
-#   Although player corrections won't always work within the 
-#   contenxt of multiple entries in a .x file.
-# This is a simpler, earlier version of the later StarsShipQueue.pl
+
+# An "upgrade" of StarsShip.pl, as we're adding in the abilty to check for 
+# the Cheap Starbase exploit.
 
 use strict;
-use warnings;   
+use warnings;  
+#use warnings::unused; 
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
 
 my $debug = 1;
-my $fixFiles = 2; # 0, 2: display, write 
+my $fixFiles = 1; # 0, 1: display, 2:write 
 my %warning;
 my $warnId='';
+#my $warnCheap='';
 # Ship parts
 my $isFullDesign;
 my $deleteDesign;
@@ -56,24 +58,37 @@ my $slotCount;
 my $slotEnd;
 my $mass;   # For full designs, this is calculated
 my $fuelCapacity; # calculated  
-my $slot;
+#my $slot;
 my $itemId;
 my $itemCategory;
 my $itemCount;
-my $items;
+#my $items;
 my $turnDesigned; 
 my $totalBuilt;
 my $totalRemaining;
 my $shipNameLength;
 my $shipName;
 # Array to track waypoint information
-my @fleet;  # not used now? 
-my %fleetBlock;
-my $fleetcounter = 0;
-my @waypoint;
-my $waypointcounter = 0;
-my @fleetMerge;
-my $fleetMergeCounter = 0; #Array to track fleet merge orders
+my %waypointList;
+my @fleetMerge;     # likely no longer used
+#my %fleetMerge;
+# Tracking who is the owner of the current design
+my %player;
+my %designList;
+my $designShipTotal = 0;
+my $designBaseTotal = 0;
+my $designTotalCounter = 0;
+my $designShipCounter = 0;
+my $designBaseCounter = 0;
+my $designShipTotalCounter = 0;
+my $designBaseTotalCounter = 0;
+my $designShipPlayerId = 0;
+my $designBasePlayerId = 0;
+my $designOwner = 0;
+my $lastPlayer=-1; 
+my @brokenStarbase = (0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0); # For the Cheap Starbase fix
+my $queueCounter = 0;
+
 
 my %hullType; 
 $hullType{'0'} = [ 15,1,"Small Freighter",0,0,0,0,0,0,0,25,20,12,0,17,0,70,130,25,1,1,6146,1,12,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,85,51,49,55,53,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
@@ -142,7 +157,101 @@ $dir  = dirname($filename);         # c:\stars
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
 $basename = $basefile;
 $basename =~  s/$ext//;
+my ($game_file, $file_player, $file_type, $file_ext) = &FileData ($basefile); 
+my $HSTFile = $dir . '\\' . $basename . '.HST';
+my $MFile = $dir . '\\' . $basename . '.m' . $file_player;
 
+# Read in all the planetary queues not assuming they
+# have been written out to a .HST file previously
+# so we have it available when checking the design slot changes
+# (Although the planets are before the design slots)
+my @queueList;
+my %queueList;
+# BUG: Need better logic here for detecting .m or .HST
+my $queueFile = $dir . '\\' . $basename . '.HST' . '.queue';
+if (-e $queueFile && $file_type eq 'x') {
+  my($Player,$planetId,$itemId,$count,$completePercent,$itemType, $queueSize);
+  my @queueFile;
+  # Read in the file data
+  print "Reading in QUEUEFILE $queueFile\n";
+  open (IN_FILE,$queueFile) || die("Cannot open $queueFile file");
+  @queueFile = <IN_FILE>;
+	close IN_FILE;
+  # Turn the file into a usable array
+  foreach my $line (@queueFile) {
+    #print "$line";
+  	chomp($line);
+   	($Player,$planetId,$itemId,$count,$completePercent,$itemType, $queueSize)	= split (",", $line);
+    # There is no unique combination of values for a queue
+    $queueList{$queueCounter}{Player} = $Player;
+    $queueList{$queueCounter}{planetId} = $planetId;
+    $queueList{$queueCounter}{itemId} = $itemId;
+    $queueList{$queueCounter}{count} = $count;
+    $queueList{$queueCounter}{completePercent} = $completePercent;
+    $queueList{$queueCounter}{itemType} = $itemType;
+    $queueList{$queueCounter}{queueSize} = $queueSize;
+    $queueCounter++;
+  }
+}
+
+# Print out the results of the imported queueFile
+foreach my $queueCounter (sort keys %queueList) {
+  print "$queueCounter:\t";
+  foreach my $var (keys %{ $queueList{$queueCounter} }) {
+    print "$var: $queueList{$queueCounter}{$var}\t";
+  }
+  print "\t";
+  print $queueList{$queueCounter}{Player};
+  print $queueList{$queueCounter}{planetId};
+  print $queueList{$queueCounter}{itemId};
+  print $queueList{$queueCounter}{count};
+  print $queueList{$queueCounter}{completePercent};
+  print $queueList{$queueCounter}{itemType};
+  print $queueList{$queueCounter}{queueSize};
+  print "\n";
+}
+
+# Read in all the fleets not assuming they
+# have been written out to a .HST file previously
+# so we have it available when checking the design slot changes
+my %fleetList;
+# my $fleetFile = $dir . '\\' . $basename . '.hst' . '.fleet';
+# if (-e $fleetFile && $file_type eq 'x') {
+#   my @fleetFile;
+#   # Read in the file data
+#   open (IN_FILE,$fleetFile) || die("Cannot open $fleetFile file");
+#   @fleetFile = <IN_FILE>;
+# 	close IN_FILE;
+#   # Turn the file into a usable array
+#   foreach my $line (@fleetFile) {
+# #    print "$line";
+#   	chomp($line);
+#     my ($Player,$fleetId,$x,$y,$battlePlan,$shipTypes,$shipCount)	= split ('\|', $line);
+#     #print "ZZ $Player $fleetId $x $y $battlePlan $shipTypes $shipCount\n";
+#     $fleetList{$Player}{$fleetId}{x} = $x;
+#     $fleetList{$Player}{$fleetId}{y} = $y;
+#     $fleetList{$Player}{$fleetId}{battlePlan} = $battlePlan;
+#     $fleetList{$Player}{$fleetId}{shipTypes}  = $shipTypes;
+#     $fleetList{$Player}{$fleetId}{shipCount}  = $shipCount; # This array doesn't have counts for any design after the last one with a number.
+#     #print " $Player|$fleetId|$fleetList{$Player}{$fleetId}{x}|$fleetList{$Player}{$fleetId}{y}|$fleetList{$Player}{$fleetId}{battlePlan}|$fleetList{$Player}{$fleetId}{shipTypes}|$fleetList{$Player}{$fleetId}{shipCount}\n";
+#   }
+# #  print "\n";
+# }
+
+# Display all the fleet info
+# Print out the results of imported fleetList (blank if no import)
+# foreach my $playerId (sort keys %fleetList) {
+#   foreach my $fleetId (sort keys %{ $fleetList{$playerId} }) {
+#     print "Player: $playerId\tFleet: $fleetId\t";
+#     foreach my $val (keys %{ $fleetList{$playerId}{$fleetId} }) {
+#       print "$val: $fleetList{$playerId}{$fleetId}{$val}\t";
+#     }
+#     print "\n";
+#   }
+#   print "\n";
+# }
+
+##############################################
 # Read in the binary Stars! file, byte by byte
 my $FileValues;
 my @fileBytes;
@@ -152,49 +261,81 @@ while (read(StarFile, $FileValues, 1)) {
   push @fileBytes, $FileValues; 
 }
 close(StarFile);
-
-# Decrypt the data, block by block
-my ($outBytes, $needsFixing, $warning) = &decryptShip(@fileBytes);
+# Decrypt the data, block by block, and process it
+my ($outBytes, $needsFixing, $warning, $fleetList, $fleetMerge) = &decryptShip(@fileBytes);
 my @outBytes = @{$outBytes};
 %warning = %$warning;
+%fleetList = %$fleetList;
+@fleetMerge = @{$fleetMerge};
+#################################################33
+# Deal with the results.
 
-# my $fleetLoop =0;
-# while ($fleetLoop <= ($#fleet)) {
-#  print "Fleet: fleetId: $fleet[$fleetLoop]{'id'}, ownerId: $fleet[$fleetLoop]{'owner'}, x: $fleet[$fleetLoop]{'x'}, y: $fleet[$fleetLoop]{'y'}\n";
-#  $fleetLoop++;
+# print "\n\nFLEET INFO:\n";
+# # Display all the fleet info
+# foreach my $playerId (sort keys %fleetList) {
+#   foreach my $fleetId (sort keys %{ $fleetList{$playerId} }) {
+#      print "Player: $playerId\tFleet: $fleetId\t";
+#     foreach my $val (keys %{ $fleetList{$playerId}{$fleetId} }) {
+#       print "$val: $fleetList{$playerId}{$fleetId}{$val}\t";
+#     }
+#     print "\n";
+#   }
+#   print "\n";
 # }
 
-print "\n\nFLEET INFO:\n";
+# Write out the fleetList for .HST files
+# $fleetFile = $dir . '\\' . $basefile . '.fleet';
+# if (lc($ext) eq '.hst') {
+#   #$fleetFile = "$playerId,$fleetId,$x,$y,$shipTypes,$shipCount,$battlePlan";
+#   print "Writing out FLEETFILE...\n";
+#   open (FLEETFILE, ">$fleetFile");
+#   foreach my $ownerId (sort keys %fleetList) {
+#     foreach my $fleetId (sort keys %{ $fleetList{$ownerId} }) {
+# #       foreach my $val (keys %{ $fleetList{$playerId}{$fleetId} }) {
+# #         print FLEETFILE "$fleetList{$playerId}{$fleetId}{$val},";
+# #       }
+#       # Doing this manually, as I want it not sorted as the hash
+#       print FLEETFILE "$ownerId|";
+#       print FLEETFILE "$fleetId|";
+#       print FLEETFILE $fleetList{$ownerId}{$fleetId}{x} . '|';
+#       print FLEETFILE $fleetList{$ownerId}{$fleetId}{y} . '|';
+#       print FLEETFILE $fleetList{$ownerId}{$fleetId}{battlePlan} . '|';
+#       print FLEETFILE $fleetList{$ownerId}{$fleetId}{shipTypes} . '|';
+#       print FLEETFILE $fleetList{$ownerId}{$fleetId}{shipCount}; 
+#       print FLEETFILE "\n";
+#     }
+#   }
+#   close FLEETFILE;
+#   print "Done writing FLEETFILE\n";
+# }
 
-for my $key (keys %fleetBlock) {
-#  print "fleetId:$key  player:$fleetBlock{$key}{'player'}, ownerId:$fleetBlock{$key}{'owner'}, x:$fleetBlock{$key}{'x'}, y:$fleetBlock{$key}{'y'}, battlePlan:$fleetBlock{$key}{'battlePlan'}\n";
-  my @shipCount = @{$fleetBlock{$key}{'shipCount'}};
-  print "$key,$fleetBlock{$key}{'player'},$fleetBlock{$key}{'owner'},$fleetBlock{$key}{'x'},$fleetBlock{$key}{'y'},$fleetBlock{$key}{'battlePlan'},";
-  my $shipct = 0;
-  foreach my $val (@shipCount) {
-    if ($val ) { print "$val";}
-    else { print "0";}
-   if ($shipct <15) { print ","; }
-    $shipct++;
-  }
-  print "\n";
-}
+# Display all the waypoint info
+# foreach my $playerId (sort keys %waypointList) {
+#   print "Player: $playerId\n";
+#   foreach my $fleetId (sort keys %{ $waypointList{$playerId} }) {
+#     print "Fleet: $fleetId\t";
+#     foreach my $val (keys %{ $waypointList{$playerId}{$fleetId} }) {
+#       # $x, $y, and $position
+#       print "$val: $waypointList{$playerId}{$fleetId}{$val}\t";
+#     }
+#     print "\n";
+#   }
+#   print "\n";
+# }
 
-my $waypointLoop = 0;
-while ($waypointLoop <= ($#waypoint)) {
- print "Waypoint: fleetId: $waypoint[$waypointLoop]{'id'}, ownerId: $waypoint[$waypointLoop]{'owner'}, xDest: $waypoint[$waypointLoop]{'x'}, yDest: $waypoint[$waypointLoop]{'y'}, positionId: $waypoint[$waypointLoop]{'position'}\n";
- $waypointLoop++;
-}
+# BUG: This won't work right until I can also handle Split and Move
+#print "\nMERGE:\n";
+#&FleetMerge (\%fleetList, \@fleetMerge); 
 
 print "\nRESULTS:\n";
 if (%warning) { 
-  foreach my $key (keys %warning)
-  {
+  foreach my $key (sort keys %warning) {
     print "$key: $warning{$key}\n";
   }
   print "\n";
 } else { print "No issues found\n"; }
 
+# Output the Stars! File with bugs fixed.
 # Only create a new file if anything was wrong. 
 #if (scalar @outBytes && $fixFiles > 1) {
 if ($needsFixing && $fixFiles > 1) {
@@ -202,9 +343,6 @@ if ($needsFixing && $fixFiles > 1) {
   my $newFile; 
   if ($outFileName) { $newFile = $outFileName;  } 
   else { $newFile = $dir . '\\' . $basefile . '.clean'; }
-  #if ($debug) { $newFile = $dir . '\\' . $basefile . '.clean';  } # Just for me
-  
-  # Output the Stars! File with bugs fixed.
   open (OutFile, '>:raw', "$newFile");
   for (my $i = 0; $i < @outBytes; $i++) {
     print OutFile $outBytes[$i];
@@ -229,6 +367,9 @@ sub decryptShip {
   my ($typeId, $size, $data);
   my $offset = 0; #Start at the beginning of the file
   my $needsFixing;
+  my ($planetId, $ownerId); 
+  my @queueBlock;
+  my $fleetMergeCount = 0;
   while ($offset < @fileBytes) {
     # Get block info and data
     ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
@@ -251,12 +392,165 @@ sub decryptShip {
       @decryptedData = @{ $decryptedData };
       if ( $debug  > 1) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
-      
-      # Detect the Colonizer, Spack Dock SuperLatanium, and 10 starbase design bugs
-      if ($typeId == 26 || $typeId == 27) { # Design & Design Change block
-        print "\nPlayer: $Player\n";
+      if ($typeId == 6) { # Player Block
+        my $playerId = $decryptedData[0] & 0xFF; print "Player Id: $playerId\n";
+        my $shipDesigns = $decryptedData[1] & 0xFF;  print " Ship Designs: $shipDesigns\n";
+        my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); print " Planets: $planets\n";
+        my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);  print " Fleets: $fleets\n";
+        my $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); print " Starbase Designs: $starbaseDesigns\n";
+        $player{$playerId}{shipDesigns} = $shipDesigns;
+        $player{$playerId}{planets} = $planets;
+        $player{$playerId}{fleets} = $fleets;
+        $player{$playerId}{starbaseDesigns} = $starbaseDesigns;
+        $designShipTotal +=  $player{$playerId}{shipDesigns};
+        $designBaseTotal +=  $player{$playerId}{starbaseDesigns};
+        $lastPlayer = $playerId; # keep track of the largest known player Id
+        #print "!!!!!!Designs: Player: $playerId, Ship $player{$playerId}{shipDesigns}, Base: $player{$playerId}{starbaseDesigns}  Totals: $designShipTotal $designBaseTotal\n";
+      } elsif ( $typeId == 13) { # Planet Block to get Player ID for ProductionQueue
+        # This always precedes the Production Queue in the .M and .HST file
+        $planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
+        $ownerId = ($decryptedData[1] & 0xF8) >> 3;
+        if ($ownerId == 31) { $ownerId = -1; }
+        ### Other stuff after I have the player ID
+        my $flags = &read16($decryptedData[2]);
+        my $isHomeworld = ($flags & 0x80) != 0;
+	      my $isInUseOrRobberBaron = ($flags & 0x04) != 0;
+	      my $hasEnvironmentInfo = ($flags & 0x02) != 0;
+	      my $bitWhichIsOffForRemoteMiningAndRobberBaron = ($flags & 0x01) != 0;
+	      my $weirdBit = ($flags & 0x8000) != 0;
+	      my $hasRoute = ($flags & 0x4000) != 0;
+	      my $hasSurfaceMinerals = ($flags & 0x2000) != 0;
+	      my $hasArtifact = ($flags & 0x1000) != 0;
+	      my $hasInstallations = ($flags & 0x0800) != 0;
+	      my $isTerraformed = ($flags & 0x0400) != 0;
+	      my $hasStarbase = ($flags & 0x0200) != 0;
+        my $index = 4;
+        # More in the block I don't care about right now.       
+      } 
+      # Detect the Cheap Starbase in the producton queue
+      elsif ( $typeId == 28 || $typeId == 29) { # ProductionQueueBlock and ProductionQueueChangeBlock
+        # if not a .x file, we get the player Id from the most recent planet info
+        # Because the player info isn't in the ProductionQueueBlock 
+        my $index = 0;
+        my ($chunk1, $chunk2, $itemId, $count, $completePercent, $itemType, $queueSize);
+        if ($typeId == 28) { 
+          $Player = $ownerId; 
+          $index = 0;
+        } elsif ($typeId == 29) { # Testing for ProductionQueueChangeBlock
+          $index = 2;
+        } 
+        $planetId = &read16(\@decryptedData, 0);
+        foreach my $queueCounter (keys %queueList) {
+        
+        }
+        for (my $i=$index; $i <= scalar(@decryptedData) -4; $i=$i+4) {
+          $chunk1 = &read16(\@decryptedData, $i);
+          $chunk2 = &read16(\@decryptedData, $i+2);
+          $itemId = $chunk1 >> 10;  # Top 6 bits - but only uses 4
+          $count = $chunk1 & 0x3FF; # Bottom 10 bits
+          $completePercent = $chunk2 >> 4; #Top 12 bits
+          $itemType = $chunk2 & 0xF; # bottom 4 bits
+          print "Queue: Player: $Player, planetId: $planetId, itemId: $itemId, count: $count, %complete: $completePercent, itemType: $itemType, size: $size\n"; 
+          #if ($typeId == 28) {
+#             my $queueBlock = "$Player,$planetId,$itemId,$count,$completePercent,$itemType,$size";
+#             push  @queueBlock, $queueBlock;
+          #}
+        }
+        # A change needs to replace the values in the array for this planet
+        if ($typeId == 29 ) {
+          # Need to clear the ProductionQueue array if this is a clear queue action
+          # because we no longer care about what was in this production queue prior
+          # If Cheap Starbase bug, clearing the planet queue fixes it.
+          if ($size == 2) { # Clear Queue & check on Cheap Starbase
+            foreach my $queueCounter (keys %queueList) {
+              if (exists ($queueList{$queueCounter}{planetId}) && $queueList{$queueCounter}{planetId} == $planetId) { 
+                #print "CLEARING queue for planet: $queueList{$queueCounter}{planetId}\n";
+                delete $queueList{$queueCounter}; 
+              }
+            }
+          } else {
+            # Otherwise update the current queue array 
+            foreach my $queueCounter (keys %queueList) {
+              if (exists ($queueList{$queueCounter}{planetId}) ) { 
+                delete $queueList{$queueCounter}; 
+                $queueCounter++;
+                $queueList{$queueCounter}{Player} = $Player;
+                $queueList{$queueCounter}{planetId} = $planetId;
+                $queueList{$queueCounter}{itemId} = $itemId;
+                $queueList{$queueCounter}{count} = $count;
+                $queueList{$queueCounter}{completePercent} = $completePercent;
+                $queueList{$queueCounter}{itemType} = $itemType;
+                $queueList{$queueCounter}{queueSize} = $size;
+              }
+            }
+          }
+        }
+        # If we changed a queue, check the entire queue for any planets building on the warning
+        # The warning list will be shorter, so start there. 
+        foreach my $warnId (keys %warning) {
+          print "Checking for warning $warnId\n";
+          my $stillBroken = 0;
+          my ($player, $designType, $designNumber, $warningType) = &splitWarnId($warnId); 
+          if ($warningType eq 'cheap') {
+            my $designId = $designNumber + 16;
+            foreach my $queueCounter (keys %queueList) {
+              #print "$queueList{$queueCounter}{Player} == $player &&  $queueList{$queueCounter}{itemId} == $designId \n";
+              if ($queueList{$queueCounter}{Player} == $player &&  $queueList{$queueCounter}{itemId} == $designId) {
+                $stillBroken = 1;
+                print "Still broken\n";
+              }
+            }
+          }
+          unless ($stillBroken) {
+            if (exists ($warning{$warnId})) { 
+              print "CLEARING Cheap Starbase warning for $warnId\n";
+              delete $warning{$warnId}; 
+            }
+          }
+        }
+      } 
+      elsif ($typeId == 26 || $typeId == 27) { # Design & Design Change block
+        print "\n\n";
+        my $spacedockOverflow = 0;  #Space Dock Overflow
+        my $crobyLangston = 0; #Spack Dock overflow additional armor
+        if ($typeId == 26 ) { # HST File. 
+          # Find design block Player Id Because the player id isn't in Block 26
+          # The Design blocks are in order, and the number of them for each player are defined in the player block(s). 
+          # And if it seems like a lot of work to ge this info, it is.
+          #Find design block player
+          $designOwner=0;
+          if ($designShipTotalCounter >= $designShipTotal) { # Don't start starbases until the ships are done.
+            while ($designOwner <= 0  && $designBaseTotalCounter < $designBaseTotal && $designBasePlayerId <= $lastPlayer) {
+               if (exists($player{$designBasePlayerId}{starbaseDesigns}) && $designBaseCounter < $player{$designBasePlayerId}{starbaseDesigns}) {
+                  $designBaseCounter++; 
+                  $designBaseTotalCounter++; 
+                  $designOwner = $designBasePlayerId; 
+                  last;
+               } else { 
+                 $designBasePlayerId++; 
+                 $designBaseCounter = 0; 
+               }
+             }
+          } else {
+            while ($designOwner <= 0  && $designShipTotalCounter < $designShipTotal && $designShipPlayerId <= $lastPlayer) {
+               if (exists($player{$designShipPlayerId}{shipDesigns}) && $designShipCounter < $player{$designShipPlayerId}{shipDesigns}) {
+                  $designShipCounter++;
+                  $designShipTotalCounter++;
+                  $designOwner = $designShipPlayerId; 
+                   last;
+               } else { $designShipPlayerId++; $designShipCounter = 0; }
+            }
+          }
+          $Player = $designOwner;
+          print "Design Owner: $designOwner\n";
+        }  
+        print "Player: $Player\n";
         my $hullId;
         my $index = 0;
+        if ( $typeId == 27 ) {# for the two extra bytes in a .x file 
+          $index = 2; 
+          print "Design Change.......\n";
+        }   
         my $err = ''; # reset error for each time we check a hull, because it could be fixed in a later change.
         $deleteDesign = $decryptedData[0] % 16;
         if ($deleteDesign == 0) { 
@@ -264,46 +558,62 @@ sub decryptShip {
           print "Delete designNumber: $designNumber\n";
           $isStarbase = ($decryptedData[1] >> 4) % 2; 
           print "isStarbase: $isStarbase\n";  
+          if ($isStarbase) { $warnId = &zerofy($Player) . '-base-' . &zerofy($designNumber);} # adding a zero lets us sort on key
+          else { $warnId = &zerofy($Player) . '-ship-' . &zerofy($designNumber); }  # adding a zero lets us sort on key
+          
         }
-        if ( $typeId == 27 ) { $index = 2; } # for the two extra bytes in a .x file  
         # If the order is to delete a design, the rest of the data isn't there.  Don't expect it to be.
         if ($deleteDesign) { 
-          $isFullDesign =  ($decryptedData[$index] & 0x04); print "isFullDesign: $isFullDesign\n";
-          $isTransferred = ($decryptedData[$index+1] & 0x80); print "isTransferred: $isTransferred\n";
-          $isStarbase = ($decryptedData[$index+1] & 0x40);  print "isStarbase: $isStarbase\n";
-          $designNumber = ($decryptedData[$index+1] & 0x3C) >> 2; print "designNumber: $designNumber\n";
-          $hullId = $decryptedData[$index+2] & 0xFF; print "HullId: $hullId (" . &showHull($hullId, 2) . ")\n";
+          $isFullDesign =  ($decryptedData[$index] & 0x04); 
+          print "isFullDesign: $isFullDesign\n";
+          $isTransferred = ($decryptedData[$index+1] & 0x80); 
+          print "isTransferred: $isTransferred\n";
+          $isStarbase = ($decryptedData[$index+1] & 0x40);  
+          print "isStarbase: $isStarbase\n";
+          $designNumber = ($decryptedData[$index+1] & 0x3C) >> 2; 
+          print "designNumber: $designNumber\n";
+          $hullId = $decryptedData[$index+2] & 0xFF; 
+          print "HullId: $hullId (" . &showHull($hullId, 2) . ")\n";
           unless ($isStarbase) { $fuelCapacity = &showHull($hullId, 17); }
-          $pic = $decryptedData[$index+3] & 0xFF; print "pic: $pic\n";  
+          $pic = $decryptedData[$index+3] & 0xFF; 
+          print "pic: $pic\n";  
           if ($hullId == 29) { $pic = 4*31; }  # No idea why these pics are swapped
           elsif ($hullId == 31) { $pic = 4*29; }
           if ($isFullDesign) {
-            # Since there can be a ship and base with the same hullId, 
+            # Since there can be a ship and base with the same designId, 
             # need to be able to keep them separate
-            if ($isStarbase) { $warnId = "base" . $designNumber; }
-            else { $warnId = "ship" . $designNumber; }
-            $armor = &read16(\@decryptedData, $index+4);  print "armor: $armor\n";
+            if ($isStarbase) { $warnId = &zerofy($Player) . '-base-' . &zerofy($designNumber);} # adding a zero lets us sort on key
+            else { $warnId = &zerofy($Player) . '-ship-' . &zerofy($designNumber) ; }  # adding a zero lets us sort on key
+            $armor = &read16(\@decryptedData, $index+4);  
+            print "armor: $armor\n";
             $armorIndex = $index +4; # used to fix the Space Dock overflow
-            $slotCount = $decryptedData[$index+6] & 0xFF; print "slotCount: $slotCount\n";  # Actual number of slots
-            $turnDesigned = &read16(\@decryptedData, $index+7); print "turnDesigned: " . $turnDesigned . "\n";
-            $totalBuilt = &read16(\@decryptedData, $index+9); print "totalBuilt: $totalBuilt\n";
-            $totalRemaining = &read16(\@decryptedData, $index+13); print "totalRemaining: $totalRemaining\n";
-            $slotEnd = $index+17+($slotCount*4); print "slotEnd: $slotEnd\n";
+            $slotCount = $decryptedData[$index+6] & 0xFF; 
+            print "slotCount: $slotCount\n";  # Actual number of slots
+            $turnDesigned = &read16(\@decryptedData, $index+7); 
+            print "turnDesigned: " . $turnDesigned . "\n";
+            $totalBuilt = &read16(\@decryptedData, $index+9); 
+            print "totalBuilt: $totalBuilt\n";
+            $totalRemaining = &read16(\@decryptedData, $index+13); 
+            print "totalRemaining: $totalRemaining\n";
+            $slotEnd = $index+17+($slotCount*4); 
+            print "slotEnd: $slotEnd\n";
             $shipNameLength = $decryptedData[$slotEnd];          
             print "shipNameLength: $shipNameLength  (using nibbles as characters, not bytes)\n";
             $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
             $index = 17;  
             if ($typeId == 27) { $index += 2; } # x files have 2 more bytes
             # Loop through once for each slot
+            my $itemSum = 0; # tracking if all the design slots are empty for the Cheap Starbase bug
             for (my $itemSlot = 0; $itemSlot < $slotCount; $itemSlot++) {
               $itemCategory = &read16(\@decryptedData, $index);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
               $index += 2;
               $itemId = &read8($decryptedData[$index++]); # Use current value of index, and increment by 1
               $itemCountIndex = $index; # used for the Space Dock overflow. 
               $itemCount = &read8($decryptedData[$index++]);
+              $itemSum = $itemSum + $itemCount;
               my ( $category_str,$item_str ) = &showCategory($itemCategory, $itemId);
-              if ( $category_str && $item_str ) { print "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount\n"; }
-              else { print "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount\n";}
+              if ( $category_str && $item_str ) { print "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount, index: $index\n"; }
+              else { print "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount, index: $index\n";}
 
               # Calculate actual fuel in hull (just because, in theory, I can)
               if ( $itemCount > 0 && !$isStarbase){
@@ -320,39 +630,53 @@ sub decryptShip {
                 }
               }
 
-              # Fix the colonizer bug
-              # Ships with a colonisation module removed and the slot left empty can still colonise planets
+              # Colonizer bug
+              # Ships with a colonization module removed and the slot left empty can still colonise planets
               # If a colonizer hull is created, and then edited, it's going to put 2 (or more)  entries in the .x file.
-              # so also need to filter.
+              # so need to filter.
               if ($itemId == 0 &&  $itemCategory == 4096 && $itemCount == 0) {
-                $err .= "***Colonizer bug detected in ship design slot $designNumber: $shipName (slot $itemSlot). ";
+                # Fixing display for those who don't count from 0.
+                $needsFixing = 1;
+                ($decryptedData[$index-4], $decryptedData[$index-3]) = &write16(0);
+                $err .= '***Colonizer bug detected for player ' . &plusone($Player) . ' in ship design slot ' . &plusone($designNumber) . ": $shipName (in slot " . &plusone($itemSlot) . '). ';
                 if ($fixFiles > 1) {
-                  $err .= "  Fixed!!!";
-                  ($decryptedData[$index-4], $decryptedData[$index-3]) = &write16(0);
-                  $needsFixing = 1;
-                } else {$err .= " ";}
-                $warning{$warnId} = $err;
+                  $err .= '  Fixed!!! Slot now truly empty.';
+                } else {$err .= '';}
+                $warning{$warnId.'-colonizer'} = $err;
                 print $err . "\n"; 
               }
+              # Detect Space Dock Overflow
+              # Don't fix it here because we don't know yet at a slot level what the rest of the slots are
+              if ( $isStarbase && $hullId == 33 && $itemId == 11  && $itemCategory == 8 && $itemCount > 21  && $armor  >= 49518) {  $spacedockOverflow = 1; } 
+              if ( $spacedockOverflow ) { if ($itemCategory == 4 && ($itemId == 6 || $itemId == 3)) { $crobyLangston = $itemCount; } }
+            }
+            if ($spacedockOverflow) {
               # Fix Space Dock Armor slot Buffer Overflow with super latanium
               # If your race has ISB and RS, building a Space Dock with more than 21 SuperLat in the Armor slot 
               # will result in some sort of error (of massively increased armor)
-              # Rick: I had hoped to fix this by simply rewriting the armor value. But it gets recalculated,
-              # so resetting the itemCount is the only choice. 
-              if ( $isStarbase && $hullId == 33 && $itemId == 11  && $itemCategory == 8 && $itemCount >=22  && $armor  >= 49518) {
-                $err = "***Spacedock Overflow bug of > 21 SuperLatanium detected in starbase design slot $designNumber: $shipName. ";
-                if ($fixFiles > 1) {
-                  $err .= "  Fixed!!! ";
-                  # reset the $itemCount 
-                  $decryptedData[$itemCountIndex] = 21;
-                  # Armor value should be 250 + (1500 * $itemCount) / 2
-                  $armor = 250 + (1500 * 21) / 2; # correct for 21 Super Latanium
-                  # reset the final armor value for the spacedock overflow bug
-                  ($decryptedData[$armorIndex], $decryptedData[$armorIndex+1]) = &write16($armor);
-                  $needsFixing = 1;
-                } else {$err .= " ";}
-                $warning{$warnId} = $err;
-                print $err . "\n";
+              # Rick: I had hoped to fix this by simply rewriting the armor value,
+              # but armor gets recalculated, so resetting the itemCount is the only choice. 
+              $err = '***Spacedock Overflow bug of > 21 SuperLatanium detected for player ' . &plusone($Player) . ' in starbase design slot ' . &plusone($designNumber) . ": $shipName. ";
+              # reset the $itemCount 
+              $decryptedData[$itemCountIndex] = 21;
+              # Armor value should be 250 + (1500 * $itemCount) / 2
+              $armor = 250 + (1500 * 21) / 2; # correct for 21 Super Latanium
+              if ($crobyLangston)  {  $armor += 60 * $crobyLangston; } # add on Croby or Langston armor
+              print "Updated armor value: $armor\n";
+              # reset the final armor value for the spacedock overflow bug
+              ($decryptedData[$armorIndex], $decryptedData[$armorIndex+1]) = &write16($armor);
+              $needsFixing = 1;
+              if ($fixFiles > 1) {
+                $err .= "  Fixed!!! SuperLatanium set to 21. New armor value: $armor";
+              } else {$err .= ' ';}
+              $warning{$warnId.'-dock'} = $err;
+              print $err . "\n";
+            }
+            # if we have a starbase with totally empty slots, we definitely don't have a Cheap Starbase situation anymore
+            if ($isStarbase && $itemSum == 0) { 
+              $brokenStarbase[$designNumber] = -1; 
+              if (exists ($warning{$warnId.'-cheap'}) && $warning{$warnId.'-cheap'}) { 
+                delete ($warning{$warnId.'-cheap'}); 
               }
             }
           } else { # If it's not a full design
@@ -366,115 +690,154 @@ sub decryptShip {
           
           # Detect the 10th starbase design
           if ( $isStarbase && $designNumber == 9 && $deleteDesign && $Player > 0 ) {
-            $err = "***Warning: Player $Player: Starbase ($shipName) in design slot 10 - Potential Crash if Player 1 Fleet 1 refuels when Last Player has a 10th starbase design";
+            $err = '***Warning: Player ' . &plusone($Player) . ": Starbase ($shipName) in design slot 10 - Potential Crash if Player 1 Fleet 1 refuels when Last Player has a 10th starbase design.";
             print $err . "\n"; 
-            $warning{'ten'} = $err;
+            $warning{ten} = $err;
           } 
+          # Detect the Cheap Starbase exploit    
+          # Editing a starbase under construction at a planet with no starbase
+          # Only need to check starbase orders
+          # If the design is deleted we also stop checking. 
+          print "$typeId == 27 && $isStarbase && $totalBuilt == 0 && ($brokenStarbase[$designNumber] < 0\n";
+          if ($typeId == 27 && $isStarbase && $totalBuilt == 0 && !($brokenStarbase[$designNumber]  < 0) ){ # .x and Starbase
+            my $queueDesignNumber = 16 + $designNumber; # the queue starts starbase design numbers after the ship design numbers
+            my $queueCounter;
+            foreach my $queueCounter (keys %queueList) {
+              print "Player: $queueList{$queueCounter}{Player}  itemType: $queueList{$queueCounter}{itemType}  itemId:  $queueList{$queueCounter}{itemId}  QueueDesign:  $queueDesignNumber\n";
+              if ($queueList{$queueCounter}{Player} == $Player && $queueList{$queueCounter}{itemType} == 4 && $queueList{$queueCounter}{itemId} == $queueDesignNumber) { # if the item in the queue is a ship design (4)
+                $err = '***Warning: Cheap Starbase Exploit for player ' . &plusone($Player) . '. Do not edit a starbase design under construction (slot ' . &plusone($designNumber) . ": $shipName) !\n";
+                $brokenStarbase[$designNumber] = 1; 
+                $needsFixing = 1;
+                print "$err\n";
+                $index = 19;  
+                # Loop through each slot, setting the slot to 0
+                for (my $itemSlot = 0; $itemSlot < $slotCount; $itemSlot++) {
+                  ($decryptedData[$index], $decryptedData[$index+1]) = &write16(0);
+                  $itemCategory = &read16(\@decryptedData, $index);
+                  $index += 2;
+                  $index++;
+                  $decryptedData[$index] = 0; 
+                  $itemId = $decryptedData[$index];
+                  $index++;
+                  $decryptedData[$index] = 0;
+                  $itemCount = $decryptedData[$index];
+                  my ( $category_str,$item_str ) = &showCategory($itemCategory, $itemId);
+                  if ( $category_str && $item_str ) { print "fixed slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount\n"; }
+                  else { print "fixed slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount\n";}
+                }
+                if ($fixFiles > 1) {
+                  $err .= '  Fixed!!! Starbase design reset to blank.';
+                } else {$err .= ' '; }
+                $warning{$warnId.'-cheap'} = $err;
+                # Need to track the state of which starbases are broken.
+              }
+            }
+          }
         } 
-        # For the Colonizer bug & Spacedock overflow track whether the design was 
-        # created, but remove the warning if the design was subsequently changed/deleted.
-        # If this designNumber is broken, set warning. Otherwise clear warning
+        # For the Colonizer bug & Spacedock overflow, track whether the design was 
+        # created, but remove the warning if the design was subsequently changed (inc. deleted).
         # (because a later .x file entry fixed this designnumber)
         # Store the error in a hash so it's only one / ship / file
         # Will handle for multi-turn .m files.
-        if (!$err && $warning{$warnId}) { 
-          delete( $warning{$warnId} ); 
-          print "Player Fix Noted\n";
+        if (!$err && $warning{$warnId.'-dock'}) { 
+          delete( $warning{$warnId.'-dock'} ); 
+          print "Spacedock Player Fix Noted for $warnId\n";
+        }
+        if (!$err && $warning{$warnId.'-colonizer'}) { 
+          delete( $warning{$warnId.'-colonizer'} ); 
+          print "Colonizer/Spacedock Player Fix Noted for $warnId\n";
         }
         # If the 10th starbase has been deleted, clear the warning
         if ( $isStarbase && $designNumber == 9 && $deleteDesign == 0 && $Player > 0 ){
-          if ($warning{'ten'}) { 
-            delete ($warning{'ten'}); 
-            print "Player Fix Noted\n";
+          if ($warning{$warnId.'-ten'}) { 
+            delete ($warning{$warnId.'-ten'}); 
+            print "10th Starbase Player Fix Noted \n";
           }
         }
-      }
-      # Part of the detection of the minefield 0-coordinate bug, but 
-      # the fleet block isn't mapped well-enough for me to figure out the coordinates
-      # easily
+        # If the edited Cheap Starbase design is deleted, 
+        # delete the queue entries as we no longer care for future checks on this design.
+        my $queueDesignNumber = 16 + $designNumber; # the queue starts starbase design numbers after the ship design numbers
+        if ( ($isStarbase && $deleteDesign == 0) ) {
+          # Determine which starbase
+          foreach my $queueCounter (sort keys %queueList) {
+            if ($queueList{$queueCounter}{Player} == $Player && $queueList{$queueCounter}{itemType} == 4 && $queueList{$queueCounter}{itemId} == $queueDesignNumber ) { # if the item in the queue is a ship design (4)
+              if (exists ($queueList{$queueCounter})) { 
+                delete $queueList{$queueCounter}; 
+              }
+            }
+          }
+          if (exists ($warning{$warnId.'-cheap'}) && $warning{$warnId.'-cheap'}) { 
+            delete ($warning{$warnId.'-cheap'}); 
+          }
+        }
+        # If the queue was cleared for planet, future queue no longer a problem
+        foreach my $queueCounter (keys %queueList) { # Loop through all the items in the queue
+          if ( $queueList{$queueCounter}{queueSize} == 2 ) {
+            if (exists ($queueList{$queueCounter})) { 
+              delete $queueList{$queueCounter}; 
+            }
+          }
+        }
+        # Now that the queues are cleared up, see if we still have a Cheap Starbase problem
+        my $stillBroken = 0;   
+        foreach my $queueCounter (keys %queueList) { # Loop through all the items in the queue
+          if ($queueList{$queueCounter}{Player} == $Player && $queueList{$queueCounter}{itemType} == 4 && $queueList{$queueCounter}{itemId} == $queueDesignNumber && $queueList{$queueCounter}{completePercent} > 0) { # if the item in the queue is a ship design (4)
+             $stillBroken = 1;
+          }
+        }
+        if ($stillBroken) {
+          $brokenStarbase[$designNumber] = 1;
+        } else {
+          if ($brokenStarbase[$designNumber] == 1) { print "Cheap Starbase Player Fix Noted\n"; }
+          $brokenStarbase[$designNumber] = -1;
+          if (exists ($warning{$warnId.'-cheap'}) && $warning{$warnId.'-cheap'}) { 
+            delete ($warning{$warnId.'-cheap'}); 
+          }
+        }
+      } 
+      # Part of the detection of the minefield 0-coordinate bug
       # THIS WOULD HAVE BEEN LESS WORK IF I'D KNOWN THIS WAS FIXED IN JRC4
-      elsif ($typeId == 4 || $typeId == 5 ) { # waypoint block (add/change) in .x files , waypoint block (20)
-#        if ($debug ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-#        if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-        # Detect ships moving pure east/west or pure north/south
-        # BUG: Doesn't work yet. Will need starting coordinates of fleet.
-        my %waypoint; # to store waypoints in a hash
-        my $fleetId = $decryptedData[0]; 
-        my $ownerId = $decryptedData[1]; 
-        my $positionObjectId = &read16(\@decryptedData, 2);
-			  my $xDest = &read16(\@decryptedData, 4);  # CORRECT!!!
-        my $yDest = &read16(\@decryptedData, 6);  # CORRECT!!!
-        my $test = &read16(\@decryptedData, 8);  
-        my $unknownBitsWithWarp = $decryptedData[6] & 0x0F;
-        my $positionObjectType = $decryptedData[7] & 0xFF;
-        my $fullWaypointData;
-        my $warp =  $decryptedData[10] >> 4; # CORRECT!!!
-#        print "Waypoint4 Block: fleetId: $fleetId, ownerId: $ownerId, test: $test, xDest: $xDest, yDest: $yDest, positionId: $positionObjectId, unk = $unknownBitsWithWarp, PositionType: $positionObjectType, warp: $warp\n";
-        $waypoint{'id'} = $fleetId;
-        $waypoint{'owner'} = $ownerId;
-        $waypoint{'x'} = $xDest;
-        $waypoint{'y'} = $yDest;
-        $waypoint{'position'} = $positionObjectId;
-        $waypoint[$waypointcounter] = { %waypoint };
-        $waypointcounter++;
-      }
-#       # THIS ALSO NOT NEEDED AS MINEFIELD WAYPOINT PROBLEMS FIXED IN JRC4
-#       elsif ($typeId == 20 ) { # waypoint block in .m files , waypoint block (20)
-#       # BUG: NOT WORKING
-# #        if ($debug ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-# #        if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
+#       elsif ($typeId == 4 || $typeId == 5 ) { # waypoint block (add/change) in .x files , waypoint block (20)
 #         # Detect ships moving pure east/west or pure north/south
 #         # BUG: Doesn't work yet. Will need starting coordinates of fleet.
-#         my %waypoint; # to store waypoints in a hash
-# #        my $fleetId = $decryptedData[0]; 
-# #        my $ownerId = $decryptedData[1]; 
-# #        my $positionObjectId = &read16(\@decryptedData, 2);
-# 			  my $xDest = &read16(\@decryptedData, 0);  #CORRECT
-#         my $yDest = &read16(\@decryptedData, 2);  #CORRECT
-#         my $fleetId = $decryptedData[3]; #Incorrect
-#         my $ownerId = $decryptedData[4]; #Incorrect
-#         
-# #        my $yDest = &read16(\@decryptedData, 6);  
-# #        my $unknownBitsWithWarp = $decryptedData[6] & 0x0F;
-# #        my $positionObjectType = $decryptedData[7] & 0xFF;
-# #        my $fullWaypointData;
-# #        my $warp =  $decryptedData[10] >> 4; 
-#         my $warp =  ($decryptedData[6] & 0xFF) >> 4;
-#         my $waypointTask = $decryptedData[6] & 0x0F;
-#         my $positionObject = &read16(\@decryptedData, 4);
-# #        print "WaypointM Block: fleetId: $fleetId, ownerId: $ownerId, test: $test, xDest: $xDest, yDest: $yDest, positionId: $positionObjectId, unk = $unknownBitsWithWarp, PositionType: $positionObjectType, warp: $warp\n";
-#         print "Waypoint20 Block: xDest: $xDest, yDest: $yDest, warp: $warp, task: $waypointTask, positionObject: $positionObject, " . &dec2bin($decryptedData[3]) . " " . &dec2bin($decryptedData[4]). " " . &dec2bin($decryptedData[5]). "\n";
-#         $waypoint{'id'} = $fleetId;
-#         $waypoint{'owner'} = $ownerId;
-#         $waypoint{'x'} = $xDest;
-#         $waypoint{'y'} = $yDest;
-#         $waypoint{'position'} = 'null';
-#         $waypoint[$waypointcounter] = { %waypoint };
-#         $waypointcounter++;
+#         my $fleetId = $decryptedData[0]; 
+#         my $ownerId = $decryptedData[1]; 
+#         my $positionObjectId = &read16(\@decryptedData, 2);
+# 			  my $xDest = &read16(\@decryptedData, 4);  # CORRECT!!!
+#         my $yDest = &read16(\@decryptedData, 6);  # CORRECT!!!
+#         my $test = &read16(\@decryptedData, 8);  
+#         my $unknownBitsWithWarp = $decryptedData[6] & 0x0F;
+#         my $positionObjectType = $decryptedData[7] & 0xFF;
+#         my $warp =  $decryptedData[10] >> 4; # CORRECT!!!
+#         print "Waypoint Block: fleetId: $fleetId, ownerId: $ownerId, test: $test, xDest: $xDest, yDest: $yDest, positionId: $positionObjectId, unk = $unknownBitsWithWarp, PositionType: $positionObjectType, warp: $warp\n";
+#         $waypoint{$ownerid}{$fleetId}{'positionObjectId'} = $positionObjectId;
+#         $waypoint{$ownerid}{$fleetId}{'xDest'} = $xDest;
+#         $waypoint{$ownerid}{$fleetId}{'yDest'} = $yDest;
+#         $waypoint{$ownerid}{$fleetId}{'positionObjectType'} = $positionObjectId;
+#         $waypoint{$ownerid}{$fleetId}{'warp'} = $warp;
 #       }
-
-      elsif ($typeId == 16 ) { # Fleet block and partial fleet block
+      elsif ( $typeId == 16 ) { # Fleet block and partial fleet block
         # don't care about a partial fleet block (17), as that would be a different
         # player's fleet.
-        my %fleet; # To store the values in a hash
-        my ($byte5);
         my ($fleetId, $ownerId, $hull);
         my ($byte2, $byte3); # who knows
         my $kindByte; # 3 for most partial, 4 for robber baron, 7 for full
+        my ($byte5);
+        my $shipCountTwoBytes;
         my $positionObjectId;
         my $index;
-        my $fileLength;
+        my ($x, $y);
+        my ($shipTypes);
+        #my $fileLength;
+        my $mask;
         my ($iLength, $bLength, $gLength);
         my ($popLength, $fuelLength);
         my $contentsLengths;
         my ($ironium, $boranium, $germanium);
-        my ($x, $y);
         my ($deltaX, $deltaY);  # partial fleet data
-        my ($shipTypes);
         my ($damagedShipTypes); # full fleet data
         my @damagedShipInfo;    # full fleet data
         my @shipCount;
-        my $mask;
         my ($population, $fuel);
         my ($warp, $waypointCount);
         my ($unknownBitsWithWarp); # partial fleet data
@@ -486,7 +849,6 @@ sub decryptShip {
 	      $byte3 = $decryptedData[3];
         $kindByte = $decryptedData[4];
         $byte5 = $decryptedData[5];
-        my $shipCountTwoBytes;
         if (($byte5 & 8) == 0) { $shipCountTwoBytes = 1; 
         } else  {$shipCountTwoBytes = 0; }
         $positionObjectId = &read16(\@decryptedData, 6);
@@ -507,13 +869,15 @@ sub decryptShip {
           } else { $shipCount[$bit] =0; } # Pad out the array
           $mask <<= 1;
         }
-        #print "\n\nshipTypes: " . &dec2bin($shipTypes) . "\n";
-        my $shipct =0 ;
+        my $shipct = 0 ;
+        my $shipCount = '';
         foreach my $val (@shipCount) {
-          if ($val ) { print "designNumber: $shipct   shipCount: $val\n";}
-          else { print "designNumber: $shipct   shipCount: 0\n";}
+          if ( $val ) {  $shipCount .= $val; 
+          } else { $shipCount .= '0'; }
+          if ($shipct <15) { $shipCount .= ',' }; 
           $shipct++;
         }
+        if ($shipct <15) { $shipCount .= ','; $shipct++; }
         # PARTIAL_KIND = 3, PICK_POCKET_KIND = 4, FULL_KIND = 7;
         #if ($kindByte != 7 && $kindByte != 4 && $kindByte != 3) {
         if ($kindByte == 7 || $kindByte == 4) {
@@ -563,28 +927,29 @@ sub decryptShip {
           $mass = &read32(\@decryptedData, $index);
           $index += 4;
         }
-        $x = &read16(\@decryptedData, 8); # Correct  (likely only in full block?)
+        $x = &read16(\@decryptedData, 8); # Correct (likely only in full block?)
         $y = &read16(\@decryptedData, 10); # Correct (likely only in full block?)
-        print "Fleet Block: fleetId: $fleetId, ownerId: $ownerId, x: $x, y: $y, battlePlan: $battlePlan, shipTypes:" . &dec2bin($shipTypes) . "\n";
-        #$fleet{'id'} = $fleetId;
-        $fleet{'player'} = $Player; # BUG: Are these different than "owner"? Likely
-        $fleet{'owner'} = $ownerId;
-        $fleet{'x'} = $x;
-        $fleet{'y'} = $y;
-        $fleet{'battlePlan'} = $battlePlan;
-        $fleet{'shipTypes'}  = &dec2bin($shipTypes);
-        $fleet{'shipCount'}  = \@shipCount; # This array doesn't have counts for any design after the last one with a number.
-        #$fleet[$fleetcounter] = { %fleet };
-        $fleetBlock{$fleetId} = { %fleet };
-        #$fleetcounter++;
+        #print "Fleet Block: ownerId: $ownerId, fleetId: $fleetId, x: $x, y: $y, battlePlan: $battlePlan, shipTypes:" . &dec2bin($shipTypes) . " shipCount: $shipCount\n";
+#        $fleet{$Player}{'player'} = $Player; # BUG: Are these different than "owner"? Likely
+        $fleetList{$ownerId}{$fleetId}{x} = $x;
+        $fleetList{$ownerId}{$fleetId}{y} = $y;
+        $fleetList{$ownerId}{$fleetId}{battlePlan} = $battlePlan;
+        $fleetList{$ownerId}{$fleetId}{shipTypes}  = &dec2bin($shipTypes);
+        # Go ahead and not pass an array, since we're going to be using this for other things.
+        $fleetList{$ownerId}{$fleetId}{shipCount}  = $shipCount; 
       } elsif ($typeId == 37) {  # Fleet Merge block
+        # the order of fleet merge is important
+        # HST files have owner info, .m and $x files have player information
+        # In theory I could process these real time, but I'm not.
+        unless ($Player) { $Player = $ownerId };
+        # Fleet 1 is the source ID, Fleet2 is the destination Id.
+        # IOW, Fleet 2 ceases to exist.
         my $fleetNumber1 = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
-        print "Fleet Number1: $fleetNumber1\n";
         my $fleetNumber2 = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 1) << 8);
-        print "Fleet Number2: $fleetNumber2\n";
         # Yeah, I could store this in binary. But why do that to myself.
-        $fleetMerge[$fleetMergeCounter] = "$fleetNumber1" . ',' . $fleetNumber2;
-        $fleetMergeCounter++;
+        $fleetMerge[$fleetMergeCount] = $Player . '|' . $fleetNumber1 . '|' . $fleetNumber2;
+        print "Merge: Player: $Player\tFleet 1: $fleetNumber1\tFleet 2: $fleetNumber2\t$fleetMerge[$fleetMergeCount]\n";
+        $fleetMergeCount++;
       }
       # END OF MAGIC
       # reencrypt the data for output
@@ -597,8 +962,7 @@ sub decryptShip {
   
   # If the data was not reset, no need to write the file back out
   # Faster, less risk of corruption
-  return \@outBytes, $needsFixing, \%warning;
-  #return \@outBytes;
+  return \@outBytes, $needsFixing, \%warning, \%fleetList, \@fleetMerge;
 }
 
 sub showHull {
@@ -683,6 +1047,72 @@ sub getMask {
   return ($check); 
 } 
 
+sub FileData {
+	# break out the incoming file name to useful bits
+	my ($File) = @_;
+	$File = lc($File); 
+	my $game_file = lc($File);
+	$game_file=~ s/(.*)(\..+)/$1/;
+	my $file_player = lc($File);
+	$file_player =~ s/(.*)(\.)(.)(.*)/$4/;
+	my $file_type = lc($File); 
+	$file_type =~ s/(.*)(\.)(.)(.*)/$3/;
+	my $file_ext = lc($File);
+	$file_ext =~ s/(.*)(\.)(.*)/$3/;
+	return $game_file, $file_player, $file_type, $file_ext; 	
+}
+
+sub FleetMerge {
+  # BUG: Only takes into account Merge, and also needs to take into account
+  # move and split
+  my ($fleetList, $fleetMerge) = @_;
+  my %fleetList = %$fleetList;
+  my @fleetMerge = @{$fleetMerge};
+  my ($player, $fleet1, $fleet2);
+  my (@shipCount1, @shipCount2);
+  
+  foreach my $merge (@fleetMerge) {
+    ($player, $fleet1, $fleet2) = split('\|',$merge);
+     print  "SPLIT: $player, $fleet1, $fleet2\n";
+    print "Fleet 1 prior to merge: $fleetList{$player}{$fleet1}{shipCount}\n";
+    print "Fleet 2 prior to merge: $fleetList{$player}{$fleet2}{shipCount}\n";
+    # I can see how this could be easier in binary
+    @shipCount1 = split(',', $fleetList{$player}{$fleet1}{shipCount});
+    @shipCount2 = split(',', $fleetList{$player}{$fleet2}{shipCount});
+    for (my $i = 0; $i <=15; $i++) {
+      $shipCount1[$i] = $shipCount1[$i] + $shipCount2[$i];
+    }
+    $fleetList{$player}{$fleet1}{shipCount} = join(',', @shipCount1);
+    print "Fleet 1     post merge: $fleetList{$player}{$fleet1}{shipCount}\n";
+    # BUG: delete won't work until split also works, because otherwise
+    # fleetIds disappear.
+    #if ($fleetList{$player}{$fleet2}) { delete($fleetList{$player}{$fleet2});}
+  }
+}
+
+sub plusone{
+# Increment the value of a number as one for display to end users
+# (who problably don't count from 0)
+  my ($val) = @_;
+  $val++;
+  return $val;
+} 
+
+sub zerofy {
+# make a 1 digit number 2 digits
+  my ($val) = @_;
+  if ($val < 10  && $val >=0 ) { return "0" . $val; }
+  else { return $val; } 
+}
+
+sub splitWarnId {
+  # I probably should make this another hash of hashes, but it would mean redesigning the warnId... again.
+	my ($warnId)  = @_;
+	my ($player, $designType, $designNumber, $warningType) = split ('-',$warnId);
+	$player = $player *1; # deZerofy
+	$designNumber = $designNumber * 1; # deZerofy
+	return ($player, $designType, $designNumber, $warningType);
+}
 #     public static int ITEM_ID_INDEX = 0;
 #     public static int MASS_INDEX = 7;
 #     public static int ARMOR_INDEX = 15;

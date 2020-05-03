@@ -59,7 +59,7 @@ my $dirname; # individual directory name
 my $filename; # individual file name
 
 # Name of the Game (the prefix for the .xy file)
-my $GameFile = 'CFDE7F2C';  
+my $GameFile = '860DCEFD';  
 my $sourcedir = $FileHST . '\\' . $GameFile;
 # Where to output the .ini, .pcx, and .bat files
 my $destdir = $sourcedir . '.mov';
@@ -99,8 +99,8 @@ foreach $dirname (@AllDirs) {
     if ($firstPass) {
       $firstPass = 0; # Don't do this again
       my $HST = "$destdir\\$dirname\\" . $GameFile . '.HST';
-      &getRaceNames($HST);
-#      print "Singular: @singularRaceNames" . "\n";
+      @singularRaceNames = &getRaceNames($HST);
+      print "Singular: @singularRaceNames" . "\n";
     }
     # Only for the .M files
     if ($filename =~ /^(\w+[\w.-]+\.[Mm]\d{1,2})$/) { 
@@ -223,6 +223,7 @@ print IMGFILE "\"" . $imagemagick . "\"" . " -loop 1 -delay 100 " . " \"$destdir
 close IMGFILE;
 system($DataOutFile);
 
+die;
 if ($destdir) { rmtree($destdir) or die "$!: for directory $destdir\n"; }
 
 ##########################################
@@ -239,6 +240,7 @@ sub getRaceNames {
   # Read in the binary Stars! file, byte by byte
   my $FileValues;
   my @fileBytes;
+  my @singularRaceNames;
   open(StarFile, "<$HST" );
   binmode(StarFile);
   while ( read(StarFile, $FileValues, 1)) {
@@ -246,7 +248,9 @@ sub getRaceNames {
   }
   close(StarFile);
   # Decrypt the data, block by block
-  &decryptNameBlock(@fileBytes);
+  @singularRaceNames = &decryptNameBlock(@fileBytes);
+  @$singularRaceNames = $singular;
+  return @singularRaceNames;
 }
   
 ################################################################
@@ -261,6 +265,7 @@ sub decryptNameBlock {
   my ($random, $seedA, $seedB, $seedX, $seedY );
   my ($blockId, $size, $data );
   my $offset = 0; #Start at the beginning of the file
+  my @singularRaceNames;
   my $debug = 0;
   while ($offset < @fileBytes) {
     # Get block info and data
@@ -279,7 +284,7 @@ sub decryptNameBlock {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
       @decryptedData = @{ $decryptedData };  
       # WHERE THE MAGIC HAPPENS
-      my $playerId = $decryptedData[0];
+      my $playerId = $decryptedData[0] & 0xFF; 
       my $fullDataFlag = ($decryptedData[6] & 0x04);
       my $index = 8;
       if ($fullDataFlag) { 
@@ -291,9 +296,12 @@ sub decryptNameBlock {
       my $singularNameLength = $decryptedData[$index] & 0xFF;
       my $singularMessageEnd = $index + $singularNameLength;
       my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+#      my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
+#      my $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
       push @singularRaceNames, $singularRaceName;
-      # END OF MAGIC
     }
+     # END OF MAGIC
     $offset = $offset + (2 + $size); 
   }
+  return @singularRaceNames;
 }
