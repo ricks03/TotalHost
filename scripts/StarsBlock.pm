@@ -515,9 +515,9 @@ sub decryptPWD {
           $decryptedData[15] = 0;  
           $pwdreset = 1;
         } else { 
-          if ($playerId != $Player) { print "Block $offset is for another player!\n"; }
-          # BUG: In .HST some Player blocks could be password protected, and some not
-          else { print "Block $offset isn't password-protected!\n"; }
+#           if ($playerId != $Player) { print "Block $offset is for another player!\n"; }
+#           # BUG: In .HST some Player blocks could be password protected, and some not
+#           else { print "Block $offset isn't password-protected!\n"; }
 # BUG: This prevents this from working when there's more than one Type 6 block, and
 # the first one doesn't have a password.
 #          return 0;

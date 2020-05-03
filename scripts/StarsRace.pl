@@ -109,8 +109,7 @@ sub decryptBlockRace {
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
     if ($debug > 1) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
-    # FileHeaderBlock, never encrypted
-    if ($typeId == 8) {
+    if ($typeId == 8) { # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
@@ -160,6 +159,7 @@ sub decryptBlockRace {
           print "Homeworld: $homeWorld\n";
           # BUG: the references say this is two bytes, but I don't think it is.
           # That means I don't know what byte 11 is tho. 
+          # Maybe in usiverses with more planets
          my $rank = $decryptedData[10];
           print "Player Rank: $rank\n";
           # Bytes 12..15 are the password;

@@ -34,7 +34,7 @@ use strict;
 use warnings;   
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
-my $debug = 0; # Enable better debugging output. Bigger the better
+my $debug = 1; # Enable better debugging output. Bigger the better
 
 #Stars random number generator class used for encryption
 my @primes = ( 
@@ -51,11 +51,13 @@ my @primes = (
 ##########  
 my $inBlock = '';
 my $inBin = 0; 
-my $inName = $ARGV[0]; # input file
+my $inName;
+my $filename; 
+$inName = $ARGV[0]; # input file
 $inBlock = $ARGV[1]; # Desired block Type
 $inBin = $ARGV[2]; # Desired block Type
 unless ($inBlock) { $inBlock = -1;}
-my $filename = $inName;
+$filename = $inName;
 
 if (!($inName)) { 
   print "\n\nDisplays the (decrypted) byte information in Stars! blocks.\n";
@@ -122,7 +124,7 @@ sub decryptBlock {
     #if ($debug) { print "\nBLOCK blockId: $blockId, Offset: $offset, Size: $size\n"; }
     #if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
-    if ($blockId == 8) {
+    if ($blockId == 8) {  # File Header Block
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
@@ -134,9 +136,10 @@ sub decryptBlock {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
-      if ($debug) { print "\nDATA DECRYPTED:\n" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
+#    if ($blockId == 28 || $blockId == 29) {
       &processData(\@decryptedData,$blockId,$offset,$size);
+#    }
       # END OF MAGIC
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
@@ -154,17 +157,20 @@ sub processData {
   my ($decryptedData,$blockId,$offset,$size)  = @_;
   my @decryptedData = @{ $decryptedData };
 
-  if ($inBlock == $blockId || $inBlock eq -1) {
-  print "BLOCK:$blockId,Offset:$offset,Bytes:$size\t\n";
-  if ($inBin) {
-    if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
-    my $counter =0;
-    foreach my $key ( @decryptedData ) { 
-      print "byte  $counter:\t$key\t" . &dec2bin($key); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
-      $counter++;
-      
-    }  
-    print "\n";    
-  } else {print "\t" . join ( "\t", @decryptedData ), "\n";}
+  if ($inBlock == $blockId || $inBlock == -1) {
+    if ($debug) { print "BLOCK:$blockId,Offset:$offset,Bytes:$size\t"; }
+    if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
+    if ($inBin) {
+      if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
+      my $counter =0;
+      foreach my $key ( @decryptedData ) { 
+        print "byte  $counter:\t$key\t" . &dec2bin($key); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
+        $counter++;
+        
+      }  
+      print "\n";    
+    } else {
+#      print "\t" . join ( "\t", @decryptedData ), "\n";
+    }
   }
 }
