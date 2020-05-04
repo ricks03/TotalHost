@@ -137,12 +137,13 @@ if (!($filename)) {
   print "Please enter the input file (.X|.M|.HST). Example: \n";
   print "  StarsShip.pl c:\\games\\test.m1\n\n";
   print "Lists all ship data and fixes (or warns) for detected bugs:\n";
-  print "   Colonizer Module remaining when removed\n";
-  print "   Space Dock overflow\n";
-  print "   Player with 10th starbase\n";
+  print "   Colonizer Module remaining when removed (.x|.m|.hst)\n";
+  print "   Space Dock overflow (.x|.m|.hst)\n";
+  print "   Player with 10th starbase (.m|.hst)\n";
+  print "   Cheap Starbase (.x, requires .M|.HST pass first,creating a .queue file)\n";
   print "By default, a new file will be created: <filename>.clean\n\n";
   print "You can create a different file with StarsShip.pl <filename> <newfilename>\n";
-  print "  StarsShip.pl <filename> <filename> will overwrite the original file.\n\n";
+  print "  StarsShipQueue.pl <filename> <filename> will overwrite the original file.\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
 }
@@ -161,14 +162,14 @@ my ($game_file, $file_player, $file_type, $file_ext) = &FileData ($basefile);
 my $HSTFile = $dir . '\\' . $basename . '.HST';
 my $MFile = $dir . '\\' . $basename . '.m' . $file_player;
 
+# Need the queue data from .M/.HST to determine Cheap Starbase
 # Read in all the planetary queues not assuming they
 # have been written out to a .HST file previously
 # so we have it available when checking the design slot changes
 # (Although the planets are before the design slots)
-my @queueList;
 my %queueList;
-# BUG: Need better logic here for detecting .m or .HST
-my $queueFile = $dir . '\\' . $basename . '.HST' . '.queue';
+my %queueListHST;
+my $queueFile = $dir . '\\' . $basename . ".$file_type" . '.queue';
 if (-e $queueFile && $file_type eq 'x') {
   my($Player,$planetId,$itemId,$count,$completePercent,$itemType, $queueSize);
   my @queueFile;
@@ -177,12 +178,13 @@ if (-e $queueFile && $file_type eq 'x') {
   open (IN_FILE,$queueFile) || die("Cannot open $queueFile file");
   @queueFile = <IN_FILE>;
 	close IN_FILE;
-  # Turn the file into a usable array
+  # Turn the file into a usable hash
   foreach my $line (@queueFile) {
     #print "$line";
   	chomp($line);
    	($Player,$planetId,$itemId,$count,$completePercent,$itemType, $queueSize)	= split (",", $line);
     # There is no unique combination of values for a queue
+    # So using a  faux-counter
     $queueList{$queueCounter}{Player} = $Player;
     $queueList{$queueCounter}{planetId} = $planetId;
     $queueList{$queueCounter}{itemId} = $itemId;
@@ -211,10 +213,11 @@ foreach my $queueCounter (sort keys %queueList) {
   print "\n";
 }
 
+# Need the fleet info from .M/.HST for the 32k bug
 # Read in all the fleets not assuming they
 # have been written out to a .HST file previously
 # so we have it available when checking the design slot changes
-my %fleetList;
+ my %fleetList;
 # my $fleetFile = $dir . '\\' . $basename . '.hst' . '.fleet';
 # if (-e $fleetFile && $file_type eq 'x') {
 #   my @fleetFile;
@@ -262,11 +265,12 @@ while (read(StarFile, $FileValues, 1)) {
 }
 close(StarFile);
 # Decrypt the data, block by block, and process it
-my ($outBytes, $needsFixing, $warning, $fleetList, $fleetMerge) = &decryptShip(@fileBytes);
+my ($outBytes, $needsFixing, $warning, $fleetList, $fleetMerge, $queueListHST) = &decryptShip(@fileBytes);
 my @outBytes = @{$outBytes};
 %warning = %$warning;
 %fleetList = %$fleetList;
 @fleetMerge = @{$fleetMerge};
+$queueListHST = %$queueListHST;
 #################################################33
 # Deal with the results.
 
@@ -327,6 +331,17 @@ my @outBytes = @{$outBytes};
 #print "\nMERGE:\n";
 #&FleetMerge (\%fleetList, \@fleetMerge); 
 
+# write out the unmodified queue list
+if ($file_type eq 'h' || $file_type eq 'm') {
+  open (QUEUEFILE, ">$queueFile");
+  foreach my $queueCounter (keys %queueListHST) {
+    print QUEUEFILE "$queueListHST{$queueCounter}{Player},$queueListHST{$queueCounter}{planetId},$queueListHST{$queueCounter}{itemId},$queueListHST{$queueCounter}{count},$queueListHST{$queueCounter}{completePercent},$queueListHST{$queueCounter}{itemType},$queueListHST{$queueCounter}{queueSize}\n";
+  }
+  close QUEUEFILE;
+  print "Done writing out $queueFile\n";
+}
+
+
 print "\nRESULTS:\n";
 if (%warning) { 
   foreach my $key (sort keys %warning) {
@@ -375,7 +390,7 @@ sub decryptShip {
     ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
     @data = @{ $data }; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-    if ($debug > 1) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+    if ($debug > 1 ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
     if ($debug > 100) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) { # File Header Block
@@ -393,11 +408,16 @@ sub decryptShip {
       if ( $debug  > 1) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
-        my $playerId = $decryptedData[0] & 0xFF; print "Player Id: $playerId\n";
-        my $shipDesigns = $decryptedData[1] & 0xFF;  print " Ship Designs: $shipDesigns\n";
-        my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); print " Planets: $planets\n";
-        my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);  print " Fleets: $fleets\n";
-        my $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); print " Starbase Designs: $starbaseDesigns\n";
+        my $playerId = $decryptedData[0] & 0xFF; 
+        #print "Player Id: $playerId\n";
+        my $shipDesigns = $decryptedData[1] & 0xFF;  
+        #print " Ship Designs: $shipDesigns\n";
+        my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); 
+        #print " Planets: $planets\n";
+        my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);  
+        #print " Fleets: $fleets\n";
+        my $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); 
+        #print " Starbase Designs: $starbaseDesigns\n";
         $player{$playerId}{shipDesigns} = $shipDesigns;
         $player{$playerId}{planets} = $planets;
         $player{$playerId}{fleets} = $fleets;
@@ -405,7 +425,6 @@ sub decryptShip {
         $designShipTotal +=  $player{$playerId}{shipDesigns};
         $designBaseTotal +=  $player{$playerId}{starbaseDesigns};
         $lastPlayer = $playerId; # keep track of the largest known player Id
-        #print "!!!!!!Designs: Player: $playerId, Ship $player{$playerId}{shipDesigns}, Base: $player{$playerId}{starbaseDesigns}  Totals: $designShipTotal $designBaseTotal\n";
       } elsif ( $typeId == 13) { # Planet Block to get Player ID for ProductionQueue
         # This always precedes the Production Queue in the .M and .HST file
         $planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
@@ -430,7 +449,7 @@ sub decryptShip {
       # Detect the Cheap Starbase in the producton queue
       elsif ( $typeId == 28 || $typeId == 29) { # ProductionQueueBlock and ProductionQueueChangeBlock
         # if not a .x file, we get the player Id from the most recent planet info
-        # Because the player info isn't in the ProductionQueueBlock 
+        # because the player info isn't in the ProductionQueueBlock 
         my $index = 0;
         my ($chunk1, $chunk2, $itemId, $count, $completePercent, $itemType, $queueSize);
         if ($typeId == 28) { 
@@ -440,8 +459,13 @@ sub decryptShip {
           $index = 2;
         } 
         $planetId = &read16(\@decryptedData, 0);
-        foreach my $queueCounter (keys %queueList) {
-        
+        if ($typeId == 29 ) {
+          # Any change means erasing any old values for this planet
+          foreach my $queueCounter (keys %queueList) {
+            if (exists ($queueList{$queueCounter}{planetId}) ) { 
+                  delete $queueList{$queueCounter}; 
+            }
+          }  
         }
         for (my $i=$index; $i <= scalar(@decryptedData) -4; $i=$i+4) {
           $chunk1 = &read16(\@decryptedData, $i);
@@ -451,37 +475,25 @@ sub decryptShip {
           $completePercent = $chunk2 >> 4; #Top 12 bits
           $itemType = $chunk2 & 0xF; # bottom 4 bits
           print "Queue: Player: $Player, planetId: $planetId, itemId: $itemId, count: $count, %complete: $completePercent, itemType: $itemType, size: $size\n"; 
-          #if ($typeId == 28) {
-#             my $queueBlock = "$Player,$planetId,$itemId,$count,$completePercent,$itemType,$size";
-#             push  @queueBlock, $queueBlock;
-          #}
+          $queueCounter++;
+          $queueList{$queueCounter}{Player} = $Player;
+          $queueList{$queueCounter}{planetId} = $planetId;
+          $queueList{$queueCounter}{itemId} = $itemId;
+          $queueList{$queueCounter}{count} = $count;
+          $queueList{$queueCounter}{completePercent} = $completePercent;
+          $queueList{$queueCounter}{itemType} = $itemType;
+          $queueList{$queueCounter}{queueSize} = $size;
+          # Store an copy that won't be modified
+          $queueListHST{$queueCounter}= $queueList{$queueCounter};
         }
-        # A change needs to replace the values in the array for this planet
-        if ($typeId == 29 ) {
+        if ($typeId == 29 && $size == 2) { # Clear Queue 
           # Need to clear the ProductionQueue array if this is a clear queue action
           # because we no longer care about what was in this production queue prior
           # If Cheap Starbase bug, clearing the planet queue fixes it.
-          if ($size == 2) { # Clear Queue & check on Cheap Starbase
-            foreach my $queueCounter (keys %queueList) {
-              if (exists ($queueList{$queueCounter}{planetId}) && $queueList{$queueCounter}{planetId} == $planetId) { 
-                #print "CLEARING queue for planet: $queueList{$queueCounter}{planetId}\n";
-                delete $queueList{$queueCounter}; 
-              }
-            }
-          } else {
-            # Otherwise update the current queue array 
-            foreach my $queueCounter (keys %queueList) {
-              if (exists ($queueList{$queueCounter}{planetId}) ) { 
-                delete $queueList{$queueCounter}; 
-                $queueCounter++;
-                $queueList{$queueCounter}{Player} = $Player;
-                $queueList{$queueCounter}{planetId} = $planetId;
-                $queueList{$queueCounter}{itemId} = $itemId;
-                $queueList{$queueCounter}{count} = $count;
-                $queueList{$queueCounter}{completePercent} = $completePercent;
-                $queueList{$queueCounter}{itemType} = $itemType;
-                $queueList{$queueCounter}{queueSize} = $size;
-              }
+          foreach my $queueCounter (keys %queueList) {
+            if (exists ($queueList{$queueCounter}{planetId}) && $queueList{$queueCounter}{planetId} == $planetId) { 
+              #print "CLEARING queue for planet: $queueList{$queueCounter}{planetId}\n";
+              delete $queueList{$queueCounter}; 
             }
           }
         }
@@ -494,7 +506,6 @@ sub decryptShip {
           if ($warningType eq 'cheap') {
             my $designId = $designNumber + 16;
             foreach my $queueCounter (keys %queueList) {
-              #print "$queueList{$queueCounter}{Player} == $player &&  $queueList{$queueCounter}{itemId} == $designId \n";
               if ($queueList{$queueCounter}{Player} == $player &&  $queueList{$queueCounter}{itemId} == $designId) {
                 $stillBroken = 1;
                 print "Still broken\n";
@@ -672,7 +683,7 @@ sub decryptShip {
               $warning{$warnId.'-dock'} = $err;
               print $err . "\n";
             }
-            # if we have a starbase with totally empty slots, we definitely don't have a Cheap Starbase situation anymore
+            # if we have a starbase with totally empty slots, we definitely don't have a Cheap Starbase
             if ($isStarbase && $itemSum == 0) { 
               $brokenStarbase[$designNumber] = -1; 
               if (exists ($warning{$warnId.'-cheap'}) && $warning{$warnId.'-cheap'}) { 
@@ -692,13 +703,12 @@ sub decryptShip {
           if ( $isStarbase && $designNumber == 9 && $deleteDesign && $Player > 0 ) {
             $err = '***Warning: Player ' . &plusone($Player) . ": Starbase ($shipName) in design slot 10 - Potential Crash if Player 1 Fleet 1 refuels when Last Player has a 10th starbase design.";
             print $err . "\n"; 
-            $warning{ten} = $err;
+            $warning{$warnId.'-ten'} = $err;
           } 
           # Detect the Cheap Starbase exploit    
-          # Editing a starbase under construction at a planet with no starbase
+          # Editing a starbase under construction at planet(s) with no starbase
           # Only need to check starbase orders
-          # If the design is deleted we also stop checking. 
-          print "$typeId == 27 && $isStarbase && $totalBuilt == 0 && ($brokenStarbase[$designNumber] < 0\n";
+          # If the design is deleted we also stop checking 
           if ($typeId == 27 && $isStarbase && $totalBuilt == 0 && !($brokenStarbase[$designNumber]  < 0) ){ # .x and Starbase
             my $queueDesignNumber = 16 + $designNumber; # the queue starts starbase design numbers after the ship design numbers
             my $queueCounter;
@@ -729,14 +739,13 @@ sub decryptShip {
                   $err .= '  Fixed!!! Starbase design reset to blank.';
                 } else {$err .= ' '; }
                 $warning{$warnId.'-cheap'} = $err;
-                # Need to track the state of which starbases are broken.
               }
             }
           }
         } 
         # For the Colonizer bug & Spacedock overflow, track whether the design was 
-        # created, but remove the warning if the design was subsequently changed (inc. deleted).
-        # (because a later .x file entry fixed this designnumber)
+        # created, but remove the warning if the design was subsequently changed (inc. deleted)
+        # (because a later .x file entry modified this designnumber)
         # Store the error in a hash so it's only one / ship / file
         # Will handle for multi-turn .m files.
         if (!$err && $warning{$warnId.'-dock'}) { 
@@ -962,7 +971,7 @@ sub decryptShip {
   
   # If the data was not reset, no need to write the file back out
   # Faster, less risk of corruption
-  return \@outBytes, $needsFixing, \%warning, \%fleetList, \@fleetMerge;
+  return \@outBytes, $needsFixing, \%warning, \%fleetList, \@fleetMerge, \%queueListHST;
 }
 
 sub showHull {
