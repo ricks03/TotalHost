@@ -75,25 +75,34 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-my ($outBytes, $queueBlock) = &decryptQueue(@fileBytes);
+#my ($outBytes, $queueBlock, $queueList) = &decryptQueue(@fileBytes);
+#my ($outBytes, $queueBlock, $queueList) = &decryptQueue(@fileBytes);
+my ($outBytes, $queueList) = &decryptQueue(@fileBytes);
 my @outBytes = @{$outBytes};
-my @queueBlock = @{$queueBlock};
-
+#my @queueBlock = @{$queueBlock};
+my %queueList = %$queueList;
 
 # Write out the BuildQueue for .HST files
-my $queueFile;
-my @queueList;
-$queueFile = $dir . '\\' . $basefile . '.queue';
-if (@queueBlock && lc($ext) eq '.hst') {
-  #$queueBlock = "$Player,$planetId,$itemId,$count,$completePercent,$itemType,$size";
-  print "Writing out QUEUEFILE $queueFile...\n";
+my $queueFile = $dir . '\\' . $basefile . '.queue';;
+#my @queueList;
+# if (@queueBlock && lc($ext) eq '.hst') {
+#   #$queueBlock = "$Player,$planetId,$itemId,$count,$completePercent,$itemType,$size";
+#   print "Writing out QUEUEFILE $queueFile...\n";
+#   open (QUEUEFILE, ">$queueFile");
+#   for my $value (@queueBlock) {
+#     print QUEUEFILE $value . "\n";
+#   }
+#   close QUEUEFILE;
+#   print "Done writing\n";
+if (lc($ext) eq '.hst') {
   open (QUEUEFILE, ">$queueFile");
-  for my $value (@queueBlock) {
-    print QUEUEFILE $value . "\n";
+  foreach my $queueCounter (keys %queueList) {
+    print QUEUEFILE "$queueList{$queueCounter}{Player},$queueList{$queueCounter}{planetId},$queueList{$queueCounter}{itemId},$queueList{$queueCounter}{count},$queueList{$queueCounter}{completePercent},$queueList{$queueCounter}{itemType},$queueList{$queueCounter}{queueSize}\n";
   }
   close QUEUEFILE;
   print "Done writing\n";
 } elsif (-e $queueFile && $file_type eq 'x') {
+  my @queueList;
   # Check the productionchangequeue for issues
   ############################################
   # Read in all the planetary queues not assuming they
@@ -106,26 +115,35 @@ if (@queueBlock && lc($ext) eq '.hst') {
 	close IN_FILE;
   print "Done reading in $queueFile\n";
   # Turn the file into a usable array
-  my($Player,$planetId,$itemId,$count,$completePercent,$itemType,$queueSize);
+  #my($Player,$planetId,$itemId,$count,$completePercent,$itemType,$queueSize);
   my %queueList;
   my $queueId;
+  my $queueCounter = 0;
   foreach my $line (@queueList) {
   	chomp($line);
-   	($Player,$planetId,$itemId,$count,$completePercent,$itemType,$queueSize)	= split (",", $line);
-    $queueId = "$Player,$itemId";
-    $queueList{$queueId} = [$itemId,$count,$completePercent,$itemType,$queueSize];  
+   	my ($Player,$planetId,$itemId,$count,$completePercent,$itemType,$queueSize)	= split (",", $line);
+#    $queueId = "$Player,$itemId";
+#    $queueList{$queueId} = [$itemId,$count,$completePercent,$itemType,$queueSize];  
+    $queueList{$queueCounter}{Player} = $Player;
+    $queueList{$queueCounter}{planetId} = $planetId;
+    $queueList{$queueCounter}{itemId} = $itemId;
+    $queueList{$queueCounter}{count} = $count;
+    $queueList{$queueCounter}{completePercent} = $completePercent;
+    $queueList{$queueCounter}{itemType} = $itemType;
+    $queueList{$queueCounter}{queueSize} = $queueSize;
+    $queueCounter++;
   }
     
-  # Compare the productionchangeblock orders to the existing production queues
-  print "Running Compare\n";
-  foreach my $value ( @queueBlock ) {
-    print "Compare: $Player,$planetId,$itemId,$count,$completePercent,$itemType, $queueSize\n";
-    ($Player,$planetId,$itemId,$count,$completePercent,$itemType,$queueSize)	= split (",", $value); 
-    $queueId = "$Player,$itemId";
-    if ($queueList{$queueId}[7] == 4 && $queueList{$queueId}[4] == $value) {
-      print "You can't change that starbase\n";
-    }
-  }
+#   # Compare the productionchangeblock orders to the existing production queues
+#   print "Running Compare\n";
+#   foreach my $value ( @queueBlock ) {
+#     print "Compare: $Player,$planetId,$itemId,$count,$completePercent,$itemType, $queueSize\n";
+#     ($Player,$planetId,$itemId,$count,$completePercent,$itemType,$queueSize)	= split (",", $value); 
+#     $queueId = "$Player,$itemId";
+#     if ($queueList{$queueId}[7] == 4 && $queueList{$queueId}[4] == $value) {
+#       print "You can't change that starbase\n";
+#     }
+#   }
 }
 
 ################################################################
@@ -143,6 +161,7 @@ sub decryptQueue {
   my ($typeId, $size, $data);
   my $offset = 0; #Start at the beginning of the file
   my ($planetId, $owner); 
+  my $queueCounter = 0;
   while ($offset < @fileBytes) {
     # Get block info and data
     ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
@@ -192,8 +211,17 @@ sub decryptQueue {
           if ($owner) { $Player = $owner } else { $Player = $Player; }
           print "Player: $Player, planetId: $planetId, Queue: itemId: $itemId, count: $count, %complete: $completePercent, itemType: $itemType, size: $size\n"; 
           if ($typeId == 28) {
-            my $queueBlock = "$Player,$planetId,$itemId,$count,$completePercent,$itemType,$size";
-            push  @queueBlock, $queueBlock;
+#            my $queueBlock = "$Player,$planetId,$itemId,$count,$completePercent,$itemType,$size";
+#            push @queueBlock, $queueBlock;
+            $queueList{$queueCounter}{Player} = $Player;  
+            $queueList{$queueCounter}{planetId} = $planetId;  
+            $queueList{$queueCounter}{itemId} = $itemId;   
+            $queueList{$queueCounter}{count} = $count;  
+            $queueList{$queueCounter}{completePercent} = $completePercent;  
+            $queueList{$queueCounter}{itemType} = $itemType;
+            $queueList{$queueCounter}{queueSize} = $size; 
+            #print "Queue: $queueList{$queueCounter}{Player},$queueList{$queueCounter}{planetId},$queueList{$queueCounter}{itemId},$queueList{$queueCounter}{count},$queueList{$queueCounter}{completePercent},$queueList{$queueCounter}{itemType},$queueList{$queueCounter}{queueSize}\n";
+            $queueCounter++;
           }
         }
       }  
@@ -205,7 +233,8 @@ sub decryptQueue {
     }
     $offset = $offset + (2 + $size); 
   }
-  return \@outBytes, \@queueBlock;
+#  return \@outBytes, \@queueBlock, \%queueList;
+  return \@outBytes, \%queueList;
 }
 
 sub FileData {
