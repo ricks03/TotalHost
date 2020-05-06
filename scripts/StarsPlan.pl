@@ -3,9 +3,9 @@
 # Rick Steeves
 # starsah@corwyn.net
 # Version History
-# 200504
+# 200505
 #
-#     Copyright (C) 2019 Rick Steeves
+#     Copyright (C) 2020 Rick Steeves
 # 
 #     This file is part of TotalHost, a Stars! hosting utility.
 #     TotalHost is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 #
 
 #
-# Display Battle Plans      TBD not working
+# Display Battle Plans
 # Example Usage: StarsPlan.pl c:\stars\game.m1
 #
 # Gets the values for Battle Plans
@@ -59,9 +59,9 @@ my @primes = (
         
 my $filename = $ARGV[0]; # input file
 if (!($filename)) { 
-  print "\n\nUsage: StarsRace.pl <input file>\n\n";
+  print "\n\nUsage: StarsPlan.pl <input file>\n\n";
   print "Please enter the input file (.R|.M|.HST). Example: \n";
-  print "  StarsRace.pl c:\\games\\test.r1\n\n";
+  print "  StarsPlan.pl c:\\games\\test.r1\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
 }
@@ -189,28 +189,6 @@ sub decryptBlockPlan {
   }
   return \@outBytes;
 }
-
-# sub target {
-#    my ($value) = @_;
-#    #None, any, starbase, Armed, bombers, unarmed, fuel, freighters 
-#    my @target = qw(None Any Starbase Armed Bombers Unarmed Fuel Freighters);
-#    return $category[$value];
-# }
-# 
-# sub tactic {
-#    my ($value) = @_;
-#    #Disengage, Disengage if Challenged, Min to self, max net, max ratio, max
-#    my @tactic = qw(Disengage ifChallenged minToSelf maxNet maxRatio Max);
-#    return $category[$value];
-# }
-
-# sub attackWho {
-#    my ($value) = @_;
-#    #Nobody, Enemies, Neutral/Enemies, Everyone, [Players] 
-#    my @category = qw(Nobody Enemies Neutral/Enemies Everyone 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16);
-#    if ($value > 3) { my $player = $value -3; return "Player $player"; }
-#    else { return $category[$value]; }
-# }
 
 sub getMask {
 # Return true if the associated bit is set for the number
