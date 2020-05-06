@@ -23,15 +23,16 @@
 #
 
 #
-# Return Ship, Fleet, Waypoint, and Queue attributes
-# Example Usage: StarsShip.pl c:\stars\game.m1
+# Return Ship, Fleet, Waypoint, Queue, and Battle block attributes
+# Example Usage: StarsFix.pl c:\stars\game.m1
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
-# But detects the colonizer, spacedock, 10 starbase, and cheap starbase issues
+# But detects, can fix, and can detect fixes of the colonizer, spacedock, 
+# 10 starbase, cheap starbase, and friendly fire  issues
 
-# An "upgrade" of StarsShip.pl, as we're adding in the abilty to check for 
-# the Cheap Starbase exploit which requires queue-awareness to detect the fix.
+# An "upgrade" of StarsShip.pl & StarsShipQueue. Adding in the abilty to check for 
+# the Cheap Starbase exploit requires queue-awareness to detect the fix.
 
 use strict;
 use warnings;  
@@ -131,16 +132,17 @@ my $outFileName = $ARGV[1];
 if (!($filename)) { 
   print "\n\nUsage: StarsShip.pl <input file>\n\n";
   print "Please enter the input file (.X|.M|.HST). Example: \n";
-  print "  StarsShip.pl c:\\games\\test.m1\n\n";
-  print "Lists all ship data and fixes (or warns) for detected bugs:\n";
+  print "  StarsFix.pl c:\\games\\test.m1\n\n";
+  print "Lists block data and can fix (or warn) for detected bug/exploits:\n";
   print "   Colonizer Module remaining when removed (.x|.m|.hst)\n";
   print "   Space Dock overflow (.x|.m|.hst)\n";
   print "   Player with 10th starbase (.m|.hst)\n";
   print "   Cheap Starbase (.x) \n";
-  print "     (requires .M|.HST pass first creating a .queue file to detect the problem)\n";
+  print "     (requires .M|.HST pass creating .queue to detect in .x)\n";
+  print "   Friendly Fire (.x|.m|.hst)\n";
   print "By default, a new file will be created: <filename>.clean\n\n";
-  print "You can create a different file with StarsShip.pl <filename> <newfilename>\n";
-  print "  StarsShipQueue.pl <filename> <filename> will overwrite the original file.\n\n";
+  print "You can create a different file with StarsFix.pl <filename> <newfilename>\n";
+  print "  StarsFix.pl <filename> <filename> will overwrite the original file.\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
 }
