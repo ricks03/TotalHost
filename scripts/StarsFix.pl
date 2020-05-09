@@ -29,10 +29,15 @@
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
 # But detects, can fix, and can detect fixes of the colonizer, spacedock, 
-# 10 starbase, cheap starbase, and friendly fire  issues
+# 10 starbase, cheap starbase, and friendly fire
 
 # An "upgrade" of StarsShip.pl & StarsShipQueue. Adding in the abilty to check for 
 # the Cheap Starbase exploit requires queue-awareness to detect the fix.
+
+
+#BUG: I could massively speed this up by reading everything into hashes first
+# then checking the results. At least for any of the fields with a unique
+# way of identifying each record (not queue)
 
 use strict;
 use warnings;  
@@ -53,7 +58,7 @@ my $isTransferred;
 my $isStarbase;
 my $armor;
 my $armorIndex; # used to fix Space Dock Overflow
-my $itemCountIndex; # used to fix Space Dock Overflow
+#my $itemCountIndex; # used to fix Space Dock Overflow
 my $designNumber;
 my $pic;
 my $slotCount; 
@@ -182,10 +187,9 @@ if (-e lc($queueFileHST)) {
   # a player file
   $queueFile = $dir . '\\' . $basename . '.m' . $file_player . ".$turn" . '.queue';
 }
-print "QQQ: $queueFile\n";
 
 if (-e $queueFile && $file_type eq 'x') { # won't ever exist for a .x file
-  my($Player,$planetId,$itemId,$count,$completePercent,$itemType, $queueSize);
+  my ($Player,$planetId,$itemId,$count,$completePercent,$itemType, $queueSize);
   my @queueFile;
   print "Reading in QUEUEFILE $queueFile\n";
   open (IN_FILE,$queueFile) || die("Cannot open $queueFile file");
@@ -536,7 +540,7 @@ sub decryptShip {
             }
           }
           unless ($stillBroken) {
-            if (exists ($warning{$warnId})) { 
+            if (exists ($warning{$warnId}) && $warningType eq 'cheap') { 
               print "CLEARING Cheap Starbase warning for $warnId\n";
               delete $warning{$warnId}; 
             }
@@ -636,14 +640,17 @@ sub decryptShip {
             $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
             $index = 17;  
             if ($typeId == 27) { $index += 2; } # x files have 2 more bytes
+            my $spaceDockIndex = $index; # used for the Space Dock overflow
             # Loop through once for each slot
             my $itemSum = 0; # tracking if all the design slots are empty for the Cheap Starbase bug
             for (my $itemSlot = 0; $itemSlot < $slotCount; $itemSlot++) {
+              print "$index:\t";
               $itemCategory = &read16(\@decryptedData, $index);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
               $index += 2;
-              $itemId = &read8($decryptedData[$index++]); # Use current value of index, and increment by 1
-              $itemCountIndex = $index; # used for the Space Dock overflow. 
-              $itemCount = &read8($decryptedData[$index++]);
+              $itemId = &read8($decryptedData[$index]); # Use current value of index, and increment by 1
+              $index++;
+              $itemCount = $decryptedData[$index];
+              #$itemCountIndex = $index; # used for the Space Dock overflow. 
               $itemSum = $itemSum + $itemCount;
               my ( $category_str,$item_str ) = &showCategory($itemCategory, $itemId);
               if ( $category_str && $item_str ) { print "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount, index: $index\n"; }
@@ -666,21 +673,24 @@ sub decryptShip {
               # so need to filter.
               if ($itemId == 0 &&  $itemCategory == 4096 && $itemCount == 0) {
                 # Fixing display for those who don't count from 0.
-                $err .= '***Colonizer bug detected for player ' . &plusone($Player) . ' in ship design slot ' . &plusone($designNumber) . ": $shipName (in slot " . &plusone($itemSlot) . '). ';
-                ($decryptedData[$index-4], $decryptedData[$index-3]) = &write16(0);
-                print "********************Needs fixng colonize\n";
+                $err .= 'WARNING: Colonizer bug detected for player ' . &plusone($Player) . ' in ship design slot ' . &plusone($designNumber) . ": $shipName (in slot " . &plusone($itemSlot) . '). ';
+                $itemCategory = &read16(\@decryptedData, $index-3);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
+                print "category: $itemCategory  index: $index\n";
+                ($decryptedData[$index-3], $decryptedData[$index-2]) = &write16(0); # Category
                 $needsFixing = 1;
                 if ($fixFiles > 1) {
                   $err .= '  Fixed!!! Slot now truly empty.';
                 } else {$err .= '';}
                 $warning{$warnId.'-colonizer'} = $err;
-                print $err . "\n"; 
+                print "$index: $warnId: $err\n"; 
               }
               # Detect Space Dock Overflow
               # Don't fix it here because we don't know yet at a slot level what the rest of the slots are
               if ( $isStarbase && $hullId == 33 && $itemId == 11  && $itemCategory == 8 && $itemCount > 21  && $armor  >= 49518) {  $spacedockOverflow = 1; } 
               # Check for other items that could be increasing armor
               if ( $spacedockOverflow ) { if ($itemCategory == 4 && ($itemId == 6 || $itemId == 3)) { $crobyLangston = $itemCount; } }
+              # Step forward for the next slot
+              $index++;
             }
             if ($spacedockOverflow) {
               # Fix Space Dock Armor slot Buffer Overflow with super latanium
@@ -688,22 +698,21 @@ sub decryptShip {
               # will result in some sort of error (of massively increased armor)
               # Rick: I had hoped to fix this by simply rewriting the armor value,
               # but armor gets recalculated, so resetting the itemCount is the only choice. 
-              $err = '***Spacedock Overflow bug of > 21 SuperLatanium detected for player ' . &plusone($Player) . ' in starbase design slot ' . &plusone($designNumber) . ": $shipName. ";
+              $err = 'WARNING: Spacedock Overflow bug of > 21 SuperLatanium detected for player ' . &plusone($Player) . ' in starbase design slot ' . &plusone($designNumber) . ": $shipName. ";
               # reset the $itemCount 
-              $decryptedData[$itemCountIndex] = 21;
+              $decryptedData[$spaceDockIndex+11] = 21; # Armor slot on spacedock
               # Armor value should be 250 + (1500 * $itemCount) / 2
               $armor = 250 + (1500 * 21) / 2; # adjust for 21 Super Latanium
-              if ($crobyLangston)  {  $armor += 60 * $crobyLangston; } # add on Croby or Langston armor
+              if ($crobyLangston)  {  $armor += 65 * $crobyLangston; } # add on Croby or Langston armor
               print "Updated armor value: $armor\n";
               # reset the final armor value for the spacedock overflow bug
               ($decryptedData[$armorIndex], $decryptedData[$armorIndex+1]) = &write16($armor);
-                print "********************Needs fixng dock\n";
               $needsFixing = 1;
               if ($fixFiles > 1) {
                 $err .= '  Fixed!!! SuperLatanium set to 21. New armor value: ' . $armor;
               } else {$err .= '';}
               $warning{$warnId.'-dock'} = $err;
-              print $err . "\n";
+              print "$warnId: $err\n";
             }
             # if we have a starbase with totally empty slots, we definitely don't have a Cheap Starbase
             if ($isStarbase && $itemSum == 0) { 
@@ -723,9 +732,9 @@ sub decryptShip {
           
           # Detect the 10th starbase design
           if ( $isStarbase && $designNumber == 9 && $deleteDesign && $Player > 0 ) {
-            $err = '***Warning: Player ' . &plusone($Player) . ": Starbase ($shipName) in design slot 10 - Potential Crash if Player 1 Fleet 1 refuels when Last Player has a 10th starbase design.";
+            $err = 'WARNING: Player ' . &plusone($Player) . ": Starbase ($shipName) in design slot 10 - Potential Crash if Player 1 Fleet 1 refuels when Last Player has a 10th starbase design.";
             # As I have no fix, no need to flag for fixing
-            print $err . "\n"; 
+            print "$warnId: $err\n"; 
             $warning{$warnId.'-ten'} = $err;
           } 
           # Detect the Cheap Starbase exploit    
@@ -737,30 +746,31 @@ sub decryptShip {
             my $queueCounter;
             foreach my $queueCounter (sort keys %queueList) {
               if ($queueList{$queueCounter}{Player} == $Player && $queueList{$queueCounter}{itemType} == 4 && $queueList{$queueCounter}{itemId} == $queueDesignNumber) { # if the item in the queue is a ship design (4)
-                $err = '***Warning: Cheap Starbase Exploit for player ' . &plusone($Player) . '. Do not edit a starbase design under construction (slot ' . &plusone($designNumber) . ": $shipName) !\n";
+                $err = 'WARNING: Cheap Starbase Exploit for player ' . &plusone($Player) . '. Do not edit a starbase under construction (slot ' . &plusone($designNumber) . ": $shipName) !\n";
                 $brokenStarbase[$designNumber] = 1; 
                 $index = 19;  
                 # Loop through each slot, setting the slot to 0
                 for (my $itemSlot = 0; $itemSlot < $slotCount; $itemSlot++) {
                   ($decryptedData[$index], $decryptedData[$index+1]) = &write16(0);
-                  $itemCategory = &read16(\@decryptedData, $index);
+                  $itemCategory = &read16(\@decryptedData, $index);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
                   $index += 2;
-                  $index++;
-                  $decryptedData[$index] = 0; 
-                  $itemId = $decryptedData[$index];
+                  $decryptedData[$index] = 0;
+                  $itemId = &read8($decryptedData[$index]); # Use current value of index, and increment by 1
                   $index++;
                   $decryptedData[$index] = 0;
                   $itemCount = $decryptedData[$index];
                   my ( $category_str,$item_str ) = &showCategory($itemCategory, $itemId);
-                  if ( $category_str && $item_str ) { print "fixed slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount\n"; }
-                  else { print "fixed slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount\n";}
+                  if ( $category_str && $item_str ) { print "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount, index: $index \n"; }
+                  else { print "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount, index: $index \n";}
+                  $index++;
                 }
                 $needsFixing = 1;
                 if ($fixFiles > 1) {
-                  $err .= '  Fixed!!! Starbase design' . &plusone($designNumber) . ' reset to blank.';
+                  #$err .= '  Fixed!!! Starbase design ' . &plusone($designNumber) . ' reset to blank.';
+                  $err .= '  Fixed!!! Starbase design order for $shipName removed.';
                 } else {$err .= ' '; }
                 $warning{$warnId.'-cheap'} = $err;
-                print "$err\n";
+                print "$warnId: $err\n";
               }
             }
           }
@@ -968,36 +978,6 @@ sub decryptShip {
         $fleetList{$ownerId}{$fleetId}{shipTypes}  = &dec2bin($shipTypes);
         # Go ahead and not pass an array, since we're going to be using this for other things.
         $fleetList{$ownerId}{$fleetId}{shipCount}  = $shipCount; 
-#       } elsif ($typeId == 30) {  # BattlePlan block
-#         my ($playerId, $battlePlanNumber, $primaryTarget,$secondaryTarget,$tactic,$attackWho, $dumpCargo);
-#         # Player 0 Default: 0 4 19 2 5 179 45 113 222 90
-#         # Player 1 Default: 1 4 19 2 5 179 45 113 222 90
-#         $playerId = $decryptedData[0] & 0xFF;
-#         #$battlePlanNumber = ;
-#         #$primaryTarget =0;
-#         #$secondaryTarget =0;
-#         #$tactic =0;
-#         $attackWho =$decryptedData[3]; print "Attack Who: ". &attackWho($attackWho) . " ($attackWho)\n";
-#         #$dumpCargo =0;
-#         # Detect the BattlePlan Friendly Fire bug
-#         print "$playerId, $primaryTarget,$secondaryTarget,$tactic,$attackWho, $dumpCargo\n";
-#         $warnId = &zerofy($playerId) . '-plan-' . &zerofy($battlePlanNumber);}
-#         if ($attackWho) > 3) { #BUG also need player Id and battlePlanId
-#            # Fixing display for those who don't count from 0.
-#            $err .= '***Friendly Fire bug detected for player ' . &plusone($playerId) . ' in the Default battle plan slot';
-#            $decryptedData[3] = 2;
-#            $needsFixing = 1;
-#            if ($fixFiles > 1) {
-#              $err .= '  Fixed!!! Attack Who reset to Neutral/Enemy.';
-#            } else {$err .= '';}
-#            print $err . "\n"; 
-#            $warning{$warnId.'-friendly'} = $err;
-#         }
-#         # If a subsequent Default battle plan fixes it, clear the warning
-#         if (!$err && $warning{$warnId.'-plan'}) { 
-#           delete( $warning{$warnId.'-plan'} ); 
-#           print "Friendly Fire Player Fix Noted for $warnId\n";
-#         }
       } elsif ($typeId == 30) {  # BattlePlan block
         my ($planPlayerId, $planNumber, $primaryTarget,$secondaryTarget,$tactic,$attackWho, $dumpCargo, $planNameLength, $planName);
         my @target = qw(None Any Starbase Armed Bombers Unarmed Fuel Freighters);
@@ -1029,13 +1009,13 @@ sub decryptShip {
         $warnId = &zerofy($planPlayerId) . '-plan-' . &zerofy($planNumber);
         if (($attackWho) > 3 && $planNumber == 0) { 
            # Fixing display for those who don't count from 0.
-           $err .= '***Friendly Fire bug detected for player ' . &plusone($planPlayerId) .  " in Default battle plan slot ($planNumber) against " . &attackWho($attackWho);
+           $err .= 'WARNING: Friendly Fire bug detected for player ' . &plusone($planPlayerId) .  " in Default battle plan against " . &attackWho($attackWho) . '.';
            $decryptedData[3] = 2;
            $needsFixing = 1;
            if ($fixFiles > 1) {
-             $err .= '  Fixed!!! Attack Who reset to Neutral/Enemy.';
+             $err .= ' Fixed!!! Attack Who reset to Neutral/Enemy.';
            } else {$err .= '';}
-           print $err . "\n"; 
+           print "$warnId: $err\n"; 
            
            $warning{$warnId.'-friendly'} = $err;
         }
@@ -1194,37 +1174,37 @@ sub FleetMerge {
   }
 }
 
-sub plusone{
-# Increment the value of a number as one for display to end users
-# (who problably don't count from 0)
-  my ($val) = @_;
-  $val++;
-  return $val;
-} 
-
-sub zerofy {
-# make a 1 digit number 2 digits
-  my ($val) = @_;
-  if ($val < 10  && $val >=0 ) { return "0" . $val; }
-  else { return $val; } 
-}
-
-sub splitWarnId {
-  # I probably should make this another hash of hashes, but it would mean redesigning the warnId... again.
-	my ($warnId)  = @_;
-	my ($player, $designType, $designNumber, $warningType) = split ('-',$warnId);
-	$player = $player *1; # deZerofy
-	$designNumber = $designNumber * 1; # deZerofy
-	return ($player, $designType, $designNumber, $warningType);
-}
-
-sub attackWho {
-   my ($value) = @_;
-   #Nobody, Enemies, Neutral/Enemies, Everyone, [Players] 
-   my @category = qw(Nobody Enemies Neutral/Enemies Everyone);
-   if ($value > 3) { my $player = $value -4; return "Player$player"; }
-   else { return $category[$value]; }
-}
+# sub plusone{
+# # Increment the value of a number as one for display to end users
+# # (who problably don't count from 0)
+#   my ($val) = @_;
+#   $val++;
+#   return $val;
+# } 
+# 
+# sub zerofy {
+# # make a 1 digit number 2 digits
+#   my ($val) = @_;
+#   if ($val < 10  && $val >=0 ) { return "0" . $val; }
+#   else { return $val; } 
+# }
+# 
+# sub splitWarnId {
+#   # I probably should make this another hash of hashes, but it would mean redesigning the warnId... again.
+# 	my ($warnId)  = @_;
+# 	my ($player, $designType, $designNumber, $warningType) = split ('-',$warnId);
+# 	$player = $player *1; # deZerofy
+# 	$designNumber = $designNumber * 1; # deZerofy
+# 	return ($player, $designType, $designNumber, $warningType);
+# }
+# 
+# sub attackWho {
+#    my ($value) = @_;
+#    #Nobody, Enemies, Neutral/Enemies, Everyone, [Players] 
+#    my @category = qw(Nobody Enemies Neutral/Enemies Everyone);
+#    if ($value > 3) { my $player = $value -4; return "Player$player"; }
+#    else { return $category[$value]; }
+# }
 
 #     public static int ITEM_ID_INDEX = 0;
 #     public static int MASS_INDEX = 7;

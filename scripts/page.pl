@@ -796,7 +796,7 @@ sub show_game {
     if ($in{'status'}) { 
       my $full_warning = $in{'status'};
       &display_warning($full_warning); 
-      if ($full_warning =~ /Fix/) { print qq|<br>TH fixed the bug for you.</br>\n|; } else { if ($full_warning =~ /bug/) { print qq|<br>Resubmit corrected .x file to remove alert.</br>|; }}
+      if ($full_warning =~ /bug/) { print qq|<P>Resubmit corrected .x file to remove alert.</P>|; }
       
     }
     print "<table width=100%>\n";

@@ -96,23 +96,25 @@ close(StarFile);
 
 # Decrypt the data, block by block
 my ($outBytes) = &decryptPWD(@fileBytes);
-my @outBytes = @{$outBytes};
-
-# Create the output file name
-my $newFile; 
-if ($outFileName) {   $newFile = $outFileName;  } 
-else { $newFile = $dir . '\\' . $basefile . '.clean'; }
-if ($debug) { $newFile = "f:\\clean_" . $basefile;  } # Just for me
-
-# Output the Stars! File with blank password(s)
-open (OutFile, '>:raw', "$newFile");
-for (my $i = 0; $i < @outBytes; $i++) {
-  print OutFile $outBytes[$i];
-}
-close (OutFile);
-
-print "File output: $newFile\n";
-unless ($ARGV[1]) { print "Don't forget to rename $newFile\n"; }
+if ($outBytes) {
+  my @outBytes = @{$outBytes};
+  
+  # Create the output file name
+  my $newFile; 
+  if ($outFileName) {   $newFile = $outFileName;  } 
+  else { $newFile = $dir . '\\' . $basefile . '.clean'; }
+  if ($debug) { $newFile = "f:\\clean_" . $basefile;  } # Just for me
+  
+  # Output the Stars! File with blank password(s)
+  open (OutFile, '>:raw', "$newFile");
+  for (my $i = 0; $i < @outBytes; $i++) {
+    print OutFile $outBytes[$i];
+  }
+  close (OutFile);
+  
+  print "File output: $newFile\n";
+  unless ($ARGV[1]) { print "Don't forget to rename $newFile\n"; }
+} else { print "No passwords found\n"; }
 
 ################################################################
 sub StarsRandom {

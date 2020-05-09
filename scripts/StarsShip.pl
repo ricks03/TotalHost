@@ -31,7 +31,8 @@
 # But detects the colonizer, spacedock, and 10 starbase issues
 #   Although player corrections won't always work within the 
 #   contenxt of multiple entries in a .x file.
-# This is a simpler, earlier version of the later StarsShipQueue.pl
+# This is a simpler, earlier version of the later StarsShipQueue.pl (which 
+# eventually became StarsFix.pl
 
 use strict;
 use warnings;   
