@@ -92,8 +92,7 @@ sub CheckandUpdate {
     
     # Don't bother checking if the game is no longer active. BUG: Shouldn't this be filtered out by SQL?
 		if (($GameData[$LoopPosition]{'GameStatus'} != 9) && (&inactive_game($GameData[$LoopPosition]{'GameFile'}))) {  
-	   } elsif ($GameData[$LoopPosition]{'GameStatus'} == 2 || $GameData[$LoopPosition]{'GameStatus'} == 3) { # if it's an active game 		
-
+	  } elsif ($GameData[$LoopPosition]{'GameStatus'} == 2 || $GameData[$LoopPosition]{'GameStatus'} == 3) { # if it's an active game 		
 	    #Game Type = Daily
 			if ($GameData[$LoopPosition]{'GameType'} == 1 && $CurrentEpoch > $GameData[$LoopPosition]{'NextTurn'}) { # GameType: turn set to daily
 				&LogOut(200,"\t$GameData[$LoopPosition]{'GameName'} is a daily game $CurrentEpoch  $GameData[$LoopPosition]{'NextTurn'}",$LogFile);	
@@ -292,17 +291,29 @@ sub CheckandUpdate {
  
 				# Update the .chk file so it's current for the new turn
 				my @CHK = &Read_CHK($GameData[$LoopPosition]{'GameFile'});
-
+        
 				# get the current turn so you can put it in the email, can vary based on force gen.
 				($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
 				$GameData[$LoopPosition]{'NextTurn'} = $NewTurn;
         
+        # Generate an updated .queue file for the Cheap Starbase exploit detection
+        my $fixFile = $FileHST  . '\\' . $GameData[$LoopPosition]{'GameFile'} . '\\' . 'fix';
+        if ($fixFiles && -e $fixFile) {
+          # Get rid of the old queueFile
+          my $lastYear = $HST_Turn -1;
+          my $oldQueueFile = $GameDir . '\\' . $GameFile . '.HST' . ".$lastYear" . '.queue';
+          if (-e $oldQueueFile) { unlink $oldQueueFile; }
+          # Create the queue file
+          # Game Dir, Game File, Year
+          my $GameDir = $FileHST  . '\\' . $GameData[$LoopPosition]{'GameFile'};
+          &StarsQueue($GameDir, $GameData[$LoopPosition]{'GameFile'}, $HST_Turn);
+        }
         # Decide whether to set player to inactive
         # Read in the game and player information from the CHK File
         # BUG: Not going to work quite right if the player is in the game more than once. 
     		my($InactivePosition) = 3;
-        my $InactiveMessage = "";
-        &LogOut(300, "STARTING AUTOINACTIVE", $LogFile);
+        my $InactiveMessage = '';
+        &LogOut(300, 'STARTING AUTOINACTIVE', $LogFile);
         while (@CHK[$InactivePosition]) {  #read .m file lines
     			my ($CHK_Status, $CHK_Player) = &Eval_CHKLine(@CHK[$InactivePosition]);
     			my($Player) = $InactivePosition -2;
@@ -331,7 +342,7 @@ sub CheckandUpdate {
    			  undef %PlayerValues; # Need to clear array to be ready for the next player
     			$InactivePosition++;
     		}
-        &LogOut(300, "ENDING AUTOINACTIVE", $LogFile);
+        &LogOut(300, 'ENDING AUTOINACTIVE', $LogFile);
        
 				# Get the array into a format I can pass to the subroutine, which involves converting it to a direct hash.
 				# If you're confused about why you use an '@' there on a hash slice instead of a '%', think of it like this. 
@@ -357,10 +368,8 @@ sub CheckandUpdate {
 			print ".\n";
 		}
 		$LoopPosition++;	#Now increment to check the next game
-		# only process the first turn for debug purposes.
-		# if ($debug) { die; }  # to make it only process the 1st record
   	}
-	# Give the system a moment between each turn, Stars! is slow. 
+	# Give the system a moment between each game, Stars! is slow. 
 	sleep 2;
 }
 
@@ -371,7 +380,6 @@ sub Turns_Missing {
 	my $TurnsMissing = 0;
 	my @Status, @CHK;
 	my %Values;
-#   my($CheckGame) = $executable . 'stars.exe -v ' . $FileHST . '\\' . $GameFile . '\\' . $GameFile . '.hst';
  	my $CHKFile = $FileHST . '\\' . $GameFile . '\\' . $GameFile . '.chk';
   &Make_CHK($GameFile);
 	# Determine the number of players in the CHK File

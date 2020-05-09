@@ -24,6 +24,7 @@ use CGI qw/:standard/;
 use Win32::ODBC;
 use TotalHost; 
 use StarStat;
+use StarsBlock;
 do 'config.pl';
 use File::Basename;
 
@@ -104,7 +105,7 @@ sub ValidateFileUpload {
       if (&DB_Call($db,$sql)) { $db->FetchRow(); %RaceValues = $db->DataHash(); }
       &DB_Close($db);
       if ($RaceValues{'RaceName'}) {
-  				$err .= "Race Name $RaceName already exists in your profile.\n"; 
+  				$err .= 'Race Name $RaceName already exists in your profile.'; 
   				&LogOut (0,"ValidateFileUpload: Race Name $RaceName already exists in profile for UserLogin: $err", $ErrorLog);
           &LogOut (0,"ValidateFileUpload: Invalid Race DB Entry: Deleted $File_Loc",$ErrorLog);
           # BUG: Danger deleting user-defined files. 
@@ -169,7 +170,7 @@ sub ValidateFileUpload {
   					return 0; 
   				}
   			} else { 
-  				$err .= "$File not a valid Race ( .r1 ) file\n"; 
+  				$err .= "$File not a valid Race ( .r1 ) file"; 
   				&LogOut (0,"ValidateFileUpload: Invalid race file $File in $File_Loc for $userlogin: $err", $ErrorLog);
           &LogOut (0, "ValidateFileUpload: Invalid Race (.r1) File: Deleted $File_Loc",$ErrorLog);
           # Danger deleting user defined files. 
@@ -177,7 +178,7 @@ sub ValidateFileUpload {
   				return 0; 
   			}
   		} else {
-  			$err .= "Invalid Race File upload of $File by $userlogin\n";
+  			$err .= "Invalid Race File upload of $File by $userlogin";
   			&LogOut(0, "ValidateFileUpload: Invalid race file upload of $File to $File_Loc by $userlogin. CheckMagic: $checkmagic, CheckVersion: $checkversion: $err", $ErrorLog);
         # BUG: This is full of security errors, and you could be deleting a file that exists. 
         unlink ($File_Loc);
@@ -185,20 +186,26 @@ sub ValidateFileUpload {
   			return 0;
   		}
     } else {
-       $err .= "You must enter a Race Name for your race (this field is independent of the name in the file). Try Again!";
+       $err .= 'You must enter a Race Name for your race (this field is independent of the name in the file). Try Again!';
        &LogOut (0, "Upload: No race name entered for $userlogin",$ErrorLog);
     }
 	} elsif ($file_type eq 'x') { # A turn file
 		($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
 		&LogOut(300,"ValidateFileUpload: DTS2: $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware", $LogFile);
 		if ( ($dt == 1) && &Check_Magic($Magic, $File_Loc) && &Check_Version($ver, $File_Loc) && &Check_GameFile($game_file) && &Check_Player($file_player,$iPlayer) && &Check_Turn($game_file, $turn) && &Check_GameID($game_file, $lidGame)) {
-			&LogOut(100,"ValidateFileUpload: Valid Turn file $File_Loc, moving it", $LogFile);
+      # Check (and potentially fix) the .X file for known Stars! exploits
+      # Requires the .queue file to detect CleanStarbase
+      # Works on a folder-by-folder (game-by-game) basis 
+      # Requires a file named 'fix' in the game folder
+      my $fixFile = $FileHST . '\\' . $GameFile . '\\' . 'fix';
+      if ($fixFiles && -e $fixFile) { 
+        &LogOut(200, "ValidateFileUpload: A fixfile: $fixFile fixFiles: $fixFiles, $err, $File_Loc", $LogFile); 
+        print "<P>Checking file for exploits ...\n";
+        $err .= &StarsFix($File_Loc, $GameFile, $turn);   #$File_Loc includes path
+      } 
+      if ($err) { &LogOut(0, "ValidateFileUpload: fixFiles $fixFiles, $err, $File_Loc", $ErrorLog); }
       
-      # Get the fix information
-      # BUG: Logic will have to change here if we want a file which detects the need
-      # for a fix we don't currently fix for to not save. 
-      if ($fixFiles) { $err .= &StarsFix($File_Loc); }  #$File_Loc includes path 
-      &LogOut(200, "ValidateFileUpload: fixFiles $fixFiles, $err, $File_Loc", $LogFile); 
+			&LogOut(100,"ValidateFileUpload: Valid Turn file $File_Loc, moving it", $LogFile);
       
 			# Do whatever you would do with a valid change (.x) file
       # BUG: This implies we accept the errored StarsFix file?   In some cases we haven't fixed it.
@@ -240,7 +247,7 @@ sub ValidateFileUpload {
 			}
 		} else { 
 			# display error messages when it's not a valid file. 
-			$err .= "$File not a valid Turn ( .x[n] ) file. \n"; 
+			$err .= "$File not a valid Turn ( .x[n] ) file."; 
       # BUG: Check_Player checks the extension of the file against the starstat value of the player
       # It doesn't actually check the User ID to confirm that user ID can submit the file. 
       # That function should probably be in Check_Player, but Check_Player isn't aware
