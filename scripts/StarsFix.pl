@@ -409,6 +409,7 @@ sub decryptShip {
   my @queueBlock;
   my $fleetMergeCount = 0;
   while ($offset < @fileBytes) {
+    my $dropBlock = 0;
     # Get block info and data
     ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
     @data = @{ $data }; # The non-header portion of the block
@@ -765,9 +766,10 @@ sub decryptShip {
                   $index++;
                 }
                 $needsFixing = 1;
+                $dropBlock = 1;
                 if ($fixFiles > 1) {
                   #$err .= '  Fixed!!! Starbase design ' . &plusone($designNumber) . ' reset to blank.';
-                  $err .= '  Fixed!!! Starbase design order for $shipName removed.';
+                  $err .= "  Fixed!!! Starbase design order for $shipName removed.";
                 } else {$err .= ' '; }
                 $warning{$warnId.'-cheap'} = $err;
                 print "$warnId: $err\n";
@@ -1042,7 +1044,9 @@ sub decryptShip {
       # reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
       @encryptedBlock = @ { $encryptedBlock };
-      push @outBytes, @encryptedBlock;
+      #unless ($dropBlock) {
+        push @outBytes, @encryptedBlock;
+      #}
     }
     $offset = $offset + (2 + $size); 
   }
