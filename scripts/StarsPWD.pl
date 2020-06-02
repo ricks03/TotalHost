@@ -82,7 +82,7 @@ $dir  = dirname($filename);         # c:\stars
 
 # Passwords in .R files are also stored in Block 6. The script correctly
 # IDs and blanks the password, but they're corrupt nonetheless. 
-if (uc($ext) eq ".R1") { print "Doesn't work for Race Files -- Sorry!\n"; exit; }
+if (uc($ext) eq '.R1') { print "Doesn't work for Race Files -- Sorry!\n"; exit; }
 
 # Read in the binary Stars! file, byte by byte
 my $FileValues;
@@ -479,7 +479,7 @@ sub decryptPWD {
     $offset = $offset + (2 + $size); 
   }
   # If the password was not reset, no need to write the file back out
-  # Faster, less risk of corruption
+  # Faster, less risk of corruption   
   if ( $pwdreset ) { return \@outBytes; }
   else { return 0; }
 }

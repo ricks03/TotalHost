@@ -21,13 +21,13 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 @dt_verbose = ('Universe Definition (.xy) File', 'Player Log (.x) File', 'Host (.h) File', 'Player Turn (.m) File', 'Player History (.h) File', 'Race Definition (.r) File', 'Unknown (??) File');
-@dt = ("XY", "Log", "Host", "Turn", "Hist", "Race", "Max");
+@dt = ('XY', 'Log', 'Host', 'Turn', 'Hist', 'Race', 'Max');
 @fDone = ('Turn Saved','Turn Saved/Submitted');
 @fMulti = ('Single Turn', 'Multiple Turns');
 @fGameOver = ('Game In Progress', 'Game Over'); 
 @fShareware = ('Registered','Shareware'); 
 @fInUse = ('Host instance not using file','Host instance using file'); # No idea what this value is.
-%Version = ("1.2a" => "1.1a", "2.65" => "2.0a", "2.81j" => "2.6i", "2.83.0" => "2.6jrc4");
+%Version = ('1.2a' => '1.1a', '2.65' => '2.0a', '2.81j' => '2.6i', '2.83.0' => '2.6jrc4');
 
 my $filename = $ARGV[0];
 print "File is $filename\n";

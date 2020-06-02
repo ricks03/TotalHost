@@ -456,7 +456,7 @@ sub decryptShip {
         $ownerId = ($decryptedData[1] & 0xF8) >> 3;
         if ($ownerId == 31) { $ownerId = -1; }
         ### Other stuff after I have the player ID
-        my $flags = &read16($decryptedData[2]);
+        my $flags = &read16(\@decryptedData, 2);
         my $isHomeworld = ($flags & 0x80) != 0;
 	      my $isInUseOrRobberBaron = ($flags & 0x04) != 0;
 	      my $hasEnvironmentInfo = ($flags & 0x02) != 0;
@@ -654,8 +654,8 @@ sub decryptShip {
               #$itemCountIndex = $index; # used for the Space Dock overflow. 
               $itemSum = $itemSum + $itemCount;
               my ( $category_str,$item_str ) = &showCategory($itemCategory, $itemId);
-              if ( $category_str && $item_str ) { print "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount, index: $index\n"; }
-              else { print "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount, index: $index\n";}
+              if ( $category_str && $item_str ) { print "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount\n"; }
+              else { print "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount\n";}
 
               # Calculate actual fuel in hull (just because, in theory, I can)
               if ( $itemCount > 0 && !$isStarbase){
@@ -676,7 +676,7 @@ sub decryptShip {
                 # Fixing display for those who don't count from 0.
                 $err .= 'WARNING: Colonizer bug detected for player ' . &plusone($Player) . ' in ship design slot ' . &plusone($designNumber) . ": $shipName (in slot " . &plusone($itemSlot) . '). ';
                 $itemCategory = &read16(\@decryptedData, $index-3);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
-                print "category: $itemCategory  index: $index\n";
+#                print "category: $itemCategory  index: $index\n";
                 ($decryptedData[$index-3], $decryptedData[$index-2]) = &write16(0); # Category
                 $needsFixing = 1;
                 if ($fixFiles > 1) {
@@ -723,7 +723,7 @@ sub decryptShip {
               }
             }
           } else { # If it's not a full design
-            $mass = &read16($decryptedData[4]); 
+            $mass = &read16(\@decryptedData, 4); 
             $slotEnd = 6; 
             $shipNameLength = $decryptedData[$slotEnd]; 
             $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
@@ -761,8 +761,8 @@ sub decryptShip {
                   $decryptedData[$index] = 0;
                   $itemCount = $decryptedData[$index];
                   my ( $category_str,$item_str ) = &showCategory($itemCategory, $itemId);
-                  if ( $category_str && $item_str ) { print "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount, index: $index \n"; }
-                  else { print "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount, index: $index \n";}
+                  if ( $category_str && $item_str ) { print "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount\n"; }
+                  else { print "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount\n";}
                   $index++;
                 }
                 $needsFixing = 1;
@@ -1044,9 +1044,7 @@ sub decryptShip {
       # reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
       @encryptedBlock = @ { $encryptedBlock };
-      #unless ($dropBlock) {
-        push @outBytes, @encryptedBlock;
-      #}
+      push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
   }

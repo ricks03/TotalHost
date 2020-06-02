@@ -60,12 +60,6 @@ if (!($filename)) {
   print "\n\nUsage: StarsByteChange.pl <input file> <output file (optional)>\n\n";
   print "Please enter the input file (.M or .HST). Example: \n";
   print "  StarsByteChange.pl c:\\games\\test.m6\n\n";
-  print "Removes the password from a .M file. The password must be\n";
-  print "  set when the turn is submitted or the password will revert.\n\n";
-  print "Removes all player passwords from a .HST file. On the next\n";
-  print "  turn generation all .M files will have no password.\n\n"; 
-  print "Removes any administrative password on the .HST file.\n\n";
-  print "Sets a password in a .X file to blank.\n\n";
   print "By default, a new file will be created: <filename>.clean\n\n";
   print "You can create a different file with StarsByteChange.pl <filename> <newfilename>\n";
   print "  StarsByteChange.pl <filename> <filename> will overwrite the original file.\n\n";
@@ -128,7 +122,7 @@ sub decryptBlock {
     ($blockId, $size, $data) = &parseBlock(\@fileBytes, $offset);
     @data = @{ $data }; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-    if ($debug) { print "\nBLOCK typeId: $blockId, Offset: $offset, Size: $size\n"; }
+    if ($debug) { print "\nBLOCK typeId: $blockId, Offset: $offset, Size: $size\t"; }
     if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
     if ($blockId == 8) { # File Header Block
@@ -145,13 +139,56 @@ sub decryptBlock {
       @decryptedData = @{ $decryptedData };
       if ($debug) { print "\nDATA DECRYPTED:\n" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
+#      if ($blockId == 29) {
+#        $skip = 1;
+#        $skipcounter = $skipcounter + $size;
+#      } else { 
       &processData(\@decryptedData,$blockId,$offset,$size);
+#      }
       # END OF MAGIC
-      #reencrypt the data for output
+      #my $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+#       # 1. Concatenate Array values
+#       print "Block0: $block[0] , Block1: $block[1]\n";
+#       my $BlockValues = $block[1] . $block[0];
+#       print "BlockValues: $BlockValues\n";
+#       # 2. unpack array values
+#       my ($Header) =  unpack("S",$BlockValues);
+#       print "Header: $Header\n";
+#       # 3. convert string array values to binary
+#       my $binHeader = dec2bin($Header);
+#       print "Binheader: $binHeader\n";
+#       # 4. slice up Header to two values
+#       my $blocktype = (substr($binHeader, 8,6));
+#       my $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
+#       print "STUFF: $blockId, $size, $blocktype, $blocksize\n";
+#       
+#       # Right here we can change the block size in decimal
+#       # and then the following code will convert it all back into the 
+#       # correct structure, switching back and forth from decimal<> binary
+#       # 5. change block size.
+#       #my $blocksize2 = dec2bin(6);
+#       my $blocksize2 = "$blocksize";  # Just convert back from whence we came
+#       print "BS: $blocksize2\n";
+#       # 4. unslice up the two values
+#       $blocksize2 = substr($blocksize2,-10); # Make it the right length (10 bits)
+#       print "BS2: $blocksize2\n";
+#       my $bt = substr($blocksize2, 2,10) . $blocktype . substr($blocksize2,0,2);
+#       # 3. convery the binary to decimal
+#       my $binHeader2 = bin2dec($bt);
+#       # 2. Pack values
+#       my $Header2 = pack ("S", $binHeader2);
+#       print "Header2: $Header2\n";
+#       # 1. Assign array values
+#       $block[0] = substr($Header2,1,1);
+#       $block[1] = substr($Header2,0,1);
+#       print "Block0: $block[0] , Block1: $block[1]\n\n";
+      # reencrypt the data for output
+      
+      unless ($blockId == 30) { 
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
       @encryptedBlock = @ { $encryptedBlock };
-      if ($debug) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
-      push @outBytes, @encryptedBlock;
+        push @outBytes, @encryptedBlock; 
+      }
     }
     $offset = $offset + (2 + $size); 
   }
@@ -175,6 +212,6 @@ sub processData {
       $counter++;
     }  
     print "\n";    
-  } else {print "\t" . join ( "\t", @decryptedData ), "\n";}
+  } else {print "\t" . join ( " ", @decryptedData ), "\n";}
   }
 }

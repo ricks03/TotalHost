@@ -453,7 +453,7 @@ sub write16 {
   return  $data[0], $data[1];
 }
  
- sub dec2bin {
+sub dec2bin {
 	# This doesn't match stuff online because I changed from 32- to 16-bit
 	return unpack("B16", pack("n", shift));
 }
@@ -1781,7 +1781,7 @@ sub decryptFix {
         $ownerId = ($decryptedData[1] & 0xF8) >> 3;
         if ($ownerId == 31) { $ownerId = -1; }
         ### Other stuff after I have the player ID
-        my $flags = &read16($decryptedData[2]);
+        my $flags = &read16(\@decryptedData, 2);
         my $isHomeworld = ($flags & 0x80) != 0;
         my $index = 4;
         # More in the block I don't care about right now.       
@@ -1999,7 +1999,7 @@ sub decryptFix {
               }
             }
           } else { # If it's not a full design
-            $mass = &read16($decryptedData[4]); 
+            $mass = &read16(\@decryptedData, 4); 
             $slotEnd = 6; 
             $shipNameLength = $decryptedData[$slotEnd]; 
             $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
