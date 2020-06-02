@@ -39,6 +39,8 @@
 #use strict; 
 #use warnings;
 
+# BUG: This pulls the turns from the TH backup dir(s) bu the last turn hasn't been 
+# backed up yet. 
 use File::Copy;
 use File::Copy::Recursive qw(fcopy rcopy dircopy fmove rmove dirmove);
 use File::Path 'rmtree';
@@ -59,7 +61,7 @@ my $dirname; # individual directory name
 my $filename; # individual file name
 
 # Name of the Game (the prefix for the .xy file)
-my $GameFile = '860DCEFD';  
+my $GameFile = 'a9fc8576';  
 my $sourcedir = $FileHST . '\\' . $GameFile;
 # Where to output the .ini, .pcx, and .bat files
 my $destdir = $sourcedir . '.mov';
@@ -99,13 +101,15 @@ foreach $dirname (@AllDirs) {
     if ($firstPass) {
       $firstPass = 0; # Don't do this again
       my $HST = "$destdir\\$dirname\\" . $GameFile . '.HST';
-      @singularRaceNames = &getRaceNames($HST);
-      print "Singular: @singularRaceNames" . "\n";
+      if (-e $HST) {
+        @singularRaceNames = &getRaceNames($HST);
+        print "Singular: @singularRaceNames" . "\n";
+      } else { die "HST file $HST not found\n"; }
     }
     # Only for the .M files
     if ($filename =~ /^(\w+[\w.-]+\.[Mm]\d{1,2})$/) { 
       my $MFile = "$destdir\\$dirname\\$filename";
-      print "\tMFile: $MFile\n";
+      print "\tRemoving Password: $MFile\n";
       # Remove the password
       &StarsPWD($MFile);
     }
@@ -146,15 +150,17 @@ foreach $dirname (@AllDirs) {
 	foreach $number (@numbers) {
 		$pla = $executable;
 		$pla .= ' -dp ' . $destdir . '\\' . $dirname . '\\' . $GameFile . '.m' . $number;
-		#print "pla: $pla\n";
-		system ($pla);
-		# and move/rename the file to the format/location for starmapper
 		$file1 = $destdir . '\\' . $dirname . '\\' . $GameFile . '.p' . $number;
     $file2 = $destdir . '\\' . $GameFile . ' ' . $dirname . '.p' . $number;
-		print "$file1 > $file2\n";
-		copy($file1,$file2) or die "Copy PLA failed for $file1, $file2: $!";
-		# Wait patiently, Stars! doesn't like to be launched over and over.
-		sleep 2;
+		#print "pla: $pla\n";
+    unless (-e $file2) {  # If the file is already there, no need to create
+  		system ($pla);
+  		# and move/rename the file to the format/location for starmapper
+  		print "$file1 > $file2\n";
+  		copy($file1,$file2) or die "Copy PLA failed for $file1, $file2: $!";
+  		# Wait patiently, Stars! doesn't like to be launched over and over.
+  		sleep 2;
+    }
 	}
 }
 
@@ -173,18 +179,18 @@ print INIFILE ";here are the colors for players, overriding default colors, in r
 print INIFILE ";the same as with keys is with color components, but they must be >=0 and <=255\n";
 print INIFILE ";grey\n";
 print INIFILE "player01=192 192 192\n";
-print INIFILE ";yellow\n";
-print INIFILE "player02=255 255 000\n";
 print INIFILE ";blue\n";
-print INIFILE "player03=000 000 255\n";
+print INIFILE "player02=000 000 255\n";
 print INIFILE ";orange\n";
-print INIFILE "player04=255 140 000\n";
+print INIFILE "player03=255 140 000\n";
 print INIFILE ";red\n";
-print INIFILE "player05=255 000 000\n";
+print INIFILE "player04=255 000 000\n";
 print INIFILE ";purple\n";
-print INIFILE "player06=0 255 255\n";
+print INIFILE "player05=0 255 255\n";
 print INIFILE ";green\n";
-print INIFILE "player07=000 255 000\n";
+print INIFILE "player06=000 255 000\n";
+print INIFILE ";yellow\n";
+print INIFILE "player07=255 255 000\n";
 print INIFILE ";white\n";
 print INIFILE "player08=255 255 255\n";
 print INIFILE ";\n";
@@ -213,6 +219,7 @@ my $mapfile = $starmapper . " $GameFile";
 foreach $number (@numbers) { $mapfile .= " $number"; }
 print MAPFILE $mapfile . "\n";
 close MAPFILE;
+chdir $destdir;
 system($DataOutFile);
 
 # Initialize the Image command file
@@ -284,7 +291,7 @@ sub decryptNameBlock {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
       @decryptedData = @{ $decryptedData };  
       # WHERE THE MAGIC HAPPENS
-      my $playerId = $decryptedData[0] & 0xFF; 
+      my $playerId = $decryptedData[0] & 0xFF;
       my $fullDataFlag = ($decryptedData[6] & 0x04);
       my $index = 8;
       if ($fullDataFlag) { 
@@ -296,11 +303,9 @@ sub decryptNameBlock {
       my $singularNameLength = $decryptedData[$index] & 0xFF;
       my $singularMessageEnd = $index + $singularNameLength;
       my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
-#      my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
-#      my $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
       push @singularRaceNames, $singularRaceName;
+      # END OF MAGIC
     }
-     # END OF MAGIC
     $offset = $offset + (2 + $size); 
   }
   return @singularRaceNames;

@@ -366,7 +366,7 @@ sub decryptShip {
 #               }
 #             }
 #           } else { # If it's not a full design
-#             $mass = &read16($decryptedData[4]); 
+#             $mass = &read16(\@decryptedData, 4); 
 #             $slotEnd = 6; 
 #             $shipNameLength = $decryptedData[$slotEnd]; 
 #             $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);

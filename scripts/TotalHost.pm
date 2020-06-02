@@ -1574,7 +1574,7 @@ sub show_race_block {
 #         $ownerId = ($decryptedData[1] & 0xF8) >> 3;
 #         if ($ownerId == 31) { $ownerId = -1; }
 #         ### Other stuff after I have the player ID
-#         my $flags = &read16($decryptedData[2]);
+#         my $flags = &read16(\@decryptedData, 2);
 #         my $isHomeworld = ($flags & 0x80) != 0;
 # 	      my $isInUseOrRobberBaron = ($flags & 0x04) != 0;
 # 	      my $hasEnvironmentInfo = ($flags & 0x02) != 0;
@@ -1828,7 +1828,7 @@ sub show_race_block {
 #               }
 #             }
 #           } else { # If it's not a full design
-#             $mass = &read16($decryptedData[4]); 
+#             $mass = &read16(\@decryptedData, 4); 
 #             $slotEnd = 6; 
 #             $shipNameLength = $decryptedData[$slotEnd]; 
 #             $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);

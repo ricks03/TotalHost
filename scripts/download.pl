@@ -190,7 +190,7 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
 	} else {	$download_ok = 1; }
 
 # If the file type wasn't one of the predefined ones, error out.
-} else { &error('User $userlogin authorized. Invalid file type $file $filetype'); }
+} else { &error("User $userlogin authorized. Invalid file type $file $filetype"); }
 
 if ($download_ok) { &download($file) or &error("User $userlogin authorized, but an unknown error has occured.");  }
 else { &error("User $userlogin Unauthorized.") }
