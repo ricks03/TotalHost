@@ -28,7 +28,7 @@
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
-# But detects, can fix, and can detect fixes of the colonizer, spacedock, 
+# Detects, can fix, and can detect fixes of the colonizer, spacedock, 
 # 10 starbase, cheap starbase, and friendly fire
 
 # An "upgrade" of StarsShip.pl & StarsShipQueue. Adding in the abilty to check for 

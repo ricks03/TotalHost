@@ -136,6 +136,15 @@ sub decryptBlockRace {
         my $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); print " Starbase Designs: $starbaseDesigns\n";
         my $logo = (($decryptedData[6] & 0xFF) >> 3); print " Logo: $logo\n";
         my $fullDataFlag = ($decryptedData[6] & 0x04); print "fullDataFlag: $fullDataFlag\n";
+        # Byte 7 unknown
+        #   The second (2s) bit is 0 for Player, 1 for Human(inactive)
+        #   bits 6,7,8 also flip changed to human(inactive)  but don't flip back
+        # so byte 7 = 1 never ai, 227 = AI, 225, formerly AI.
+        #         1   = 00000001
+        #         227 = 11100011
+        #         225 = 11100001
+        #          39 = 00100111 
+        my $aiStatus = $decryptedData[7]; if ($aiStatus == 1 || $aiStatus == 225 ) { print "Player Status: Human\n"; } elsif ($aiStatus == 227) { print "Player Status: Human(inactive)\n"; } elsif ($aiStatus == 39) { print "Player Status: AI\n"; } 
         # We figure out names here, because they're here at 8 when not fullDataFlag 
         my $index = 8; 
         my $playerRelations;
@@ -163,6 +172,7 @@ sub decryptBlockRace {
          my $rank = $decryptedData[10];
           print "Player Rank: $rank\n";
           # Bytes 12..15 are the password;
+          # They change to 255 255 255 255 when in Human(inactive) mode.
           my $centreGravity = $decryptedData[16]; # (base 65), 255 if immune 
           my $centreTemperature = $decryptedData[17]; #(base 35), 255 if immune  
           my $centreRadiation = $decryptedData[18]; # , 255 if immune 

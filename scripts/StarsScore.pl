@@ -134,10 +134,8 @@ sub decryptBlockRace {
         my $unk3                = ($decryptedData[1] >> 7) & 0x01; 
         print "\nVICTORY: planet:$victoryPlanets,tech:$victoryTech,score:$victoryScore, 2nd:$victorySecondPlace,prod:$victoryProduction,cap:$victoryCapital,highest:$victoryHighestScore,UNK:$unk1,$unk2,$unk3,$unk4,$unk5\n";
         my $rank         = &read16(\@decryptedData, 2);
-        my $score        = &read16(\@decryptedData, 4);  # Not exactly the same
-        my $unknown      = &read16(\@decryptedData, 6);  # 0 for everyone
-        my $resources    = &read16(\@decryptedData, 8); # Not EXACTLY the same
-        my $unknown2     = &read16(\@decryptedData, 10);  #0 for everyone
+        my $score        = &read32(\@decryptedData, 4);  # Not exactly the same
+        my $resources    = &read32(\@decryptedData, 8); # Not EXACTLY the same
         my $planets      = &read16(\@decryptedData, 12);
         my $starbases    = &read16(\@decryptedData, 14);   
         my $unarmedShips = &read16(\@decryptedData, 16);

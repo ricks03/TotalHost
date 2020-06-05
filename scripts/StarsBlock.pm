@@ -287,14 +287,14 @@ sub decryptBytes {
   my ($byteArray, $seedA, $seedB) = @_;
   my @byteArray = @{ $byteArray }; 
   my $size = @byteArray;
-  my @decryptedBytes;
+  my @decryptedBytes = ();
   my ($decryptedChunk, $decryptedBytes, $newRandom, $chunk);
   my $padding;
   # Add padding to 4 bytes
   ($byteArray, $padding) = &addPadding (\@byteArray);
   @byteArray = @ {$byteArray };
   my $paddedSize = $size + $padding;
- # Now decrypt, processing 4 bytes at a time
+  # Now decrypt, processing 4 bytes at a time
   @decryptedBytes = ();
   for (my $i = 0; $i <  $paddedSize; $i+=4) {
     # Swap bytes using indexes in this order:  4 3 2 1
@@ -1195,6 +1195,8 @@ sub showRace {
   my $logo = (($decryptedData[6] & 0xFF) >> 3);
   my $fullDataFlag = ($decryptedData[6] & 0x04);
   # Byte 7 unknown
+  #   The 2s bit is 0 for Player, 1 for Human(inactive)
+  #   bits 6,7,8 also flip changed to human(inactive)  but don't flip back
   # We figure out names here, because they're here at 8 when not fullDataFlag 
   my $index = 8; 
   my $playerRelations;
@@ -1222,6 +1224,7 @@ sub showRace {
 # That means I don't know what byte 11 is tho. 
     my $rank = $decryptedData[10];
     # Bytes 12..15 are the password;
+    # They change to 255 255 255 255 when in Human(inactive) mode.
     my $centreGravity = $decryptedData[16]; # (base 65), 255 if immune 
     my $centreTemperature = $decryptedData[17]; #(base 35), 255 if immune  
     my $centreRadiation = $decryptedData[18]; # , 255 if immune 
@@ -1530,7 +1533,6 @@ sub decryptClean {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
       @decryptedData = @{ $decryptedData };    
       # WHERE THE MAGIC HAPPENS
-      # Process the decrypted bytes
       if ($blockId == 43) { # Check for special attributes in the Object Block
         if ($size == 2) {
           my $count = &read16(\@decryptedData, 0);
@@ -2214,8 +2216,6 @@ sub decryptQueue {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
-      #print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\t"; 
-      #print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; 
       # WHERE THE MAGIC HAPPENS
       if ( $typeId == 13) { # Planet Block to get Player ID for ProductionQueue
         # This always precedes the Production Queue in the .M and .HST file
