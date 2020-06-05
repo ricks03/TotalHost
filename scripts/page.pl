@@ -825,13 +825,19 @@ sub show_game {
 		print "</tr>\n";
     #########
     
-    # Display the movie. 
+    # Display associated game-related images 
     # There should be no movie file unless the game is ended. 
     if ($GameValues{'GameStatus'} == 9) {
-      my $movieFile = $FileDownloads . "\\movies\\movie_" . $GameValues{'GameFile'} . ".gif";
+      # Display the animated gif file created with movie_starmapper.pl
+      my $movieFile = $FileDownloads . "\\movies\\movie_" . $GameValues{'GameFile'} . '.gif';
       if (-e $movieFile) {
         print "<tr><td><img align=left src=\"/Downloads/movies/movie_" . $GameValues{'GameFile'} . ".gif\"></td></tr>\n";
-      } else { print "<tr><td><i>No movie available</i></td></tr>\n";}
+      } else { print "<tr><td><i>No movie available</i></td></tr>\n"; }
+      # Display the resources chart created with graph_score.pl
+      my $graphFile = $FileDownloads . "\\graphs\\" . $GameValues{'GameFile'} . '.png';
+      if (-e $graphFile) {
+        print "<tr><td><img align=left src=\"/Downloads/graphs/" . $GameValues{'GameFile'} . ".png\"></td></tr>\n";
+      } else { print "<tr><td><i>No graph available</i></td></tr>\n"; }
     }
     
     # Display the Host ID and email

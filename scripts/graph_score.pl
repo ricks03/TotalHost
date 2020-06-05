@@ -74,9 +74,9 @@ my @turns;
 foreach $dirname (@AllDirs) {
   next if $dirname =~ /^\.\.?$/; # skip . and ..
   if ($dirname =~ /BACKUP/) {  next; }  # Skip the default stars Backup folder(s)
+  unless ($dirname =~ /[0-9][0-9][0-9][0-9]/) {  next; }  # Skip if not a year folder
   my $isdir = "$sourcedir\\$dirname";
   unless (-d $isdir) { next; } # Skip if the directory is a file
-  print "Year: $dirname\n";
   push @turns, $dirname;
   opendir (DIR, "$sourcedir\\$dirname") or die "can't open directory $sourcedir\\$dirname\n";
   while (defined($filename = readdir (DIR))) {
@@ -86,7 +86,7 @@ foreach $dirname (@AllDirs) {
       $firstPass = 0; # Don't do this again
       my $HST = "$sourcedir\\$dirname\\" . $GameFile . '.HST';
       if (-e $HST) {
-        ($singularRaceNames, $score) = &getRaceNames($HST);
+        ($singularRaceNames, $score) = &getScores($HST);
         @singularRaceNames = @{$singularRaceNames};
         print "Singular: @singularRaceNames" . "\n";
       } else { die "HST file $HST not found\n"; }
@@ -95,9 +95,9 @@ foreach $dirname (@AllDirs) {
     if ($filename =~ /^(\w+[\w.-]+\.[Mm]\d{1,2})$/) { 
       $lastturn = $dirname;
       my $MFile = "$sourcedir\\$dirname\\$filename";
-      my ($singularRaceNames, $score, $turn, $player) = &getRaceNames($MFile);
+      my ($singularRaceNames, $score, $turn, $player) = &getScores($MFile);
       if ($dirname eq '2400') { $score = 0; }
-      print "\tScore: $player, $score\n";
+      print "File: $MFile\tYear: $dirname\tPlayer: $player\tScore: $score\n";
       $score{$player}{$turn} = $score;
       if ($score > $highscore) { $highscore = $score; }
     }
@@ -115,19 +115,17 @@ push @data, \@turns; # put turns into data array
 
 foreach my $playerId (sort keys %score) {
   my @pscore;
-  print "Player: $playerId\n";
+  print "Player: $playerId\t";
   foreach my $turn (sort {$score{$playerId}{$a} <=> $score{$playerId}{$b}} keys %{ $score{$playerId} }) {
-    print "turn: $turn\t";
-    print "$score{$playerId}{$turn}\t";
-    print "\n";
+#    print "turn: $turn\t";
+#    print "$score{$playerId}{$turn}\t";
+#    print "\n";
     push @pscore,$score{$playerId}{$turn};
   }
-  push @data, \@pscore;
+  print "score: @pscore";
   print "\n";
+  push @data, \@pscore; # adds each player score array to the data array
 }
-
-
-# Just need to figure out how to convert the player scores into an array
 
 # my @data = ( [@turns],   # Turns
 # 
@@ -177,11 +175,14 @@ $graph->set(
         x_label           => 'Year',
         y_label           => 'Resources',
         y_max_value       => $highscore,
-        y_label_skip      => 3,
-        y_tick_number     => 10,
-        y_number_format   => '%d',
         x_tick_number     => 'auto',
+        y_tick_number     => 10,
         x_all_ticks       => 1,
+        y_all_ticks       => 0,
+        y_label_skip      => 3,
+        y_number_format   => '%d',
+        transparent       => 0,
+        bgclr             => 'white',
     );
 
 
@@ -196,7 +197,7 @@ print OUT $gd->png( );
 close OUT;
 
 #####################################
-sub getRaceNames {
+sub getScores {
   my ($HST) = @_;
   # Read in the binary Stars! file, byte by byte
   my $FileValues;
@@ -209,38 +210,35 @@ sub getRaceNames {
   }
   close(StarFile);
   # Decrypt the data, block by block
-  my ($singularRaceNames, $score, $turn, $player) = &decryptNameBlock(@fileBytes);
+  my ($singularRaceNames, $score, $turn, $player) = &decryptScores(@fileBytes);
   @singularRaceNames = @{$singularRaceNames};
 #  @score = @{$score};
   return \@singularRaceNames, $score, $turn, $player;
 }
 
-sub decryptNameBlock {
+sub decryptScores {
   my (@fileBytes) = @_;
   my @block;
   my @data;
-  my ($decryptedData, $encryptedBlock, $padding);
+  my ($decryptedData, $padding);
   my @decryptedData;
-  my @encryptedBlock;
   my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
   my ($random, $seedA, $seedB, $seedX, $seedY );
   my ($blockId, $size, $data );
   my $offset = 0; #Start at the beginning of the file
   my @singularRaceNames;
-  my %score;
-  my $debug = 0;
   while ($offset < @fileBytes) {
     # Get block info and data
     ($blockId, $size, $data ) = &parseBlock(\@fileBytes, $offset);
+    print "BlockId: $blockId\n";
     @data = @{ $data }; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
-    # FileHeaderBlock, never encrypted
-    if ($blockId == 8 ) {
+    if ($blockId == 8 ) { # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block );
-      ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+      ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
@@ -262,7 +260,7 @@ sub decryptNameBlock {
         push @singularRaceNames, $singularRaceName;
       } elsif ($blockId == 45) { # PlayerScoresBlock
         my $playerId     = ($decryptedData[0] >> 0) & 0x0F; 
-        my $resources    = &read16(\@decryptedData, 8); # Not EXACTLY the same
+        my $resources    = &read32(\@decryptedData, 8); # Not EXACTLY the same
 #        print "PlayerId: $playerId, Res: $resources\n";
         if ($Player == $playerId) { $score = $resources; }
       }

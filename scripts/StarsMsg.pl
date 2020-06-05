@@ -118,6 +118,7 @@ sub decryptBlock {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
       @decryptedData = @{ $decryptedData };  
+      if ( $debug  > 1) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
       &processData(\@decryptedData,$blockId,$offset,$size, $turn);
       # END OF MAGIC

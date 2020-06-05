@@ -137,9 +137,7 @@ sub decryptBlock {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
-#    if ($blockId == 28 || $blockId == 29) {
       &processData(\@decryptedData,$blockId,$offset,$size);
-#    }
       # END OF MAGIC
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);

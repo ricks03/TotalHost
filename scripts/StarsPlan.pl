@@ -103,6 +103,9 @@ sub decryptBlockPlan {
   my ($typeId, $size, $data);
   my $offset = 0; #Start at the beginning of the file
   my $warnId;
+  my @target = qw(None Any Starbase Armed Bombers Unarmed Fuel Freighters);
+  my @tactic = qw(Disengage ifChallenged minToSelf maxNet maxRatio Max);
+  my @attackWho = qw(Nobody Enemies Neutral/Enemies Everyone 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16);
   while ($offset < @fileBytes) {
     # Get block info and data
     ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
@@ -133,10 +136,6 @@ sub decryptBlockPlan {
         if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
 
          my ($planPlayerId, $planNumber, $primaryTarget,$secondaryTarget,$tactic,$attackWho, $dumpCargo, $planNameLength, $planName);
-         my @target = qw(None Any Starbase Armed Bombers Unarmed Fuel Freighters);
-         my @tactic = qw(Disengage ifChallenged minToSelf maxNet maxRatio Max);
-         my @attackWho = qw(Nobody Enemies Neutral/Enemies Everyone 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16);
-
 
         # Player 0 Default: 0 4 19 2 5 179 45 113 222 90
         # Player 1 Default: 1 4 19 2 5 179 45 113 222 90
