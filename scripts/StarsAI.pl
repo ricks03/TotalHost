@@ -49,15 +49,19 @@ my @primes = (
         
 my $filename = $ARGV[0]; # input file
 my $playerAI = $ARGV[1];
-my $outFileName = $ARGV[2];
+my $newAI = $ARGV[2];
+my $outFileName = $ARGV[3];
+my @aiStatus = qw(Human Inactive CA PP HE IS SS AR);
+
 if (!($filename)) { 
-  print "\n\nUsage: StarsAI.pl <input file> <PlayerID 1-16> <output file (optional)>\n\n";
+  print "\n\nUsage: StarsAI.pl <Game HST file> <PlayerID 1-16> <new AI status > <output file (optional)>\n\n";
   print "Please enter the input file (.HST). Example: \n";
-  print "  StarsPWD.pl c:\\games\\test.HST <PlayerID 1-16>\n\n";
-  print "Changes the player to Inactive\n";
-  print "By default, a new file will be created: <filename>.clean\n\n";
-  print "You can create a different file with StarsPWD.pl <filename> <newfilename>\n";
-  print "  StarsPWD.pl <filename> <filename> will overwrite the original file.\n\n";
+  print "  StarsAI.pl c:\\games\\test.HST 1 Inactive\n";
+  print "Changes the first player to Inactive\n\n";
+  print "Possible Player Status options: " . join(',',@aiStatus) . "\n\n";
+  print "By default, a new file will be created: <filename>.clean\n";
+  print "You can create a different file with StarsAI.pl <filename> <PlayerID 1-16> <new AI status> <newfilename>\n";
+  print "  StarsAI.pl <filename> <PlayerID 1-16> <new AI status> <filename> will overwrite the original file.\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
 }
@@ -66,8 +70,12 @@ if (-d $ARGV[0]) { print "$filename is a directory!\n"; exit; }
 unless (-e $ARGV[0]) { print "File $filename does not exist!\n"; exit; }
 if ( $ARGV[1] ) {
   if ($ARGV[1] > 16 || $ARGV[1] < 1) { die "Player ID must be between 1 and 16\n"; }
-} else { die "Player ID must be between 1 and 16\n"; }
-$playerAI--; #for simplicity, set it to the non-human value
+} else { 
+  die "Player ID must be between 1 and 16\n"; 
+}
+# Simpler to use 1-16 above because a null is a 0;
+$playerAI--;
+unless ($ARGV[2] ~~ @aiStatus) { print "Player status must be:  " . join(",",@aiStatus) . "\n"; exit; }
 
 my ($basefile, $dir, $ext);
 $basefile = basename($filename);    # mygamename.m1
@@ -105,7 +113,7 @@ if ($outBytes) {
   close (OutFile);
   
   print "File output: $newFile\n";
-  unless ($ARGV[2]) { print "Don't forget to rename $newFile\n"; }
+  unless ($ARGV[3]) { print "Don't forget to rename $newFile\n"; }
 } else { print "Nothing to do\n"; }
 
 ################################################################
@@ -121,7 +129,7 @@ sub decryptAI {
   my ( $random, $seedA, $seedB, $seedX, $seedY);
   my ($typeId, $size, $data);
   my $offset = 0; #Start at the beginning of the file
-  my $flip = 0; # Was the player flipped
+  my $action = 0; # Was any action taken
   while ($offset < @fileBytes) {
     # Get block info and data
     ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
@@ -145,33 +153,71 @@ sub decryptAI {
       if ($typeId == 6) { # Player Block
         my $playerId = $decryptedData[0] & 0xFF; 
         if ($playerId == $playerAI) {
-          $flip = 1;
-          # Flip from  Human <> AI
-          if ($decryptedData[7] == 1 || $decryptedData[7] == 225) { # currently Human
-            $decryptedData[7] = 227;
-            print "Flipping Player $ARGV[1] to AI...\n";
-          } elsif ($decryptedData[7] == 227) { # currently AI
-            $decryptedData[7] = 225;
-            print "Flipping Player $ARGV[1] to Human...\n";
-          } elsif ($decryptedData[7] == 39) { # changing an AI to human
-            $decryptedData[7]  = 225;
-            # Set the AI password to blank inverted, so that it flips correctly for human
-            # BUG: I don't think this is working, they become human with a password
-            $decryptedData[12] = 255;
-            $decryptedData[13] = 255;
-            $decryptedData[14] = 255;
-            $decryptedData[15] = 255;  
-            print "Flipping Player $ARGV[1] from AI to Human...\n";
-          }
-          # The bits for the password of an inactive player are the inverse of the 
-          # bits of the password for an active player 
-          # Flip the bits of the password
-          $decryptedData[12] = &read8(~$decryptedData[12]);
-          $decryptedData[13] = &read8(~$decryptedData[13]);
-          $decryptedData[14] = &read8(~$decryptedData[14]);
-          $decryptedData[15] = &read8(~$decryptedData[15]);
-        }
-      }
+          $action =1;
+          # Have to handle the password change differently for human <> inactive
+          if ($newAI eq 'Human' ) {
+            if  ($decryptedData[7] == 225  || $decryptedData[7] == 1) { 
+              print "Already Human\n";
+            } elsif ($decryptedData[7] == 227 ) {
+              print "Changing from Inactive to Human\n";
+              $decryptedData[7] = 225;
+              # The bits for the password of an inactive player are the inverse of the 
+              # bits of the password for an active player 
+              # Flip the bits of the password
+              $decryptedData[12] = &read8(~$decryptedData[12]);
+              $decryptedData[13] = &read8(~$decryptedData[13]);
+              $decryptedData[14] = &read8(~$decryptedData[14]);
+              $decryptedData[15] = &read8(~$decryptedData[15]);
+            } else {
+              print "Changing from AI to Human\n";
+              $decryptedData[7] = 225;
+              # Reset the AI password to blank for human use
+              $decryptedData[12] = 0;
+              $decryptedData[13] = 0;
+              $decryptedData[14] = 0;
+              $decryptedData[15] = 0;
+            }
+          } elsif ($newAI eq 'Inactive' ) {
+            if ($decryptedData[7] == 227 ) {
+              print "Already Inactive\n";
+            } elsif ($decryptedData[7] == 225  || $decryptedData[7] == 1) { 
+              print "Changing from Human to Inactive\n";
+              $decryptedData[7] = 225;
+              # The bits for the password of an inactive player are the inverse of the 
+              # bits of the password for an active player 
+              # Flip the bits of the password
+              $decryptedData[12] = &read8(~$decryptedData[12]);
+              $decryptedData[13] = &read8(~$decryptedData[13]);
+              $decryptedData[14] = &read8(~$decryptedData[14]);
+              $decryptedData[15] = &read8(~$decryptedData[15]);
+            } else {
+              print "Changing from AI to Human(Inactive)\n";
+              $decryptedData[7] = 227;
+              # The inverse of a blank password
+              $decryptedData[12] = 255;
+              $decryptedData[13] = 255;
+              $decryptedData[14] = 255;
+              $decryptedData[15] = 255;
+            }
+          } else { 
+            # Setting to one of the AIs
+            # Set the standard AI password              
+            $decryptedData[12] = 238;
+            $decryptedData[13] = 171;
+            $decryptedData[14] = 77;
+            $decryptedData[15] = 9;
+            print "Changing to $newAI\n";
+            # Use the Expert values for the AIs
+            if ($newAI eq 'CA' )      {  $decryptedData[7] = 111;  
+            } elsif ($newAI eq 'PP' ) {  $decryptedData[7] = 143; 
+            } elsif ($newAI eq 'HE' ) {  $decryptedData[7] = 15; 
+            } elsif ($newAI eq 'IS' ) {  $decryptedData[7] = 79; 
+            } elsif ($newAI eq 'SS' ) {  $decryptedData[7] = 47; 
+            } elsif ($newAI eq 'AS' ) {  $decryptedData[7] = 175;
+            } 
+          } # End of $newAI
+        } # End of PlayerId 
+      } # End of typeID 6
       # END OF MAGIC
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
@@ -183,7 +229,7 @@ sub decryptAI {
   }
   # If the password was not reset, no need to write the file back out
   # Faster, less risk of corruption   
-  if ( $flip ) { return \@outBytes; }
-  else { return 0; }
+  if ($action) { return \@outBytes; }
+  else { print "No action taken\n"; return 0; }
 }
 
