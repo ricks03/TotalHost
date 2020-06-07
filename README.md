@@ -13,7 +13,7 @@ but adds a number of features such as:
 - The ability to reset a dropped player's Stars! password
 - detecting some of the common Stars! code bugs, and warning (or even correcting) for them.
 
-There are also standalone utilities (generally named stars*.pl) for resetting a password, viewing race and ship design information, extracting player messages in .X|.M files, creating movies from completed games, and the ability to clean some of the shared data from individual player .M files. These are/were developed generally as precursors to functionality added to TotalHost.
+There are also standalone utilities (generally named stars*.pl) for resetting a password, viewing race and ship design information, extracting player messages in .X|.M files, creating movies from completed games, graphing resources, and the ability to clean some of the shared data from individual player .M files, fixing known Stars! bugs, and changing AI status. These are/were developed generally as precursors to functionality added to TotalHost.
 
 For simplicity, the entire implementation is on a Windows VM running Apache, and ODBC calls to an Access database. 
 The entire implementation is in Perl (except some Java for the movie-generating code).
@@ -21,7 +21,7 @@ The entire implementation is in Perl (except some Java for the movie-generating 
 I began this project 20+ years ago as stop-and-start work, and I'm not a programmer. The code therefore has different coding styles and methodologies. The Stars! community has historically been very closed-source,  primarily due to trying to protect the encryption model and prevent hacking the game. This in turn has stifled development of tools and utilities.  Towards that end, I'm open-sourcing TotalHost, warts and all.
 
 TBD:
-While the core code already exists as standalone modules, I'd like to integrate movie creation into the web interface.
+While the core code already exists as standalone modules, I'd like to integrate movie and graph creation into the web interface.
 
 If I ever get really motivated, I'll separate the code base into the web front end running on a Linux box with MariaDB, 
 and a backend running Windows (to run the Stars! exe).
