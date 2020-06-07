@@ -7,11 +7,12 @@ TotalHost, much like AutoHost, is a web-based interface for Stars! game and turn
 but adds a number of features such as: 
 - Web-based game creation
 - More options for host, player and game management & turn generation
-- A Player-pause system, permitting regulation of player pauses, much like timeouts in sports
+- A player-pause system, permitting regulation of player pauses, much like timeouts in sports
+- Configurable player inactivation (and setting to AI)
 - The ability to download the game history (to better recreate the .H file, view in retrospect, and/or recover from system failure)
 - Storage and viewing of race files
 - The ability to reset a dropped player's Stars! password
-- detecting some of the common Stars! code bugs, and warning (or even correcting) for them.
+- Detecting some of the common Stars! code bugs, and warning (or even correcting) for them.
 
 There are also standalone utilities (generally named stars*.pl) for resetting a password, viewing race and ship design information, extracting player messages in .X|.M files, creating movies from completed games, graphing resources, and the ability to clean some of the shared data from individual player .M files, fixing known Stars! bugs, and changing AI status. These are/were developed generally as precursors to functionality added to TotalHost.
 
