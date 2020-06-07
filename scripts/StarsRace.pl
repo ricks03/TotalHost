@@ -45,7 +45,7 @@ my $debug = 1;
 my @singularRaceName;
 my @pluralRaceName;
 my @aiSkill = qw(Easy Standard Harder Expert);
-my @aiRace = qw( HE SS IS CA PP AR Inactive);
+my @aiRace = qw( HE SS IS CA PP AR Inactive/Expansion);
 
 #Stars random number generator class used for encryption
 my @primes = ( 
@@ -139,11 +139,8 @@ sub decryptBlockRace {
         my $logo = (($decryptedData[6] & 0xFF) >> 3); print " Logo: $logo\n";
         my $fullDataFlag = ($decryptedData[6] & 0x04); print "fullDataFlag: $fullDataFlag\n";
         # Byte 7 as 76543210
-        
         #   Bit 0 is always 1
-        #   Bit 1 defines whether an AI is enabled
-        #0 - off
-        #1 - on
+        #   Bit 1 defines whether an AI is enabled :  0:off ,  1:on
         $aiEnabled = ($decryptedData[7] >> 1) & 0x01; print "AI Enabled: $aiEnabled\n";                
 
         # bits 23 defines how good the AI will be:
@@ -162,9 +159,9 @@ sub decryptBlockRace {
         # 011 - CA - Rototills
         # 100 - PP - Cybertrons
         # 101 - AR - Macinti
-        # 111 - Human inactive
-        # When human is set back to active from Inactive, bit 7 flips but bits 765 aren't cleaned back up
-        # So the values for Byte 7 for human are 1 (active) or 225 (active again) and 227 (inactive)
+        # 111 - Human inactive / Expansion player
+        # When human is set back to active from Inactive, bit 1 flips but bits 765 aren't reset to 0
+        # So the values for Byte 7 for human are 1 (active) or 225 (active again) and 227 (inactive/expansion player)
         my $aiRace =  ($decryptedData[7] >> 5) & 0x07;  print "AI: $aiRace[$aiRace]\n"; # 3 bits starting at position 5
         
         # We figure out names here, because they're here at 8 when not fullDataFlag 
