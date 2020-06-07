@@ -52,6 +52,7 @@ my $playerAI = $ARGV[1];
 my $newAI = $ARGV[2];
 my $outFileName = $ARGV[3];
 my @aiStatus = qw(Human Inactive CA PP HE IS SS AR);
+my @prts = qw (HE SS WM CA IS SD PP IT AR JOAT );
 
 if (!($filename)) { 
   print "\n\nUsage: StarsAI.pl <Game HST file> <PlayerID 1-16> <new AI status > <output file (optional)>\n\n";
@@ -152,14 +153,20 @@ sub decryptAI {
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
         my $playerId = $decryptedData[0] & 0xFF; 
+
         if ($playerId == $playerAI) {
+          my $fullDataFlag = ($decryptedData[6] & 0x04);
+          if ($fullDataFlag) {
+            my $PRT = $decryptedData[76]; # HE SS WM CA IS SD PP IT AR JOAT  
+            print "Current PRT: $prts[$PRT]\n";
+          }
           $action =1;
           # Have to handle the password change differently for human <> inactive
           if ($newAI eq 'Human' ) {
             if  ($decryptedData[7] == 225  || $decryptedData[7] == 1) { 
               print "Already Human\n";
             } elsif ($decryptedData[7] == 227 ) {
-              print "Changing from Inactive to Human\n";
+              print "Changing from Human(Inactive) AI to Human\n";
               $decryptedData[7] = 225;
               # The bits for the password of an inactive player are the inverse of the 
               # bits of the password for an active player 
@@ -179,9 +186,9 @@ sub decryptAI {
             }
           } elsif ($newAI eq 'Inactive' ) {
             if ($decryptedData[7] == 227 ) {
-              print "Already Inactive\n";
+              print "Already Inactive AI\n";
             } elsif ($decryptedData[7] == 225  || $decryptedData[7] == 1) { 
-              print "Changing from Human to Inactive\n";
+              print "Changing from Human to Human(Inactive) AI\n";
               $decryptedData[7] = 225;
               # The bits for the password of an inactive player are the inverse of the 
               # bits of the password for an active player 
@@ -191,7 +198,7 @@ sub decryptAI {
               $decryptedData[14] = &read8(~$decryptedData[14]);
               $decryptedData[15] = &read8(~$decryptedData[15]);
             } else {
-              print "Changing from AI to Human(Inactive)\n";
+              print "Changing from Full AI to Human(Inactive) AI\n";
               $decryptedData[7] = 227;
               # The inverse of a blank password
               $decryptedData[12] = 255;
@@ -206,14 +213,14 @@ sub decryptAI {
             $decryptedData[13] = 171;
             $decryptedData[14] = 77;
             $decryptedData[15] = 9;
-            print "Changing to $newAI\n";
+            print "Changing to $newAI AI\n";
             # Use the Expert values for the AIs
-            if ($newAI eq 'CA' )      {  $decryptedData[7] = 111;  
-            } elsif ($newAI eq 'PP' ) {  $decryptedData[7] = 143; 
-            } elsif ($newAI eq 'HE' ) {  $decryptedData[7] = 15; 
-            } elsif ($newAI eq 'IS' ) {  $decryptedData[7] = 79; 
-            } elsif ($newAI eq 'SS' ) {  $decryptedData[7] = 47; 
-            } elsif ($newAI eq 'AS' ) {  $decryptedData[7] = 175;
+            if ($newAI eq 'CA' )      {  $decryptedData[7] = 111;  print "Does not expect IFE. Expects TT/OBRM/NAS\n"; 
+            } elsif ($newAI eq 'PP' ) {  $decryptedData[7] = 143;  print "Expects IFE/TT/OBRM/NAS. The PP AI appears brain dead for non-PP PRTs.\n";
+            } elsif ($newAI eq 'HE' ) {  $decryptedData[7] = 15;   print "Expects IFE/OBRM. \n";
+            } elsif ($newAI eq 'IS' ) {  $decryptedData[7] = 79;   print "Does not expect IFE. Expects OBRM/NAS\n";
+            } elsif ($newAI eq 'SS' ) {  $decryptedData[7] = 47;   print "Expects IFE/ARM. \n";
+            } elsif ($newAI eq 'AR' ) {  $decryptedData[7] = 175;  print "Expects IFE/TT/ARM/ISB. \n";
             } 
           } # End of $newAI
         } # End of PlayerId 
@@ -230,6 +237,6 @@ sub decryptAI {
   # If the password was not reset, no need to write the file back out
   # Faster, less risk of corruption   
   if ($action) { return \@outBytes; }
-  else { print "No action taken\n"; return 0; }
+  else { print "File unchanged\n"; return 0; }
 }
 
