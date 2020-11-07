@@ -95,7 +95,8 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-my ($outBytes) = &decryptPWD(@fileBytes);
+#my ($outBytes) = &decryptPWD(@fileBytes);
+my ($outBytes) = &decryptPWD();
 if ($outBytes) {
   my @outBytes = @{$outBytes};
   
@@ -158,8 +159,8 @@ sub getFileHeaderBlock {
 # h/H -  hex string, low/high nybble first. 1 byte?
 # A - ASCII string, blank padded. 1 byte
 # L - unsigned long, 32 bits, 4 bytes
-  my ($fileBytes) = @_;
-  my @fileBytes = @{ $fileBytes };
+  #my ($fileBytes) = @_;
+  #my @fileBytes = @{ $fileBytes };
   my ($bytes, $Header, $Magic, $lidGame, $ver, $turn, $iPlayer); 
   my ($dts, $binHeader, $blocktype, $blocksize, $verInc);
   my ($verMinor, $verMajor, $verClean, $Player, $binSeed, $Seed, $dt); 
@@ -226,8 +227,8 @@ sub getFileHeaderBlock {
   $fGameOver = substr($dts, 4,1);  # Probably 4
   # Shareware
   $fShareware = substr($dts, 3, 1);
-  if ($debug) { print "binSeed:$binSeed,Shareware:$fShareware,Player:$Player,Turn:$turn,GameID:$lidGame\n"; }
-  return $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic;
+  if ($debug) { print "binSeed:$binSeed,Shareware:$fShareware,Player:$Player,Turn:$turn,GameID:$lidGame,fMulti:$fMulti\n"; }
+  return $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti;
 }
     
 sub initDecryption {
@@ -343,39 +344,6 @@ sub encryptBytes {
   return \@encryptedBytes, $seedX, $seedY;
 }   
       
-# sub parseBlock {
-#   # This returns the 3 relevant parts of a block: typeId, size, raw block data
-#   my ($fileBytes, $offset) = @_;
-#   my @fileBytes = @{ $fileBytes };
-#   my @blockdata;
-#   my ($blocktype, $blocksize) = &read16(\@fileBytes, $offset);
-#   for (my $i = $offset+2; $i < $offset+$blocksize+2; $i++) {   #skipping over the TypeID
-#     push @blockdata, $fileBytes[$i];
-#   }
-#   return ($blocktype, $blocksize, \@blockdata);
-# } 
-
-sub parseBlock {
-  # This returns the 3 relevant parts of a block: blockId, size, raw block data
-  my ($fileBytes, $offset) = @_;
-  my @fileBytes = @{ $fileBytes };
-  my @blockdata;
-  my ($FileValues, @FileValues, $Header);
-  my ($binHeader, $blocktype, $blocksize);
-  $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
-  @FileValues = unpack("S",$FileValues);
-  ($Header) =  @FileValues;
-  $binHeader = dec2bin($Header);
-  $blocktype = (substr($binHeader, 8,6));
-  $blocktype = bin2dec($blocktype);
-  $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
-  $blocksize = bin2dec($blocksize);
-  for (my $i = $offset+2; $i < $offset+$blocksize+2; $i++) {   #skipping over the blockId
-    push @blockdata, $fileBytes[$i];
-  }
-  return ($blocktype, $blocksize, \@blockdata);
-}   
-  
 # sub read16 {
 #   # For a given offset, determine the block size and blocktype
 #   my ($fileBytes, $offset) = @_; 
@@ -403,30 +371,32 @@ sub bin2dec {
 }
 
 sub decryptPWD {
-  my (@fileBytes) = @_;
+  #my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ( $random, $seedA, $seedB, $seedX, $seedY);
-  my ($typeId, $size, $data);
+  my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   my $pwdreset = 0;
   while ($offset < @fileBytes) {
     # Get block info and data
-    ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
     if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
     if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption

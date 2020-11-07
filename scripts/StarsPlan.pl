@@ -37,7 +37,7 @@ use strict;
 use warnings;   
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
-my $debug = 1;
+my $debug = 0;
 
 my $fixFiles = 1;
 my $needsFixing =0;
@@ -85,22 +85,23 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-my ($outBytes) = &decryptBlockPlan(@fileBytes);
+#my ($outBytes) = &decryptBlockPlan(@fileBytes);
+my ($outBytes) = &decryptBlockPlan();
 my @outBytes = @{$outBytes};
 
 
 ################################################################
 sub decryptBlockPlan {
-  my (@fileBytes) = @_;
+  #my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ( $random, $seedA, $seedB, $seedX, $seedY);
-  my ($typeId, $size, $data);
+  my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   my $warnId;
   my @target = qw(None Any Starbase Armed Bombers Unarmed Fuel Freighters);
@@ -108,15 +109,17 @@ sub decryptBlockPlan {
   my @attackWho = qw(Nobody Enemies Neutral/Enemies Everyone 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16);
   while ($offset < @fileBytes) {
     # Get block info and data
-    ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
     if ($debug > 1) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     if ($typeId == 8) { # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -199,17 +202,19 @@ sub getMask {
   return ($check); 
 } 
 
-sub zerofy {
-# make a 1 digit number 2 digits
-  my ($val) = @_;
-  if ($val < 10  && $val >=0 ) { return "0" . $val; }
-  else { return $val; } 
-}
+# sub zerofy {
+# # make a 1 digit number 2 digits
+#   my ($val) = @_;
+#   if ($val < 10  && $val >=0 ) { return "0" . $val; }
+#   else { return $val; } 
+# }
 
-sub plusone{
-# Increment the value of a number as one for display to end users
-# (who problably don't count from 0)
-  my ($val) = @_;
-  $val++;
-  return $val;
-}
+# sub plusone{
+# # Increment the value of a number as one for display to end users
+# # (who problably don't count from 0)
+#   my ($val) = @_;
+#   $val++;
+#   return $val;
+# }
+
+

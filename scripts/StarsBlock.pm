@@ -64,12 +64,11 @@ our @EXPORT = qw(
   decodeBytesForStarsString decodeBytesForStarsMessage
   getPlayers resetPlayers
   resetRace showRace
-  StarsMsg decryptMsg
-  StarsClean decryptClean StarsFix decryptFix StarsQueue decryptQueue
+  StarsClean decryptClean
   plusone zerofy splitWarnId attackWho
   showCategory
   PLogOut
-);
+);  
 
 my $debug = 1;
 
@@ -232,8 +231,8 @@ sub getFileHeaderBlock {
   $fGameOver = substr($dts, 4,1);  # Probably 4
   # Shareware
   $fShareware = substr($dts, 3, 1);
-  &PLogOut(400,"binSeed:$binSeed,Shareware:$fShareware,Player:$Player,Turn:$turn,GameID:$lidGame", $LogFile);
-  return $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic;
+  &PLogOut(400,"binSeed:$binSeed,Shareware:$fShareware,Player:$Player,Turn:$turn,GameID:$lidGame,fMulti:$fMulti", $LogFile);
+  return $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti;
 }
 
 sub initDecryption {
@@ -373,14 +372,34 @@ sub encryptBytes {
 #   return ($blocktype, $blocksize, \@blockdata);
 # } 
 
+# sub parseBlock {
+#   # This returns the 3 relevant parts of a block: typeId, size, raw block data
+#   my ($fileBytes, $offset) = @_;
+#   my @fileBytes = @{ $fileBytes };
+#   my @blockdata;
+#   my ($FileValues, @FileValues, $Header);
+#   my ($binHeader, $blocktype, $blocksize);
+#   $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+#   @FileValues = unpack("S",$FileValues);
+#   ($Header) =  @FileValues;
+#   $binHeader = dec2bin($Header);
+#   $blocktype = (substr($binHeader, 8,6));
+#   $blocktype = bin2dec($blocktype);
+#   $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
+#   $blocksize = bin2dec($blocksize);
+#   for (my $i = $offset+2; $i < $offset+$blocksize+2; $i++) {   #skipping over the typeId
+#     push @blockdata, $fileBytes[$i];
+#   }
+#   return ($blocktype, $blocksize, \@blockdata);
+# } 
+
+# Restructured to not pass the entire file each time
 sub parseBlock {
-  # This returns the 3 relevant parts of a block: blockId, size, raw block data
-  my ($fileBytes, $offset) = @_;
-  my @fileBytes = @{ $fileBytes };
-  my @blockdata;
-  my ($FileValues, @FileValues, $Header);
+  ## This returns the 3 relevant parts of a block: typeId, size, raw block data
+  # This returns the typeId, size
+  my ($FileValues,$offset) = @_;
+  my (@FileValues, $Header);
   my ($binHeader, $blocktype, $blocksize);
-  $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
   @FileValues = unpack("S",$FileValues);
   ($Header) =  @FileValues;
   $binHeader = dec2bin($Header);
@@ -388,10 +407,7 @@ sub parseBlock {
   $blocktype = bin2dec($blocktype);
   $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
   $blocksize = bin2dec($blocksize);
-  for (my $i = $offset+2; $i < $offset+$blocksize+2; $i++) {   #skipping over the blockId
-    push @blockdata, $fileBytes[$i];
-  }
-  return ($blocktype, $blocksize, \@blockdata);
+  return ($blocktype, $blocksize);
 }   
 
 sub read8 {
@@ -470,16 +486,18 @@ sub decryptPWD {
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ( $random, $seedA, $seedB, $seedX, $seedY);
-  my ($typeId, $size, $data);
+  my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   my $pwdreset = 0;
   while ($offset < @fileBytes) {
     # Get block info and data
-    ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
     &PLogOut(400, "BLOCK typeId: $typeId, Offset: $offset, Size: $size", $LogFile);
     my $BlockRaw = "BLOCK RAW: Size " . @block . ":\n" . join ("", @block);
     &PLogOut(400, $BlockRaw, $LogFile);
@@ -487,7 +505,7 @@ sub decryptPWD {
     if ($typeId == 8) {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -509,8 +527,8 @@ sub decryptPWD {
         # BUG: Fixing for only PlayerID = Player blocks will break for .HST
         my $playerId = $decryptedData[0] & 0xFF; 
         if ((($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) && ($playerId == $Player)){
-          &PLogOut(200,"Block $offset password blanked for M", $LogFile);
-          print "Block $offset password blanked for M\n";
+          &PLogOut(200,"Block $offset password blanked for M File", $LogFile);
+          print "Block $offset password blanked for M File\n";
           # Replace the password with blank
           $decryptedData[12] = 0;
           $decryptedData[13] = 0;
@@ -528,7 +546,7 @@ sub decryptPWD {
       }
       if ($typeId == 36) { # .x file Change Password Block
         if (($decryptedData[0]  != 0) | ($decryptedData[1] != 0) | ($decryptedData[2] != 0) | ($decryptedData[3] != 0)) {
-          &PLogOut(200,"Block $offset password blanked for X", $LogFile);
+          &PLogOut(200,"Block $offset password blanked for X File", $LogFile);
           # Replace the password with blank
           $decryptedData[0] = 0;
           $decryptedData[1] = 0;
@@ -676,20 +694,22 @@ sub displayBlockRace {
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ( $random, $seedA, $seedB, $seedX, $seedY);
-  my ($typeId, $size, $data);
+  my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   while ($offset < @fileBytes) {
     # Get block info and data
-    ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -1303,107 +1323,109 @@ sub showRace {
   return $raceData;
 }
 
-sub StarsMsg {
-  my ($GameFile, $Player) = @_;
-
-    # Displays Stars! Messages
-    # Displays Block 40 - Message Block
-    # Derived from decryptor.py and decryptor.java from
-    # https://github.com/stars-4x/starsapi  
-    
-    use File::Basename;  # Used to get filename components
-    my $debug = 0; # Enable better debugging output. Bigger the better
-    
-    my $filename = $GameFile;
-    
-    #Validate directory or file 
-    unless (-e $inName ) { 
-      print "Requested object $inName does not exist!\n"; exit; 
-    }
-        
-    # Read in the binary Stars! file, byte by byte
-    my $FileValues;
-    my @fileBytes;
-    open(StarFile, "<$filename" );
-    binmode(StarFile);
-    while ( read(StarFile, $FileValues, 1)) {
-      push @fileBytes, $FileValues; 
-    }
-    close(StarFile);
-    
-    # Decrypt the data, block by block
-    my ($outBytes) = &decryptMsg(@fileBytes);
-}
-
-sub decryptMsg {
-  my (@fileBytes) = @_;
-  my @block;
-  my @data;
-  my ($decryptedData, $encryptedBlock, $padding);
-  my @decryptedData;
-  my @encryptedBlock;
-  my @outBytes;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
-  my ($random, $seedA, $seedB, $seedX, $seedY );
-  my ($blockId, $size, $data );
-  my $offset = 0; #Start at the beginning of the file
-  while ($offset < @fileBytes) {
-    # Get block info and data
-    ($blockId, $size, $data ) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
-    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-    if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
-    # FileHeaderBlock, never encrypted
-    if ($blockId == 8 ) {
-      # We always have this data before getting to block 6, because block 8 is first
-      # If there are two (or more) block 8s, the seeds reset for each block 8
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block );
-      ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
-    } else {
-      # Everything else needs to be decrypted
-      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
-      @decryptedData = @{ $decryptedData };  
-      # WHERE THE MAGIC HAPPENS
-      # Display the messages in the file
-      my ($decryptedData,$blockId,$offset,$size)  = @_;
-      my @decryptedData = @{ $decryptedData };
-      # We need the names to display
-      # although there are no names in .x files
-      if ($blockId == 6) { #Check the Player Block so we can get the race names
-        my $playerId = $decryptedData[0];
-        my $fullDataFlag = ($decryptedData[6] & 0x04);
-        my $index = 8;
-        if ($fullDataFlag) { 
-          # The player names are at the end which is not a fixed length
-          $index = 112;
-          my $playerRelationsLength = $decryptedData[112]; 
-          $index = $index + $playerRelationsLength + 1;
-        } 
-        my $singularNameLength = $decryptedData[$index] & 0xFF;
-        my $singularMessageEnd = $index + $singularNameLength;
-        my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
-        $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
-        $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
-        print "playerName $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
-      } elsif ($blockId == 40) { # check the Message block 
-        my $byte0 =  &read16(\@decryptedData, 0);  # unknown
-        my $byte2 =  &read16(\@decryptedData, 2);  # unknown
-        my $senderId = &read16(\@decryptedData, 4);
-        my $recipientId = &read16(\@decryptedData, 6);
-        my $byte8 =  &read16(\@decryptedData, 8); # unknown
-        my $messageBytes = &read16(\@decryptedData, 10);
-        my $messageLength = $size -1;
-        my $message = &decodeBytesForStarsMessage(@decryptedData[11..$messageLength]);
-        if ($debug) { print "blockId: $blockId\n"; }
-        if ($debug) { print "\nDATA DECRYPTED:" . join ( " ", @decryptedData ), "\n"; }
-        print "From: $senderId, To: $recipientId, \"$message\"\n"; 
-        if ($debug) { print "b0: $byte0, b2: $byte2, b8: $byte8\n"; }
-      }
-      # END OF MAGIC
-    }
-    $offset = $offset + (2 + $size); 
-  }
-}
+# sub StarsMsg {
+#   my ($GameFile, $Player) = @_;
+# 
+#     # Displays Stars! Messages
+#     # Displays Block 40 - Message Block
+#     # Derived from decryptor.py and decryptor.java from
+#     # https://github.com/stars-4x/starsapi  
+#     
+#     use File::Basename;  # Used to get filename components
+#     my $debug = 0; # Enable better debugging output. Bigger the better
+#     
+#     my $filename = $GameFile;
+#     
+#     #Validate directory or file 
+#     unless (-e $inName ) { 
+#       print "Requested object $inName does not exist!\n"; exit; 
+#     }
+#         
+#     # Read in the binary Stars! file, byte by byte
+#     my $FileValues;
+#     my @fileBytes;
+#     open(StarFile, "<$filename" );
+#     binmode(StarFile);
+#     while ( read(StarFile, $FileValues, 1)) {
+#       push @fileBytes, $FileValues; 
+#     }
+#     close(StarFile);
+#     
+#     # Decrypt the data, block by block
+#     my ($outBytes) = &decryptMsg(@fileBytes);
+# }
+# 
+# sub decryptMsg {
+#   my (@fileBytes) = @_;
+#   my @block;
+#   my @data;
+#   my ($decryptedData, $encryptedBlock, $padding);
+#   my @decryptedData;
+#   my @encryptedBlock;
+#   my @outBytes;
+#   my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+#   my ($random, $seedA, $seedB, $seedX, $seedY );
+#   my ( $FileValues, $typeId, $size );
+#   my $offset = 0; #Start at the beginning of the file
+#   while ($offset < @fileBytes) {
+#     # Get block info and data
+#     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+#     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+#     @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+#     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+# 
+#     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
+#     # FileHeaderBlock, never encrypted
+#     if ($typeId == 8 ) {
+#       # We always have this data before getting to block 6, because block 8 is first
+#       # If there are two (or more) block 8s, the seeds reset for each block 8
+#       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+#       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+#     } else {
+#       # Everything else needs to be decrypted
+#       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
+#       @decryptedData = @{ $decryptedData };  
+#       # WHERE THE MAGIC HAPPENS
+#       # Display the messages in the file
+#       my ($decryptedData,$typeId,$offset,$size)  = @_;
+#       my @decryptedData = @{ $decryptedData };
+#       # We need the names to display
+#       # although there are no names in .x files
+#       if ($typeId == 6) { #Check the Player Block so we can get the race names
+#         my $playerId = $decryptedData[0];
+#         my $fullDataFlag = ($decryptedData[6] & 0x04);
+#         my $index = 8;
+#         if ($fullDataFlag) { 
+#           # The player names are at the end which is not a fixed length
+#           $index = 112;
+#           my $playerRelationsLength = $decryptedData[112]; 
+#           $index = $index + $playerRelationsLength + 1;
+#         } 
+#         my $singularNameLength = $decryptedData[$index] & 0xFF;
+#         my $singularMessageEnd = $index + $singularNameLength;
+#         my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
+#         $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+#         $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
+#         print "playerName $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
+#       } elsif ($typeId == 40) { # check the Message block 
+#         my $byte0 =  &read16(\@decryptedData, 0);  # unknown
+#         my $byte2 =  &read16(\@decryptedData, 2);  # unknown
+#         my $senderId = &read16(\@decryptedData, 4);
+#         my $recipientId = &read16(\@decryptedData, 6);
+#         my $byte8 =  &read16(\@decryptedData, 8); # unknown
+#         my $messageBytes = &read16(\@decryptedData, 10);
+#         my $messageLength = $size -1;
+#         my $message = &decodeBytesForStarsMessage(@decryptedData[11..$messageLength]);
+#         if ($debug) { print "typeId: $typeId\n"; }
+#         if ($debug) { print "\nDATA DECRYPTED:" . join ( " ", @decryptedData ), "\n"; }
+#         print "From: $senderId, To: $recipientId, \"$message\"\n"; 
+#         if ($debug) { print "b0: $byte0, b2: $byte2, b8: $byte8\n"; }
+#       }
+#       # END OF MAGIC
+#     }
+#     $offset = $offset + (2 + $size); 
+#   }
+# }
 
 sub StarsClean {
   my ($GameFile) = @_;
@@ -1458,18 +1480,16 @@ sub StarsClean {
       # BUG: File name is important here, as backups work from the filename
       #   So do we want these to be .m files?
 
-#      if ($cleanFiles > 1) {  # Don't do unless in clean write mode
-        my $mFilePreclean = "preclean." . $mFile;
-		    &PLogOut(300,"StarsClean Backup: $mFile > $mFilePreclean", $LogFile);
-	 	    copy($mFile, $mFilePreclean);
-        &PLogOut(200," StarsClean: Pushing out $mFile post-cleaning for $GameFile", $LogFile);
-        open ( outFile, '>:raw', "$mFile" );
-        for (my $i = 0; $i < @outBytes; $i++) {
-          print outFile $outBytes[$i];
-        }
-        close ( outFile);
-        &PLogOut(200," StarsClean: Cleaned $mFile for $GameFile", $LogFile);
-#      } else { &PLogOut(300," StarsClean: Not in Clean mode for $GameFile", $LogFile); }
+      my $mFilePreclean = "preclean." . $mFile;
+	    &PLogOut(300,"StarsClean Backup: $mFile > $mFilePreclean", $LogFile);
+ 	    copy($mFile, $mFilePreclean);
+      &PLogOut(200," StarsClean: Pushing out $mFile post-cleaning for $GameFile", $LogFile);
+      open ( outFile, '>:raw', "$mFile" );
+      for (my $i = 0; $i < @outBytes; $i++) {
+        print outFile $outBytes[$i];
+      }
+      close ( outFile);
+      &PLogOut(200," StarsClean: Cleaned $mFile for $GameFile", $LogFile);
     }
   } 
 }
@@ -1483,9 +1503,9 @@ sub decryptClean {
   my @encryptedBlock;
   my @outBytes;
   my $needsCleaning = 0;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ($random, $seedA, $seedB, $seedX, $seedY );
-  my ($blockId, $size, $data );
+  my ( $FileValues, $typeId, $size );
     # For Object Block 43 
   my $objectId;    
   my $count = -1;
@@ -1514,15 +1534,17 @@ sub decryptClean {
   my $offset = 0; #Start at the beginning of the file
   while ($offset < @fileBytes) {
     # Get block info and data
-    ($blockId, $size, $data ) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-    if ($blockId == 43 ) { $debug = 1;  } else { $debug = 0;}
+
+    if ($typeId == 43 ) { $debug = 1;  } else { $debug = 0;}
     # FileHeaderBlock, never encrypted
-    if ($blockId == 8 ) {
+    if ($typeId == 8 ) {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block );
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
       unless ($Magic eq 'J3J3') { &PLogOut(100,"decryptClean: One of the files is not a .M file. Stopped along the way.", $ErrorLog); }
       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
@@ -1533,7 +1555,7 @@ sub decryptClean {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
       @decryptedData = @{ $decryptedData };    
       # WHERE THE MAGIC HAPPENS
-      if ($blockId == 43) { # Check for special attributes in the Object Block
+      if ($typeId == 43) { # Check for special attributes in the Object Block
         if ($size == 2) {
           my $count = &read16(\@decryptedData, 0);
         } else {
@@ -1617,7 +1639,7 @@ sub decryptClean {
           } 
         }
       }
-      if ($blockId == 6) { # Player Block
+      if ($typeId == 6) { # Player Block
         my $PRT = $decryptedData[76];
         if ($PRT == 3) {
           # Reset the info the CA player can see
@@ -1641,618 +1663,7 @@ sub decryptClean {
   }
   return \@outBytes, $needsCleaning;
 }
-
-sub StarsFix {
-  my ($xFile, $GameFile, $turn) = @_; # .x file location includes path   (Uploads)
-  my $needsFixing = 0;
-  my $queueCounter = 0;
-  my %queueList;
-  # Fixes data coming in from an .x file
-  #  my $fixFiles = 1; # 0, 1, 2: display, clean but don't write, write. See config.pl
-  &PLogOut(100,"StarsFix: fixing .x: $xFile", $LogFile);
-  
-  #read in the .queue file for Cheap Starbase analysis  
-  my $queueFile =  $FileHST . '\\' . $GameFile. '\\' . $GameFile . '.hst' . ".$turn" . '.queue';
-  if (-e $queueFile ) { 
-    my ($Player,$planetId,$itemId,$count,$completePercent,$itemType, $queueSize);
-    my @queueFile;
-    &PLogOut(200,"StarsFix: Reading in QUEUEFILE $queueFile", $LogFile);
-    open (IN_FILE,$queueFile) || die("Cannot open $queueFile file");
-    @queueFile = <IN_FILE>;
-  	close IN_FILE;
-    # Turn the file into a usable hash
-    foreach my $line (@queueFile) {
-    	chomp($line);
-     	($Player,$planetId,$itemId,$count,$completePercent,$itemType, $queueSize)	= split (",", $line);
-      # There is no unique combination of values for a queue
-      # So using a faux-counter
-      $queueList{$queueCounter}{Player} = $Player;
-      $queueList{$queueCounter}{planetId} = $planetId;
-      $queueList{$queueCounter}{itemId} = $itemId;
-      $queueList{$queueCounter}{count} = $count;
-      $queueList{$queueCounter}{completePercent} = $completePercent;
-      $queueList{$queueCounter}{itemType} = $itemType;
-      $queueList{$queueCounter}{queueSize} = $queueSize;
-      $queueCounter++;
-    }
-  }
-  
-  # Read in the binary Stars! file(s), byte by byte
-  my $fileValues;
-  my @fileBytes;
-  open(StarFile, "<$xFile" );
-  binmode(StarFile);
-  while ( read(StarFile, $fileValues, 1)) {
-    push @fileBytes, $fileValues; 
-  }
-  close(StarFile);
-  
-  # Decrypt the data, block by block
-  my ($outBytes, $needsFixing, $warning) = &decryptFix(\@fileBytes,\%queueList);
-  my @outBytes = @{$outBytes};
-  my %warning = %$warning;
-  
-  # Need to return a string since passing an array through a URL is unlikely to work
-  my $warning = '';
-  foreach my $key (keys %warning) {
-    $warning .= $warning{$key} . ",";
-  }
-  # Output the Stars! file with modified data
-  # Since we don't need to rewrite the file if nothing needs cleaning, let's not (safer)
-  if ($needsFixing) {
-    # Backup the file before we clean it
-    # Because otherwise we can't get back to where we were, as the
-    # backup is pre-turn generation, so random event will change.
-    # BUG: File name is important here, as backups work from the filename
-    #   So do we want these to be .x files?
-    if ($fixFiles > 1) {  # Don't do unless in write mode
-      my $xFilePreFix = 'preFix.' . $xFile;
-  	  &PLogOut(300,"StarsFix Backup: $xFile > $xFilePreFix", $LogFile);
-   	  copy($xFile, $xFilePreclean);
-      &PLogOut(200," StarsFix: Pushing out $xFile post-fixing", $LogFile);
-      open ( outFile, '>:raw', "$xFile" );
-      for (my $i = 0; $i < @outBytes; $i++) {
-        print outFile $outBytes[$i];
-      }
-      close ( outFile);
-      &PLogOut(200," StarsFix: Fixed $xFile", $LogFile);
-    } else { &PLogOut(300," StarsFix: Not in Fix mode for $xFile", $LogFile); }
-    return $warning;
-  } else { 
-  	&PLogOut(300,"StarsFix: $xFile does not need fixing", $LogFile);
-    return $warning; 
-  }  
-}
-
-sub decryptFix {
-  my ($fileBytes, $queueList) = @_;
-  my @fileBytes = @{$fileBytes};
-  my %queueList = %$queueList;
-
-  my @block;
-  my @data;
-  my ($decryptedData, $encryptedBlock, $padding);
-  my @decryptedData;
-  my @encryptedBlock;
-  my @outBytes;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
-  my ($random, $seedA, $seedB, $seedX, $seedY);
-  my ($typeId, $size, $data);
-  my $offset = 0; #Start at the beginning of the file
-  my $needsFixing;
-  my ($planetId, $ownerId); 
-  while ($offset < @fileBytes) {
-    # Get block info and data
-    ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
-    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-    #if ( $debug  > 1) { print "BLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-    #if ( $debug  > 1) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-    #if ($debug > 100) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
-    # FileHeaderBlock, never encrypted
-    if ($typeId == 8) { # File Header Block
-      # We always have this data before getting to block 6, because block 8 is first
-      # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
-      ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
-      $seedX = $seedA; # Used to reverse the decryption
-      $seedY = $seedB; # Used to reverse the decryption
-      push @outBytes, @block;
-    } else {
-      # Everything else needs to be decrypted
-      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
-      @decryptedData = @{ $decryptedData };
-      # WHERE THE MAGIC HAPPENS
-      if ($typeId == 6) { # Player Block
-        my $playerId = $decryptedData[0] & 0xFF; 
-        my $shipDesigns = $decryptedData[1] & 0xFF;  
-        my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); 
-        my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);  
-        my $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); 
-        #print " Starbase Designs: $starbaseDesigns\n";
-        $player{$playerId}{shipDesigns} = $shipDesigns;
-        $player{$playerId}{planets} = $planets;
-        $player{$playerId}{fleets} = $fleets;
-        $player{$playerId}{starbaseDesigns} = $starbaseDesigns;
-        $designShipTotal +=  $player{$playerId}{shipDesigns};
-        $designBaseTotal +=  $player{$playerId}{starbaseDesigns};
-        $lastPlayer = $playerId; # keep track of the largest known player Id
-      } elsif ( $typeId == 13) { # Planet Block to get Player ID for ProductionQueue
-        # This always precedes the Production Queue in the .M and .HST file
-        $planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
-        $ownerId = ($decryptedData[1] & 0xF8) >> 3;
-        if ($ownerId == 31) { $ownerId = -1; }
-        ### Other stuff after I have the player ID
-        my $flags = &read16(\@decryptedData, 2);
-        my $isHomeworld = ($flags & 0x80) != 0;
-        my $index = 4;
-        # More in the block I don't care about right now.       
-      } 
-      # Detect the Cheap Starbase in the producton queue
-      elsif ( $typeId == 28 || $typeId == 29) { # ProductionQueueBlock and ProductionQueueChangeBlock
-        # if not a .x file, we get the player Id from the most recent planet info
-        # because the player info isn't in the ProductionQueueBlock 
-        my $index = 0;
-        my ($chunk1, $chunk2, $itemId, $count, $completePercent, $itemType, $queueSize);
-        if ($typeId == 28) { 
-          $Player = $ownerId; 
-          $index = 0;
-       } elsif ($typeId == 29) { # Testing for ProductionQueueChangeBlock
-          # planet ID is only in the ProductonQueueChangeBlock
-          $planetId = &read16(\@decryptedData, 0);
-          $index = 2;
-        } 
-        #$planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
-        if ($typeId == 29 ) {
-          # Any change means erasing any old values for this planet
-          foreach my $queueCounter (keys %queueList) {
-            if (exists ($queueList{$queueCounter}{planetId}) ) { 
-                  delete $queueList{$queueCounter}; 
-            }
-          }  
-        }
-        for (my $i=$index; $i <= scalar(@decryptedData) -4; $i=$i+4) {
-          $chunk1 = &read16(\@decryptedData, $i);
-          $chunk2 = &read16(\@decryptedData, $i+2);
-          $itemId = $chunk1 >> 10;  # Top 6 bits - but only uses 4
-          $count = $chunk1 & 0x3FF; # Bottom 10 bits
-          $completePercent = $chunk2 >> 4; #Top 12 bits
-          $itemType = $chunk2 & 0xF; # bottom 4 bits
-          #print "Queue: Player: $Player, planetId: $planetId, itemId: $itemId, count: $count, %complete: $completePercent, itemType: $itemType, size: $size\n"; 
-          $queueCounter++;
-          $queueList{$queueCounter}{Player} = $Player;
-          $queueList{$queueCounter}{planetId} = $planetId;
-          $queueList{$queueCounter}{itemId} = $itemId;
-          $queueList{$queueCounter}{count} = $count;
-          $queueList{$queueCounter}{completePercent} = $completePercent;
-          $queueList{$queueCounter}{itemType} = $itemType;
-          $queueList{$queueCounter}{queueSize} = $size;
-          # Store an copy that won't be modified
-          $queueListHST{$queueCounter}= $queueList{$queueCounter};
-        }
-        if ($typeId == 29 && $size == 2) { # Clear Queue 
-          # Need to clear the ProductionQueue array if this is a clear queue action
-          # because we no longer care about what was in this production queue prior
-          # If Cheap Starbase bug, clearing the planet queue fixes it.
-          foreach my $queueCounter (keys %queueList) {
-            if (exists ($queueList{$queueCounter}{planetId}) && $queueList{$queueCounter}{planetId} == $planetId) { 
-              #print "CLEARING queue for planet: $queueList{$queueCounter}{planetId}\n";
-              delete $queueList{$queueCounter}; 
-            }
-          }
-        }
-        # If we changed a queue, check the entire queue for any planets building on the warning
-        # The warning list will be shorter, so start there. 
-        foreach my $warnId (keys %warning) {
-          my $stillBroken = 0;
-          my ($player, $designType, $designNumber, $warningType) = &splitWarnId($warnId); 
-          if ($warningType eq 'cheap') {
-            my $designId = $designNumber + 16;
-            foreach my $queueCounter (keys %queueList) {
-              if ($queueList{$queueCounter}{Player} == $player &&  $queueList{$queueCounter}{itemId} == $designId) {
-                $stillBroken = 1;
-              }
-            }
-          }
-          unless ($stillBroken) {
-            if (exists ($warning{$warnId}) && $warningType eq 'cheap') { 
-              delete $warning{$warnId}; 
-            }
-          }
-        }
-      } 
-      elsif ($typeId == 26 || $typeId == 27) { # Design & Design Change block
-        print "\n\n";
-        my $spacedockOverflow = 0;  #Space Dock Overflow
-        my $crobyLangston = 0; #Spack Dock overflow additional armor
-        if ($typeId == 26 ) { # HST File. 
-          # Find design block Player Id Because the player id isn't in Block 26
-          # The Design blocks are in order, and the number of them for each player are defined in the player block(s). 
-          # And if it seems like a lot of work to ge this info, it is.
-          # Find design block player
-          $designOwner=0;
-          if ($designShipTotalCounter >= $designShipTotal) { # Don't start starbases until the ships are done.
-            while ($designOwner <= 0  && $designBaseTotalCounter < $designBaseTotal && $designBasePlayerId <= $lastPlayer) {
-               if (exists($player{$designBasePlayerId}{starbaseDesigns}) && $designBaseCounter < $player{$designBasePlayerId}{starbaseDesigns}) {
-                  $designBaseCounter++; 
-                  $designBaseTotalCounter++; 
-                  $designOwner = $designBasePlayerId; 
-                  last;
-               } else { 
-                 $designBasePlayerId++; 
-                 $designBaseCounter = 0; 
-               }
-             }
-          } else {
-            while ($designOwner <= 0  && $designShipTotalCounter < $designShipTotal && $designShipPlayerId <= $lastPlayer) {
-               if (exists($player{$designShipPlayerId}{shipDesigns}) && $designShipCounter < $player{$designShipPlayerId}{shipDesigns}) {
-                  $designShipCounter++;
-                  $designShipTotalCounter++;
-                  $designOwner = $designShipPlayerId; 
-                   last;
-               } else { $designShipPlayerId++; $designShipCounter = 0; }
-            }
-          }
-          $Player = $designOwner;
-        }  
-        my $hullId;
-        my $index = 0;
-        if ( $typeId == 27 ) {# for the two extra bytes in a .x file 
-          $index = 2; 
-        }   
-        my $err = ''; # reset error for each time we check a hull, because it could be fixed in a later change.
-        $deleteDesign = $decryptedData[0] % 16;
-        if ($deleteDesign == 0) { 
-          $designNumber = $decryptedData[1] % 16; 
-          $isStarbase = ($decryptedData[1] >> 4) % 2; 
-          if ($isStarbase) { $warnId = &zerofy($Player) . '-base-' . &zerofy($designNumber);} # adding a zero lets us sort on key
-          else { $warnId = &zerofy($Player) . '-ship-' . &zerofy($designNumber); }  # adding a zero lets us sort on key
-          
-        }
-        # If the order is to delete a design, the rest of the data isn't there.  Don't expect it to be.
-        if ($deleteDesign) { 
-          $isFullDesign =  ($decryptedData[$index] & 0x04); 
-          $isTransferred = ($decryptedData[$index+1] & 0x80); 
-          $isStarbase = ($decryptedData[$index+1] & 0x40);  
-          $designNumber = ($decryptedData[$index+1] & 0x3C) >> 2; 
-          $hullId = $decryptedData[$index+2] & 0xFF; 
-          if ($isFullDesign) {
-            # Since there can be a ship and base with the same designId, 
-            # need to be able to keep them separate
-            if ($isStarbase) { $warnId = &zerofy($Player) . '-base-' . &zerofy($designNumber);} # adding a zero lets us sort on key
-            else { $warnId = &zerofy($Player) . '-ship-' . &zerofy($designNumber) ; }  # adding a zero lets us sort on key
-            $armor = &read16(\@decryptedData, $index+4);  
-            $armorIndex = $index +4; # used to fix the Space Dock overflow
-            $slotCount = $decryptedData[$index+6] & 0xFF; 
-            $turnDesigned = &read16(\@decryptedData, $index+7); 
-            $totalBuilt = &read16(\@decryptedData, $index+9); 
-            $totalRemaining = &read16(\@decryptedData, $index+13); 
-            $slotEnd = $index+17+($slotCount*4); 
-            $shipNameLength = $decryptedData[$slotEnd];          
-            $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
-            $index = 17;  
-            if ($typeId == 27) { $index += 2; } # x files have 2 more bytes
-            my $spaceDockIndex = $index; # used for the Space Dock overflow
-            # Loop through once for each slot
-            my $itemSum = 0; # tracking if all the design slots are empty for the Cheap Starbase bug
-            for (my $itemSlot = 0; $itemSlot < $slotCount; $itemSlot++) {
-              $itemCategory = &read16(\@decryptedData, $index);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
-              $index += 2;
-              $itemId = &read8($decryptedData[$index]); # Use current value of index, and increment by 1
-              $index++;
-              $itemCount = $decryptedData[$index];
-              $itemSum = $itemSum + $itemCount;
-              #my ( $category_str,$item_str ) = &showCategory($itemCategory, $itemId);
-              #if ( $category_str && $item_str ) { print "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount, index: $index\n"; }
-              #else { print "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount, index: $index\n";}
-
-              # Colonizer bug
-              # Ships with a colonization module removed and the slot left empty can still colonise planets
-              # If a colonizer hull is created, and then edited, it's going to put 2 (or more)  entries in the .x file.
-              # so need to filter.
-              if ($itemId == 0 &&  $itemCategory == 4096 && $itemCount == 0) {
-                # Fixing display for those who don't count from 0.
-                $err .= 'WARNING: Colonizer bug detected for player ' . &plusone($Player) . ' in ship design slot ' . &plusone($designNumber) . ": $shipName (in slot " . &plusone($itemSlot) . '). ';
-                $itemCategory = &read16(\@decryptedData, $index-3);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
-                #print "category: $itemCategory  index: $index\n";
-                ($decryptedData[$index-3], $decryptedData[$index-2]) = &write16(0); # Category
-                $needsFixing = 1;
-                if ($fixFiles > 1) {
-                  $err .= '  Fixed!!! Slot now truly empty.';
-                } else {$err .= '';}
-                $warning{$warnId.'-colonizer'} = $err;
-                #print "$index: $warnId: $err\n"; 
-              }
-              # Detect Space Dock Overflow
-              # Don't fix it here because we don't know yet at a slot level what the rest of the slots are
-              if ( $isStarbase && $hullId == 33 && $itemId == 11  && $itemCategory == 8 && $itemCount > 21  && $armor  >= 49518) {  $spacedockOverflow = 1; } 
-              # Check for other items that could be increasing armor
-              if ( $spacedockOverflow ) { if ($itemCategory == 4 && ($itemId == 6 || $itemId == 3)) { $crobyLangston = $itemCount; } }
-              # Step forward for the next slot
-              $index++;
-            }
-            if ($spacedockOverflow) {
-              # Fix Space Dock Armor slot Buffer Overflow with super latanium
-              # If your race has ISB and RS, building a Space Dock with more than 21 SuperLat in the Armor slot 
-              # will result in some sort of error (of massively increased armor)
-              # Rick: I had hoped to fix this by simply rewriting the armor value,
-              # but armor gets recalculated, so resetting the itemCount is the only choice. 
-              $err = 'WARNING: Spacedock Overflow bug of > 21 SuperLatanium detected for player ' . &plusone($Player) . ' in starbase design slot ' . &plusone($designNumber) . ": $shipName. ";
-              # reset the $itemCount 
-              $decryptedData[$spaceDockIndex+11] = 21; # Armor slot on spacedock
-              # Armor value should be 250 + (1500 * $itemCount) / 2
-              $armor = 250 + (1500 * 21) / 2; # adjust for 21 Super Latanium
-              if ($crobyLangston)  {  $armor += 65 * $crobyLangston; } # add on Croby or Langston armor
-              #print "Updated armor value: $armor\n";
-              # reset the final armor value for the spacedock overflow bug
-              ($decryptedData[$armorIndex], $decryptedData[$armorIndex+1]) = &write16($armor);
-              $needsFixing = 1;
-              if ($fixFiles > 1) {
-                $err .= '  Fixed!!! SuperLatanium set to 21. New armor value: ' . $armor;
-              } else {$err .= '';}
-              $warning{$warnId.'-dock'} = $err;
-              #print "$warnId: $err\n";
-            }
-            # if we have a starbase with totally empty slots, we definitely don't have a Cheap Starbase
-            if ($isStarbase && $itemSum == 0) { 
-              $brokenStarbase[$designNumber] = -1; 
-              if (exists ($warning{$warnId.'-cheap'}) && $warning{$warnId.'-cheap'}) { 
-                delete ($warning{$warnId.'-cheap'}); 
-              }
-            }
-          } else { # If it's not a full design
-            $mass = &read16(\@decryptedData, 4); 
-            $slotEnd = 6; 
-            $shipNameLength = $decryptedData[$slotEnd]; 
-            $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
-          }
-          #print "shipName: $shipName\n";
-          
-          # Detect the 10th starbase design
-          if ( $isStarbase && $designNumber == 9 && $deleteDesign && $Player > 0 ) {
-            $err = 'WARNING: Player ' . &plusone($Player) . ": Starbase ($shipName) in design slot 10 - Potential Crash if Player 1 Fleet 1 refuels when Last Player has a 10th starbase design.";
-            # As I have no fix, no need to flag for fixing
-            #print "$warnId: $err\n"; 
-            $warning{$warnId.'-ten'} = $err;
-          } 
-          # Detect the Cheap Starbase exploit    
-          # Editing a starbase under construction at planet(s) with no starbase
-          # Only need to check starbase orders
-          # If the design is deleted we also stop checking 
-          if ($typeId == 27 && $isStarbase && $totalBuilt == 0 && !($brokenStarbase[$designNumber]  < 0) ){ # .x and Starbase
-            my $queueDesignNumber = 16 + $designNumber; # the queue starts starbase design numbers after the ship design numbers
-            my $queueCounter;
-            foreach my $queueCounter (sort keys %queueList) {
-              if ($queueList{$queueCounter}{Player} == $Player && $queueList{$queueCounter}{itemType} == 4 && $queueList{$queueCounter}{itemId} == $queueDesignNumber) { # if the item in the queue is a ship design (4)
-                $err = 'WARNING: Cheap Starbase Exploit for Player ' . &plusone($Player) . '. Do not edit a starbase under construction (slot ' . &plusone($designNumber) . ", $shipName).";
-                $brokenStarbase[$designNumber] = 1; 
-                $index = 19;  
-                # Loop through each slot, setting the slot to 0
-                for (my $itemSlot = 0; $itemSlot < $slotCount; $itemSlot++) {
-                  ($decryptedData[$index], $decryptedData[$index+1]) = &write16(0);
-                  $itemCategory = &read16(\@decryptedData, $index);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
-                  $index += 2;
-                  $decryptedData[$index] = 0;
-                  $itemId = &read8($decryptedData[$index]); # Use current value of index, and increment by 1
-                  $index++;
-                  $decryptedData[$index] = 0;
-                  $itemCount = $decryptedData[$index];
-                  #my ( $category_str,$item_str ) = &showCategory($itemCategory, $itemId);
-                  #if ( $category_str && $item_str ) { print "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount, index: $index \n"; }
-                  #else { print "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount, index: $index \n";}
-                  $index++;
-                }
-                $needsFixing = 1;
-                if ($fixFiles > 1) {
-                  $err .= "  Fixed!!! Starbase design for $shipname reset to blank.";
-                } else {$err .= ' '; }
-                $warning{$warnId.'-cheap'} = $err;
-                #print "$warnId: $err\n";
-              }
-            }
-          }
-        } 
-        # For the Colonizer bug & Spacedock overflow, track whether the design was 
-        # created, but remove the warning if the design was subsequently changed (inc. deleted)
-        # (because a later .x file entry modified this designnumber)
-        # Store the error in a hash so it's only one / ship / file
-        # Will handle for multi-turn .m files.
-        if (!$err && $warning{$warnId.'-dock'}) { 
-          delete( $warning{$warnId.'-dock'} ); 
-        }
-        if (!$err && $warning{$warnId.'-colonizer'}) { 
-          delete( $warning{$warnId.'-colonizer'} ); 
-        }
-        # If the 10th starbase has been deleted, clear the warning
-        if ( $isStarbase && $designNumber == 9 && $deleteDesign == 0 && $Player > 0 ){
-          if ($warning{$warnId.'-ten'}) { 
-            delete ($warning{$warnId.'-ten'}); 
-          }
-        }
-        # If the edited Cheap Starbase design is deleted, 
-        # delete the queue entries as we no longer care for future checks on this design.
-        my $queueDesignNumber = 16 + $designNumber; # the queue starts starbase design numbers after the ship design numbers
-        if ( ($isStarbase && $deleteDesign == 0) ) {
-          # Determine which starbase
-          foreach my $queueCounter (sort keys %queueList) {
-            if ($queueList{$queueCounter}{Player} == $Player && $queueList{$queueCounter}{itemType} == 4 && $queueList{$queueCounter}{itemId} == $queueDesignNumber ) { # if the item in the queue is a ship design (4)
-              if (exists ($queueList{$queueCounter})) { 
-                delete $queueList{$queueCounter}; 
-              }
-            }
-          }
-          if (exists ($warning{$warnId.'-cheap'}) && $warning{$warnId.'-cheap'}) { 
-            delete ($warning{$warnId.'-cheap'}); 
-          }
-        }
-        # If the queue was cleared for planet, future queue no longer a problem
-        foreach my $queueCounter (keys %queueList) { # Loop through all the items in the queue
-          if ( $queueList{$queueCounter}{queueSize} == 2 ) {
-            if (exists ($queueList{$queueCounter})) { 
-              delete $queueList{$queueCounter}; 
-            }
-          }
-        }
-        # Now that the queues are cleared up, see if we still have a Cheap Starbase problem
-        my $stillBroken = 0;   
-        foreach my $queueCounter (keys %queueList) { # Loop through all the items in the queue
-          if ($queueList{$queueCounter}{Player} == $Player && $queueList{$queueCounter}{itemType} == 4 && $queueList{$queueCounter}{itemId} == $queueDesignNumber && $queueList{$queueCounter}{completePercent} > 0) { # if the item in the queue is a ship design (4)
-             $stillBroken = 1;
-          }
-        }
-        if ($stillBroken) {
-          $brokenStarbase[$designNumber] = 1;
-        } else {
-          #if ($brokenStarbase[$designNumber] == 1) { 
-          #  print "Cheap Starbase Player Fix Noted\n"; 
-          #}
-          $brokenStarbase[$designNumber] = -1;
-          if (exists ($warning{$warnId.'-cheap'}) && $warning{$warnId.'-cheap'}) { 
-            delete ($warning{$warnId.'-cheap'}); 
-          }
-        }
-      } elsif ($typeId == 30) {  # BattlePlan block
-        my ($planPlayerId, $planNumber, $primaryTarget,$secondaryTarget,$tactic,$attackWho, $dumpCargo, $planNameLength, $planName);
-        my @target = qw(None Any Starbase Armed Bombers Unarmed Fuel Freighters);
-        my @tactic = qw(Disengage ifChallenged minToSelf maxNet maxRatio Max);
-        my @attackWho = qw(Nobody Enemies Neutral/Enemies Everyone 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16);
-        my $err = '';
-        # Player 0 Default: 0 4 19 2 5 179 45 113 222 90
-        $planPlayerId = ($decryptedData[0] >> 0) & 0x0F; 
-        $planNumber = ($decryptedData[0] >> 4) & 0x0F; 
-        $tactic = ($decryptedData[1]) & 0x0F; 
-        $dumpCargo = ($decryptedData[1] >> 7) & 0x01; 
-        $primaryTarget = ($decryptedData[2] >> 0) & 0x0F; 
-        $secondaryTarget = ($decryptedData[2] >> 4) & 0x0F; 
-        $attackWho = $decryptedData[3]; 
-        $planNameLength = $decryptedData[4]; 
-        #print "planNameLength: $planNameLength  (using nibbles as characters, not bytes)\n";
-        $planName = &decodeBytesForStarsString(@decryptedData[4..4+$planNameLength]);  
-        #print "$planPlayerId,$primaryTarget,$secondaryTarget,$tactic,$attackWho,$dumpCargo\n";
-        # Detect the BattlePlan Friendly Fire bug
-        $warnId = &zerofy($planPlayerId) . '-plan-' . &zerofy($planNumber);
-        if (($attackWho) > 3 && $planNumber == 0) { 
-           # Fixing display for those who don't count from 0.
-           $err .= 'WARNING: Friendly Fire bug detected for Player ' . &plusone($planPlayerId) .  " in Default battle plan against " . &attackWho($attackWho) . '.';
-           $decryptedData[3] = 2;
-           $needsFixing = 1;
-           if ($fixFiles > 1) {
-             $err .= ' Fixed!!! Attack Who reset to Neutral/Enemy.';
-           } else {$err .= '';}
-           #print "$warnId: $err\n"; 
-           $warning{$warnId.'-friendly'} = $err;
-        }
-        # If a subsequent Default battle plan fixes it, clear the warning
-        if (!$err && $warning{$warnId.'-friendly'}) { 
-          delete( $warning{$warnId.'-friendly'} ); 
-        }
-      }
-      # END OF MAGIC
-      # reencrypt the data for output
-      ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
-      @encryptedBlock = @ { $encryptedBlock };
-      push @outBytes, @encryptedBlock;
-    }
-    $offset = $offset + (2 + $size); 
-  }
-  return \@outBytes, $needsFixing, \%warning;
-}
-
-
-sub StarsQueue {
-# Generate a queue file (used by Fix for Cheap Starbase detection)
-  my ($GameDir, $GameFile, $turn) = @_;
-  # Read in the .HST File
-  my $filename = $GameDir . '\\' . $GameFile . '.HST';
-  open(StarFile, "<$filename");
-  binmode(StarFile);
-  while (read(StarFile, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
-  close(StarFile);
-  # Decrypt the data, block by block
-  my $queueList = &decryptQueue(@fileBytes);
-  my %queueList = %$queueList;
-  # write out the unmodified queue list
-  my $queueFile = $GameDir . '\\' . $GameFile . '.HST' . ".$turn" . '.queue';
-  if (-d $GameDir) { # Check to make sure we're putting the .queue in the right place
-    open (QUEUEFILE, ">$queueFile");
-    foreach my $queueCounter (keys %queueList) {
-      print QUEUEFILE "$queueList{$queueCounter}{Player},$queueList{$queueCounter}{planetId},$queueList{$queueCounter}{itemId},$queueList{$queueCounter}{count},$queueList{$queueCounter}{completePercent},$queueList{$queueCounter}{itemType},$queueList{$queueCounter}{queueSize}\n";
-    }
-    close QUEUEFILE;
-    &PLogOut(100, "Done writing out $queueFile", $LogFile)
-  } else { &PLogOut (0,"StarsQueue: Directory $GameDir Missing for $queueDir", $ErrorLog); }
-}
-
-sub decryptQueue {
-  my (@fileBytes) = @_;
-  my @block;
-  my @data;
-  my ($decryptedData, $encryptedBlock, $padding);
-  my @decryptedData;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
-  my ($random, $seedA, $seedB, $seedX, $seedY);
-  my ($typeId, $size, $data);
-  my $offset = 0; #Start at the beginning of the file
-  my ($planetId, $ownerId); 
-  my %queueList;
-  my $queueCounter=0;
-  while ($offset < @fileBytes) {
-    # Get block info and data
-    ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
-    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-    # FileHeaderBlock, never encrypted
-    if ($typeId == 8) { # File Header Block
-      # We always have this data before getting to block 6, because block 8 is first
-      # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
-      ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
-      $seedX = $seedA; # Used to reverse the decryption
-      $seedY = $seedB; # Used to reverse the decryption
-      push @outBytes, @block;
-    } else {
-      # Everything else needs to be decrypted
-      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
-      @decryptedData = @{ $decryptedData };
-      # WHERE THE MAGIC HAPPENS
-      if ( $typeId == 13) { # Planet Block to get Player ID for ProductionQueue
-        # This always precedes the Production Queue in the .M and .HST file
-        $planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
-        $ownerId = ($decryptedData[1] & 0xF8) >> 3;
-        if ($ownerId == 31) { $ownerId = -1; }
-      } 
-      # Detect the Cheap Starbase in the producton queue
-      elsif ( $typeId == 28 && $ownerId >= 0 ) { # ProductionQueueBlock from owned planets
-        # if not a .x file, we get the player Id from the most recent planet info
-        # because the player info isn't in the ProductionQueueBlock 
-        my ($chunk1, $chunk2, $itemId, $count, $completePercent, $itemType, $queueSize);
-        $Player = $ownerId; 
-        for (my $i=0; $i <= scalar(@decryptedData) -4; $i=$i+4) {
-          $chunk1 = &read16(\@decryptedData, $i);
-          $chunk2 = &read16(\@decryptedData, $i+2);
-          $itemId = $chunk1 >> 10;  # Top 6 bits - but only uses 4
-          $count = $chunk1 & 0x3FF; # Bottom 10 bits
-          $completePercent = $chunk2 >> 4; #Top 12 bits
-          $itemType = $chunk2 & 0xF; # bottom 4 bits
-          $queueCounter++;
-          $queueList{$queueCounter}{Player} = $Player;
-          $queueList{$queueCounter}{planetId} = $planetId;
-          $queueList{$queueCounter}{itemId} = $itemId;
-          $queueList{$queueCounter}{count} = $count;
-          $queueList{$queueCounter}{completePercent} = $completePercent;
-          $queueList{$queueCounter}{itemType} = $itemType;
-          $queueList{$queueCounter}{queueSize} = $size;
-        }
-      } 
-      # END OF MAGIC
-    }
-    $offset = $offset + (2 + $size); 
-  }
-  return \%queueList;
-}
-
+ 
 sub plusone{
 # Increment the value of a number as one for display to end users
 # (who problably don't count from 0)

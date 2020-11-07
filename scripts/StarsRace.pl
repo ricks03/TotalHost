@@ -87,34 +87,37 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-my ($outBytes) = &decryptBlockRace(@fileBytes);
+#my ($outBytes) = &decryptBlockRace(@fileBytes);
+my ($outBytes) = &decryptBlockRace();
 my @outBytes = @{$outBytes};
 
 
 ################################################################
 sub decryptBlockRace {
-  my (@fileBytes) = @_;
+  #my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ( $random, $seedA, $seedB, $seedX, $seedY);
-  my ($typeId, $size, $data);
+  my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   while ($offset < @fileBytes) {
     # Get block info and data
-    ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
     if ($debug > 1) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     if ($typeId == 8) { # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -281,6 +284,4 @@ sub decryptBlockRace {
   }
   return \@outBytes;
 }
-
-
 
