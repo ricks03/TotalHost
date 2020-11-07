@@ -86,33 +86,36 @@ while ( read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-my ($outBytes) = &decryptBlock(@fileBytes);
+#my ($outBytes) = &decryptBlock(@fileBytes);
+my ($outBytes) = &decryptBlock();
 
   
 ################################################################
 sub decryptBlock {
-  my (@fileBytes) = @_;
+  #my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ($random, $seedA, $seedB, $seedX, $seedY );
-  my ($blockId, $size, $data );
+  my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   while ($offset < @fileBytes) {
     # Get block info and data
-    ($blockId, $size, $data ) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
-    if ($blockId == 8 ) { # File Header Block
+    if ($typeId == 8 ) { # File Header Block
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block );
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
     } else {
       # Everything else needs to be decrypted
@@ -120,7 +123,7 @@ sub decryptBlock {
       @decryptedData = @{ $decryptedData };  
       if ( $debug  > 1) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
-      &processData(\@decryptedData,$blockId,$offset,$size, $turn);
+      &processData(\@decryptedData,$typeId,$offset,$size, $turn);
       # END OF MAGIC
     }
     $offset = $offset + (2 + $size); 
@@ -129,13 +132,13 @@ sub decryptBlock {
 
 sub processData {
   # Display the messages in the file
-  my ($decryptedData,$blockId,$offset,$size, $turn)  = @_;
+  my ($decryptedData,$typeId,$offset,$size, $turn)  = @_;
   my @decryptedData = @{ $decryptedData };
   my $message;
   # We need the names to display
   # Check the Player Block so we can get the race names
   # although there are no names in .x files
-  if ($blockId == 6) { # Player Block
+  if ($typeId == 6) { # Player Block
     # added 0xFF without testing 200424
     my $playerId = $decryptedData[0] & 0xFF;
     my $fullDataFlag = ($decryptedData[6] & 0x04);
@@ -152,7 +155,7 @@ sub processData {
     $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
     $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
 #    print "playerName $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
-  } elsif ($blockId == 40) { # check the Message block 
+  } elsif ($typeId == 40) { # check the Message block 
     my $byte0 =  &read16(\@decryptedData, 0);  # unknown
     my $byte2 =  &read16(\@decryptedData, 2);  # unknown
     my $senderId = &read16(\@decryptedData, 4);
@@ -161,7 +164,7 @@ sub processData {
     my $messageBytes = &read16(\@decryptedData, 10);
     my $messageLength = $size -1;
     $message = &decodeBytesForStarsMessage(@decryptedData[11..$messageLength]);
-    if ($debug) { print "blockId: $blockId\n"; }
+    if ($debug) { print "typeId: $typeId\n"; }
     if ($debug) { print "\nDATA DECRYPTED:" . join ( " ", @decryptedData ), "\n"; }
 #    print "From: $senderId, To: $recipientId, \"$message\"\n"; 
     my $turn_fix = $turn + 2400;

@@ -444,6 +444,104 @@ sub inactive_game {
 	&DB_Close($db); 
 }
 
+sub StarsQueue {
+# Generate a queue file (used by Fix for Cheap Starbase detection)
+  my ($GameDir, $GameFile, $turn) = @_;
+  # Read in the .HST File
+  my $filename = $GameDir . '\\' . $GameFile . '.HST';
+  open(StarFile, "<$filename");
+  binmode(StarFile);
+  while (read(StarFile, $FileValues, 1)) {
+    push @fileBytes, $FileValues; 
+  }
+  close(StarFile);
+  # Decrypt the data, block by block
+#  my $queueList = &decryptQueue(@fileBytes);
+  my $queueList = &decryptQueue();
+  my %queueList = %$queueList;
+  # write out the unmodified queue list
+  my $queueFile = $GameDir . '\\' . $GameFile . '.HST' . ".$turn" . '.queue';
+  if (-d $GameDir) { # Check to make sure we're putting the .queue in the right place
+    open (QUEUEFILE, ">$queueFile");
+    foreach my $queueCounter (keys %queueList) {
+      print QUEUEFILE "$queueList{$queueCounter}{Player},$queueList{$queueCounter}{planetId},$queueList{$queueCounter}{itemId},$queueList{$queueCounter}{count},$queueList{$queueCounter}{completePercent},$queueList{$queueCounter}{itemType},$queueList{$queueCounter}{queueSize}\n";
+    }
+    close QUEUEFILE;
+    &PLogOut(100, "Done writing out $queueFile", $LogFile)
+  } else { &PLogOut (0,"StarsQueue: Directory $GameDir Missing for $queueDir", $ErrorLog); }
+}
+
+sub decryptQueue {
+  #my (@fileBytes) = @_;
+  my @block;
+  my @data;
+  my ($decryptedData, $encryptedBlock, $padding);
+  my @decryptedData;
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ($random, $seedA, $seedB, $seedX, $seedY);
+  my ( $FileValues, $typeId, $size );
+  my $offset = 0; #Start at the beginning of the file
+  my ($planetId, $ownerId); 
+  my %queueList;
+  my $queueCounter=0;
+  while ($offset < @fileBytes) {
+    # Get block info and data
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
+   # FileHeaderBlock, never encrypted
+    if ($typeId == 8) { # File Header Block
+      # We always have this data before getting to block 6, because block 8 is first
+      # If there are two (or more) block 8s, the seeds reset for each block 8
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
+      ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+      $seedX = $seedA; # Used to reverse the decryption
+      $seedY = $seedB; # Used to reverse the decryption
+      push @outBytes, @block;
+    } else {
+      # Everything else needs to be decrypted
+      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
+      @decryptedData = @{ $decryptedData };
+      # WHERE THE MAGIC HAPPENS
+      if ( $typeId == 13) { # Planet Block to get Player ID for ProductionQueue
+        # This always precedes the Production Queue in the .M and .HST file
+        $planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
+        $ownerId = ($decryptedData[1] & 0xF8) >> 3;
+        if ($ownerId == 31) { $ownerId = -1; }
+      } 
+      # Detect the Cheap Starbase in the producton queue
+      elsif ( $typeId == 28 && $ownerId >= 0 ) { # ProductionQueueBlock from owned planets
+        # if not a .x file, we get the player Id from the most recent planet info
+        # because the player info isn't in the ProductionQueueBlock 
+        my ($chunk1, $chunk2, $itemId, $count, $completePercent, $itemType, $queueSize);
+        $Player = $ownerId; 
+        for (my $i=0; $i <= scalar(@decryptedData) -4; $i=$i+4) {
+          $chunk1 = &read16(\@decryptedData, $i);
+          $chunk2 = &read16(\@decryptedData, $i+2);
+          $itemId = $chunk1 >> 10;  # Top 6 bits - but only uses 4
+          $count = $chunk1 & 0x3FF; # Bottom 10 bits
+          $completePercent = $chunk2 >> 4; #Top 12 bits
+          $itemType = $chunk2 & 0xF; # bottom 4 bits
+          $queueCounter++;
+          $queueList{$queueCounter}{Player} = $Player;
+          $queueList{$queueCounter}{planetId} = $planetId;
+          $queueList{$queueCounter}{itemId} = $itemId;
+          $queueList{$queueCounter}{count} = $count;
+          $queueList{$queueCounter}{completePercent} = $completePercent;
+          $queueList{$queueCounter}{itemType} = $itemType;
+          $queueList{$queueCounter}{queueSize} = $size;
+        }
+      } 
+      # END OF MAGIC
+    }
+    $offset = $offset + (2 + $size); 
+  }
+  return \%queueList;
+}
+
+
 # # Returns CSecofDay along with everything else
 # sub CheckTime { #Determine information for a specified time in seconds of a day
 # 	my($TimetoCheck) = @_;  # Pass in Epoch Time

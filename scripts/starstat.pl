@@ -2,8 +2,9 @@
 # starstat.pl
 # Read in the data from any stars file to validate it.
 # Rick Steeves th@corwyn.net
-# 120129
-# Version 1.1
+# 120129, 201105
+# Version 1.2
+
 
 #     Copyright (C) 2012 Rick Steeves
 # 
@@ -38,6 +39,20 @@ binmode(StarFile);
 read(StarFile, $FileValues, 22);
 close(StarFile);
 
+# 2 bytes: Header
+# 4 bytes: (0/3): Magic
+# 4 bytes: (4/7): GameID
+# 2 bytes: (8/9): version
+# 2 bytes: (10/11): turn number
+# 2 bytes: (12/13): Player and encryption seed
+# 1 byte: File type
+#   Bit 0 (1) - Turn Submitted
+#   Bit 1 (2) - Host is using file
+#   Bit 2 (4) - Multiple turns in .m file
+#   Bit 3 (8) - Game over
+#   Bit 4 (16)- Shareware Version
+
+
 $unpack = "A2A4h8SSSS";
 #$Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts)
 @FileValues = unpack($unpack,$FileValues);
@@ -69,6 +84,12 @@ $iPlayer = substr($iPlayer,11,5);
 $iPlayer = bin2dec($iPlayer);
 $iPlayer=$iPlayer +1; # Correcting for 0-15
 print "iPlayer = $iPlayer\n"; 
+
+# Encryption seed
+# (0 in the File Header Block)
+$binSeed = substr($iPlayer,0,11);
+$seed = bin2dec($binSeed);
+print "Seed: " . $seed; 
 
 # dts
 # Convert DTS to binary so we can pull the values back out
@@ -103,6 +124,11 @@ print $fGameOver . ':' . @fGameOver[$fGameOver] . "\n";
 $fShareware = substr($dts, 3, 1);
 print $fShareware . ':' . @fShareware[$fShareware] . "\n";
 
+# Unknown
+$unknown = substr($dts, 0, 1);  # is not always 1|0
+
+
+
 #############
 sub dec2bin {
 	#my $str = unpack("B32", pack("N", shift));
@@ -113,4 +139,17 @@ sub dec2bin {
 }
 sub bin2dec {
 	return unpack("N", pack("B32", substr("0" x 32 . shift, -32)));
+}
+
+sub read8 {
+# Convert unsigned byte to integer.
+  my ($b) = @_;
+	return $b & 0xFF;
+}
+
+sub read16 {
+#	 Read a 16 bit little endian integer from a byte array
+  my ($data, $offset) = @_;
+  my @data = @{ $data };
+	return &read8($data[$offset+1]) << 8 | &read8($data[$offset]);
 }

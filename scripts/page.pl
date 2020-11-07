@@ -720,7 +720,12 @@ sub show_turngeneration {
 	if ($GameType == 3) { print "Turns generated only when all turns are in.\n"; } 
 	elsif ($GameType == 4) { print " Turns Generated Manually.\n"; }
 	elsif ($GameType == 2) { 
-		print " Turns generated every $HourlyTime hours"; 
+    if ($HourlyTime >=1) {
+		  print " Turns generated every $HourlyTime hours"; 
+    } elsif ($HourlyTime < 1) {
+      my $minutes = int(($HourlyTime * 60) + .5);
+      print " Turns generated every $minutes minutes";
+    }
 		if ($AsAvailable) { print " or when all turns are in"; }
 		print ".\n";
 		print "<table border=1>\n<tr>\n";
@@ -1846,8 +1851,16 @@ sub edit_game {
 	print qq|<td><SELECT name="HourlyTime">\n|;
 	foreach my $key (@HourlyTime) { 
 		if ($key == $GameValues{'HourlyTime'}) { print qq|<OPTION value=$key SELECTED>$key\n|; }
-		elsif ($type eq 'create' && $key eq '48') { print qq|<OPTION value=$key SELECTED>$key\n|; }
-		else { print qq|<OPTION value=$key>$key\n|;}
+		elsif ($type eq 'create' && $key eq '48') { print qq|<OPTION value=$key SELECTED>$key hours\n|; }
+		else { 
+      # Display minutes or hours as appropriate
+      if ($key >= 1) {
+        print qq|<OPTION value=$key>$key hours\n|;
+      } elsif ($key < 1) {
+        my $key_minutes = int(($key * 60) +.5);
+        print qq|<OPTION value=$key>$key_minutes minutes\n|;
+      }
+    }
 	}
 	print qq|</SELECT></td></tr></table>\n|;
 
@@ -2714,7 +2727,12 @@ sub show_delay {
 	if ($GameValues{'GameType'} == 3) { print "Turns generated only when all turns are in.\n"; } 
   	elsif ($GameValues{'GameType'} == 4) { print " Turns generated manually.\n"; }
   	elsif ($GameValues{'GameType'} == 2) { 
-		print " Turns generated every $GameValues{'HourlyTime'} hours"; 
+      if ($HourlyTime >=1) {
+  		  print " Turns generated every $HourlyTime hours"; 
+      } elsif ($HourlyTime < 1) {
+        my $minutes = int(($HourlyTime * 60) + .5);
+        print " Turns generated every $minutes minutes";
+      }
 		if ($GameValues{'AsAvailable'}) { print " or when all turns are in"; }
 		print ".";
 		print "<table border=1><tr>\n";

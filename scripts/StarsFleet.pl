@@ -145,7 +145,8 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-my ($outBytes, $needsFixing, $warning) = &decryptShip(@fileBytes);
+#my ($outBytes, $needsFixing, $warning) = &decryptShip(@fileBytes);
+my ($outBytes, $needsFixing, $warning) = &decryptShip();
 my @outBytes = @{$outBytes};
 %warning = %$warning;
 
@@ -227,30 +228,32 @@ close FLEETFILE;
 
 ################################################################
 sub decryptShip {
-  my (@fileBytes) = @_;
+  #my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ($random, $seedA, $seedB, $seedX, $seedY);
-  my ($typeId, $size, $data);
+  my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   my $needsFixing;
   while ($offset < @fileBytes) {
     # Get block info and data
-    ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
     if ($debug > 1) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
     if ($debug > 100) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) { # File Header Block
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -520,8 +523,8 @@ sub decryptShip {
         #print "\n\nshipTypes: " . &dec2bin($shipTypes) . "\n";
         my $shipct =0 ;
         foreach my $val (@shipCount) {
-          if ($val ) { print "designNumber: $shipct   shipCount: $val\n";}
-          else { print "designNumber: $shipct   shipCount: 0\n";}
+          if ( $val ) { print "designNumber: $shipct   shipCount: $val\n";}
+          #else { print "designNumber: $shipct   shipCount: 0\n";}
           $shipct++;
         }
         # PARTIAL_KIND = 3, PICK_POCKET_KIND = 4, FULL_KIND = 7;
@@ -617,59 +620,59 @@ sub decryptShip {
 #   else { return $hullType; }
 # }
 
-sub showCategory {
-  my ($category, $item) = @_;
-  my @category;
-  my %item;
-#             Empty = 0,
-#             Engine = 1,
-#             Scanners = 2,
-#             Shields = 4,
-#             Armor = 8,
-#             BeamWeapon = 0x10,
-#             Torpedo = 0x20
-#             Bomb = 0x40,
-#             MiningRobot = 0x80,
-#             MineLayer = 0x100,
-#             Orbital = 0x200,
-#             Planetary = 0x400,
-#             Electrical = 0x800,
-#             Mechanical = 0x1000,
-
-  $category[0] = "Empty";
-  $category[1] = "Engine";
-  $category[2] = "Scanners";
-  $category[4] = "Shields";
-  $category[8] = "Armor";
-  $category[16] = "BeamWeapon";
-  $category[32] = "Torpedo";
-  $category[64] = "Bomb";
-  $category[128] = "MiningRobot";
-  $category[256] = "MineLayer";
-  $category[512] = "Orbital";
-  $category[1024] = "Planetary"; # Assumed since it appears to be the only missing one
-  $category[2048] = "Electrical";
-  $category[4096] = "Mechanical";
-  $category[6144] = "Orbital Or Electrical";
-
-  $item{'0'} =  [ qw ( empty ) ]; 
-  $item{'1'} =  [ qw ( SettlerDelight Jump5 Mizer Hump6 Legs7 Alpha8 Trans9 Inter10 Enigma Trans10 NHRS Sub Trans TransSuper TransMizer Galaxy ) ];
-  $item{'2'} =  [ qw ( Bat Rhino Mole DNA Possum PickPocket Chameleon Ferret Dolphin Gazelle RNA Cheetah Elephant Eagle Robber Peerless) ];
-  $item{'4'} =  [ qw ( Mole Cow Wolverine Croby Shadow Bear Langston Gorilla Elephant Complete ) ];
-  $item{'8'} =  [ qw ( Tritanium Crobmium CarbonicArmor Strobnium OrganicArmor Kelarium FieldedKelarium DepletedNeutronium Neutronium MegaPoly Valanium Superlatanium ) ];
-  $item{'16'} = [ qw ( Laser X-Ray MiniGun YakimoraPhaser Blackjack Phaser PulsedSapper ColloidalPhaser GatlingGun MiniBlaster Bludgeon MarkIVBlaster PhasedSapper HeavyBlaster GatlingNeutrino MyopicDisruptor Blunderbuss Disruptor MultiContainedMunition SyncroSapper MegaDisruptor BigMuthaCannon StreamingPulverizer Anti-MatterPulverizer ) ]; 
-  $item{'32'} = [ qw ( Alpha Beta Delta Epsilon Rho Upsilon Omega Jihad Juggernaut Doomsday Armageddon ) ];
-  $item{'64'} = [ qw ( LadyFinger BlackCat M-70 M-80 Cherry LBU-17 LBU-32 LBU-74 HushaBoom Retro Smart Neutron EnrichedNeutron Peerless Annihilator ) ];
-  $item{'128'} = [ qw ( Midget Mini Miner Maxi Super Ultra Orbital ) ]; 
-  $item{'256'} = [ qw ( Mine40 Mine50 Mine80 Mine130 Heavy50 Heavy110 Heavy200 Speed20 Speed30 Speed50 ) ];
-  $item{'512'} = [ qw ( SG250 SG300 SG600 SG500 SGany SG800  SGanyany Mass5 Mass6 Mass7 Mass8 Mass9 Mass10 Mass11 Mass12 Mass13 ) ];
-  $item{'1024'} = [ qw ( Viewer50 Viewer90 Viewer150 Viewer220 Viewer280 Viewer320 Snooper400 Snooper500 Snooper620 ) ];
-  $item{'2048'} = [ qw ( TransportCloak StealthCloak Super-StealthCloak Ultra-StealthCloak MultiFunction BattleComputer BattleSuperComputer BattleNexus Jammer10 Jammer20 Jammer30 Jammer50 EnergyCapacitor FluxCapacitor EnergyDampener TachyonDetector Anti-matterGenerator) ];
-  $item{'4096'} = [ qw ( Colonization OrbitalCon Cargo SuperCargo MultiCargo Fuel SuperFuel ManeuveringJet Overthruster BeamDeflector ) ];
-  $item{'6194'} = [ qw ( empty ) ];
-
-  return ($category[$category],$item{$category}[$item]);
-}
+# sub showCategory {
+#   my ($category, $item) = @_;
+#   my @category;
+#   my %item;
+# #             Empty = 0,
+# #             Engine = 1,
+# #             Scanners = 2,
+# #             Shields = 4,
+# #             Armor = 8,
+# #             BeamWeapon = 0x10,
+# #             Torpedo = 0x20
+# #             Bomb = 0x40,
+# #             MiningRobot = 0x80,
+# #             MineLayer = 0x100,
+# #             Orbital = 0x200,
+# #             Planetary = 0x400,
+# #             Electrical = 0x800,
+# #             Mechanical = 0x1000,
+# 
+#   $category[0] = "Empty";
+#   $category[1] = "Engine";
+#   $category[2] = "Scanners";
+#   $category[4] = "Shields";
+#   $category[8] = "Armor";
+#   $category[16] = "BeamWeapon";
+#   $category[32] = "Torpedo";
+#   $category[64] = "Bomb";
+#   $category[128] = "MiningRobot";
+#   $category[256] = "MineLayer";
+#   $category[512] = "Orbital";
+#   $category[1024] = "Planetary"; # Assumed since it appears to be the only missing one
+#   $category[2048] = "Electrical";
+#   $category[4096] = "Mechanical";
+#   $category[6144] = "Orbital Or Electrical";
+# 
+#   $item{'0'} =  [ qw ( empty ) ]; 
+#   $item{'1'} =  [ qw ( SettlerDelight Jump5 Mizer Hump6 Legs7 Alpha8 Trans9 Inter10 Enigma Trans10 NHRS Sub Trans TransSuper TransMizer Galaxy ) ];
+#   $item{'2'} =  [ qw ( Bat Rhino Mole DNA Possum PickPocket Chameleon Ferret Dolphin Gazelle RNA Cheetah Elephant Eagle Robber Peerless) ];
+#   $item{'4'} =  [ qw ( Mole Cow Wolverine Croby Shadow Bear Langston Gorilla Elephant Complete ) ];
+#   $item{'8'} =  [ qw ( Tritanium Crobmium CarbonicArmor Strobnium OrganicArmor Kelarium FieldedKelarium DepletedNeutronium Neutronium MegaPoly Valanium Superlatanium ) ];
+#   $item{'16'} = [ qw ( Laser X-Ray MiniGun YakimoraPhaser Blackjack Phaser PulsedSapper ColloidalPhaser GatlingGun MiniBlaster Bludgeon MarkIVBlaster PhasedSapper HeavyBlaster GatlingNeutrino MyopicDisruptor Blunderbuss Disruptor MultiContainedMunition SyncroSapper MegaDisruptor BigMuthaCannon StreamingPulverizer Anti-MatterPulverizer ) ]; 
+#   $item{'32'} = [ qw ( Alpha Beta Delta Epsilon Rho Upsilon Omega Jihad Juggernaut Doomsday Armageddon ) ];
+#   $item{'64'} = [ qw ( LadyFinger BlackCat M-70 M-80 Cherry LBU-17 LBU-32 LBU-74 HushaBoom Retro Smart Neutron EnrichedNeutron Peerless Annihilator ) ];
+#   $item{'128'} = [ qw ( Midget Mini Miner Maxi Super Ultra Orbital ) ]; 
+#   $item{'256'} = [ qw ( Mine40 Mine50 Mine80 Mine130 Heavy50 Heavy110 Heavy200 Speed20 Speed30 Speed50 ) ];
+#   $item{'512'} = [ qw ( SG250 SG300 SG600 SG500 SGany SG800  SGanyany Mass5 Mass6 Mass7 Mass8 Mass9 Mass10 Mass11 Mass12 Mass13 ) ];
+#   $item{'1024'} = [ qw ( Viewer50 Viewer90 Viewer150 Viewer220 Viewer280 Viewer320 Snooper400 Snooper500 Snooper620 ) ];
+#   $item{'2048'} = [ qw ( TransportCloak StealthCloak Super-StealthCloak Ultra-StealthCloak MultiFunction BattleComputer BattleSuperComputer BattleNexus Jammer10 Jammer20 Jammer30 Jammer50 EnergyCapacitor FluxCapacitor EnergyDampener TachyonDetector Anti-matterGenerator) ];
+#   $item{'4096'} = [ qw ( Colonization OrbitalCon Cargo SuperCargo MultiCargo Fuel SuperFuel ManeuveringJet Overthruster BeamDeflector ) ];
+#   $item{'6194'} = [ qw ( empty ) ];
+# 
+#   return ($category[$category],$item{$category}[$item]);
+# }
 
 # sub waypointTask {
 #   my ($task) = @_;

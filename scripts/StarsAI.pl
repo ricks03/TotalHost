@@ -25,6 +25,7 @@
 # Example Usage: StarsAI.pl c:\stars\game.m1
 #
 # Toggles a player from Human <> Human (Inactive) 
+# The password to view AI turn files is "viewai"
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
@@ -63,6 +64,7 @@ if (!($filename)) {
   print "By default, a new file will be created: <filename>.clean\n";
   print "You can create a different file with StarsAI.pl <filename> <PlayerID 1-16> <new AI status> <newfilename>\n";
   print "  StarsAI.pl <filename> <PlayerID 1-16> <new AI status> <filename> will overwrite the original file.\n\n";
+  print "\nThe password to view AI turn files is \"viewai\"\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
 }
@@ -96,7 +98,8 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-my ($outBytes) = &decryptAI(@fileBytes);
+#my ($outBytes) = &decryptAI(@fileBytes);
+my ($outBytes) = &decryptAI();
 if ($outBytes) {
   my @outBytes = @{$outBytes};
   
@@ -119,28 +122,30 @@ if ($outBytes) {
 
 ################################################################
 sub decryptAI {
-  my (@fileBytes) = @_;
+  #my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ( $random, $seedA, $seedB, $seedX, $seedY);
-  my ($typeId, $size, $data);
+  my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   my $action = 0; # Was any action taken
   while ($offset < @fileBytes) {
     # Get block info and data
-    ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption

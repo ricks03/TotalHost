@@ -70,7 +70,7 @@ if (!($inName)) {
   print "Worth noting that if the specific data is \n";
   print "two bytes, the data is stored: \n";
   print "  A B C D E F\n";
-  print "but actaully read by Stars! as:\n";
+  print "but actually read by Stars! as:\n";
   print "  (B A) (D C) (F E)\n\n";
   print "Data is also often tightly packed, so the binary result represents\n";
   print "the information using the bits (0 or 1).\n";
@@ -99,37 +99,45 @@ while ( read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-my ($outBytes) = &decryptBlock(@fileBytes);
+#my ($outBytes) = &decryptBlock(@fileBytes);
+my ($outBytes) = &decryptBlock();
 my @outBytes = @{$outBytes};
  
 ################################################################
 
 sub decryptBlock {
-  my (@fileBytes) = @_;
+  #my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ( $random, $seedA, $seedB, $seedX, $seedY);
-  my ($blockId, $size, $data);
+  my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   while ($offset < @fileBytes) {
     # Get block info and data
-    ($blockId, $size, $data) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-    #if ($debug) { print "\nBLOCK blockId: $blockId, Offset: $offset, Size: $size\n"; }
+
+    #if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
     #if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
-    if ($blockId == 8) {  # File Header Block
-      # print "\nBLOCK blockId: $blockId, Offset: $offset, Size: $size\n"; 
+    if ($typeId == 8) {  # File Header Block
       # print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; 
+      # Convert the nonencrypted Block 8 data
+      my ($nocryptedData, $padding) = &displayBytes(\@data); 
+      my @nocryptedData = @{ $nocryptedData };
+      &processData(\@nocryptedData,$typeId,$offset,$size);
+
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
+      print "FMULTI: $fMulti\n";
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -139,7 +147,7 @@ sub decryptBlock {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
-      &processData(\@decryptedData,$blockId,$offset,$size);
+      &processData(\@decryptedData,$typeId,$offset,$size);
       # END OF MAGIC
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
@@ -154,11 +162,11 @@ sub decryptBlock {
 
 sub processData {
   # Display the byte information
-  my ($decryptedData,$blockId,$offset,$size)  = @_;
+  my ($decryptedData,$typeId,$offset,$size)  = @_;
   my @decryptedData = @{ $decryptedData };
 
-  if ($inBlock == $blockId || $inBlock == -1) {
-    if ($debug) { print "BLOCK:$blockId,Offset:$offset,Bytes:$size\t"; }
+  if ($inBlock == $typeId || $inBlock == -1) {
+    if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
     if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
     if ($inBin) {
       if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
@@ -166,7 +174,6 @@ sub processData {
       foreach my $key ( @decryptedData ) { 
         print "byte  $counter:\t$key\t" . &dec2bin($key); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
         $counter++;
-        
       }  
       print "\n";    
     } else {
@@ -174,3 +181,48 @@ sub processData {
     }
   }
 }
+
+sub displayBytes {
+  # Display the byte information without decrypting, a variation on &decryptBytes
+  # Needed to display Block 8 in decimal so I can treat it like everyting else.
+  # Not not really decrypted, just not changing the variables from &decryptBytes
+  my ($byteArray) = @_;
+  my @byteArray = @{ $byteArray }; 
+  my $size = @byteArray;
+  my @decryptedBytes = (); 
+  my ($decryptedChunk, $decryptedBytes, $chunk);
+  my $padding;
+  # Add padding to 4 bytes
+  ($byteArray, $padding) = &addPadding (\@byteArray);
+  @byteArray = @ {$byteArray };
+  my $paddedSize = $size + $padding;
+  # Now decrypt, processing 4 bytes at a time
+  @decryptedBytes = ();
+  for (my $i = 0; $i <  $paddedSize; $i+=4) {
+    # Swap bytes using indexes in this order:  4 3 2 1
+    $chunk =  (
+        (ord($byteArray[$i+3]) << 24) | 
+        (ord($byteArray[$i+2]) << 16) | 
+        (ord($byteArray[$i+1]) << 8)  | 
+         ord($byteArray[$i])
+    );
+    # XOR with a (semi) random number
+#    ($newRandom, $seedA, $seedB) = &nextRandom($seedA, $seedB);
+    # Store the random value being used to start the decryption, as I'll 
+    # need it to reencrypt the player information
+#    $decryptedChunk = $chunk ^ $newRandom;
+    $decryptedChunk = $chunk;
+    # Write out the decrypted data, swapped back
+    my $decryptedBytes = $decryptedChunk & 0xFF;
+    push @decryptedBytes, $decryptedBytes;
+    $decryptedBytes = ($decryptedChunk >> 8) & 0xFF;
+    push @decryptedBytes, $decryptedBytes;
+    $decryptedBytes = ($decryptedChunk >> 16) & 0xFF;
+    push @decryptedBytes, $decryptedBytes;
+    $decryptedBytes = ($decryptedChunk >> 24) & 0xFF;
+    push @decryptedBytes, $decryptedBytes;
+  }    
+  # Strip off any padding
+  @decryptedBytes = &stripPadding(\@decryptedBytes, $padding);
+  return \@decryptedBytes, $padding;
+}   

@@ -60,8 +60,19 @@ my @AllDirs; # The list of all directories
 my $dirname; # individual directory name
 my $filename; # individual file name
 
+
+my $GameFile = $ARGV[0]; # input file
+if (!($GameFile)) { 
+  print "\n\nUsage: movie_starmapper.pl <game file prefix>\n\n";
+  print "Please enter the game file name. Example: \n";
+  print "  movie_starmapper.pl abdd466g\n\n";
+  print "Creates a graph of a game\'s resources:\n";
+  print "A new file will be created: <filename>.mov\n\n";
+  print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
+  exit;
+}
+
 # Name of the Game (the prefix for the .xy file)
-my $GameFile = 'a9fc8576';  
 my $sourcedir = $FileHST . '\\' . $GameFile;
 # Where to output the .ini, .pcx, and .bat files
 my $destdir = $sourcedir . '.mov';
@@ -76,6 +87,7 @@ my $file1;
 my $file2;
 
 # Copy/Backup all the game files to a different location, as we'll be changing them.
+print "Backing up files from $sourcedir to $destdir\n";
 dircopy($sourcedir, $destdir);
 
 # Get all of the years  from the backup subdirectories
@@ -103,7 +115,7 @@ foreach $dirname (@AllDirs) {
       my $HST = "$destdir\\$dirname\\" . $GameFile . '.HST';
       if (-e $HST) {
         @singularRaceNames = &getRaceNames($HST);
-        print "Singular: @singularRaceNames" . "\n";
+        print "Singular Race Names: @singularRaceNames" . "\n";
       } else { die "HST file $HST not found\n"; }
     }
     # Only for the .M files
@@ -115,6 +127,7 @@ foreach $dirname (@AllDirs) {
     }
   }
   closedir(DIR);
+  print "\n";
 }
 
 # Determine the race names to provide output for StarMapper
@@ -185,7 +198,7 @@ print INIFILE ";orange\n";
 print INIFILE "player03=255 140 000\n";
 print INIFILE ";red\n";
 print INIFILE "player04=255 000 000\n";
-print INIFILE ";purple\n";
+print INIFILE ";cyan\n";
 print INIFILE "player05=0 255 255\n";
 print INIFILE ";green\n";
 print INIFILE "player06=000 255 000\n";
@@ -195,18 +208,18 @@ print INIFILE ";white\n";
 print INIFILE "player08=255 255 255\n";
 print INIFILE ";\n";
 print INIFILE "player09=000 000 175\n";
-print INIFILE ";\n";
-print INIFILE "player10=225 225 000\n";
-print INIFILE ";\n";
-print INIFILE "player11=195 195 000\n";
-print INIFILE ";\n";
-print INIFILE "player12=165 165 000\n";
-print INIFILE ";\n";
-print INIFILE "player13=000 255 255\n";
+print INIFILE ";teal\n";
+print INIFILE "player10=0 128 128\n";
+print INIFILE ";purple\n";
+print INIFILE "player11=128 0 128\n";
+print INIFILE ";violet\n";
+print INIFILE "player12=238 130 238\n";
+print INIFILE ";fuchsia\n";
+print INIFILE "player13=255 0 255\n";
 print INIFILE ";\n";
 print INIFILE "player14=000 225 225\n";
-print INIFILE ";\n";
-print INIFILE "player15=000 195 195\n";
+print INIFILE ";thistle\n";
+print INIFILE "player15=216 191 216n";
 print INIFILE ";\n";
 print INIFILE "player16=000 195 195\n";
 print INIFILE "\n";
@@ -230,7 +243,7 @@ print IMGFILE "\"" . $imagemagick . "\"" . " -loop 1 -delay 100 " . " \"$destdir
 close IMGFILE;
 system($DataOutFile);
 
-die;
+die "Done! Delete the folder $destdir\n";
 if ($destdir) { rmtree($destdir) or die "$!: for directory $destdir\n"; }
 
 ##########################################
@@ -246,7 +259,7 @@ sub getRaceNames {
   my ($HST) = @_;
   # Read in the binary Stars! file, byte by byte
   my $FileValues;
-  my @fileBytes;
+  @fileBytes = ();
   my @singularRaceNames;
   open(StarFile, "<$HST" );
   binmode(StarFile);
@@ -255,38 +268,41 @@ sub getRaceNames {
   }
   close(StarFile);
   # Decrypt the data, block by block
-  @singularRaceNames = &decryptNameBlock(@fileBytes);
+  #@singularRaceNames = &decryptNameBlock(@fileBytes);
+  @singularRaceNames = &decryptNameBlock();
   @$singularRaceNames = $singular;
   return @singularRaceNames;
 }
   
 ################################################################
 sub decryptNameBlock {
-  my (@fileBytes) = @_;
+  #my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ($random, $seedA, $seedB, $seedX, $seedY );
-  my ($blockId, $size, $data );
+  my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   my @singularRaceNames;
   my $debug = 0;
   while ($offset < @fileBytes) {
     # Get block info and data
-    ($blockId, $size, $data ) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
-    if ($blockId == 8 ) {
+    if ($typeId == 8 ) {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block );
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
-    } elsif ($blockId == 6 ) { #PlayerBlock
+    } elsif ($typeId == 6 ) { #PlayerBlock
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
       @decryptedData = @{ $decryptedData };  
@@ -303,6 +319,7 @@ sub decryptNameBlock {
       my $singularNameLength = $decryptedData[$index] & 0xFF;
       my $singularMessageEnd = $index + $singularNameLength;
       my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+      print "Singular Race Name: $singularRaceName\n";
       push @singularRaceNames, $singularRaceName;
       # END OF MAGIC
     }
@@ -310,3 +327,4 @@ sub decryptNameBlock {
   }
   return @singularRaceNames;
 }
+

@@ -10,15 +10,18 @@ $PerlLocation='c:/perl/bin/perl.exe';
 # The higher the value the more log values show
 # 0 - Critical, log every time
 # 100 - Warning, Core system functions
-# 200 - Info
+# 200 - Info. All DB Calls
 # 300 - overly detailed
 # 400 - who cares really
 $logging = 300; 
 
 # Clean .m files before giving them to the player, removing non-player info (mines, MT, etc)
+# Also requires a file named 'clean' in the individual game folder
 $cleanFiles = 1; # 0, 1, 2: display, clean but don't write, write 
 # Fixing negates or warns for bug effects. 
+# Also requires a file named 'fix' in the individual game folder
 $fixFiles = 1; # 0, 1, 2: display, clean but don't write, write 
+
 
 # Where the accounts logs go
 $path_Log = 'd:/TH/logs';
@@ -89,7 +92,7 @@ $secret_key = 'secret_key_for_md5_hashing';
 %StatusBall = ("Finished" => "$WWW_Image"  . "blackball.gif", "Awaiting Players" => "$WWW_Image"  . "yellowball.gif", "In Progress" => "$WWW_Image"  . "greenball.gif", "Delayed" => "$WWW_Image"  . "blueball.gif", "Active" => "$WWW_Image"  . "greenball.gif", "Inactive" => "$WWW_Image"  . "greyball.gif", "Creation in Progress" => "$WWW_Image"  . "yellowball.gif", "Pending Start" => "$WWW_Image"  . "yellowball.gif", "Paused" => "$WWW_Image"  . "yellowball.gif");
 @WeekDays = qw(Sun. Mon. Tues. Wed. Thurs. Fri. Sat.);
 @GameStatus = ('Pending Start', 'Pending Closed', 'Active','Delayed','Paused','Need Replacement','Creation in Progress','Awaiting Players','','Finished');
-@HourlyTime = qw(.5 1 2 3 4 6 8 12 24 36 42 48 56 72 84 96 120 144 168 240 336);
+@HourlyTime = qw(.167 .25 .5 1 2 3 4 6 8 12 24 36 42 48 56 72 84 96 120 144 168 240 336);
 # Defaults for new games
 $default_daily = '0101010'; # Defaults for new daily games
 $default_hourly = '000000001111111111111100'; # defaults for new hourly games

@@ -115,6 +115,7 @@ sub starstat {
 	$fGameOver = substr($dts, 4,1);  # Probably 4
 	# Shareware
 	$fShareware = substr($dts, 3, 1);
+  
 	return $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware;
 }
 

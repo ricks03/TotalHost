@@ -103,7 +103,8 @@ my $block9 = 0;
 my $byteCalc = 0;
 my @decryptedBlock;
 # Decrypt the data, block by block
-my ($outBytes, $decryptedBlock) = &decryptBlock(@fileBytes);
+#my ($outBytes, $decryptedBlock) = &decryptBlock(@fileBytes);
+my ($outBytes, $decryptedBlock) = &decryptBlock();
 my @outBytes = @{$outBytes};
 @decryptedBlock = @{$decryptedBlock};
 
@@ -113,9 +114,9 @@ $debug = 1;
 my $blockBytes = 0;
 foreach my $blockCounter (@decryptedBlock) {
       my %blockCounter = %$blockCounter;
-      my $blockId = $blockCounter{blockId};
+      my $typeId = $blockCounter{typeId};
       my $size = $blockCounter{size};
-      if ( $blockId != 9  && $blockId != 0 ) {
+      if ( $typeId != 9  && $typeId != 0 ) {
         $blockBytes = $blockBytes + ($size + 2);
       }
 }
@@ -126,13 +127,13 @@ foreach my $blockCounter (@decryptedBlock) {
       my @encryptedBlock;
       my $encryptedBlock;
       my @block = @$blockCounter{block};
-      my $blockId = $blockCounter{blockId};
+      my $typeId = $blockCounter{typeId};
       my $size = $blockCounter{size};
       my @decryptedData = @$blockCounter{decryptedData};
       my $padding = $blockCounter{padding};
       my $seedX = $blockCounter{seedX};
       my $seedY = $blockCounter{seedY};
-#      if ($blockId == 9) {
+#      if ($typeId == 9) {
 #        # update the Block 9 checksum with the adjusted checksum
 #         ($block[0], $block[1]) = write16($blockBytes);
 #      }
@@ -158,38 +159,40 @@ foreach my $blockCounter (@decryptedBlock) {
 ################################################################
 
 sub decryptBlock {
-  my (@fileBytes) = @_;
+  #my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ( $random, $seedA, $seedB, $seedX, $seedY);
-  my ($blockId, $size, $data);
+  my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   my $blockCounter = 0;
   while ($offset < @fileBytes) {
     # Get block info and data
-    ($blockId, $size, $data) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-    #if ($debug) { print "\nBLOCK blockId: $blockId, Offset: $offset, Size: $size\n"; }
+
+    #if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
     #if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
-    if ($blockId == 8) {  # File Header Block
-      if ($debug) { print "BLOCK:$blockId,Offset:$offset,Bytes:$size\t"; }
+    if ($typeId == 8) {  # File Header Block
+      if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
       if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
 
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
       $decryptedBlock[$blockCounter]{block} = \@block;
-      $decryptedBlock[$blockCounter]{blockId} = $blockId;
+      $decryptedBlock[$blockCounter]{typeId} = $typeId;
       $decryptedBlock[$blockCounter]{size} = $size;
       $decryptedBlock[$blockCounter]{decryptedData} = \@decryptedData;
       $decryptedBlock[$blockCounter]{padding} = $padding;
@@ -203,11 +206,11 @@ sub decryptBlock {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
-      &processData(\@decryptedData,$blockId,$offset,$size);
+      &processData(\@decryptedData,$typeId,$offset,$size);
       # END OF MAGIC
- #     unless ($blockId == 30) {
+ #     unless ($typeId == 30) {
       $decryptedBlock[$blockCounter]{block} = \@block;
-      $decryptedBlock[$blockCounter]{blockId} = $blockId;
+      $decryptedBlock[$blockCounter]{typeId} = $typeId;
       $decryptedBlock[$blockCounter]{size} = $size;
       $decryptedBlock[$blockCounter]{decryptedData} = \@decryptedData;
       $decryptedBlock[$blockCounter]{padding} = $padding;
@@ -229,10 +232,10 @@ sub decryptBlock {
 
 sub processData {
   # Display the byte information
-  my ($decryptedData,$blockId,$offset,$size)  = @_;
+  my ($decryptedData,$typeId,$offset,$size)  = @_;
   my @decryptedData = @{ $decryptedData };
-  if ($inBlock == $blockId || $inBlock == -1) {
-    if ($debug) { print "BLOCK:$blockId,Offset:$offset,Bytes:$size\t"; }
+  if ($inBlock == $typeId || $inBlock == -1) {
+    if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
     if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
     if ($inBin) {
       if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
@@ -248,3 +251,4 @@ sub processData {
     }
   }
 }
+

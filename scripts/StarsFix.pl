@@ -135,7 +135,7 @@ $hullType{'36'} = [ 16,5,"Death Star",36,0,0,0,17,0,0,0,1500,240,160,700,144,-1,
 my $filename = $ARGV[0]; # input file
 my $outFileName = $ARGV[1];
 if (!($filename)) { 
-  print "\n\nUsage: StarsShip.pl <input file>\n\n";
+  print "\n\nUsage: StarsFix.pl <input file>\n\n";
   print "Please enter the input file (.X|.M|.HST). Example: \n";
   print "  StarsFix.pl c:\\games\\test.m1\n\n";
   print "Lists block data and can fix (or warn) for detected bug/exploits:\n";
@@ -145,7 +145,7 @@ if (!($filename)) {
   print "   Cheap Starbase (.x) \n";
   print "     (requires .M|.HST pass creating .queue to detect in .x)\n";
   print "   Friendly Fire (.x|.m|.hst)\n";
-  print "By default, a new file will be created: <filename>.clean\n\n";
+  print "By default, a new file will be created: <filename>.fixed\n\n";
   print "You can create a different file with StarsFix.pl <filename> <newfilename>\n";
   print "  StarsFix.pl <filename> <filename> will overwrite the original file.\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
@@ -282,7 +282,8 @@ while (read(StarFile, $FileValues, 1)) {
 }
 close(StarFile);
 # Decrypt the data, block by block, and process it
-my ($outBytes, $needsFixing, $warning, $fleetList, $fleetMerge, $queueListHST) = &decryptShip(@fileBytes);
+#my ($outBytes, $needsFixing, $warning, $fleetList, $fleetMerge, $queueListHST) = &decryptShip(@fileBytes);
+my ($outBytes, $needsFixing, $warning, $fleetList, $fleetMerge, $queueListHST) = &decryptShip();
 my @outBytes = @{$outBytes};
 %warning = %$warning;
 %fleetList = %$fleetList;
@@ -380,7 +381,7 @@ if ($needsFixing && $fixFiles > 1) {
   # Create the output file name
   my $newFile; 
   if ($outFileName) { $newFile = $outFileName;  } 
-  else { $newFile = $dir . '\\' . $basefile . '.clean'; }
+  else { $newFile = $dir . '\\' . $basefile . '.fixed'; }
   open (OutFile, '>:raw', "$newFile");
   for (my $i = 0; $i < @outBytes; $i++) {
     print OutFile $outBytes[$i];
@@ -393,16 +394,16 @@ if ($needsFixing && $fixFiles > 1) {
 
 ################################################################
 sub decryptShip {
-  my (@fileBytes) = @_;
+  #my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic);
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ($random, $seedA, $seedB, $seedX, $seedY);
-  my ($typeId, $size, $data);
+  my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   my $needsFixing;
   my ($planetId, $ownerId); 
@@ -411,16 +412,18 @@ sub decryptShip {
   while ($offset < @fileBytes) {
     my $dropBlock = 0;
     # Get block info and data
-    ($typeId, $size, $data) = &parseBlock(\@fileBytes, $offset);
-    @data = @{ $data }; # The non-header portion of the block
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
     if ($debug > 1 ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
     if ($debug > 100) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) { # File Header Block
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -1176,21 +1179,7 @@ sub FleetMerge {
   }
 }
 
-# sub plusone{
-# # Increment the value of a number as one for display to end users
-# # (who problably don't count from 0)
-#   my ($val) = @_;
-#   $val++;
-#   return $val;
-# } 
-# 
-# sub zerofy {
-# # make a 1 digit number 2 digits
-#   my ($val) = @_;
-#   if ($val < 10  && $val >=0 ) { return "0" . $val; }
-#   else { return $val; } 
-# }
-# 
+
 # sub splitWarnId {
 #   # I probably should make this another hash of hashes, but it would mean redesigning the warnId... again.
 # 	my ($warnId)  = @_;
