@@ -53,7 +53,7 @@ my @primes = (
         
 my $filename = $ARGV[0]; # input file
 if (!($filename)) { 
-  print "\n\nUsage: StarsRace.pl <input file>\n\n";
+  print "\n\nUsage: StarsScore.pl <input file>\n\n";
   print "Please enter the input file (.M). Example: \n";
   print "  StarsScore.pl c:\\games\\test.m1\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
@@ -67,6 +67,7 @@ my ($basefile, $dir, $ext);
 $basefile = basename($filename);    # mygamename.m1
 $dir  = dirname($filename);         # c:\stars
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
+if (lc($ext) =~ /[x]/ || lc($ext) =~ /[hst]/) { print "X & HST files do not include score information\n"; exit; }
 
 # Read in the binary Stars! file, byte by byte
 my $FileValues;
@@ -79,20 +80,20 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-#my ($outBytes) = &decryptBlockRace(@fileBytes);
-my ($outBytes) = &decryptBlockScore();
-my @outBytes = @{$outBytes};
+my ($outBytes) = &decryptBlockScore(@fileBytes);
+#my ($outBytes) = &decryptBlockScore();
+#my @outBytes = @{$outBytes};
 
 
 ################################################################
 sub decryptBlockScore {
-  #my (@fileBytes) = @_;
+  my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
-  my @outBytes;
+  #my @outBytes;
   my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ( $random, $seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
@@ -113,15 +114,17 @@ sub decryptBlockScore {
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
-      push @outBytes, @block;
+      #push @outBytes, @block;
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+      #push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 45) { # PlayerScoresBlock
-        if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-        if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
+        #if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+        #if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
         my $playerId     = ($decryptedData[0] >> 0) & 0x0F; 
         my $unk4                = ($decryptedData[0] >> 4) & 0x01; 
         my $unk5                = ($decryptedData[0] >> 5) & 0x01;  # something here
@@ -135,7 +138,6 @@ sub decryptBlockScore {
         my $unk1                = ($decryptedData[1] >> 5) & 0x01; 
         my $unk2                = ($decryptedData[1] >> 6) & 0x01;   # something here
         my $unk3                = ($decryptedData[1] >> 7) & 0x01; 
-        print "\nVICTORY: planet:$victoryPlanets,tech:$victoryTech,score:$victoryScore, 2nd:$victorySecondPlace,prod:$victoryProduction,cap:$victoryCapital,highest:$victoryHighestScore,UNK:$unk1,$unk2,$unk3,$unk4,$unk5\n";
         my $rank         = &read16(\@decryptedData, 2);
         my $score        = &read32(\@decryptedData, 4);  # Not exactly the same
         my $resources    = &read32(\@decryptedData, 8); # Not EXACTLY the same
@@ -145,12 +147,13 @@ sub decryptBlockScore {
         my $escortShips  = &read16(\@decryptedData, 18);    
         my $capitalShips = &read16(\@decryptedData, 20);
         my $techLevels   = &read16(\@decryptedData, 22);
-        print "Player:$playerId, planets:$planets, Starbases:$starbases, unarm:$unarmedShips, escort:$escortShips, Cap:$capitalShips, Tech:$techLevels, Res: $resources, score:$score,rank:$rank\n";
+        print "Turn:" . ($turn+2400) . ", Player:$playerId, planets:$planets, Starbases:$starbases, unarm:$unarmedShips, escort:$escortShips, Cap:$capitalShips, Tech:$techLevels, Res: $resources, score:$score,rank:$rank\n";
+        print "\tVICTORY: planet:$victoryPlanets,tech:$victoryTech,score:$victoryScore,2nd:$victorySecondPlace,prod:$victoryProduction,cap:$victoryCapital,highest:$victoryHighestScore,UNK:$unk1,$unk2,$unk3,$unk4,$unk5\n";
       }
       # END OF MAGIC
     }
     $offset = $offset + (2 + $size); 
   }
-  return \@outBytes;
+  #return \@outBytes;
 }
 

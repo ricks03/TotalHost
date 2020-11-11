@@ -255,15 +255,18 @@ sub decryptBlock {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
-      unless ($Magic eq "J3J3") { die "One of the files is not a .M file. Stopped along the way."; }
+      unless ($Magic eq 'J3J3') { die "One of the files is not a .M file. Stopped along the way."; }
       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+      print "Turn:" . ($turn+2400) . "\n";
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
       push @outBytes, @block;
-     } elsif ($typeId == 7) {
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+      push @outBytes, @block;
+    } elsif ($typeId == 7) {
       # BUG: Note that planet's data requires something extra to decrypt. 
       # Fortunately block 7 isn't in my test files
-      die "BLOCK 7 found. ERROR!\n"; 
+      die 'BLOCK 7 found. ERROR!\n'; 
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
@@ -422,7 +425,7 @@ sub processData {
     if ($clean) {   
       @decryptedData = &resetRace(\@decryptedData,$Player);
       if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; } 
-      print &showRace(\@decryptedData,$size);  
+      print "Cleaned Race:\n" . &showRace(\@decryptedData,$size);  
     }
   }
   return @decryptedData;

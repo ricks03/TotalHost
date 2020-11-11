@@ -88,7 +88,7 @@ if ($in{'action'} eq 'add_user' || $in{'action'} eq 'activate_user' ) {
 &html_left(\%menu_left);
 
 # cp
-print "<td>";
+print '<td>';
 if ($in{'action'} eq 'add_user') { &add_user; 
 } elsif ($in{'action'} eq 'create_user') { &create_user; 
 } elsif ($in{'action'} eq 'activate_user') { &activate_user; 
@@ -99,7 +99,7 @@ if ($in{'action'} eq 'add_user') { &add_user;
 } elsif ($in{'action'} eq 'login_fail') { print "Login failed! (The User Name is case-sensitive)"; 
 } elsif ($in{'action'} eq '') { print "No action specified\n"; 
 } else { print "error with action: $in{'action'}\n"; }
-print "</td>";
+print '</td>';
 
 # RP
 print qq|<td width="$rp_width"></td>\n|;
@@ -123,7 +123,7 @@ sub add_user {
   	$sql = "INSERT INTO User ([User_Login], [User_Last], [User_First], [User_Password], [User_Email], [User_Status], [User_Creation], [User_Modified], [EmailTurn], [EmailList]) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', '-5','$Date','$Date', 1, 1);";
   	&LogOut(100,$sql,$SQLLog);
   	if (&DB_Call($db,$sql)) { print "<P>Done!  Check your email to activate your account. \n"; }
-  	else { print "<P>Error creating account. Duplicate User ID?"; &LogOut(10,"ERROR: Adding New User $in{'User_Login'} $in{'User_Email'}",$ErrorLog);}
+  	else { print '<P>Error creating account. Duplicate User ID?'; &LogOut(10,"ERROR: Adding New User $in{'User_Login'} $in{'User_Email'}",$ErrorLog);}
   	# add an entry in the temp file to expect the account to be activated
   	&DB_Close($db);
   	# email user to activate the account
@@ -136,7 +136,8 @@ sub add_user {
   	$Message .= "To activate your account, select the link below:\n";
   	$Message .= "$WWW_HomePage$Location_Scripts" . '/account.pl?action=activate_user&user=' . $in{'User_Login'} . '&new=' . $tmphash;
   	$smtp = &Mail_Open;
-  	&Mail_Send($smtp, $in{'User_Email'}, $mail_from, $Subject, $Message);
+  	&Mail_Send($smtp, $in{'User_Email'}, $mail_from, $Subject, $Message); # email user
+  	&Mail_Send($smtp, $mail_from, $mail_from, $Subject, $Message); # notify site host
   	&Mail_Close($smtp);
   	&LogOut(100,"Add Mail sent to $in{'User_Email'}",$LogFile);
   

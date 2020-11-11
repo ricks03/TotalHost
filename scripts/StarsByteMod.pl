@@ -103,8 +103,8 @@ my $block9 = 0;
 my $byteCalc = 0;
 my @decryptedBlock;
 # Decrypt the data, block by block
-#my ($outBytes, $decryptedBlock) = &decryptBlock(@fileBytes);
-my ($outBytes, $decryptedBlock) = &decryptBlock();
+my ($outBytes, $decryptedBlock) = &decryptBlock(@fileBytes);
+#my ($outBytes, $decryptedBlock) = &decryptBlock();
 my @outBytes = @{$outBytes};
 @decryptedBlock = @{$decryptedBlock};
 
@@ -144,22 +144,21 @@ foreach my $blockCounter (@decryptedBlock) {
       push @outBytes, @encryptedBlock;
 }
 
-  my $newFile; 
-  if ($outFileName) { $newFile = $outFileName;  } 
-  else { $newFile = $dir . '\\' . $basefile . '.clean'; }
-  open (OutFile, '>:raw', "$newFile");
+my $newFile; 
+if ($outFileName) { $newFile = $outFileName;  } 
+else { $newFile = $dir . '\\' . $basefile . '.clean'; }
+open (OutFile, '>:raw', "$newFile");
 #  for (my $i = 0; $i < @outBytes; $i++) {
-  foreach my $value (@outBytes) {
-  
-    if ($value) { print OutFile $value; }
-  }
-  close (OutFile);
+foreach my $value (@outBytes) {
+  if ($value) { print OutFile $value; }
+}
+close (OutFile);
 
  
 ################################################################
 
 sub decryptBlock {
-  #my (@fileBytes) = @_;
+  my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
@@ -200,6 +199,13 @@ sub decryptBlock {
       $decryptedBlock[$blockCounter]{seedY} = $seedY;
       $blockCounter++;
 
+      push @outBytes, @block;
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+      #my ($nocryptedData, $padding) = &displayBytes(\@data); 
+      #my @nocryptedData = @{ $nocryptedData };
+      #&processData(\@nocryptedData,$typeId,$offset,$size);
+      #$fileFooter = &getFileFooterBlock(\@data, $size);
+      #print "Footer $fileFooter\n";
       push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted
@@ -243,7 +249,6 @@ sub processData {
       foreach my $key ( @decryptedData ) { 
         print "byte  $counter:\t$key\t" . &dec2bin($key); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
         $counter++;
-        
       }  
       print "\n";    
     } else {

@@ -56,7 +56,7 @@ my @aiStatus = qw(Human Inactive CA PP HE IS SS AR);
 my @prts = qw (HE SS WM CA IS SD PP IT AR JOAT );
 
 if (!($filename)) { 
-  print "\n\nUsage: StarsAI.pl <Game HST file> <PlayerID 1-16> <new AI status > <output file (optional)>\n\n";
+  print "\n\nUsage: StarsAI.pl <Game HST file> <Player 1-16> <new AI status> <output file (optional)>\n\n";
   print "Please enter the input file (.HST). Example: \n";
   print "  StarsAI.pl c:\\games\\test.HST 1 Inactive\n";
   print "Changes the first player to Inactive\n\n";
@@ -72,7 +72,7 @@ if (!($filename)) {
 if (-d $ARGV[0]) { print "$filename is a directory!\n"; exit; }
 unless (-e $ARGV[0]) { print "File $filename does not exist!\n"; exit; }
 if ( $ARGV[1] ) {
-  if ($ARGV[1] > 16 || $ARGV[1] < 1) { die "Player ID must be between 1 and 16\n"; }
+  if ($ARGV[1] > 16 || $ARGV[1] < 1) { die "Player must be between 1 and 16\n"; }
 } else { 
   die "Player ID must be between 1 and 16\n"; 
 }
@@ -98,8 +98,8 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-#my ($outBytes) = &decryptAI(@fileBytes);
-my ($outBytes) = &decryptAI();
+my ($outBytes) = &decryptAI(@fileBytes);
+#my ($outBytes) = &decryptAI();
 if ($outBytes) {
   my @outBytes = @{$outBytes};
   
@@ -122,7 +122,7 @@ if ($outBytes) {
 
 ################################################################
 sub decryptAI {
-  #my (@fileBytes) = @_;
+  my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
@@ -149,6 +149,8 @@ sub decryptAI {
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
+      push @outBytes, @block;
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
       push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted

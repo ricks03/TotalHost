@@ -65,7 +65,7 @@ if (!($filename)) {
   print "  turn generation all .M files will have no password.\n\n"; 
   print "Removes any administrative password on the .HST file.\n\n";
   print "Sets a password in a .X file to blank.\n\n";
-  print "By default, a new file will be created: <filename>.clean\n\n";
+  print "By default, a new file will be created: <filename>.blank\n\n";
   print "You can create a different file with StarsPWD.pl <filename> <newfilename>\n";
   print "  StarsPWD.pl <filename> <filename> will overwrite the original file.\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
@@ -95,15 +95,15 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-#my ($outBytes) = &decryptPWD(@fileBytes);
-my ($outBytes) = &decryptPWD();
+my ($outBytes) = &decryptPWD(@fileBytes);
+#my ($outBytes) = &decryptPWD();
 if ($outBytes) {
   my @outBytes = @{$outBytes};
   
   # Create the output file name
   my $newFile; 
   if ($outFileName) {   $newFile = $outFileName;  } 
-  else { $newFile = $dir . '\\' . $basefile . '.clean'; }
+  else { $newFile = $dir . '\\' . $basefile . '.blank'; }
   if ($debug) { $newFile = "f:\\clean_" . $basefile;  } # Just for me
   
   # Output the Stars! File with blank password(s)
@@ -114,7 +114,7 @@ if ($outBytes) {
   close (OutFile);
   
   print "File output: $newFile\n";
-  unless ($ARGV[1]) { print "Don't forget to rename $newFile\n"; }
+  unless ($ARGV[1] && $ARGV[1] eq $ARGV[0]) { print "Don't forget to rename $newFile to $filename\n"; }
 } else { print "No passwords found\n"; }
 
 ################################################################
@@ -371,7 +371,7 @@ sub bin2dec {
 }
 
 sub decryptPWD {
-  #my (@fileBytes) = @_;
+  my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
@@ -401,7 +401,9 @@ sub decryptPWD {
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
       push @outBytes, @block;
-     } elsif ($typeId == 7) {
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+      push @outBytes, @block;
+    } elsif ($typeId == 7) {
       # Note that planet's data requires something extra to decrypt. 
       # Fortunately block 7 isn't in my test files
       print "BLOCK 7 found. ERROR!\n"; die;
@@ -467,6 +469,23 @@ sub encryptBlock {
   unshift (@encryptedData, @header); # Prefix the encrypted data with the header
   return \@encryptedData, $seedX, $seedY;
 }
+
+# Restructured to not pass the entire file each time
+sub parseBlock {
+  ## This returns the 3 relevant parts of a block: typeId, size, raw block data
+  # This returns the typeId, size
+  my ($FileValues,$offset) = @_;
+  my (@FileValues, $Header);
+  my ($binHeader, $blocktype, $blocksize);
+  @FileValues = unpack("S",$FileValues);
+  ($Header) =  @FileValues;
+  $binHeader = dec2bin($Header);
+  $blocktype = (substr($binHeader, 8,6));
+  $blocktype = bin2dec($blocktype);
+  $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
+  $blocksize = bin2dec($blocksize);
+  return ($blocktype, $blocksize);
+}  
 
 sub addPadding {
   # Add padding to 4 bytes

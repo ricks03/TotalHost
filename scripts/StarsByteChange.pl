@@ -86,8 +86,8 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-#my ($outBytes) = &decryptBlock(@fileBytes);
-my ($outBytes) = &decryptBlock();
+my ($outBytes) = &decryptBlock(@fileBytes);
+#my ($outBytes) = &decryptBlock();
 my @outBytes = @{$outBytes};
 
 # Create the output file name
@@ -107,7 +107,7 @@ unless ($ARGV[1]) { print "Don't forget to rename $newFile\n"; }
 
 ################################################################
 sub decryptBlock {
-  #my (@fileBytes) = @_;
+  my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
@@ -125,7 +125,7 @@ sub decryptBlock {
     @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
-   if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\t"; }
+    if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\t"; }
     if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) { # File Header Block
@@ -135,6 +135,13 @@ sub decryptBlock {
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
+      push @outBytes, @block;
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+      my ($nocryptedData, $padding) = &displayBytes(\@data); 
+      my @nocryptedData = @{ $nocryptedData };
+      &processData(\@nocryptedData,$typeId,$offset,$size);
+      #$fileFooter = &getFileFooterBlock(\@data, $size);
+      #print "Footer $fileFooter\n";
       push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted

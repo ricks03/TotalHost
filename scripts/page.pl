@@ -801,7 +801,8 @@ sub show_game {
     if ($in{'status'}) { 
       my $full_warning = $in{'status'};
       &display_warning($full_warning); 
-      if ($full_warning =~ /bug/) { print qq|<P>Resubmit corrected .x file to remove alert.</P>|; }
+      # Display the warning if the error still exists
+      if ($full_warning =~ /bug/ && $full_warning !~ /Fixed/) { print qq|<P>You can resubmit a corrected .x file to remove alert.</P>|; }
       
     }
     print "<table width=100%>\n";
@@ -900,10 +901,14 @@ sub show_game {
   		print "<table>\n";
       # This won't execute without a CHK file (not available if the game isn't started)
   		my($Position) = '3';
+      my $Player = 0;
       # Display player status, one line for each player in the CHK file
   		while (@CHK[$Position]) {  #Write .m file lines
   			my ($CHK_Status, $CHK_Name) = &Eval_CHKLine(@CHK[$Position]);    
-  			my($Player) = $Position -2;
+        # If an error is reported in the CHK file (like Host File Locked) report it and then move on.
+        if ($CHK_Status =~ /Error/) { print qq|<tr><td colspan="5">$CHK_Status</td></tr>|; $Position++; next; }
+#  			my($Player) = $Position -2;
+        $Player++;
   			my $XFile = $File_HST . '/' . $GameFile . '/' . $GameFile . '.x' . $Player;
   			my $MFile = $File_HST . '/' . $GameFile . '/' . $GameFile . '.m' . $Player;
   			($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($MFile);
@@ -912,7 +917,7 @@ sub show_game {
   			$sql = qq|SELECT Games.GameFile, User.User_File, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, [_PlayerStatus].PlayerStatus_txt FROM _PlayerStatus INNER JOIN ([User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerID)=$Player));|;
   			if (&DB_Call($db,$sql)) { while ($db->FetchRow()) { %PlayerValues = $db->DataHash(); } }
   			# If the player isn't active indicate such
-  			if ($PlayerValues{'PlayerStatus'} == 1) { $del = ""; $del2 = ""; } else { $del = "<del>"; $del2 = "</del>";}
+  			if ($PlayerValues{'PlayerStatus'} == 1) { $del = ''; $del2 = ''; } else { $del = '<del>'; $del2 = '</del>';}
 
 ##################        
   			print qq|<tr>\n|;

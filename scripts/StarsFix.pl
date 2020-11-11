@@ -262,7 +262,7 @@ foreach my $queueCounter (sort keys %queueList) {
 # Print out the results of imported fleetList (blank if no import)
 # foreach my $playerId (sort keys %fleetList) {
 #   foreach my $fleetId (sort keys %{ $fleetList{$playerId} }) {
-#     print "Player: $playerId\tFleet: $fleetId\t";
+#     print "Player ID: $playerId\tFleet: $fleetId\t";
 #     foreach my $val (keys %{ $fleetList{$playerId}{$fleetId} }) {
 #       print "$val: $fleetList{$playerId}{$fleetId}{$val}\t";
 #     }
@@ -296,7 +296,7 @@ $queueListHST = %$queueListHST;
 # # Display all the fleet info
 # foreach my $playerId (sort keys %fleetList) {
 #   foreach my $fleetId (sort keys %{ $fleetList{$playerId} }) {
-#      print "Player: $playerId\tFleet: $fleetId\t";
+#      print "Player ID: $playerId\tFleet: $fleetId\t";
 #     foreach my $val (keys %{ $fleetList{$playerId}{$fleetId} }) {
 #       print "$val: $fleetList{$playerId}{$fleetId}{$val}\t";
 #     }
@@ -333,7 +333,7 @@ $queueListHST = %$queueListHST;
 
 # Display all the waypoint info
 # foreach my $playerId (sort keys %waypointList) {
-#   print "Player: $playerId\n";
+#   print "Player ID: $playerId\n";
 #   foreach my $fleetId (sort keys %{ $waypointList{$playerId} }) {
 #     print "Fleet: $fleetId\t";
 #     foreach my $val (keys %{ $waypointList{$playerId}{$fleetId} }) {
@@ -425,8 +425,11 @@ sub decryptShip {
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+      print "Turn: " . ($turn + 2400) . "\n";
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
+      push @outBytes, @block;
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
       push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted
@@ -505,7 +508,7 @@ sub decryptShip {
           $count = $chunk1 & 0x3FF; # Bottom 10 bits
           $completePercent = $chunk2 >> 4; #Top 12 bits
           $itemType = $chunk2 & 0xF; # bottom 4 bits
-          print "Queue: Player: $Player, planetId: $planetId, itemId: $itemId, count: $count, %complete: $completePercent, itemType: $itemType, size: $size\n"; 
+          print "Queue: Player ID: $Player, planetId: $planetId, itemId: $itemId, count: $count, %complete: $completePercent, itemType: $itemType, size: $size\n"; 
           $queueCounter++;
           $queueList{$queueCounter}{Player} = $Player;
           $queueList{$queueCounter}{planetId} = $planetId;
@@ -586,7 +589,7 @@ sub decryptShip {
           $Player = $designOwner;
           print "Design Owner: $designOwner\n";
         }  
-        print "Player: $Player\n";
+        print "Player ID: $Player\n";
         my $hullId;
         my $index = 0;
         if ( $typeId == 27 ) {# for the two extra bytes in a .x file 
@@ -991,7 +994,7 @@ sub decryptShip {
         my $err = '';
         # Player 0 Default: 0 4 19 2 5 179 45 113 222 90
         $planPlayerId = ($decryptedData[0] >> 0) & 0x0F; 
-        print "Plan: Player:$planPlayerId\t";  # 4 bits starting at bit 0.
+        print "Plan: Player ID:$planPlayerId\t";  # 4 bits starting at bit 0.
         $planNumber = ($decryptedData[0] >> 4) & 0x0F; 
         print "Plan:$planNumber\t";
         $tactic = ($decryptedData[1]) & 0x0F; 
@@ -1040,7 +1043,7 @@ sub decryptShip {
         my $fleetNumber2 = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 1) << 8);
         # Yeah, I could store this in binary. But why do that to myself.
         $fleetMerge[$fleetMergeCount] = $Player . '|' . $fleetNumber1 . '|' . $fleetNumber2;
-        print "Merge: Player: $Player\tFleet 1: $fleetNumber1\tFleet 2: $fleetNumber2\t$fleetMerge[$fleetMergeCount]\n";
+        print "Merge: Player ID: $Player\tFleet 1: $fleetNumber1\tFleet 2: $fleetNumber2\t$fleetMerge[$fleetMergeCount]\n";
         $fleetMergeCount++;
         }
       # END OF MAGIC
@@ -1126,15 +1129,15 @@ sub waypointTask {
   elsif ($task == 9) { return "?"; }
 }
 
-sub getMask {
-# Return true if the associated bit is set for the number
-  my ($number, $position) = @_;
-  my $new_num = $number >> ($position ); 
-    # if it results to '1' then bit is set, 
-    # else it results to '0' bit is unset 
-  my $check = $new_num &1;
-  return ($check); 
-} 
+# sub getMask {
+# # Return true if the associated bit is set for the number
+#   my ($number, $position) = @_;
+#   my $new_num = $number >> ($position ); 
+#     # if it results to '1' then bit is set, 
+#     # else it results to '0' bit is unset 
+#   my $check = $new_num &1;
+#   return ($check); 
+# } 
 
 # sub FileData {
 # 	# break out the incoming file name to useful bits

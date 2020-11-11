@@ -39,8 +39,8 @@ $cookie = $cgi->cookie(TotalHost);
 
 # Doesn't need to validate, because everything in here doesn't require auth.
 #&validate($cgi,$session);
-$id = $session->param("userid");
-$userlogin = $session->param("userlogin");
+$id = $session->param('userid');
+$userlogin = $session->param('userlogin');
 
 
 # BUG: This should be enabled and work, just didn't last I thinkered with it. 
@@ -130,7 +130,7 @@ if ($in{'cp'} eq 'login_page') { &login_page;
 }
 
 if ($in{'rp'} eq 'something') {
-	$sql = "SELECT * from Games WHERE GameStatus = 2;";
+	$sql = 'SELECT * from Games WHERE GameStatus = 2;';
 	print qq|<td width="$rp_width">\n|;
 	&list_games($sql, 'Games in Progress');
 	print "</td>\n";
@@ -185,7 +185,7 @@ sub account_create {
 		while ($db->FetchRow()) {
 			($User_Count) = $db->Data("CountOfUser_ID");
 		}
-	} else { &LogOut(10,"ERROR: account_create confirming user account",$LogFile);}
+	} else { &LogOut(10,'ERROR: account_create confirming user account',$LogFile);}
 	&DB_Close($db);
 	if ($User_Count > $max_users ) {
 		#print $cgi->redirect( -URL => "$WWW_HomePage$Location_Scripts/index.pl?cp=max");
