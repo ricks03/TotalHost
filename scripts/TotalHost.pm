@@ -837,7 +837,9 @@ sub Eval_CHKLine {
 	if ($ChkStatus) { return $ChkStatus, $ChkPlayer; }
 	else { 
     &LogOut(0,"Eval_CHKLine: Fail for no \$ChkResult in TurnResult array, $ChkResult",$ErrorLog);
-    return 'Error'; }
+    #return "Error";
+    return "Error: $ChkResult"; 
+  }
 }
 
 sub UpdateNextTurn { #Update the database for the time that the next turn should generate.

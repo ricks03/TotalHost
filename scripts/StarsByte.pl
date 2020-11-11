@@ -100,13 +100,13 @@ close(StarFile);
 
 # Decrypt the data, block by block
 #my ($outBytes) = &decryptBlock(@fileBytes);
-my ($outBytes) = &decryptBlock();
+my ($outBytes) = &decryptBlock(@fileBytes);
 my @outBytes = @{$outBytes};
  
 ################################################################
 
 sub decryptBlock {
-  #my (@fileBytes) = @_;
+  my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
@@ -114,6 +114,7 @@ sub decryptBlock {
   my @encryptedBlock;
   my @outBytes;
   my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ( $fileFooter ); 
   my ( $random, $seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
@@ -137,10 +138,15 @@ sub decryptBlock {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
-      print "FMULTI: $fMulti\n";
+      #print "FMULTI: $fMulti\n";
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
+      push @outBytes, @block;
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+      my ($nocryptedData, $padding) = &displayBytes(\@data); 
+      my @nocryptedData = @{ $nocryptedData };
+      &processData(\@nocryptedData,$typeId,$offset,$size);
       push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted

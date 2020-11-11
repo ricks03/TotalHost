@@ -35,7 +35,7 @@ use warnings;
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
 
-my $debug = 1;
+my $debug = 0;
 my $fixFiles = 2; # 0, 2: display, write 
 my %warning;
 my $warnId='';
@@ -145,8 +145,8 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-#my ($outBytes, $needsFixing, $warning) = &decryptShip(@fileBytes);
-my ($outBytes, $needsFixing, $warning) = &decryptShip();
+my ($outBytes, $needsFixing, $warning) = &decryptShip(@fileBytes);
+#my ($outBytes, $needsFixing, $warning) = &decryptShip();
 my @outBytes = @{$outBytes};
 %warning = %$warning;
 
@@ -254,9 +254,12 @@ sub decryptShip {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
+      print "Turn: " . ($turn+2400) . "\n";
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
+      push @outBytes, @block;
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
       push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted
@@ -523,7 +526,7 @@ sub decryptShip {
         #print "\n\nshipTypes: " . &dec2bin($shipTypes) . "\n";
         my $shipct =0 ;
         foreach my $val (@shipCount) {
-          if ( $val ) { print "designNumber: $shipct   shipCount: $val\n";}
+          if ( $val ) { print "\tdesignNumber: $shipct   shipCount: $val\n";}
           #else { print "designNumber: $shipct   shipCount: 0\n";}
           $shipct++;
         }
@@ -578,7 +581,7 @@ sub decryptShip {
         }
         $x = &read16(\@decryptedData, 8); # Correct  (likely only in full block?)
         $y = &read16(\@decryptedData, 10); # Correct (likely only in full block?)
-        print "Fleet Block: fleetId: $fleetId, ownerId: $ownerId, x: $x, y: $y, battlePlan: $battlePlan, shipTypes:" . &dec2bin($shipTypes) . "\n";
+        print "\tFleet Block: fleetId: $fleetId, ownerId: $ownerId, x: $x, y: $y, battlePlan: $battlePlan, shipTypes:" . &dec2bin($shipTypes) . "\n";
         #$fleet{'id'} = $fleetId;
         $fleet{'player'} = $Player; # BUG: Are these different than "owner"? Likely
         $fleet{'owner'} = $ownerId;
@@ -686,15 +689,15 @@ sub decryptShip {
 #   elsif ($task == 9) { return "?"; }
 # }
 
-sub getMask {
-# Return true if the associated bit is set for the number
-  my ($number, $position) = @_;
-  my $new_num = $number >> ($position ); 
-    # if it results to '1' then bit is set, 
-    # else it results to '0' bit is unset 
-  my $check = $new_num &1;
-  return ($check); 
-} 
+# sub getMask {
+# # Return true if the associated bit is set for the number
+#   my ($number, $position) = @_;
+#   my $new_num = $number >> ($position ); 
+#     # if it results to '1' then bit is set, 
+#     # else it results to '0' bit is unset 
+#   my $check = $new_num &1;
+#   return ($check); 
+# } 
 
 #     public static int ITEM_ID_INDEX = 0;
 #     public static int MASS_INDEX = 7;

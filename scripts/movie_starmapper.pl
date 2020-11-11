@@ -259,7 +259,7 @@ sub getRaceNames {
   my ($HST) = @_;
   # Read in the binary Stars! file, byte by byte
   my $FileValues;
-  @fileBytes = ();
+  my @fileBytes;
   my @singularRaceNames;
   open(StarFile, "<$HST" );
   binmode(StarFile);
@@ -268,15 +268,15 @@ sub getRaceNames {
   }
   close(StarFile);
   # Decrypt the data, block by block
-  #@singularRaceNames = &decryptNameBlock(@fileBytes);
-  @singularRaceNames = &decryptNameBlock();
+  @singularRaceNames = &decryptNameBlock(@fileBytes);
+  #@singularRaceNames = &decryptNameBlock();
   @$singularRaceNames = $singular;
   return @singularRaceNames;
 }
   
 ################################################################
 sub decryptNameBlock {
-  #my (@fileBytes) = @_;
+  my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
@@ -302,6 +302,7 @@ sub decryptNameBlock {
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
     } elsif ($typeId == 6 ) { #PlayerBlock
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 

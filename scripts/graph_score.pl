@@ -49,7 +49,6 @@ if (!($filename)) {
   exit;
 }
 
-
 # Name of the Game (the prefix for the .xy file)
 my $GameFile = $filename;  
 my $sourcedir = $FileHST . '\\' . $GameFile;
@@ -58,7 +57,7 @@ unless (-d $sourcedir) { die "Directory $sourcedir does not exist!\n"; }
 my $graphPath = $FileDownloads . '\\graphs' . '\\' . $filename . '.png';
 
 # Get all of the years from the backup subdirectories
-# Expectation is folder is turn/year
+# Expectation is folder structure is turn/year
 opendir(DIRS, $sourcedir) || die("Cannot open $sourcedir\n"); 
 @AllDirs = readdir(DIRS);
 closedir(DIRS);
@@ -93,6 +92,7 @@ foreach $dirname (@AllDirs) {
       } else { die "HST file $HST not found\n"; }
     }
     # Only for the .M files
+    # Score blocks aren't in the HST File. 
     if ($filename =~ /^(\w+[\w.-]+\.[Mm]\d{1,2})$/) { 
       $lastturn = $dirname;
       my $MFile = "$sourcedir\\$dirname\\$filename";
@@ -111,7 +111,7 @@ $highscore = $highscore+1000; # Just makes it graph better. BUG: Should probably
 # Race names must be the Singular
 #@numbers = (1.. scalar @singularRaceNames);
 
-print "TURNS: @turns\n";
+#print "TURNS: @turns\n";
 push @data, \@turns; # put turns into data array
 
 foreach my $playerId (sort keys %score) {
@@ -202,8 +202,8 @@ sub getScores {
   my ($HST) = @_;
   # Read in the binary Stars! file, byte by byte
   my $FileValues;
-  #my @fileBytes;
-  @fileBytes = ();
+  my @fileBytes;
+  #@fileBytes = ();
   my @singularRaceNames;
   open(StarFile, "<$HST" );
   binmode(StarFile);
@@ -212,14 +212,14 @@ sub getScores {
   }
   close(StarFile);
   # Decrypt the data, block by block
-  #my ($singularRaceNames, $score, $turn, $player) = &decryptScores(@fileBytes);
-  my ($singularRaceNames, $score, $turn, $player) = &decryptScores();
+  my ($singularRaceNames, $score, $turn, $player) = &decryptScores(@fileBytes);
+  #my ($singularRaceNames, $score, $turn, $player) = &decryptScores();
   @singularRaceNames = @{$singularRaceNames};
   return \@singularRaceNames, $score, $turn, $player;
 }
 
 sub decryptScores {
-  #my (@fileBytes) = @_;
+  my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $padding);
@@ -227,27 +227,48 @@ sub decryptScores {
   my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ($random, $seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
+#   my ($lastTurn);
+#   my $skipTurns = 0;
   my $offset = 0; #Start at the beginning of the file
   my @singularRaceNames;
   while ($offset < @fileBytes) {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
-    ($typeId, $size ) = &parseBlock($FileValues, $offset);
-    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
-    #@data = @{ $data }; # The non-header portion of the block
-    
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
     if ($debug > 1) { print 'BLOCK RAW: Size ' . @block . ":\n" . join ("", @block), "\n"; }
     
-    if ($typeId == 8 ) { # FileHeaderBlock, never encrypted
+    # Skip over the duplicate information in a turn file which include multiple turns
+    # Testing suggests this really doesn't save any time
+#     if ( $skipTurns && $typeId != 8 ) {
+#       $offset = $offset + (2 + $size); 
+#       print "SKIP: TypeId: $typeId\n";
+#       next;
+#    } elsif ($typeId == 8 ) { # FileHeaderBlock, never encrypted
+     if ($typeId == 8 ) { # FileHeaderBlock, never encrypted
+#       if ( $skipTurns ) { $skipTurns--; }
+#       if ( $skipTurns ) { next; }
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
       ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+      
+      # This turn has multiple turns, so let's skip forward and decrypt only the last turn
+#       if ( $fMulti ) {  # fMulti is set only on the first Block 8 
+#          $lastTurn = &getFileFooter(@fileBytes);
+#          $skipTurns = $lastTurn - $turn;
+#          print "TURN: $turn, LAST: $lastTurn, SKIP: $skipTurns\n";
+#          #sleep 1;
+#          $offset = $offset + (2 + $size); 
+#          next;
+#       }
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
     } else {
       # Everything else needs to be decrypted
+      @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
-      @decryptedData = @{ $decryptedData };  
+      #@decryptedData = @{ $decryptedData };  
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6 ) {  #PlayerBlock
         my $playerId = $decryptedData[0] & 0xFF;

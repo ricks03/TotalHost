@@ -456,8 +456,8 @@ sub StarsQueue {
   }
   close(StarFile);
   # Decrypt the data, block by block
-#  my $queueList = &decryptQueue(@fileBytes);
-  my $queueList = &decryptQueue();
+  my $queueList = &decryptQueue(@fileBytes);
+  #my $queueList = &decryptQueue();
   my %queueList = %$queueList;
   # write out the unmodified queue list
   my $queueFile = $GameDir . '\\' . $GameFile . '.HST' . ".$turn" . '.queue';
@@ -472,7 +472,7 @@ sub StarsQueue {
 }
 
 sub decryptQueue {
-  #my (@fileBytes) = @_;
+  my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
@@ -499,6 +499,8 @@ sub decryptQueue {
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
+      push @outBytes, @block;
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
       push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted

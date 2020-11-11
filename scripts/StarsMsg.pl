@@ -28,8 +28,8 @@
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
 #
-# Displays player messages.
-# This is intentionally standalone for a friend of mine.
+# Displays player messages
+# HST files don't have message blocks.
 
 use strict;
 use warnings;   
@@ -38,19 +38,8 @@ use StarsBlock; # A Perl Module from TotalHost
 my $debug = 0; # Enable better debugging output. Bigger the better
 
 my (@singularRaceName, @pluralRaceName);
-$singularRaceName[0] = "Everyone"; # When there's no result
-
-#Stars random number generator class used for encryption
-my @primes = ( 
-                3, 5, 7, 11, 13, 17, 19, 23, 
-                29, 31, 37, 41, 43, 47, 53, 59,
-                61, 67, 71, 73, 79, 83, 89, 97,
-                101, 103, 107, 109, 113, 127, 131, 137,
-                139, 149, 151, 157, 163, 167, 173, 179,
-                181, 191, 193, 197, 199, 211, 223, 227,
-                229, 233, 239, 241, 251, 257, 263, 279,
-                271, 277, 281, 283, 293, 307, 311, 313 
-        );
+$singularRaceName[0] = 'Everyone'; # When there's no result
+$pluralRaceName[0] = 'Everyone'; # When there's no result
 
 ##########  
 my $inName = $ARGV[0]; # input file
@@ -65,15 +54,19 @@ if (!($inName)) {
 
 #Validate directory or file 
 unless (-e $inName ) { 
-  print "Requested file:> $inName <: does not exist!\n"; exit; 
+  print "\nRequested file does not exist: $inName\n"; exit; 
 }
-print "\nFor File: $inName\n";
 
 my ($basefile, $dir, $ext);
 # for c:\stars\mygamename.m1
 $basefile = basename($filename);    # mygamename.m1
 $dir  = dirname($filename);         # c:\stars
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1  extension
+
+if ($ext =~ /HST|hst/) { print "\nHST files do not include messages\n"; exit; }
+if ($ext =~ /[xX]/) { print "\nX files do not include the race names\n"; }
+
+print "\nFor File: $inName\n";
 
 # Read in the binary Stars! file, byte by byte
 my $FileValues;
@@ -86,13 +79,11 @@ while ( read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-#my ($outBytes) = &decryptBlock(@fileBytes);
-my ($outBytes) = &decryptBlock();
-
+my ($outBytes) = &decryptBlock(@fileBytes);
   
 ################################################################
 sub decryptBlock {
-  #my (@fileBytes) = @_;
+  my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
@@ -102,6 +93,7 @@ sub decryptBlock {
   my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ($random, $seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
+  my $currentTurn;
   my $offset = 0; #Start at the beginning of the file
   while ($offset < @fileBytes) {
     # Get block info and data
@@ -116,14 +108,20 @@ sub decryptBlock {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+      if ($fMulti) { 
+        my @footer =  ( $fileBytes[-2], $fileBytes[-1] );
+        $currentTurn = &getFileFooterBlock(\@footer, 2) + 2400; 
+        print "Current Year: $currentTurn\n";
+      } 
       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
       @decryptedData = @{ $decryptedData };  
       if ( $debug  > 1) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
-      &processData(\@decryptedData,$typeId,$offset,$size, $turn);
+      &processData(\@decryptedData,$typeId,$offset,$size,$turn);
       # END OF MAGIC
     }
     $offset = $offset + (2 + $size); 
@@ -132,7 +130,7 @@ sub decryptBlock {
 
 sub processData {
   # Display the messages in the file
-  my ($decryptedData,$typeId,$offset,$size, $turn)  = @_;
+  my ($decryptedData,$typeId,$offset,$size,$turn)  = @_;
   my @decryptedData = @{ $decryptedData };
   my $message;
   # We need the names to display
@@ -152,6 +150,7 @@ sub processData {
     my $singularNameLength = $decryptedData[$index] & 0xFF;
     my $singularMessageEnd = $index + $singularNameLength;
     my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
+    $playerId++; # As 0 is "Everyone" need to use representative IDs
     $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
     $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
 #    print "playerName $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
@@ -167,16 +166,19 @@ sub processData {
     if ($debug) { print "typeId: $typeId\n"; }
     if ($debug) { print "\nDATA DECRYPTED:" . join ( " ", @decryptedData ), "\n"; }
 #    print "From: $senderId, To: $recipientId, \"$message\"\n"; 
-    my $turn_fix = $turn + 2400;
     if ($message) {
-      if ($ext =~ /x/) { 
+      if ($ext =~ /[xX]/) { 
         # Different for x files, as we don't have player names in it.
-        print "\nTurn:$turn_fix, From: Me, To: Player $recipientId, \"$message\"\n";
-      } else { print "\nTurn:$turn_fix, From: $singularRaceName[$senderId], To: $singularRaceName[$recipientId-1], \"$message\"\n"; }
+        # Player ID #s are a bit weird, as 0 in this case is "everyone", not Player 1 (ID:0)
+        if ( $recipientId == 0 ) { $recipientId = 'Everyone'; } else { $recipientId = 'Player ' . $recipientId; }
+        print "\tMessage Year:" . ($turn+2400) . ", From: Me, To: $recipientId, \"$message\"\n";
+      } else { 
+        print "\tMessage Year:" . ($turn+2400) . ", From: $singularRaceName[$senderId+1], To: $singularRaceName[$recipientId], \"$message\"\n"; 
+      }
       if ($debug) { print "b0: $byte0, b2: $byte2, b8: $byte8\n"; }
-    } else { print "No messages!\n"; }
+    } else { print "\tNo messages!\n"; }
   } 
-  return @decryptedData;
+  #return @decryptedData;
 }
 
 

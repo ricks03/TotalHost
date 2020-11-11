@@ -85,14 +85,14 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-#my ($outBytes) = &decryptBlockPlan(@fileBytes);
-my ($outBytes) = &decryptBlockPlan();
-my @outBytes = @{$outBytes};
+my ($outBytes) = &decryptBlockPlan(@fileBytes);
+#my ($outBytes) = &decryptBlockPlan();
+#my @outBytes = @{$outBytes};
 
 
 ################################################################
 sub decryptBlockPlan {
-  #my (@fileBytes) = @_;
+  my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
@@ -123,7 +123,10 @@ sub decryptBlockPlan {
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
-      push @outBytes, @block;
+      #push @outBytes, @block;
+      print 'Turn: ',$turn+2400,"\n";
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+      #push @outBytes, @block;
      } elsif ($typeId == 7) {
       # Note that planet's data requires something extra to decrypt. 
       # Fortunately block 7 isn't in my test files
@@ -138,12 +141,12 @@ sub decryptBlockPlan {
         if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
         if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
 
-         my ($planPlayerId, $planNumber, $primaryTarget,$secondaryTarget,$tactic,$attackWho, $dumpCargo, $planNameLength, $planName);
+        my ($planPlayerId, $planNumber, $primaryTarget,$secondaryTarget,$tactic,$attackWho, $dumpCargo, $planNameLength, $planName);
 
         # Player 0 Default: 0 4 19 2 5 179 45 113 222 90
         # Player 1 Default: 1 4 19 2 5 179 45 113 222 90
         $planPlayerId = ($decryptedData[0] >> 0) & 0x0F; 
-        print "Plan Player:$planPlayerId\t";  # 4 bits starting at bit 0.
+        print "\tPlan Player ID:$planPlayerId\t";  # 4 bits starting at bit 0.
         $planNumber = ($decryptedData[0] >> 4) & 0x0F; 
         print "Plan:$planNumber\t";
         $tactic = ($decryptedData[1]) & 0x0F; 
@@ -165,14 +168,13 @@ sub decryptBlockPlan {
         $warnId = &zerofy($planPlayerId) . '-plan-' . &zerofy($planNumber);
         if (($attackWho) > 3 && $planNumber == 0) { 
            # Fixing display for those who don't count from 0.
-           $err .= '***Friendly Fire bug detected for player ' . &plusone($planPlayerId) .  " in Default battle plan slot ($planNumber) against " . &attackWho($attackWho);
+           $err .= '***Friendly Fire bug detected for Player ' . $planPlayerId .  " in Default battle plan slot ($planNumber) against " . &attackWho($attackWho);
            $decryptedData[3] = 2;
            $needsFixing = 1;
            if ($fixFiles > 1) {
              $err .= '  Fixed!!! Attack Who reset to Neutral/Enemy.';
            } else {$err .= '';}
            print $err . "\n"; 
-           
            $warning{$warnId.'-friendly'} = $err;
         }
         # If a subsequent Default battle plan fixes it, clear the warning
@@ -185,36 +187,19 @@ sub decryptBlockPlan {
       # reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
       @encryptedBlock = @ { $encryptedBlock };
-      push @outBytes, @encryptedBlock;
+      #push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
   }
-  return \@outBytes;
+  #return \@outBytes;
 }
 
-sub getMask {
-# Return true if the associated bit is set for the number
-  my ($number, $position) = @_;
-  my $new_num = $number >> ($position ); 
-    # if it results to '1' then bit is set, 
-    # else it results to '0' bit is unset 
-  my $check = $new_num &1;
-  return ($check); 
-} 
-
-# sub zerofy {
-# # make a 1 digit number 2 digits
-#   my ($val) = @_;
-#   if ($val < 10  && $val >=0 ) { return "0" . $val; }
-#   else { return $val; } 
-# }
-
-# sub plusone{
-# # Increment the value of a number as one for display to end users
-# # (who problably don't count from 0)
-#   my ($val) = @_;
-#   $val++;
-#   return $val;
-# }
-
-
+# sub getMask {
+# # Return true if the associated bit is set for the number
+#   my ($number, $position) = @_;
+#   my $new_num = $number >> ($position ); 
+#     # if it results to '1' then bit is set, 
+#     # else it results to '0' bit is unset 
+#   my $check = $new_num &1;
+#   return ($check); 
+# } 

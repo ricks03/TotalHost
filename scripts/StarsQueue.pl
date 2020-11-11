@@ -24,28 +24,25 @@
 
 #
 # Gets information from Production Queue
-# Example Usage: StarsQueue.pl c:\stars\game.m1
+# Example Usage: StarsQueue.pl c:\stars\game.x1
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
-# Doesn't really work completely
 
 use strict;
 use warnings;   
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
-#use StarStat; # A Perl module from TotalHost
-  # Have FileData subroutine local
 do 'config.pl';
 
-my $debug = 1;
+my $debug = 0;
 
 #########################################        
 my $filename = $ARGV[0]; # input file
 if (!($filename)) { 
   print "\n\nUsage: StarsQueue.pl <input file>\n\n";
-  print "Please enter the input file (.M|.X|.HST). Example: \n";
-  print "  StarsQueue.pl c:\\games\\test.m1\n\n";
+  print "Please enter the input file (.X|.HST). Example: \n";
+  print "  StarsQueue.pl c:\\games\\test.x1\n\n";
   print ".HST files will output the queue from all planets so\n";
   print " it can be used when checking .x files for queue issues.\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
@@ -75,8 +72,8 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-#my ($outBytes, $queueList) = &decryptQueue(@fileBytes);
-my ($outBytes, $queueList) = &decryptQueue();
+my ($outBytes, $queueList) = &decryptQueue(@fileBytes);
+#my ($outBytes, $queueList) = &decryptQueue();
 my @outBytes = @{$outBytes};
 my %queueList = %$queueList;
 
@@ -146,7 +143,7 @@ if (lc($ext) eq '.hst') {
 
 ################################################################
 sub decryptQueue {
-  #my (@fileBytes) = @_;
+  my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
@@ -177,6 +174,8 @@ sub decryptQueue {
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
       push @outBytes, @block;
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+      push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
@@ -191,14 +190,14 @@ sub decryptQueue {
         if ($typeId == 28) { $Player = $owner; }
 
         if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-        print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; 
+        if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
         my $index = 0;
-        my ($chunk1, $chunk2, $itemId, $count, $completePercent, $itemType, $queueSize);
+        my ($chunk1, $chunk2, $itemId, $count, $completePercent, $itemType, $queueSize, $itemIdDisplay);
         # Testing for ProductionQueueChangeBlock
         if ($typeId == 29) { 
           $index = $index + 2;
           $planetId = &read16(\@decryptedData, 0);
-          print "Planet Id: $planetId\n"; 
+          print "Queue set for Planet Id: $planetId\n"; 
         } 
         for (my $i=$index; $i <= scalar(@decryptedData) -4; $i=$i+4) {
           $chunk1 = &read16(\@decryptedData, $i);
@@ -209,8 +208,13 @@ sub decryptQueue {
           $itemType = $chunk2 & 0xF; # bottom 4 bits
           # if not a .x file, we have to get the player Id from the planet info
           if ($owner) { $Player = $owner } else { $Player = $Player; }
-          print "Player: $Player, planetId: $planetId, Queue: itemId: $itemId, count: $count, %complete: $completePercent, itemType: $itemType, size: $size\n"; 
-          if ($typeId == 28) {
+          # Translate the itemId into a more useful display
+          if ($itemId <=11 && $itemType == 2) { $itemIdDisplay = "$itemId:(" . &showQueue($itemId) . ')'; 
+          } elsif ($itemId >=0 && $itemId <=15 && $itemType == 4) { $itemIdDisplay = "$itemId:(Ship Slot $itemId)"; 
+          } elsif ($itemId >=16 && $itemId <=25 && $itemType == 4) { $itemIdDisplay = "$itemId:(Base Slot " . ($itemId-16) . ")"; 
+          } else {$itemIdDisplay = $itemId; }
+          print "Player ID: $Player, planetId: $planetId, Queue: itemId: $itemIdDisplay, count: $count, %complete: $completePercent, itemType: $itemType\n"; 
+          if ($typeId == 28 ) {
 #            my $queueBlock = "$Player,$planetId,$itemId,$count,$completePercent,$itemType,$size";
 #            push @queueBlock, $queueBlock;
             $queueList{$queueCounter}{Player} = $Player;  
@@ -224,6 +228,7 @@ sub decryptQueue {
             $queueCounter++;
           }
         }
+        if ($size == 2) { print "Player: $Player, planetId: $planetId, Queue Cleared\n"; }
       }  
       # END OF MAGIC
       #reencrypt the data for output
@@ -251,4 +256,11 @@ sub FileData {
 	$file_ext =~ s/(.*)(\.)(.*)/$3/;
 	return $game_file, $file_player, $file_type, $file_ext; 	
 }
+
+sub showQueue {
+   my ($points) = @_;
+   my @queue = qw ( Mines(Auto) Factories(Auto) Defenses(Auto) Alchemy(Auto)  MinTerra MaxTerra Packet Factory Mines Defenses Unknown Alchemy );
+   return $queue[$points];
+}
+
 

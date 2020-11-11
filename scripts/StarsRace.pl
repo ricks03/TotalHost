@@ -40,7 +40,7 @@ use strict;
 use warnings;   
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
-my $debug = 1;
+my $debug = 0;
 
 my @singularRaceName;
 my @pluralRaceName;
@@ -76,6 +76,8 @@ $basefile = basename($filename);    # mygamename.m1
 $dir  = dirname($filename);         # c:\stars
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
 
+if ($ext =~ /[xX]/) { print "x files do not include race information\n"; exit; }
+
 # Read in the binary Stars! file, byte by byte
 my $FileValues;
 my @fileBytes;
@@ -87,14 +89,14 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-#my ($outBytes) = &decryptBlockRace(@fileBytes);
-my ($outBytes) = &decryptBlockRace();
-my @outBytes = @{$outBytes};
+my ($outBytes) = &decryptBlockRace(@fileBytes);
+#my ($outBytes) = &decryptBlockRace();
+#my @outBytes = @{$outBytes};
 
 
 ################################################################
 sub decryptBlockRace {
-  #my (@fileBytes) = @_;
+  my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
@@ -121,8 +123,10 @@ sub decryptBlockRace {
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
-      push @outBytes, @block;
-     } elsif ($typeId == 7) {
+      #push @outBytes, @block;
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+      #push @outBytes, @block;
+    } elsif ($typeId == 7) {
       # Note that planet's data requires something extra to decrypt. 
       # Fortunately block 7 isn't in my test files
       die "BLOCK 7 found. ERROR!\n";
@@ -134,7 +138,7 @@ sub decryptBlockRace {
       if ($typeId == 6) { # Player Block
         if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
         if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-        my $playerId = $decryptedData[0] & 0xFF; print "Player Id: $playerId\n";
+        my $playerId = $decryptedData[0] & 0xFF; print "Player ID: $playerId\n";
         my $shipDesigns = $decryptedData[1] & 0xFF;  print " Ship Designs: $shipDesigns\n";
         my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); print " Planets: $planets\n";
         my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);  print " Fleets: $fleets\n";
@@ -144,29 +148,30 @@ sub decryptBlockRace {
         # Byte 7 as 76543210
         #   Bit 0 is always 1
         #   Bit 1 defines whether an AI is enabled :  0:off ,  1:on
-        $aiEnabled = ($decryptedData[7] >> 1) & 0x01; print "AI Enabled: $aiEnabled\n";                
-
-        # bits 23 defines how good the AI will be:
-        #00 - Easy
-        #01 - Standard
-        #10 - Harder
-        #11 - Expert
-        my $aiSkill = ($decryptedData[7] >> 2) & 0x03;  print "AI Skill: $aiSkill[$aiSkill]\n"; # 2 bits starting at bit 2
-        
-        # Bit 4 is always 0
-        
-        # bits 765 define which PRT AI to use: 
-        # 000 - HE - Robotoids
-        # 001 - SS - Turindromes
-        # 010 - IS - Automitrons
-        # 011 - CA - Rototills
-        # 100 - PP - Cybertrons
-        # 101 - AR - Macinti
-        # 111 - Human inactive / Expansion player
-        # When human is set back to active from Inactive, bit 1 flips but bits 765 aren't reset to 0
-        # So the values for Byte 7 for human are 1 (active) or 225 (active again) and 227 (inactive/expansion player)
-        my $aiRace =  ($decryptedData[7] >> 5) & 0x07;  print "AI: $aiRace[$aiRace]\n"; # 3 bits starting at position 5
-        
+        my $aiEnabled = ($decryptedData[7] >> 1) & 0x01; print "AI Enabled: $aiEnabled\n"; 
+                      
+        if ($aiEnabled) {
+          # bits 23 defines how good the AI will be:
+          #00 - Easy
+          #01 - Standard
+          #10 - Harder
+          #11 - Expert
+          my $aiSkill = ($decryptedData[7] >> 2) & 0x03;  print "AI Skill: $aiSkill[$aiSkill]\n"; # 2 bits starting at bit 2
+          
+          # Bit 4 is always 0
+          
+          # bits 765 define which PRT AI to use: 
+          # 000 - HE - Robotoids
+          # 001 - SS - Turindromes
+          # 010 - IS - Automitrons
+          # 011 - CA - Rototills
+          # 100 - PP - Cybertrons
+          # 101 - AR - Macinti
+          # 111 - Human inactive / Expansion player
+          # When human is set back to active from Inactive, bit 1 flips but bits 765 aren't reset to 0
+          # So the values for Byte 7 for human are 1 (active) or 225 (active again) and 227 (inactive/expansion player)
+          my $aiRace =  ($decryptedData[7] >> 5) & 0x07;  print "AI: $aiRace[$aiRace]\n"; # 3 bits starting at position 5
+        } 
         # We figure out names here, because they're here at 8 when not fullDataFlag 
         my $index = 8; 
         my $playerRelations;
@@ -183,7 +188,7 @@ sub decryptBlockRace {
         my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
         $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
         $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
-        print "playerName $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
+        print "playerIDName $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
         
         if ($fullDataFlag) { 
           my $homeWorld = &read16(\@decryptedData, 8);
@@ -273,7 +278,7 @@ sub decryptBlockRace {
             for (my $i = 1; $i <= $playerRelationsLength; $i++) {
               my $id = $i-1;
               if ($id == $playerId) { next; } # Skip for self
-              print "Player " . $id . ": " . &showPlayerRelations($decryptedData[$i+112]) . "\n";
+              print "Player ID " . $id . ": " . &showPlayerRelations($decryptedData[$i+112]) . "\n";
             } 
           } else { print "Player Relations never set\n"; }
         }
@@ -282,6 +287,6 @@ sub decryptBlockRace {
     }
     $offset = $offset + (2 + $size); 
   }
-  return \@outBytes;
+  #return \@outBytes;
 }
 
