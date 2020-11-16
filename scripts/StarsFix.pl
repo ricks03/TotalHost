@@ -28,8 +28,12 @@
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
-# Detects, can fix, and can detect fixes of the colonizer, spacedock, 
-# 10 starbase, cheap starbase, and friendly fire
+# Detects, can fix, and can detect fixes of:
+# Cheap Starbase
+# Cheap Colonizer
+# Starbase Friendly Fire Battle Plan
+# Space Dock Armor slot Buffer Overflow
+# 10th Starbase
 
 # An "upgrade" of StarsShip.pl & StarsShipQueue. Adding in the abilty to check for 
 # the Cheap Starbase exploit requires queue-awareness to detect the fix.
@@ -680,7 +684,7 @@ sub decryptShip {
               # so need to filter.
               if ($itemId == 0 &&  $itemCategory == 4096 && $itemCount == 0) {
                 # Fixing display for those who don't count from 0.
-                $err .= 'WARNING: Colonizer bug detected for player ' . &plusone($Player) . ' in ship design slot ' . &plusone($designNumber) . ": $shipName (in slot " . &plusone($itemSlot) . '). ';
+                $err .= 'WARNING: Colonizer bug detected for player ' . ($Player+1) . ' in ship design slot ' . ($designNumber+1) . ": $shipName (in slot " . ($itemSlot+1) . '). ';
                 $itemCategory = &read16(\@decryptedData, $index-3);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
 #                print "category: $itemCategory  index: $index\n";
                 ($decryptedData[$index-3], $decryptedData[$index-2]) = &write16(0); # Category
@@ -705,7 +709,7 @@ sub decryptShip {
               # will result in some sort of error (of massively increased armor)
               # Rick: I had hoped to fix this by simply rewriting the armor value,
               # but armor gets recalculated, so resetting the itemCount is the only choice. 
-              $err = 'WARNING: Spacedock Overflow bug of > 21 SuperLatanium detected for player ' . &plusone($Player) . ' in starbase design slot ' . &plusone($designNumber) . ": $shipName. ";
+              $err = 'WARNING: Spacedock Overflow bug of > 21 SuperLatanium detected for player ' . ($Player+1) . ' in starbase design slot ' . ($designNumber+1) . ": $shipName. ";
               # reset the $itemCount 
               $decryptedData[$spaceDockIndex+11] = 21; # Armor slot on spacedock
               # Armor value should be 250 + (1500 * $itemCount) / 2
@@ -739,7 +743,7 @@ sub decryptShip {
           
           # Detect the 10th starbase design
           if ( $isStarbase && $designNumber == 9 && $deleteDesign && $Player > 0 ) {
-            $err = 'WARNING: Player ' . &plusone($Player) . ": Starbase ($shipName) in design slot 10 - Potential Crash if Player 1 Fleet 1 refuels when Last Player has a 10th starbase design.";
+            $err = 'WARNING: Player ' . ($Player+1) . ": Starbase ($shipName) in design slot 10 - Potential Crash if Player 1 Fleet 1 refuels when Last Player has a 10th starbase design.";
             # As I have no fix, no need to flag for fixing
             print "$warnId: $err\n"; 
             $warning{$warnId.'-ten'} = $err;
@@ -753,7 +757,7 @@ sub decryptShip {
             my $queueCounter;
             foreach my $queueCounter (sort keys %queueList) {
               if ($queueList{$queueCounter}{Player} == $Player && $queueList{$queueCounter}{itemType} == 4 && $queueList{$queueCounter}{itemId} == $queueDesignNumber) { # if the item in the queue is a ship design (4)
-                $err = 'WARNING: Cheap Starbase Exploit for player ' . &plusone($Player) . '. Do not edit a starbase under construction (slot ' . &plusone($designNumber) . ": $shipName) !\n";
+                $err = 'WARNING: Cheap Starbase Exploit for player ' . ($Player+1) . '. Do not edit a starbase under construction (slot ' . ($designNumber+1) . ": $shipName) !\n";
                 $brokenStarbase[$designNumber] = 1; 
                 $index = 19;  
                 # Loop through each slot, setting the slot to 0
@@ -774,7 +778,7 @@ sub decryptShip {
                 $needsFixing = 1;
                 $dropBlock = 1;
                 if ($fixFiles > 1) {
-                  #$err .= '  Fixed!!! Starbase design ' . &plusone($designNumber) . ' reset to blank.';
+                  #$err .= '  Fixed!!! Starbase design ' . ($designNumber+1) . ' reset to blank.';
                   $err .= "  Fixed!!! Starbase design order for $shipName removed.";
                 } else {$err .= ' '; }
                 $warning{$warnId.'-cheap'} = $err;
@@ -1017,7 +1021,7 @@ sub decryptShip {
         $warnId = &zerofy($planPlayerId) . '-plan-' . &zerofy($planNumber);
         if (($attackWho) > 3 && $planNumber == 0) { 
            # Fixing display for those who don't count from 0.
-           $err .= 'WARNING: Friendly Fire bug detected for player ' . &plusone($planPlayerId) .  " in Default battle plan against " . &attackWho($attackWho) . '.';
+           $err .= 'WARNING: Friendly Fire bug detected for player ' . ($planPlayerId+1) .  " in Default battle plan against " . &attackWho($attackWho) . '.';
            $decryptedData[3] = 2;
            $needsFixing = 1;
            if ($fixFiles > 1) {

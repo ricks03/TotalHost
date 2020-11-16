@@ -25,6 +25,7 @@
 #
 # Gets information from Production Queue
 # Example Usage: StarsQueue.pl c:\stars\game.x1
+# This is an early /debugging version of the code in StarsFix.pl
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  

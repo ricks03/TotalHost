@@ -138,7 +138,6 @@ sub decryptBlock {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
-      #print "FMULTI: $fMulti\n";
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -178,7 +177,8 @@ sub processData {
       if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
       my $counter =0;
       foreach my $key ( @decryptedData ) { 
-        print "byte  $counter:\t$key\t" . &dec2bin($key); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
+        #print "byte  $counter:\t$key\t" . &dec2bin($key); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
+        print "$counter:$key\t" . substr(&dec2bin($key),8,8); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
         $counter++;
       }  
       print "\n";    
