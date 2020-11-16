@@ -72,45 +72,6 @@ my $waypointcounter = 0;
 my @fleetMerge;
 my $fleetMergeCounter = 0; #Array to track fleet merge orders
 
-# my %hullType; 
-# $hullType{'0'} = [ 15,1,"Small Freighter",0,0,0,0,0,0,0,25,20,12,0,17,0,70,130,25,1,1,6146,1,12,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,85,51,49,55,53,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'1'} = [ 15,2,"Medium Freighter",1,0,0,0,3,0,0,60,40,20,0,19,4,210,450,50,1,1,6146,1,12,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,86,50,48,56,54,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'2'} = [ 15,3,"Large Freighter",2,0,0,0,8,0,0,125,100,35,0,21,8,1200,2600,150,1,2,6146,2,12,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,102,34,48,38,70,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'3'} = [ 15,4,"Super Freighter",3,0,0,0,13,0,0,175,125,45,0,21,12,3000,8000,400,1,3,6146,3,12,5,2048,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,4,136,34,64,40,72,104,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'4'} = [ 15,5,"Scout",4,0,0,0,0,0,0,8,10,4,2,4,16,0,50,20,1,1,2,1,6462,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,65,8,255,255,50,54,52,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'5'} = [ 15,6,"Frigate",5,0,0,0,6,0,0,8,12,4,2,4,20,0,125,45,1,1,2,2,6462,3,12,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,68,8,255,255,49,55,53,51,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'6'} = [ 15,7,"Destroyer",6,0,0,0,3,0,0,30,35,15,3,5,24,0,280,200,1,1,48,1,48,1,6462,1,8,2,4096,1,2048,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,67,8,255,255,66,21,117,70,68,35,99,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'7'} = [ 15,8,"Cruiser",7,0,0,0,9,0,0,90,85,40,5,8,28,0,600,700,1,2,6148,1,6148,1,48,2,48,2,6462,2,12,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,133,12,255,255,49,35,67,21,85,55,53,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'8'} = [ 15,9,"Battle Cruiser",8,0,0,0,10,0,0,120,120,55,8,12,32,0,1400,1000,1,2,6148,2,6148,2,48,3,48,3,6462,3,12,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,133,12,255,255,49,35,67,21,85,55,53,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'9'} = [ 15,10,"Battleship",9,0,0,0,13,0,0,222,225,120,25,20,36,0,2800,2000,1,4,6146,1,4,8,48,6,48,6,48,2,48,2,48,4,8,6,2048,3,2048,3,0,0,0,0,0,0,0,0,0,0,11,138,12,255,255,48,56,38,20,84,2,98,70,52,34,66,0,0,0,0,0 ];
-# $hullType{'10'} = [ 15,11,"Dreadnought",10,0,0,0,16,0,0,250,275,140,30,25,40,0,4500,4500,1,5,12,4,12,4,48,6,48,6,2048,4,2048,4,48,8,48,8,8,8,52,5,52,5,6462,2,0,0,0,0,0,0,13,138,12,255,255,64,32,96,18,114,50,82,36,100,68,54,86,72,0,0,0 ];
-# $hullType{'11'} = [ 15,12,"Privateer",11,0,0,0,4,0,0,65,50,50,3,2,44,250,650,150,1,1,12,2,6146,1,6462,1,6462,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,67,16,103,67,65,55,87,37,101,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'12'} = [ 15,13,"Rogue",12,0,0,0,8,0,0,75,60,80,5,5,48,500,2250,450,1,2,12,3,6400,2,2,1,6462,2,6462,2,6400,2,2048,1,2048,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,132,16,118,51,65,70,102,72,20,116,38,18,114,0,0,0,0,0,0,0 ];
-# $hullType{'13'} = [ 15,14,"Galleon",13,0,0,0,11,0,0,125,105,70,5,5,52,1000,2500,900,1,4,12,2,12,2,6462,3,6462,3,6400,2,6144,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,132,16,118,50,64,19,115,21,117,54,86,72,0,0,0,0,0,0,0,0 ];
-# $hullType{'14'} = [ 15,15,"Mini-Colony Ship",14,0,0,0,0,0,0,8,3,2,0,2,56,10,150,10,1,1,4096,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,86,52,50,54,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'15'} = [ 15,16,"Colony Ship",15,0,0,0,0,0,0,20,20,10,0,15,60,25,200,20,1,1,4096,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,86,52,50,54,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'16'} = [ 15,17,"Mini Bomber",16,0,0,0,1,0,0,28,35,20,5,10,64,0,120,50,1,1,64,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,192,20,255,255,51,53,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'17'} = [ 15,18,"B-17 Bomber",17,0,0,0,6,0,0,69,150,55,10,10,68,0,400,175,1,2,64,4,64,4,6146,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,192,20,255,255,49,51,53,55,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'18'} = [ 15,19,"Stealth Bomber",18,0,0,0,8,0,0,70,175,55,10,15,72,0,750,225,1,2,64,4,64,4,6146,1,2048,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,192,20,255,255,50,36,68,38,70,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'19'} = [ 15,20,"B-52 Bomber",19,0,0,0,15,0,0,110,280,90,15,10,76,0,750,450,1,3,64,4,64,4,64,4,64,4,6146,2,4,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,192,20,255,255,49,19,83,37,69,55,51,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'20'} = [ 15,21,"Midget Miner",20,0,0,0,0,0,0,10,20,10,0,3,80,0,210,100,1,1,128,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,24,255,255,51,53,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'21'} = [ 15,22,"Mini-Miner",21,0,0,0,2,0,0,80,50,25,0,6,84,0,210,130,1,1,6146,1,128,1,128,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,24,255,255,50,54,36,68,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'22'} = [ 15,23,"Miner",22,0,0,0,6,0,0,110,110,32,0,6,88,0,500,475,1,2,6154,2,128,2,128,1,128,2,128,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,24,255,255,49,55,35,37,67,69,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'23'} = [ 15,24,"Maxi-Miner",23,0,0,0,11,0,0,110,140,32,0,6,92,0,850,1400,1,3,6154,2,128,4,128,1,128,4,128,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,24,255,255,49,55,35,37,67,69,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'24'} = [ 15,25,"Ultra-Miner",24,0,0,0,14,0,0,100,130,30,0,6,96,0,1300,1500,1,2,6154,3,128,4,128,2,128,4,128,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,24,255,255,49,55,35,37,67,69,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'25'} = [ 15,26,"Fuel Transport",25,0,0,0,4,0,0,12,50,10,0,5,100,0,750,5,1,1,4,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,28,255,255,51,53,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'26'} = [ 15,27,"Super-Fuel Xport",26,0,0,0,7,0,0,111,70,20,0,8,104,0,2250,12,1,2,4,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,28,255,255,50,52,54,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'27'} = [ 15,28,"Mini Mine Layer",27,0,0,0,0,0,0,10,20,8,2,5,108,0,400,60,1,1,256,2,256,2,6146,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,16,255,255,50,36,68,54,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'28'} = [ 15,29,"Super Mine Layer",28,0,0,0,15,0,0,30,30,20,3,9,112,0,2200,1200,1,3,256,8,256,8,12,3,6146,3,6400,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,16,255,255,49,35,67,53,39,71,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'29'} = [ 15,30,"Nubian",29,0,0,0,26,0,0,100,150,75,12,12,124,0,5000,5000,1,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,0,0,0,0,0,0,13,130,16,255,255,64,32,96,18,114,50,82,36,100,68,54,86,72,0,0,0 ];
-# $hullType{'30'} = [ 15,31,"Mini Morph",30,0,0,0,8,0,0,70,100,30,8,8,120,150,400,250,1,2,6462,3,6462,1,6462,1,6462,1,6462,2,6462,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,130,16,102,36,48,50,38,70,56,18,82,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'31'} = [ 15,32,"Meta Morph",31,0,0,0,10,0,0,85,120,50,12,12,116,300,700,500,1,3,6462,8,6462,2,6462,2,6462,1,6462,2,6462,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,130,16,102,36,48,50,38,70,56,18,82,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'32'} = [ 16,1,"Orbital Fort",32,0,0,0,0,0,0,0,80,24,0,34,128,0,0,100,2560,1,48,12,12,12,48,12,12,12,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,138,0,255,255,68,36,70,100,66,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'33'} = [ 16,2,"Space Dock",33,0,0,0,4,0,0,0,200,40,10,50,132,200,0,250,2560,1,48,16,12,24,48,16,4,24,2048,2,2048,2,48,16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,140,0,102,68,34,20,65,71,116,38,102,98,0,0,0,0,0,0,0,0 ];
-# $hullType{'34'} = [ 16,3,"Space Station",34,0,0,0,0,0,0,0,1200,240,160,500,136,-1,0,500,2560,1,48,16,4,16,48,16,12,16,4,16,2048,3,48,16,2048,3,48,16,2560,1,12,16,0,0,0,0,0,0,0,0,12,142,0,102,68,66,5,3,88,80,133,100,131,36,48,70,56,0,0,0,0 ];
-# $hullType{'35'} = [ 16,4,"Ultra Station",35,0,0,0,12,0,0,0,1200,240,160,600,140,-1,0,1000,2560,1,48,16,2048,3,48,16,4,20,4,20,2048,3,48,16,2048,3,48,16,2560,1,12,20,48,16,12,20,2048,3,48,16,16,144,0,102,68,36,80,66,88,98,38,70,3,131,56,100,102,48,34,5,133 ];
-# $hullType{'36'} = [ 16,5,"Death Star",36,0,0,0,17,0,0,0,1500,240,160,700,144,-1,0,1500,2560,1,48,32,2048,4,2048,4,4,30,4,30,2048,4,48,32,2048,4,48,32,2560,1,12,20,2048,4,12,20,2048,4,48,32,16,146,0,102,68,20,96,65,104,98,38,71,2,130,40,116,102,32,34,6,134 ];
-
 #########################################        
 my $filename = $ARGV[0]; # input file
 my $outFileName = $ARGV[1];
@@ -268,6 +229,298 @@ sub decryptShip {
       if ( $debug  > 1) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
       
+      if ($typeId == 1 || $typeId == 2 || $typeId == 25) {
+        #typeID = 1 : ManualSmallLoadUnloadTaskBlock, 1 kt > 127 kt 
+        #typeID = 2 : ManualMediumLoadUnloadTaskBlock, 128 kt > 32767 kt
+        #typeID =25 : ManualLargeLoadUnloadTaskBlock, 32768kt > 
+        my ($fromId, $fromIdType, $toId, $toIdType);
+        my $contents;
+        my ($ironium, $boranium, $germanium, $population, $fuel);
+        my ($index, $indexStep, $indexFlip, $indexHalf);
+        my ($isIronium, $isBoranium, $isGermanium, $isPopulation, $isFuel);
+        
+        $toId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
+        $fromId = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 7) << 8);
+        #if ($planetId == 2047) { $planetId = 'Deep Space'; }
+        # TO / FROM : unknown (0), planet (1), fleet (2), space (4), salvage/packet/MT(8)
+        $fromIdType = $decryptedData[4] >> 4;  # right 4 bits
+        $toIdType =  ($decryptedData[4] >> 0) & 0xF;   # left 4 bits
+        $index = 5;
+        $contents = $decryptedData[$index];
+        $isIronium = &getMask($contents,0);
+        $isBoranium = &getMask($contents,1);
+        $isGermanium = &getMask($contents,2);
+        $isPopulation = &getMask($contents,3);
+        $isFuel = &getMask($contents,4);
+        $index++;
+        # The different load blocks use a different number of bytes to represent the data
+        # typeId 1 is 1 byte, typeId 2 is 2 bytes, and typeId 25 is 3 bytes
+        # If the value is negative (unload), bit 7 is 1, and the remaining 7 bits are flipped.
+        if ($typeId == 1 ) {
+          $indexStep = 1; $indexHalf = 128; $indexFlip = 254; print "Small Load:";
+#          if ($isIronium)    { $ironium = $decryptedData[$index]; if ($ironium >= $indexHalf) { $ironium = $ironium -$indexFlip; } $index=$index+$indexStep; }
+          if ($isIronium)    { $ironium = $decryptedData[$index]; if ($ironium >= $indexHalf) { $ironium = -(~$ironium & 0xFF)+ 1; } $index=$index+$indexStep; }
+          if ($isBoranium)   { $boranium = $decryptedData[$index]; if ($boranium >= $indexHalf) { $boranium = -(~$boranium & 0xFF) + 1; } $index=$index+$indexStep; }
+          if ($isGermanium)  { $germanium = $decryptedData[$index]; if ($germanium >= $indexHalf) { $germanium = -(~$germanium & 0xFF) + 1; } $index=$index+$indexStep; }
+          if ($isPopulation) { $population = $decryptedData[$index]; if ($population >= $indexHalf) { $population = -(~$population & 0xFF) + 1 ; } $index=$index+$indexStep;}
+          if ($isFuel)       { $fuel = $decryptedData[$index]; if ($fuel >= $indexHalf) { $fuel = -(~$fuel & 0xFF) + 1; } }
+        } elsif ( $typeId == 2 ) {
+          $indexStep = 2; $indexFlip = 2**16; $indexHalf = $indexFlip/2; print "Medium Load:";
+          if ($isIronium)    { $ironium = &read16(\@decryptedData, $index); if ($ironium >= $indexHalf) { $ironium = $ironium -$indexFlip; } $index=$index+$indexStep; }
+          if ($isBoranium)   { $boranium = &read16(\@decryptedData, $index); if ($boranium >= $indexHalf) { $boranium = $boranium -$indexFlip; } $index=$index+$indexStep; }
+          if ($isGermanium)  { $germanium = &read16(\@decryptedData, $index); if ($germanium >= $indexHalf) { $germanium = $germanium -$indexFlip; } $index=$index+$indexStep; }
+          if ($isPopulation) { $population = &read16(\@decryptedData, $index); if ($population >= $indexHalf) { $population = $population -$indexFlip; } $index=$index+$indexStep;}
+          if ($isFuel)       { $fuel = &read16(\@decryptedData, $index); if ($fuel >= $indexHalf) { $fuel = $fuel -$indexFlip; }}
+        } elsif ($typeId == 25 ) { 
+          $indexStep = 4; $indexFlip = 2**32; $indexHalf = $indexFlip/2; print "Large Load:";
+          if ($isIronium)    { $ironium = &read32(\@decryptedData, $index); if ($ironium >= $indexHalf) { $ironium = $ironium -$indexFlip; }$index=$index+$indexStep; }
+          if ($isBoranium)   { $boranium = &read32(\@decryptedData, $index); if ($boranium >= $indexHalf) { $boranium = $boranium -$indexFlip; } $index=$index+$indexStep; }
+          if ($isGermanium)  { $germanium = &read32(\@decryptedData, $index); if ($germanium >= $indexHalf) { $germanium = $germanium -$indexFlip; } $index=$index+$indexStep; }
+          if ($isPopulation) { $population = &read32(\@decryptedData, $index); if ($population >= $indexHalf) { $population = $population -$indexFlip; } $index=$index+$indexStep;}
+          if ($isFuel)       { $fuel = &read32(\@decryptedData, $index); if ($fuel >= $indexHalf) { $fuel = $fuel -$indexFlip; }}
+        }
+        print "\tFROM: Id:$fromId(" . &showDestType($fromIdType) . ")  TO: Id:$toId(" .&showDestType($toIdType) . ")\n";
+        print "\ti:$isIronium, b:$isBoranium, g:$isGermanium, p:$isPopulation, f:$isFuel\n";
+        if ($isIronium)    { print "\tI:$ironium "; }
+        if ($isBoranium)   { print "\tB:$boranium "; }
+        if ($isGermanium)  { print "\tG:$germanium "; }
+        if ($isPopulation) { print "\tP:$population ";}
+        if ($isFuel)       { print "\tF:$fuel ";}
+        print "\n";
+     } elsif ( $typeId == 3 ) { # Waypoint Delete Block in .x files
+       my ($fleetId, $waypointId);
+       $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
+       $waypointId = $decryptedData[2]& 0xFF;
+       print "WP$typeId: fleetId:$fleetId, waypointId:$waypointId\n";
+      } elsif ( $typeId == 4 || $typeId == 5 ) { # waypoint block (add/change) in .x files 
+        # Setting destination task adds a change (so a Task 4 & Task 5)
+        my @showTaskId = ('no task', 'Transport', 'Colonize', 'Remote Mining', 'Merge with Fleet', 'Scrap Fleet', 'Lay Minefield', 'Patrol', 'Route', 'Transfer Fleet');
+        my $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
+        my $playerId = $decryptedData[1] & 0xFF;
+        my $waypointId = &read16(\@decryptedData, 2);
+			  my $xDest = &read16(\@decryptedData, 4);  
+        my $yDest = &read16(\@decryptedData, 6);  
+        my $targetId = ($decryptedData[8] & 0xFF) + (($decryptedData[9] & 1) << 8);  # ID for destination like Fleet Merge, 511 is current location
+        my $warp =  $decryptedData[10] >> 4; # left 4 bits
+        my $taskId = $decryptedData[10] >> 0 & 0xF; # right 4 bits
+        my $targetType = ($decryptedData[11]& 0xff) % 16; #0-Unknown, 1-planet, 2-fleet, 4-deep space, 8-wormhole/trader/minefield/salvage
+		    my $unknownBitsWithTargetType = ($decryptedData[11]& 0xff) >> 4;
+        if ($targetId == 511) { $targetId = 'self'; }
+        print "WP$typeId: waypointId:$waypointId, fleetId:$fleetId, playerId:$playerId, targetId:$targetId, targetType:" . showDestType($targetType) . ", Dest:$xDest" . "x$yDest, warp:$warp, task:" . $showTaskId[$taskId];
+        # Subtasks
+        # Bytes 12+ are specific task data.
+        if ($taskId == 1) { #Transport    # max value 4000 in GUI
+          my ($ironium, $boranium, $germanium, $population, $fuel);
+          my ($taskIronium, $taskBoranium, $taskGermanium,$taskPopulation, $taskFuel);
+          my $index = 12;
+          my @showTransportTask = ('no action','Load All Available','Unload All','Load Exactly','UnLoad Exactly','Fill Up to %','Wait For %','Load Optimal/Dunnage','Set Amount To','Set Waypoint To'); # Optimal is Fuel, Dunnage is other things
+          $taskIronium = ($decryptedData[$index+1] >> 4 ); # left 4 bits  I think $decryptedData[$index+1] >> 4 & 0xF is the same
+          $ironium    = &bin2dec(((substr(&dec2bin(&read8($decryptedData[$index+1])), 12,4)) . substr(&dec2bin($decryptedData[$index]),8,8))); $index=$index+2; 
+          $taskBoranium = ($decryptedData[$index+1] >> 4);  # left 4 bits
+          $boranium   = &bin2dec(((substr(&dec2bin(&read8($decryptedData[$index+1])), 12,4)) . substr(&dec2bin($decryptedData[$index]),8,8))); $index=$index+2; 
+          $taskGermanium = ($decryptedData[$index+1] >> 4); # left 4 bits
+          $germanium  = &bin2dec(((substr(&dec2bin(&read8($decryptedData[$index+1])), 12,4)) . substr(&dec2bin($decryptedData[$index]),8,8))); $index=$index+2; 
+          $taskPopulation = ($decryptedData[$index+1] >> 4); # left 4 bits
+          $population = &bin2dec(((substr(&dec2bin(&read8($decryptedData[$index+1])), 12,4)) . substr(&dec2bin($decryptedData[$index]),8,8))); $index=$index+2;
+          $taskFuel = ($decryptedData[$index+1] >> 4); # left 4 bits
+          $fuel       = &bin2dec(((substr(&dec2bin(&read8($decryptedData[$index+1])), 12,4)) . substr(&dec2bin($decryptedData[$index]),8,8)));
+          if ($taskIronium)    { print ", i:$showTransportTask[$taskIronium]:$ironium"; }
+          if ($taskBoranium)   { print ", b:$showTransportTask[$taskBoranium]:$boranium" ; }
+          if ($taskGermanium)  { print ", g:$showTransportTask[$taskGermanium]:$germanium"; }
+          if ($taskPopulation) { print ", p:$showTransportTask[$taskPopulation]:$population";  }
+          if ($taskFuel)       { print ", f:$showTransportTask[$taskFuel]:$fuel"; }
+        } 
+        if ($taskId == 6) { #Lay Minefield 
+          # If no values are set (the defaults) there are no additional bytes added
+          my @showLayMinefield = ( '1 year', '2 years', '3 years', '4 years', '5 years', 'indefinitely');
+          my $layMinefield =  $decryptedData[12];
+          # bit 13 is always 0. Bit 14 always equal to bit 12
+          print ", $showLayMinefield[$layMinefield]";
+        }
+        if ($taskId == 7) { #Patrol
+          # If no values are set (the defaults) there are no additional bytes added
+          my ($patrolIntercept, $patrolWarp);
+          my @showPatrolWarp = qw( auto 1 2 3 4 5 6 7 8 9 10 ); 
+          my @showPatrolIntercept = ( '50 ly','100 ly','150 ly','200 ly','250 ly','300 ly','350 ly','400 ly','450 ly','500 ly','550 ly','any enemy');
+          if ($decryptedData[12]) { $patrolWarp = $decryptedData[12] } else { $patrolWarp = 0; }
+          # bit 13 appears to always be 0
+          if ($decryptedData[14]) { $patrolIntercept = $decryptedData[14] } else { $patrolIntercept = 0; }
+          print ", Intercept $showPatrolIntercept[$patrolIntercept], Warp Factor:$showPatrolWarp[$patrolWarp]\n";
+        }
+        print "\n";
+        
+        my %waypoint; # to store waypoints in a hash
+        $waypoint{'id'} = $fleetId;
+        $waypoint{'owner'} = $playerId;
+        $waypoint{'x'} = $xDest;
+        $waypoint{'y'} = $yDest;
+        $waypoint[$waypointcounter] = { %waypoint };
+        $waypointcounter++;
+      } elsif ($typeId == 10 ) { # waypoint repeat orders block
+        my $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
+        my $waypointTask = $decryptedData[2]; # 0-disable repeat, 1-repeat
+        my $unknown = $decryptedData[3]; # always 0;
+        print "WP Repeat: fleetID: $fleetId";
+        if ( $waypointTask ) { print "\n"; }
+        else { print " DELETE\n"; }
+      } elsif ($typeId == 16 ) { # Fleet block and partial fleet block
+        # don't care about a partial fleet block (17), as that would be a different
+        # player's fleet.
+        my %fleet; # To store the values in a hash
+        my ($byte5);
+        my ($fleetId, $ownerId, $hull);
+        my ($byte2, $byte3); # who knows
+        my $kindByte; # 3 for most partial, 4 for robber baron, 7 for full
+        my $positionObjectId;
+        my $index;
+        my $fileLength;
+        my ($iLength, $bLength, $gLength, $popLength, $fuelLength);
+        my $contentsLengths;
+        my ($ironium, $boranium, $germanium, $population, $fuel);
+        my ($x, $y);
+        my ($deltaX, $deltaY);  # partial fleet data
+        my ($shipTypes);
+        my $damagedShipTypes; # full fleet data
+        my @damagedShipInfo;    # full fleet data
+        my @shipCount;
+        my $mask;
+        my ($warp, $waypointCount);
+        my ($unknownBitsWithWarp); # partial fleet data
+        my $battlePlan; # full fleet data
+        
+        $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
+        $ownerId = $decryptedData[1] >> 1;
+        $byte2 = $decryptedData[2];
+	      $byte3 = $decryptedData[3];
+        $kindByte = $decryptedData[4];
+        #print "\nKindByte: $kindByte\n";
+        $byte5 = $decryptedData[5];
+        my $shipCountTwoBytes;
+        if (($byte5 & 8) == 0) { $shipCountTwoBytes = 1; 
+        } else  {$shipCountTwoBytes = 0; }
+        $positionObjectId = &read16(\@decryptedData, 6);
+        $x = &read16(\@decryptedData, 8);
+        $y = &read16(\@decryptedData, 10);
+        $shipTypes = &read16(\@decryptedData, 12); # counted from the right side
+        $index = 14;
+        $mask = 1;
+        for (my $bit = 0; $bit < 16; $bit++) {
+          if (($shipTypes & $mask) != 0) {
+            if ($shipCountTwoBytes) {
+              $shipCount[$bit] = &read16(\@decryptedData, $index);
+              $index += 2;
+            } else {
+              $shipCount[$bit] = &read8($decryptedData[$index]);
+              $index += 1;
+            }
+          } else { $shipCount[$bit] =0; } # Pad out the array
+          $mask <<= 1;
+        }
+        #print "\n\nshipTypes: " . &dec2bin($shipTypes) . "\n";
+        my $shipct =0 ;
+        foreach my $val (@shipCount) {
+          if ( $val ) { print "designSlot: $shipct   shipCount: $val\n";}
+          #else { print "designNumber: $shipct   shipCount: 0\n";}
+          $shipct++;
+        }
+        # PARTIAL_KIND = 3, PICK_POCKET_KIND = 4, FULL_KIND = 7;
+        #if ($kindByte != 7 && $kindByte != 4 && $kindByte != 3) {
+        # BUG: all the values seem to end up equally the fuel value
+        if ($kindByte == 7 || $kindByte == 4) {
+          $contentsLengths = &read16(\@decryptedData, $index);
+          #print "ContentLengths: $contentsLengths  \t" . dec2bin($contentsLengths) . "\n";
+          $iLength = $contentsLengths & 0x03;
+          $iLength = 4 >> (3 - $iLength);
+          $bLength = ($contentsLengths & 0x0C) >> 2;
+          $bLength = 4 >> (3 - $bLength);
+          $gLength = ($contentsLengths & 0x30) >> 4;
+          $gLength = 4 >> (3 - $gLength);
+          $popLength = ($contentsLengths & 0xC0) >> 6;
+          $popLength = 4 >> (3 - $popLength);
+          $fuelLength = $contentsLengths >> 8;
+          $fuelLength = 4 >> (3 - $fuelLength);
+          #print "Lengths: i:$iLength, b:$bLength, g:$gLength, p:$popLength, f:$fuelLength\n";
+          $index += 2;
+          $ironium = &readN(\@decryptedData, $index, $iLength);
+          $index += $iLength;
+          $boranium = &readN(\@decryptedData, $index, $bLength);
+          $index += $bLength;
+          $germanium = &readN(\@decryptedData, $index, $gLength);
+          $index += $gLength;
+          $population = &readN(\@decryptedData, $index, $popLength);
+          $index += $popLength;
+          $fuel = &readN(\@decryptedData, $index, $fuelLength);
+          $index += $fuelLength;
+          print "Cargo: G:$germanium,I:$ironium,B:$boranium,C:$population,F:$fuel\n";
+        } 
+        if ($kindByte == 7) {
+          $damagedShipTypes = &read16(\@decryptedData, $index);
+          $index += 2;
+          $mask = 1;
+          for (my $bit = 0; $bit < 16; $bit++) {
+            if (($damagedShipTypes & $mask) != 0) {
+              $damagedShipInfo[$bit] = \&read16(\@decryptedData, $index);
+              $index += 2;
+            }
+            $mask <<= 1;
+          }
+          $battlePlan = &read8($decryptedData[$index++]);
+          $waypointCount = &read8($decryptedData[$index++]);
+          print "battlePlan:$battlePlan, Waypoint Count: $waypointCount\n";
+        } else {
+          $deltaX = &read8($decryptedData[$index++]);
+          $deltaY = &read8($decryptedData[$index++]);
+          $warp = $decryptedData[$index] & 15;
+          $unknownBitsWithWarp = $decryptedData[$index] & 0xF0;
+          $index++;
+          $index++;
+          $mass = &read32(\@decryptedData, $index);
+          $index += 4;
+          print "DeltaX:$deltaX, deltaY:$deltaY, warp:$warp, mass:$mass\n"; 
+        }
+        $x = &read16(\@decryptedData, 8); # Correct  (likely only in full block?)
+        $y = &read16(\@decryptedData, 10); # Correct (likely only in full block?)
+        print "Fleet: fleetId: $fleetId, ownerId: $ownerId, x: $x, y: $y, shipTypes:" . &dec2bin($shipTypes) . "\n";
+        #$fleet{'id'} = $fleetId;
+        $fleet{'player'} = $Player; # BUG: Are these different than "owner"? Likely
+        $fleet{'owner'} = $ownerId;
+        $fleet{'x'} = $x;
+        $fleet{'y'} = $y;
+        $fleet{'battlePlan'} = $battlePlan;
+        $fleet{'shipTypes'}  = &dec2bin($shipTypes);
+        $fleet{'shipCount'}  = \@shipCount; # This array doesn't have counts for any design after the last one with a number.
+        #$fleet[$fleetcounter] = { %fleet };
+        $fleetBlock{$fleetId} = { %fleet };
+        #$fleetcounter++;
+        print "\n";
+      } elsif ($typeId == 20 ) { # waypoint block in .m files , waypoint block (20)
+#         my %waypoint; # to store waypoints in a hash
+        my ($targetType, $warp, $taskId);
+        my @showTaskId;
+        my $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
+        my $playerId = $decryptedData[1] & 0xFF;
+        my $waypointId = &read16(\@decryptedData, 2);
+			  my $xDest = &read16(\@decryptedData, 4);  
+        my $yDest = &read16(\@decryptedData, 6);  
+        my $targetId = ($decryptedData[8] & 0xFF) + (($decryptedData[9] & 1) << 8);  # ID for destination like Fleet Merge, 511 is current location
+        print "WP$typeId: waypointId:$waypointId, fleetId:$fleetId, playerId:$playerId, targetId:$targetId, targetType:" . &showDestType($targetType) . ", Dest:$xDest" . "x$yDest, warp:$warp, task:" . $showTaskId[$taskId];
+# #        my $unknownBitsWithWarp = $decryptedData[6] & 0x0F;
+# #        my $positionObjectType = $decryptedData[7] & 0xFF;
+# #        my $fullWaypointData;
+# #        my $warp =  $decryptedData[10] >> 4; 
+#         my $warp =  ($decryptedData[6] & 0xFF) >> 4;
+#         my $waypointTask = $decryptedData[6] & 0x0F;
+#         my $positionObject = &read16(\@decryptedData, 4);
+# #        print "WaypointM Block: fleetId: $fleetId, ownerId: $ownerId, test: $test, xDest: $xDest, yDest: $yDest, positionId: $positionObjectId, unk = $unknownBitsWithWarp, PositionType: $positionObjectType, warp: $warp\n";
+#         print "Waypoint20 Block: xDest: $xDest, yDest: $yDest, warp: $warp, task: $waypointTask, positionObject: $positionObject, " . &dec2bin($decryptedData[3]) . " " . &dec2bin($decryptedData[4]). " " . &dec2bin($decryptedData[5]). "\n";
+#         $waypoint{'id'} = $fleetId;
+#         $waypoint{'owner'} = $ownerId;
+#         $waypoint{'x'} = $xDest;
+#         $waypoint{'y'} = $yDest;
+#         $waypoint{'position'} = 'null';
+#         $waypoint[$waypointcounter] = { %waypoint };
+#         $waypointcounter++;
+#      }
 #       # Detect the Colonizer, Spack Dock SuperLatanium, and 10 starbase design bugs
 #       if ($typeId == 26 || $typeId == 27) { # Design & Design Change block
 #         print "\nPlayer: $Player\n";
@@ -405,194 +658,6 @@ sub decryptShip {
 #           }
 #         }
 #       }
-      # Part of the detection of the minefield 0-coordinate bug, but 
-      # the fleet block isn't mapped well-enough for me to figure out the coordinates
-      # easily
-      # THIS WOULD HAVE BEEN LESS WORK IF I'D KNOWN THIS WAS FIXED IN JRC4
-#       elsif ($typeId == 4 || $typeId == 5 ) { # waypoint block (add/change) in .x files , waypoint block (20)
-# #        if ($debug ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-# #        if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-#         # Detect ships moving pure east/west or pure north/south
-#         # BUG: Doesn't work yet. Will need starting coordinates of fleet.
-#         my %waypoint; # to store waypoints in a hash
-#         my $fleetId = $decryptedData[0]; 
-#         my $ownerId = $decryptedData[1]; 
-#         my $positionObjectId = &read16(\@decryptedData, 2);
-# 			  my $xDest = &read16(\@decryptedData, 4);  # CORRECT!!!
-#         my $yDest = &read16(\@decryptedData, 6);  # CORRECT!!!
-#         my $test = &read16(\@decryptedData, 8);  
-#         my $unknownBitsWithWarp = $decryptedData[6] & 0x0F;
-#         my $positionObjectType = $decryptedData[7] & 0xFF;
-#         my $fullWaypointData;
-#         my $warp =  $decryptedData[10] >> 4; # CORRECT!!!
-# #        print "Waypoint4 Block: fleetId: $fleetId, ownerId: $ownerId, test: $test, xDest: $xDest, yDest: $yDest, positionId: $positionObjectId, unk = $unknownBitsWithWarp, PositionType: $positionObjectType, warp: $warp\n";
-#         $waypoint{'id'} = $fleetId;
-#         $waypoint{'owner'} = $ownerId;
-#         $waypoint{'x'} = $xDest;
-#         $waypoint{'y'} = $yDest;
-#         $waypoint{'position'} = $positionObjectId;
-#         $waypoint[$waypointcounter] = { %waypoint };
-#         $waypointcounter++;
-#       }
-#       # THIS ALSO NOT NEEDED AS MINEFIELD WAYPOINT PROBLEMS FIXED IN JRC4
-#       elsif ($typeId == 20 ) { # waypoint block in .m files , waypoint block (20)
-#       # BUG: NOT WORKING
-# #        if ($debug ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-# #        if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-#         # Detect ships moving pure east/west or pure north/south
-#         # BUG: Doesn't work yet. Will need starting coordinates of fleet.
-#         my %waypoint; # to store waypoints in a hash
-# #        my $fleetId = $decryptedData[0]; 
-# #        my $ownerId = $decryptedData[1]; 
-# #        my $positionObjectId = &read16(\@decryptedData, 2);
-# 			  my $xDest = &read16(\@decryptedData, 0);  #CORRECT
-#         my $yDest = &read16(\@decryptedData, 2);  #CORRECT
-#         my $fleetId = $decryptedData[3]; #Incorrect
-#         my $ownerId = $decryptedData[4]; #Incorrect
-#         
-# #        my $yDest = &read16(\@decryptedData, 6);  
-# #        my $unknownBitsWithWarp = $decryptedData[6] & 0x0F;
-# #        my $positionObjectType = $decryptedData[7] & 0xFF;
-# #        my $fullWaypointData;
-# #        my $warp =  $decryptedData[10] >> 4; 
-#         my $warp =  ($decryptedData[6] & 0xFF) >> 4;
-#         my $waypointTask = $decryptedData[6] & 0x0F;
-#         my $positionObject = &read16(\@decryptedData, 4);
-# #        print "WaypointM Block: fleetId: $fleetId, ownerId: $ownerId, test: $test, xDest: $xDest, yDest: $yDest, positionId: $positionObjectId, unk = $unknownBitsWithWarp, PositionType: $positionObjectType, warp: $warp\n";
-#         print "Waypoint20 Block: xDest: $xDest, yDest: $yDest, warp: $warp, task: $waypointTask, positionObject: $positionObject, " . &dec2bin($decryptedData[3]) . " " . &dec2bin($decryptedData[4]). " " . &dec2bin($decryptedData[5]). "\n";
-#         $waypoint{'id'} = $fleetId;
-#         $waypoint{'owner'} = $ownerId;
-#         $waypoint{'x'} = $xDest;
-#         $waypoint{'y'} = $yDest;
-#         $waypoint{'position'} = 'null';
-#         $waypoint[$waypointcounter] = { %waypoint };
-#         $waypointcounter++;
-#       }
-
-      elsif ($typeId == 16 ) { # Fleet block and partial fleet block
-        # don't care about a partial fleet block (17), as that would be a different
-        # player's fleet.
-        my %fleet; # To store the values in a hash
-        my ($byte5);
-        my ($fleetId, $ownerId, $hull);
-        my ($byte2, $byte3); # who knows
-        my $kindByte; # 3 for most partial, 4 for robber baron, 7 for full
-        my $positionObjectId;
-        my $index;
-        my $fileLength;
-        my ($iLength, $bLength, $gLength);
-        my ($popLength, $fuelLength);
-        my $contentsLengths;
-        my ($ironium, $boranium, $germanium);
-        my ($x, $y);
-        my ($deltaX, $deltaY);  # partial fleet data
-        my ($shipTypes);
-        my ($damagedShipTypes); # full fleet data
-        my @damagedShipInfo;    # full fleet data
-        my @shipCount;
-        my $mask;
-        my ($population, $fuel);
-        my ($warp, $waypointCount);
-        my ($unknownBitsWithWarp); # partial fleet data
-        my $battlePlan; # full fleet data
-        
-        $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
-        $ownerId = $decryptedData[1] >> 1;
-        $byte2 = $decryptedData[2];
-	      $byte3 = $decryptedData[3];
-        $kindByte = $decryptedData[4];
-        $byte5 = $decryptedData[5];
-        my $shipCountTwoBytes;
-        if (($byte5 & 8) == 0) { $shipCountTwoBytes = 1; 
-        } else  {$shipCountTwoBytes = 0; }
-        $positionObjectId = &read16(\@decryptedData, 6);
-        $x = &read16(\@decryptedData, 8);
-        $y = &read16(\@decryptedData, 10);
-        $shipTypes = &read16(\@decryptedData, 12); # counted from the right side
-        $index = 14;
-        $mask = 1;
-        for (my $bit = 0; $bit < 16; $bit++) {
-          if (($shipTypes & $mask) != 0) {
-            if ($shipCountTwoBytes) {
-              $shipCount[$bit] = &read16(\@decryptedData, $index);
-              $index += 2;
-            } else {
-              $shipCount[$bit] = &read8($decryptedData[$index]);
-              $index += 1;
-            }
-          } else { $shipCount[$bit] =0; } # Pad out the array
-          $mask <<= 1;
-        }
-        #print "\n\nshipTypes: " . &dec2bin($shipTypes) . "\n";
-        my $shipct =0 ;
-        foreach my $val (@shipCount) {
-          if ( $val ) { print "\tdesignNumber: $shipct   shipCount: $val\n";}
-          #else { print "designNumber: $shipct   shipCount: 0\n";}
-          $shipct++;
-        }
-        # PARTIAL_KIND = 3, PICK_POCKET_KIND = 4, FULL_KIND = 7;
-        #if ($kindByte != 7 && $kindByte != 4 && $kindByte != 3) {
-        if ($kindByte == 7 || $kindByte == 4) {
-          $contentsLengths = &read16(\@decryptedData, $index);
-          $iLength = $contentsLengths & 0x03;
-          $iLength = 4 >> (3 - $iLength);
-          $bLength = ($contentsLengths & 0x0C) >> 2;
-          $bLength = 4 >> (3 - $bLength);
-          $gLength = ($contentsLengths & 0x30) >> 4;
-          $gLength = 4 >> (3 - $gLength);
-          $popLength = ($contentsLengths & 0xC0) >> 6;
-          $popLength = 4 >> (3 - $popLength);
-          $fuelLength = $contentsLengths >> 8;
-          $fuelLength = 4 >> (3 - $fuelLength);
-          $index += 2;
-          $ironium = &readN(\@decryptedData, $index, $iLength);
-          $index += $iLength;
-          $boranium = &readN(\@decryptedData, $index, $bLength);
-          $index += $bLength;
-          $germanium = &readN(\@decryptedData, $index, $gLength);
-          $index += $gLength;
-          $population = &readN(\@decryptedData, $index, $popLength);
-          $index += $popLength;
-          $fuel = &readN(\@decryptedData, $index, $fuelLength);
-          $index += $fuelLength;
-        } 
-        if ($kindByte == 7) {
-          $damagedShipTypes = &read16(\@decryptedData, $index);
-          $index += 2;
-          $mask = 1;
-          for (my $bit = 0; $bit < 16; $bit++) {
-            if (($damagedShipTypes & $mask) != 0) {
-              $damagedShipInfo[$bit] = \&read16(\@decryptedData, $index);
-              $index += 2;
-            }
-            $mask <<= 1;
-          }
-          $battlePlan = &read8($decryptedData[$index++]);
-          $waypointCount = &read8($decryptedData[$index++]);
-        } else {
-          $deltaX = &read8($decryptedData[$index++]);
-          $deltaY = &read8($decryptedData[$index++]);
-          $warp = $decryptedData[$index] & 15;
-          $unknownBitsWithWarp = $decryptedData[$index] & 0xF0;
-          $index++;
-          $index++;
-          $mass = &read32(\@decryptedData, $index);
-          $index += 4;
-        }
-        $x = &read16(\@decryptedData, 8); # Correct  (likely only in full block?)
-        $y = &read16(\@decryptedData, 10); # Correct (likely only in full block?)
-        print "\tFleet Block: fleetId: $fleetId, ownerId: $ownerId, x: $x, y: $y, battlePlan: $battlePlan, shipTypes:" . &dec2bin($shipTypes) . "\n";
-        #$fleet{'id'} = $fleetId;
-        $fleet{'player'} = $Player; # BUG: Are these different than "owner"? Likely
-        $fleet{'owner'} = $ownerId;
-        $fleet{'x'} = $x;
-        $fleet{'y'} = $y;
-        $fleet{'battlePlan'} = $battlePlan;
-        $fleet{'shipTypes'}  = &dec2bin($shipTypes);
-        $fleet{'shipCount'}  = \@shipCount; # This array doesn't have counts for any design after the last one with a number.
-        #$fleet[$fleetcounter] = { %fleet };
-        $fleetBlock{$fleetId} = { %fleet };
-        #$fleetcounter++;
       } elsif ($typeId == 37) {  # Fleet Merge block
         my $fleetNumber1 = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
         print "Fleet Number1: $fleetNumber1\n";
@@ -622,6 +687,17 @@ sub decryptShip {
 #   if ($hullType{$hullType}[$position]) {  return $hullType{$hullType}[$position]; }
 #   else { return $hullType; }
 # }
+
+sub showDestType {
+  my ($type) = @_;
+  my @category;
+  $category[0] = 'unknown';
+  $category[1] = 'Planet';
+  $category[2] = 'Ship';
+  $category[4] = 'Deep Space';
+  $category[8] = 'Salvage/Packet/MT/Minefield';
+  return ($category[$type]);
+}
 
 # sub showCategory {
 #   my ($category, $item) = @_;
@@ -911,3 +987,43 @@ sub decryptShip {
 # 14,14,"Trans-Galactic Super Scoop",14,4,0,12,0,0,0,18,24,6,4,16,10,0,0,0,0,0,0,0,0,0,65,90,108,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 # 14,15,"Trans-Galactic Mizer Scoop",15,4,0,16,0,0,0,11,20,5,2,13,11,0,0,0,0,0,0,0,0,0,0,70,84,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 # 14,16,"Galaxy Scoop",16,5,0,20,0,0,0,8,12,4,2,9,191,4,0,0,0,0,0,0,0,0,0,0,60,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+# my %hullType; 
+# $hullType{'0'} = [ 15,1,"Small Freighter",0,0,0,0,0,0,0,25,20,12,0,17,0,70,130,25,1,1,6146,1,12,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,85,51,49,55,53,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'1'} = [ 15,2,"Medium Freighter",1,0,0,0,3,0,0,60,40,20,0,19,4,210,450,50,1,1,6146,1,12,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,86,50,48,56,54,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'2'} = [ 15,3,"Large Freighter",2,0,0,0,8,0,0,125,100,35,0,21,8,1200,2600,150,1,2,6146,2,12,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,102,34,48,38,70,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'3'} = [ 15,4,"Super Freighter",3,0,0,0,13,0,0,175,125,45,0,21,12,3000,8000,400,1,3,6146,3,12,5,2048,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,4,136,34,64,40,72,104,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'4'} = [ 15,5,"Scout",4,0,0,0,0,0,0,8,10,4,2,4,16,0,50,20,1,1,2,1,6462,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,65,8,255,255,50,54,52,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'5'} = [ 15,6,"Frigate",5,0,0,0,6,0,0,8,12,4,2,4,20,0,125,45,1,1,2,2,6462,3,12,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,68,8,255,255,49,55,53,51,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'6'} = [ 15,7,"Destroyer",6,0,0,0,3,0,0,30,35,15,3,5,24,0,280,200,1,1,48,1,48,1,6462,1,8,2,4096,1,2048,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,67,8,255,255,66,21,117,70,68,35,99,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'7'} = [ 15,8,"Cruiser",7,0,0,0,9,0,0,90,85,40,5,8,28,0,600,700,1,2,6148,1,6148,1,48,2,48,2,6462,2,12,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,133,12,255,255,49,35,67,21,85,55,53,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'8'} = [ 15,9,"Battle Cruiser",8,0,0,0,10,0,0,120,120,55,8,12,32,0,1400,1000,1,2,6148,2,6148,2,48,3,48,3,6462,3,12,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,133,12,255,255,49,35,67,21,85,55,53,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'9'} = [ 15,10,"Battleship",9,0,0,0,13,0,0,222,225,120,25,20,36,0,2800,2000,1,4,6146,1,4,8,48,6,48,6,48,2,48,2,48,4,8,6,2048,3,2048,3,0,0,0,0,0,0,0,0,0,0,11,138,12,255,255,48,56,38,20,84,2,98,70,52,34,66,0,0,0,0,0 ];
+# $hullType{'10'} = [ 15,11,"Dreadnought",10,0,0,0,16,0,0,250,275,140,30,25,40,0,4500,4500,1,5,12,4,12,4,48,6,48,6,2048,4,2048,4,48,8,48,8,8,8,52,5,52,5,6462,2,0,0,0,0,0,0,13,138,12,255,255,64,32,96,18,114,50,82,36,100,68,54,86,72,0,0,0 ];
+# $hullType{'11'} = [ 15,12,"Privateer",11,0,0,0,4,0,0,65,50,50,3,2,44,250,650,150,1,1,12,2,6146,1,6462,1,6462,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,67,16,103,67,65,55,87,37,101,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'12'} = [ 15,13,"Rogue",12,0,0,0,8,0,0,75,60,80,5,5,48,500,2250,450,1,2,12,3,6400,2,2,1,6462,2,6462,2,6400,2,2048,1,2048,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,132,16,118,51,65,70,102,72,20,116,38,18,114,0,0,0,0,0,0,0 ];
+# $hullType{'13'} = [ 15,14,"Galleon",13,0,0,0,11,0,0,125,105,70,5,5,52,1000,2500,900,1,4,12,2,12,2,6462,3,6462,3,6400,2,6144,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,132,16,118,50,64,19,115,21,117,54,86,72,0,0,0,0,0,0,0,0 ];
+# $hullType{'14'} = [ 15,15,"Mini-Colony Ship",14,0,0,0,0,0,0,8,3,2,0,2,56,10,150,10,1,1,4096,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,86,52,50,54,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'15'} = [ 15,16,"Colony Ship",15,0,0,0,0,0,0,20,20,10,0,15,60,25,200,20,1,1,4096,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,86,52,50,54,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'16'} = [ 15,17,"Mini Bomber",16,0,0,0,1,0,0,28,35,20,5,10,64,0,120,50,1,1,64,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,192,20,255,255,51,53,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'17'} = [ 15,18,"B-17 Bomber",17,0,0,0,6,0,0,69,150,55,10,10,68,0,400,175,1,2,64,4,64,4,6146,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,192,20,255,255,49,51,53,55,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'18'} = [ 15,19,"Stealth Bomber",18,0,0,0,8,0,0,70,175,55,10,15,72,0,750,225,1,2,64,4,64,4,6146,1,2048,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,192,20,255,255,50,36,68,38,70,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'19'} = [ 15,20,"B-52 Bomber",19,0,0,0,15,0,0,110,280,90,15,10,76,0,750,450,1,3,64,4,64,4,64,4,64,4,6146,2,4,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,192,20,255,255,49,19,83,37,69,55,51,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'20'} = [ 15,21,"Midget Miner",20,0,0,0,0,0,0,10,20,10,0,3,80,0,210,100,1,1,128,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,24,255,255,51,53,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'21'} = [ 15,22,"Mini-Miner",21,0,0,0,2,0,0,80,50,25,0,6,84,0,210,130,1,1,6146,1,128,1,128,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,24,255,255,50,54,36,68,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'22'} = [ 15,23,"Miner",22,0,0,0,6,0,0,110,110,32,0,6,88,0,500,475,1,2,6154,2,128,2,128,1,128,2,128,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,24,255,255,49,55,35,37,67,69,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'23'} = [ 15,24,"Maxi-Miner",23,0,0,0,11,0,0,110,140,32,0,6,92,0,850,1400,1,3,6154,2,128,4,128,1,128,4,128,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,24,255,255,49,55,35,37,67,69,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'24'} = [ 15,25,"Ultra-Miner",24,0,0,0,14,0,0,100,130,30,0,6,96,0,1300,1500,1,2,6154,3,128,4,128,2,128,4,128,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,24,255,255,49,55,35,37,67,69,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'25'} = [ 15,26,"Fuel Transport",25,0,0,0,4,0,0,12,50,10,0,5,100,0,750,5,1,1,4,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,28,255,255,51,53,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'26'} = [ 15,27,"Super-Fuel Xport",26,0,0,0,7,0,0,111,70,20,0,8,104,0,2250,12,1,2,4,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,28,255,255,50,52,54,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'27'} = [ 15,28,"Mini Mine Layer",27,0,0,0,0,0,0,10,20,8,2,5,108,0,400,60,1,1,256,2,256,2,6146,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,16,255,255,50,36,68,54,0,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'28'} = [ 15,29,"Super Mine Layer",28,0,0,0,15,0,0,30,30,20,3,9,112,0,2200,1200,1,3,256,8,256,8,12,3,6146,3,6400,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,16,255,255,49,35,67,53,39,71,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'29'} = [ 15,30,"Nubian",29,0,0,0,26,0,0,100,150,75,12,12,124,0,5000,5000,1,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,0,0,0,0,0,0,13,130,16,255,255,64,32,96,18,114,50,82,36,100,68,54,86,72,0,0,0 ];
+# $hullType{'30'} = [ 15,31,"Mini Morph",30,0,0,0,8,0,0,70,100,30,8,8,120,150,400,250,1,2,6462,3,6462,1,6462,1,6462,1,6462,2,6462,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,130,16,102,36,48,50,38,70,56,18,82,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'31'} = [ 15,32,"Meta Morph",31,0,0,0,10,0,0,85,120,50,12,12,116,300,700,500,1,3,6462,8,6462,2,6462,2,6462,1,6462,2,6462,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,130,16,102,36,48,50,38,70,56,18,82,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'32'} = [ 16,1,"Orbital Fort",32,0,0,0,0,0,0,0,80,24,0,34,128,0,0,100,2560,1,48,12,12,12,48,12,12,12,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,138,0,255,255,68,36,70,100,66,0,0,0,0,0,0,0,0,0,0,0 ];
+# $hullType{'33'} = [ 16,2,"Space Dock",33,0,0,0,4,0,0,0,200,40,10,50,132,200,0,250,2560,1,48,16,12,24,48,16,4,24,2048,2,2048,2,48,16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,140,0,102,68,34,20,65,71,116,38,102,98,0,0,0,0,0,0,0,0 ];
+# $hullType{'34'} = [ 16,3,"Space Station",34,0,0,0,0,0,0,0,1200,240,160,500,136,-1,0,500,2560,1,48,16,4,16,48,16,12,16,4,16,2048,3,48,16,2048,3,48,16,2560,1,12,16,0,0,0,0,0,0,0,0,12,142,0,102,68,66,5,3,88,80,133,100,131,36,48,70,56,0,0,0,0 ];
+# $hullType{'35'} = [ 16,4,"Ultra Station",35,0,0,0,12,0,0,0,1200,240,160,600,140,-1,0,1000,2560,1,48,16,2048,3,48,16,4,20,4,20,2048,3,48,16,2048,3,48,16,2560,1,12,20,48,16,12,20,2048,3,48,16,16,144,0,102,68,36,80,66,88,98,38,70,3,131,56,100,102,48,34,5,133 ];
+# $hullType{'36'} = [ 16,5,"Death Star",36,0,0,0,17,0,0,0,1500,240,160,700,144,-1,0,1500,2560,1,48,32,2048,4,2048,4,4,30,4,30,2048,4,48,32,2048,4,48,32,2560,1,12,20,2048,4,12,20,2048,4,48,32,16,146,0,102,68,20,96,65,104,98,38,71,2,130,40,116,102,32,34,6,134 ];
+

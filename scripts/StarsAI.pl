@@ -59,9 +59,9 @@ if (!($filename)) {
   print "\n\nUsage: StarsAI.pl <Game HST file> <Player 1-16> <new AI status> <output file (optional)>\n\n";
   print "Please enter the input file (.HST). Example: \n";
   print "  StarsAI.pl c:\\games\\test.HST 1 Inactive\n";
-  print "Changes the first player to Inactive\n\n";
+  print "Changes the player to Inactive\n\n";
   print "Possible Player Status options: " . join(',',@aiStatus) . "\n\n";
-  print "By default, a new file will be created: <filename>.clean\n";
+  print "By default, a new file will be created: <filename>.ai\n";
   print "You can create a different file with StarsAI.pl <filename> <PlayerID 1-16> <new AI status> <newfilename>\n";
   print "  StarsAI.pl <filename> <PlayerID 1-16> <new AI status> <filename> will overwrite the original file.\n\n";
   print "\nThe password to view AI turn files is \"viewai\"\n\n";
@@ -74,7 +74,7 @@ unless (-e $ARGV[0]) { print "File $filename does not exist!\n"; exit; }
 if ( $ARGV[1] ) {
   if ($ARGV[1] > 16 || $ARGV[1] < 1) { die "Player must be between 1 and 16\n"; }
 } else { 
-  die "Player ID must be between 1 and 16\n"; 
+  die "Player # must be between 1 and 16\n"; 
 }
 # Simpler to use 1-16 above because a null is a 0;
 $playerAI--;
@@ -106,8 +106,7 @@ if ($outBytes) {
   # Create the output file name
   my $newFile; 
   if ($outFileName) {   $newFile = $outFileName;  } 
-  else { $newFile = $dir . '\\' . $basefile . '.clean'; }
-  if ($debug) { $newFile = "f:\\clean_" . $basefile;  } # Just for me
+  else { $newFile = $dir . '\\' . $basefile . '.ai'; }
   
   # Output the Stars! File with blank password(s)
   open (OutFile, '>:raw', "$newFile");
@@ -129,8 +128,8 @@ sub decryptAI {
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
-  my ( $random, $seedA, $seedB, $seedX, $seedY);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti );
+  my ( $random, $seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   my $action = 0; # Was any action taken

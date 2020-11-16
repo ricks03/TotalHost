@@ -66,7 +66,8 @@ our @EXPORT = qw(
   resetRace showRace
   StarsClean decryptClean
   StarsFix decryptFix
-  plusone zerofy splitWarnId attackWho
+  StarsAI decryptAI
+  zerofy splitWarnId attackWho
   showCategory
   getMask
   PLogOut
@@ -476,8 +477,9 @@ sub read32 {
 
 sub readN {
 my ($data, $offset, $byteLen) = @_;
+  my @data = @{ $data };
 	if ($byteLen == 0) {return  0; }
-	elsif ($byteLen == 1) {return &read8($data);  }
+	elsif ($byteLen == 1) {return &read8($data[$offset]);  }
   elsif ($byteLen == 2) {return &read16($data, $offset);  }
   elsif ($byteLen == 4) {return &read32($data, $offset);  }
 }
@@ -2006,7 +2008,7 @@ sub decryptFix {
               # so need to filter.
               if ($itemId == 0 &&  $itemCategory == 4096 && $itemCount == 0) {
                 # Fixing display for those who don't count from 0.
-                $err .= 'WARNING: Colonizer bug detected for player ' . &plusone($Player) . ' in ship design slot ' . &plusone($designNumber) . ": $shipName (in slot " . &plusone($itemSlot) . '). ';
+                $err .= 'WARNING: Colonizer bug detected for player ' . ($Player+1) . ' in ship design slot ' . ($designNumber+1) . ": $shipName (in slot " . ($itemSlot+1) . '). ';
                 $itemCategory = &read16(\@decryptedData, $index-3);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
                 #print "category: $itemCategory  index: $index\n";
                 ($decryptedData[$index-3], $decryptedData[$index-2]) = &write16(0); # Category
@@ -2031,7 +2033,7 @@ sub decryptFix {
               # will result in some sort of error (of massively increased armor)
               # Rick: I had hoped to fix this by simply rewriting the armor value,
               # but armor gets recalculated, so resetting the itemCount is the only choice. 
-              $err = 'WARNING: Spacedock Overflow bug of > 21 SuperLatanium detected for player ' . &plusone($Player) . ' in starbase design slot ' . &plusone($designNumber) . ": $shipName. ";
+              $err = 'WARNING: Spacedock Overflow bug of > 21 SuperLatanium detected for player ' . ($Player+1) . ' in starbase design slot ' . ($designNumber+1) . ": $shipName. ";
               # reset the $itemCount 
               $decryptedData[$spaceDockIndex+11] = 21; # Armor slot on spacedock
               # Armor value should be 250 + (1500 * $itemCount) / 2
@@ -2064,7 +2066,7 @@ sub decryptFix {
           
           # Detect the 10th starbase design
           if ( $isStarbase && $designNumber == 9 && $deleteDesign && $Player > 0 ) {
-            $err = 'WARNING: Player ' . &plusone($Player) . ": Starbase ($shipName) in design slot 10 - Potential Crash if Player 1 Fleet 1 refuels when Last Player has a 10th starbase design.";
+            $err = 'WARNING: Player ' . ($Player+1) . ": Starbase ($shipName) in design slot 10 - Potential Crash if Player 1 Fleet 1 refuels when Last Player has a 10th starbase design.";
             # As I have no fix, no need to flag for fixing
             #print "$warnId: $err\n"; 
             $warning{$warnId.'-ten'} = $err;
@@ -2078,7 +2080,7 @@ sub decryptFix {
             my $queueCounter;
             foreach my $queueCounter (sort keys %queueList) {
               if ($queueList{$queueCounter}{Player} == $Player && $queueList{$queueCounter}{itemType} == 4 && $queueList{$queueCounter}{itemId} == $queueDesignNumber) { # if the item in the queue is a ship design (4)
-                $err = 'WARNING: Cheap Starbase Exploit for Player ' . &plusone($Player) . '. Do not edit a starbase under construction (slot ' . &plusone($designNumber) . ", $shipName).";
+                $err = 'WARNING: Cheap Starbase Exploit for Player ' . ($Player+1) . '. Do not edit a starbase under construction (slot ' . ($designNumber+1) . ", $shipName).";
                 $brokenStarbase[$designNumber] = 1; 
                 $index = 19;  
                 # Loop through each slot, setting the slot to 0
@@ -2187,7 +2189,7 @@ sub decryptFix {
         $warnId = &zerofy($planPlayerId) . '-plan-' . &zerofy($planNumber);
         if (($attackWho) > 3 && $planNumber == 0) { 
            # Fixing display for those who don't count from 0.
-           $err .= 'WARNING: Friendly Fire bug detected for Player ' . &plusone($planPlayerId) .  " in Default battle plan against " . &attackWho($attackWho) . '.';
+           $err .= 'WARNING: Friendly Fire bug detected for Player ' . ($planPlayerId+1) .  " in Default battle plan against " . &attackWho($attackWho) . '.';
            $decryptedData[3] = 2;
            $needsFixing = 1;
            if ($fixFiles > 1) {
@@ -2211,14 +2213,138 @@ sub decryptFix {
   }
   return \@outBytes, $needsFixing, \%warning;
 }
- 
-sub plusone {
-# Increment the value of a number as one for display to end users
-# (who problably don't count from 0)
-  my ($val) = @_;
-  $val++;
-  return $val;
-} 
+
+#Deprecated ever since I leared about adding in parenthesis 
+# sub plusone {
+# # Increment the value of a number as one for display to end users
+# # (who problably don't count from 0)
+#   my ($val) = @_;
+#   $val++;
+#   return $val;
+# } 
+
+sub StarsAI {
+  # Change player status in the HST file
+  # Read in the binary Stars! file, byte by byte
+  my ($GameFile, $PlayerAI, $NewStatus) = @_;
+  use File::Copy;
+  my $FileValues;
+  my @fileBytes;
+  my $filename = $FileHST . "\\" . $GameFile . "\\" . $GameFile . '.HST';
+  my $backupfile = $filename . '.ai';
+  
+  #Validate the HST file exists 
+  unless (-e $filename  ) { 
+    &PLogOut(0,"StarsAI: Failed to find $filename for $GameFile", $ErrorLog);
+    return 0;
+  }
+
+  # Read in the .HST file
+  open(StarFile, "<$filename");
+  binmode(StarFile);
+  while (read(StarFile, $FileValues, 1)) {
+    push @fileBytes, $FileValues; 
+  }
+  close(StarFile);
+  
+  # Decrypt the data, block by block
+  my ($outBytes) = &decryptAI(\@fileBytes, $PlayerAI, $NewStatus);
+  if ($outBytes) {
+    my @outBytes = @{$outBytes};
+    # Create the backup file
+  	copy($filename, $backupfile);
+    # Output the Stars! File with updated player status
+    open (OutFile, '>:raw', "$filename");
+    for (my $i = 0; $i < @outBytes; $i++) {
+      print OutFile $outBytes[$i];
+    }
+    close (OutFile);
+    &PLogOut(200," StarsAI: Updated $filename for playerId:$playerAI to $NewStatus ", $LogFile);
+  } else { 
+    &PLogOut(200," StarsAI: Did not update $filename for playerId:$playerAI to $NewStatus ", $LogFile); 
+  }
+}
+
+sub decryptAI {
+  my ($fileBytes, $PlayerAI, $NewStatus ) = @_;
+  my @fileBytes = @{ $fileBytes };
+  my @block;
+  my @data;
+  my ($decryptedData, $encryptedBlock, $padding);
+  my @decryptedData;
+  my @encryptedBlock;
+  my @outBytes;
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti );
+  my ( $random, $seedA, $seedB, $seedX, $seedY );
+  my ( $FileValues, $typeId, $size );
+  my $offset = 0; #Start at the beginning of the file
+  my $action = 0; # Was any action taken
+  while ($offset < @fileBytes) {
+    # Get block info and data
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
+    # FileHeaderBlock, never encrypted
+    if ($typeId == 8) {
+      # We always have this data before getting to block 6, because block 8 is first
+      # If there are two (or more) block 8s, the seeds reset for each block 8
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
+      ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+      $seedX = $seedA; # Used to reverse the decryption
+      $seedY = $seedB; # Used to reverse the decryption
+      push @outBytes, @block;
+#    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+#      push @outBytes, @block;
+    } else {
+      # Everything else needs to be decrypted
+      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
+      @decryptedData = @{ $decryptedData };
+      # WHERE THE MAGIC HAPPENS
+      if ($typeId == 6) { # Player Block
+      my $playerId = $decryptedData[0] & 0xFF; 
+        if ($PlayerAI == $playerId) {
+          if ($NewStatus eq 'Active'  && $decryptedData[7] == 227 ) {
+            $action = 1;
+            #Changing from Human(Inactive) to Human
+            $decryptedData[7] = 225;
+            # The bits for the password of an inactive player are the inverse of the 
+            # bits of the password for an active player 
+            # Flip the bits of the password
+            $decryptedData[12] = &read8(~$decryptedData[12]);
+            $decryptedData[13] = &read8(~$decryptedData[13]);
+            $decryptedData[14] = &read8(~$decryptedData[14]);
+            $decryptedData[15] = &read8(~$decryptedData[15]);
+            &PLogOut(200," StarsAI: Flipped playerId:$playerId to Active", $LogFile);
+          } elsif ($NewStatus eq 'Inactive'  && ($decryptedData[7] == 225  || $decryptedData[7] == 1)) {
+            $action = 1;
+            #Changing from Human to Human(Inactive) AI
+            $decryptedData[7] = 227;
+            # The bits for the password of an inactive player are the inverse of the 
+            # bits of the password for an active player 
+            # Flip the bits of the password
+            $decryptedData[12] = &read8(~$decryptedData[12]);
+            $decryptedData[13] = &read8(~$decryptedData[13]);
+            $decryptedData[14] = &read8(~$decryptedData[14]);
+            $decryptedData[15] = &read8(~$decryptedData[15]);
+            &PLogOut(200," StarsAI: Flipped playerId:$playerId to Inactive", $LogFile);
+          } else { &PLogOut(200," StarsAI: No Status Change for playerId:$playerId", $LogFile); }
+        } 
+      } # End of typeID 6
+      # END OF MAGIC
+      #reencrypt the data for output    
+      ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
+      @encryptedBlock = @ { $encryptedBlock };
+      push @outBytes, @encryptedBlock;
+    }
+    $offset = $offset + (2 + $size); 
+  }
+  # If the password / AI was not reset, no need to write the file back out
+  # Faster, less risk of corruption   
+  if ($action) { return \@outBytes; 
+  } else { &PLogOut(200," StarsAI: Did not make changes to $filename for playerID:$PlayerAI to $NewStatus", $LogFile); return 0; }
+}
 
 sub zerofy {
 # make a 1 digit number 2 digits
@@ -2301,7 +2427,7 @@ sub showCategory {
 sub getMask {
 # Return true if the associated bit is set for the number
   my ($number, $position) = @_;
-  my $new_num = $number >> ($position ); 
+  my $new_num = $number >> ( $position ); 
     # if it results to '1' then bit is set, 
     # else it results to '0' bit is unset 
   my $check = $new_num &1;

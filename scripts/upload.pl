@@ -76,7 +76,7 @@ print end_html;
 sub ValidateFileUpload {
 	my ($File) = @_;
 	# BUG: Lower case the file name, so it's consistent everywhere. 
-	my $GameValues;
+	my $GameValues;          
 	# Save the file out so we can do further analysis with it
 	my $File_Loc = &Save_File($File); 
 	&LogOut(400, "ValidateFileUpload: File_Loc = $File_Loc",$LogFile);
@@ -93,8 +93,8 @@ sub ValidateFileUpload {
     $invalid = "Invalid File Type for $File, $File_Loc by $userlogin: $file_type $file_ext"; 
     &LogOut(0, "$invalid", $ErrorLog); 
     return 0;
-  }
-
+  }   
+  
 	# Race Files
 	if ($file_type eq 'r') {
     # Check to make sure the Race Name was entered
@@ -117,7 +117,7 @@ sub ValidateFileUpload {
   		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
   
       my $checkmagic = &Check_Magic($Magic, $File_Loc);
-      my $checkversion = &Check_Version($ver, $File_Loc);
+      my $checkversion = &Check_Version($ver, $File_Loc);   
   		if ( $checkmagic && $checkversion ) { # If this is indeed a valid Stars file
   
   			if ( $dt == 5 ) { # If it is a race file
@@ -196,19 +196,19 @@ sub ValidateFileUpload {
       # Check (and potentially fix) the .X file for known Stars! exploits
       # Requires the .queue file to detect CleanStarbase
       # Works on a folder-by-folder (game-by-game) basis 
-      # Requires a file named 'fix' in the game folder
+      # Requires a file named 'fix' in the game folder  
       my $fixFile = $FileHST . '\\' . $GameFile . '\\' . 'fix';
       if ($fixFiles && -e $fixFile) { 
-        &LogOut(200, "ValidateFileUpload: Fixfile: $fixFile fixFiles value: $fixFiles, Error: $err, Turn: $turn, Location: $File_Loc", $LogFile); 
+        &LogOut(200, "ValidateFileUpload: A fixfile: $fixFile fixFiles: $fixFiles, $err, $File_Loc", $LogFile); 
         print "<P>Checking file for exploits ...\n";
         $err .= &StarsFix($File_Loc, $GameFile, $turn);   #$File_Loc includes path
       } 
-      if ($err) { &LogOut(0, "ValidateFileUpload: fixFiles: $fixFiles, Error: $err, $File_Loc", $ErrorLog); }
+      if ($err) { &LogOut(0, "ValidateFileUpload: fixFiles $fixFiles, $err, $File_Loc", $ErrorLog); }
       
 			&LogOut(100,"ValidateFileUpload: Valid Turn file $File_Loc, moving it", $LogFile);
       
 			# Do whatever you would do with a valid change (.x) file
-      # BUG: This implies we accept the errored StarsFix file?   In some cases we haven't fixed it.
+      # BUG: This implies we accept the errored StarsFix file?   In some cases we haven't fixed it. 
 			if (&Move_Turn($File, $game_file)) {
 				$db = &DB_Open($dsn);
 				# update the Last Submitted Field
@@ -321,7 +321,7 @@ sub Print_Error {
 #  print "<P>$err";
   &LogOut(10,$err,$ErrorLog);
   return 0;
-}
+}      
 
 # sub Check_FileName {
 # 	# BUG:  Check_FileName Feature not implemented

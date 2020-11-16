@@ -667,17 +667,17 @@ sub showHull {
 #   return ($category[$category],$item{$category}[$item]);
 # }
 
-sub waypointTask {
-  my ($task) = @_;
-  if ($task == 0) { return "No Task"; }
-  elsif ($task == 1) { return "?"; }
-  elsif ($task == 3) { return "?"; }
-  elsif ($task == 4) { return "?"; }
-  elsif ($task == 5) { return "?"; }
-  elsif ($task == 6) { return "?"; }
-  elsif ($task == 7) { return "?"; }
-  elsif ($task == 9) { return "?"; }
-}
+# sub waypointTask {
+#   my ($task) = @_;
+#   if ($task == 0) { return "No Task"; }
+#   elsif ($task == 1) { return "?"; }
+#   elsif ($task == 3) { return "?"; }
+#   elsif ($task == 4) { return "?"; }
+#   elsif ($task == 5) { return "?"; }
+#   elsif ($task == 6) { return "?"; }
+#   elsif ($task == 7) { return "?"; }
+#   elsif ($task == 9) { return "?"; }
+# }
 
 # sub getMask {
 # # Return true if the associated bit is set for the number

@@ -308,15 +308,15 @@ sub CheckandUpdate {
           my $GameDir = $FileHST  . '\\' . $GameData[$LoopPosition]{'GameFile'};
           &StarsQueue($GameDir, $GameData[$LoopPosition]{'GameFile'}, $HST_Turn);
         }
-        # Decide whether to set player to inactive
+        # Decide whether to set player to Idle
         # Read in the game and player information from the CHK File
         # BUG: Not going to work quite right if the player is in the game more than once. 
-    		my($InactivePosition) = 3;
-        my $InactiveMessage = '';
-        &LogOut(300, 'STARTING AUTOINACTIVE', $LogFile);
-        while (@CHK[$InactivePosition]) {  #read .m file lines
-    			my ($CHK_Status, $CHK_Player) = &Eval_CHKLine(@CHK[$InactivePosition]);
-    			my($Player) = $InactivePosition -2;
+    		my($IdlePosition) = 3;
+        my $IdleMessage = '';
+        &LogOut(300, 'STARTING AUTOIDLE', $LogFile);
+        while (@CHK[$IdlePosition]) {  #read .m file lines
+    			my ($CHK_Status, $CHK_Player) = &Eval_CHKLine(@CHK[$IdlePosition]);
+    			my($Player) = $IdlePosition -2;
      			my $MFile = $File_HST . '/' . $GameData[$LoopPosition]{'GameFile'} . '/' . $GameData[$LoopPosition]{'GameFile'} . '.m' . $Player;
           &LogOut(300, ".m File: $MFile", $LogFile);
           # Get the Turn Year information for the player
@@ -327,22 +327,22 @@ sub CheckandUpdate {
           $GameFile = $GameData[$LoopPosition]{'GameFile'};
     			$sql = qq|SELECT Games.GameFile, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, [_PlayerStatus].PlayerStatus_txt FROM _PlayerStatus INNER JOIN ([User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerID)=$Player));|;
     			if (&DB_Call($db,$sql)) { while ($db->FetchRow()) { %PlayerValues = $db->DataHash(); } }
-    			# If the player is active, AND the number of turns missed is greater than AutoInactive, set the player to Inactive
-          &LogOut(300, "Player Status: $PlayerValues{'PlayerStatus'}   AutoInactive: $GameData[$LoopPosition]{'AutoInactive'}  TurnYears: $TurnYears ", $LogFile); 
-    			if (($PlayerValues{'PlayerStatus'} == 1) && ($GameData[$LoopPosition]{'AutoInactive'}) && ($TurnYears >= $GameData[$LoopPosition]{'AutoInactive'})) {
-            &LogOut(300, "Need to set Player $Player to Inactive", $LogFile);  
-            $sql = qq|UPDATE GameUsers SET PlayerStatus=2 WHERE PlayerID = $Player AND GameFile = '$GameFile';|;
+    			# If the player is active, AND the number of turns missed is greater than AutoIdle, set the player to Idle
+          &LogOut(300, "Player Status: $PlayerValues{'PlayerStatus'}   AutoIdle: $GameData[$LoopPosition]{'AutoIdle'}  TurnYears: $TurnYears ", $LogFile); 
+    			if (($PlayerValues{'PlayerStatus'} == 1) && ($GameData[$LoopPosition]{'AutoIdle'}) && ($TurnYears >= $GameData[$LoopPosition]{'AutoIdle'})) {
+            &LogOut(300, "Need to set Player $Player to Idle", $LogFile);  
+            $sql = qq|UPDATE GameUsers SET PlayerStatus=4 WHERE PlayerID = $Player AND GameFile = '$GameFile';|;
             &LogOut(300, "SQL= $sql", $LogFile);
           	if (&DB_Call($db,$sql)) { 
-              &LogOut(100,"Player $Player Status updated to Inactive for $GameFile having missed $TurnYears turns", $LogFile); 
+              &LogOut(100,"Player $Player Status updated to Idle for $GameFile having missed $TurnYears turns", $LogFile); 
               # Create the message for the email
-              $InactiveMessage .= $InactiveMessage . "Player $Player Status changed to Inactive. No turns submitted for $TurnYears turn(s).\n";
-            } else { &LogOut(0, "Player $Player Status failed to update to Inactive for $GameFile", $ErrorLog); }
+              $IdleMessage .= $IdleMessage . "Player $Player Status changed to Idle. No turns submitted for $TurnYears turn(s).\n";
+            } else { &LogOut(0, "Player $Player Status failed to update to Idle for $GameFile", $ErrorLog); }
           } else { }  # no need to do anything otherwise 
    			  undef %PlayerValues; # Need to clear array to be ready for the next player
-    			$InactivePosition++;
+    			$IdlePosition++;
     		}
-        &LogOut(300, 'ENDING AUTOINACTIVE', $LogFile);
+        &LogOut(300, 'ENDING AUTOIDLE', $LogFile);
        
 				# Get the array into a format I can pass to the subroutine, which involves converting it to a direct hash.
 				# If you're confused about why you use an '@' there on a hash slice instead of a '%', think of it like this. 
@@ -352,8 +352,8 @@ sub CheckandUpdate {
 				my $GameValues = $GameData[$LoopPosition];
 				%GameValues = %$GameValues;
 				$GameValues{'Message'} = "New turn available at $WWW_HomePage\n\n";
-        # If any player(s) were set inactive, add that to the email notification
-        $GameValues{'Message'} .= $InactiveMessage; 
+        # If any player(s) were set idle, add that to the email notification
+        $GameValues{'Message'} .= $IdleMessage; 
 				$GameValues{'HST_Turn'} = $HST_Turn;
 				# Adjust the value of next turn in case there's DST
 				# Since we've updated last turn, we need to use the original

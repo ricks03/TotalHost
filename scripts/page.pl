@@ -301,7 +301,7 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
 		print "<td>\n"; &show_player_status($in{'GameFile'},$sql); print "</td>\n";
 } elsif ($in{'cp'} eq 'Update Player') { 
 		print "<td>\n"; 
-    &process_player_status($in{'GameFile'}, $in{'User_File'}, $in{'PlayerStatus'}); 
+    &process_player_status($in{'GameFile'}, $in{'User_File'}, $in{'PlayerStatus'}, $in{'PlayerID'}); 
     &display_warning;
     &show_game($in{'GameFile'}); print "</td>\n";
 } elsif ($in{'cp'} eq 'Pause Game') {
@@ -324,11 +324,12 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
     &process_delay($in{'GameFile'}, $in{'delay_turns'}); 
     &display_warning;
     &show_game($in{'GameFile'}); print "</td>"; 
-} elsif (($in{'cp'} eq 'Go Inactive') || ($in{'cp'} eq 'Go Active')) {
+} elsif (($in{'cp'} eq 'Go Idle') || ($in{'cp'} eq 'Go Active')) {
 	print "<td>\n";
-	if ($in{'cp'} eq 'Go Inactive') { $playerstatus = 2; $playerstate = 'Inactive';}
-	elsif ($in{'cp'} eq 'Go Active') { $playerstatus = 1; $playerstate = 'Active'; } 
-  &process_player_status($in{'GameFile'}, $in{'User_File'}, $playerstate); 
+	if ($in{'cp'} eq 'Go Idle') { $playerstatus = 4; $playerstate = 'Idle';}
+	elsif ($in{'cp'} eq 'Go Active') { $playerstatus = 1; $playerstate = 'Active'; }
+  # There's a difference in process_player_status when User Submitted > no player ID. 
+  &process_player_status($in{'GameFile'}, $in{'User_File'}, $playerstate, -1); 
   &display_warning;
 	&show_game($in{'GameFile'});
 	print "</td>\n";
@@ -917,11 +918,14 @@ sub show_game {
   			$sql = qq|SELECT Games.GameFile, User.User_File, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, [_PlayerStatus].PlayerStatus_txt FROM _PlayerStatus INNER JOIN ([User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerID)=$Player));|;
   			if (&DB_Call($db,$sql)) { while ($db->FetchRow()) { %PlayerValues = $db->DataHash(); } }
   			# If the player isn't active indicate such
-  			if ($PlayerValues{'PlayerStatus'} == 1) { $del = ''; $del2 = ''; } else { $del = '<del>'; $del2 = '</del>';}
+  			if ($PlayerValues{'PlayerStatus'} == 1) { $del = ''; $del2 = ''; 
+        } elsif ($PlayerValues{'PlayerStatus'} == 4) { $del = '<i>'; $del2 = '</del>';
+        } elsif ($PlayerValues{'PlayerStatus'} == 2) { $del = '<del>'; $del2 = '</del>';}
+        if ($CHK_Status eq 'Deceased') { $del = '<del>'; $del2 = '</del>';}
 
 ##################        
   			print qq|<tr>\n|;
-  			if (($CHK_Status eq 'Out') && $del ) { print qq|<td><img src="$TurnBall{Inactive}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|;} 
+  			if (($CHK_Status eq 'Out') && $del ) { print qq|<td><img src="$TurnBall{Idle}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|;} 
   			else { print qq|<td><img src="$TurnBall{$CHK_Status}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|; }  
   			if ($PlayerValues{'User_Login'} eq $userlogin ) { print qq|<td style="border-width: 1px;padding: 1px;border-style: dotted;border-color: gray;">$del|;} 
   			else { 	print "<td>$del"; }
@@ -955,12 +959,16 @@ sub show_game {
         }
         
         unless ($GameValues{'GameStatus'} == 9) { # Don't display for finished game
-    			if (-e $XFile) {
+    			print '<td>';
+          if (-e $XFile) {
     				my $file_date = -M $XFile;
     				$file_date = &SubmitTime($file_date);
-    				print "<td>$file_date</td>\n";
-    			} elsif ($del || $CHK_Status eq 'Deceased') { print "<td><i>Inactive</i></td>\n";
-    			} else { print "<td>Not Submitted</td>\n"; }
+    				print "$file_date\n";
+    			} else { print "Not Submitted\n"; }
+          if ($PlayerValues{'PlayerStatus'} == 4) { print ' (idle)'; }
+          if ($PlayerValues{'PlayerStatus'} == 2) { print ' (inactive-Housekeeping AI)'; }
+          if ($CHK_Status eq 'Deceased') { print " -Deceased"; }
+          print "</td>\n";
         }
         
         # Display the Remove Password button if applicable
@@ -1145,8 +1153,8 @@ sub show_game {
 		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} eq '2' || $GameValues{'GameStatus'} eq '4')) { print qq|<BUTTON $host_style type="submit" name="cp" value="End Game" | . &button_help('EndGame') . qq|>End Game</BUTTON>\n|; $button_count = &button_check($button_count);}
     # Restart Game
 		if ($GameValues{'HostName'} eq $session->param("userlogin") && $GameValues{'GameStatus'} eq '9') { print qq|<BUTTON $host_style type="submit" name="cp" value="Restart Game" | . &button_help('RestartGame') . qq|>Restart Game</BUTTON>\n|; $button_count = &button_check($button_count);}
-		# Change personal game state from active to inactive and vice versa.
-		if (($current_player eq $userlogin) && ($player_status == 1) && ($GameValues{'GameStatus'} ne '9')) { print qq|<BUTTON $user_style type="submit" name="cp" value="Go Inactive" | . &button_help('GoInactive') . qq|>Go Inactive</BUTTON>\n|; $button_count = &button_check($button_count);}
+		# Change personal game state from active to Idle and vice versa.
+		if (($current_player eq $userlogin) && ($player_status == 1) && ($GameValues{'GameStatus'} ne '9')) { print qq|<BUTTON $user_style type="submit" name="cp" value="Go Idle" | . &button_help('GoIdle') . qq|>Go Idle</BUTTON>\n|; $button_count = &button_check($button_count);}
 		if (($current_player eq $userlogin) && ($player_status == 2) && ($GameValues{'GameStatus'} ne '9')) { print qq|<BUTTON $user_style type="submit" name="cp" value="Go Active" | . &button_help('GoActive') . qq|>Go Active</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Email Players
 		if ($GameValues{'HostName'} eq $session->param("userlogin") && $players) { print qq|<BUTTON $host_style type="submit" name="cp" value="Email Players" | . &button_help('EmailPlayers') . qq|>Email Players</BUTTON>\n|; $button_count = &button_check($button_count);}
@@ -1908,8 +1916,8 @@ sub edit_game {
 	print qq|<INPUT type="checkbox" name="GameDelay" | . &button_help("GameDelay") . qq| $Checked[$GameValues{'GameDelay'}]>Players can Delay turn\n|;
 	print qq|<INPUT name="NumDelay" size=3 | . &button_help("NumDelay") . qq| value=$GameValues{'NumDelay'}> times.\n|;
 	print qq|Delays reset when the sum drops below <INPUT name="MinDelay" size=3 | . &button_help("MinDelay") . qq| value=$GameValues{'MinDelay'}>.\n|;
-	unless ($GameValues{'AutoInactive'}) { if ($type eq 'create') { $GameValues{'AutoInactive'} = 0; }}
-	print qq|<P>Players will automatically go Inactive after missing <INPUT name="AutoInactive" size=2 | . &button_help("AutoInactive") . qq| value=$GameValues{'AutoInactive'}> turns ("0" is disabled).\n|;
+	unless ($GameValues{'AutoIdle'}) { if ($type eq 'create') { $GameValues{'AutoIdle'} = 0; }}
+	print qq|<P>Players will automatically go Idle after missing <INPUT name="AutoIdle" size=2 | . &button_help("AutoIdle") . qq| value=$GameValues{'AutoIdle'}> turns ("0" is disabled).\n|;
   print qq|<P><TABLE><TR><TD>\n|;
 	if ($type eq 'create') { $GameValues{'HostMod'} = 1; }
 	print qq|<b><INPUT type="checkbox" name="HostMod" | . &button_help("HostMod") . qq| $Checked[$GameValues{'HostMod'}]>Host can Modify Game Settings</b>\n|;
@@ -2052,10 +2060,10 @@ sub update_game {
     if ($ForceGenTurns > 10) { $ForceGenTurns = 10; }
     if ($ForceGenTimes > 50) { $ForceGenTime = 50; }
   }
-  my $AutoInactive = $in{'AutoInactive'}; 
-  # Validate AutoInactive
-  $AutoInactive = &clean($AutoInactive);
-  if ($AutoInactive =~ /^\d+\z/) {} else { $AutoInactive = 0; };
+  my $AutoIdle = $in{'AutoIdle'}; 
+  # Validate AutoIdle
+  $AutoIdle = &clean($AutoIdle);
+  if ($AutoIdle =~ /^\d+\z/) {} else { $AutoIdle = 0; };
 	my $HostMod = &checkboxnull($in{'HostMod'}); 
 	my $HostForceGen = &checkboxnull($in{'HostForceGen'}); 
 	my $NoDuplicates = &checkboxnull($in{'NoDuplicates'});
@@ -2101,7 +2109,7 @@ sub update_game {
 								HostAccess = '$HostAccess',
 								Notes = '$in{'Notes'}', 
 								MaxPlayers = $MaxPlayers, 
-                AutoInactive = $AutoInactive
+                AutoIdle = $AutoIdle
 								WHERE GameFile = '$GameFile' AND HostName = '$userlogin';|;
 		if (&DB_Call($db,$sql)) { 
       print "<P>Game Updated!\n"; 
@@ -2449,7 +2457,7 @@ sub read_game {
 	if ($GameValues{'NewsPaper'}) { push (@Values, "Galactic News"); }
 	if ($GameValues{'SharedM'}) { push (@Values, "Shared M Files"); }
 	if ($GameValues{'HostAccess'}) { push (@Values, "Host Access"); }
-	if ($GameValues{'AutoInactive'}) { push (@Values, "AutoInactive after $GameValues{'AutoInactive'} turns missed"); }
+	if ($GameValues{'AutoIdle'}) { push (@Values, "AutoIdle after $GameValues{'AutoIdle'} turns missed"); }
 	if ($GameValues{'MaxPlayers'}) { push (@Values, "Max $GameValues{'MaxPlayers'} players allowed to join"); }
 	my $c = 0;
 	my $col=3;
@@ -2946,6 +2954,7 @@ sub show_player_status {
 		print qq|<input type=hidden name="rp" value="my_games">\n|;
 		print qq|<input type=hidden name="User_File" value="$PlayerData[$LoopPosition]{'User_File'}">\n|;
 		print qq|<input type=hidden name="GameFile" value="$GameFile">\n|;
+		print qq|<input type=hidden name="PlayerID" value=$LoopPosition>\n|;
 		print "<td>User ID:</td>\n";
     # Display the player IDs unless the game has anonymous players.
     if (!($PlayerData[0]{'AnonPlayer'} )) { 
@@ -2967,11 +2976,15 @@ sub show_player_status {
 		$LoopPosition++;
 	}
 	print "</table>\n";
+  print qq|<P>Idle will cause turn submission status to be ignored for turn generation|;
+  print qq|<P>Inactive will change the Status to Human (Inactive) and enable the housekeeping AI.|;
+  
 }
 
 sub process_player_status {
 # Process the results of a host changing a player status. 
-	my ($GameFile, $UserFile, $PlayerStatus) = @_;
+	my ($GameFile, $UserFile, $PlayerStatus, $PlayerID) = @_;
+  my $updateStatus = 0;
 	my $update = 0;
 	my $db = &DB_Open($dsn);
 	# Get the valid player statuses from the database
@@ -2979,47 +2992,61 @@ sub process_player_status {
 	if (&DB_Call($db,$sql)) { 
 		while ($db->FetchRow()) { 
 			($Status, $TXT) = $db->Data("PlayerStatus", "PlayerStatus_txt");
+      # Only run updates if it's something we can update to
 			if ($TXT eq $PlayerStatus) { $update = $Status; }
 		}
 	}
-  # If the player status matches an entry in the database
+  # If the new player status matches an entry in the database
+  print "UPDATE: $update   TXT: $TXT PLAYERSTATUS: $PlayerStatus\n";
 	if ($update) {
-#		$sql = qq|UPDATE _PlayerStatus INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus SET GameUsers.PlayerStatus = $update WHERE (((Games.HostName)=\'$userlogin\') AND ((Games.GameFile)=\'$GameFile\') AND ((GameUsers.User_File)=\'$UserFile\'));|;
-    $sql = qq|UPDATE [User] INNER JOIN (Games INNER JOIN (_PlayerStatus INNER JOIN GameUsers ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus) ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login SET GameUsers.PlayerStatus = $update WHERE (((Games.HostName)=\'$userlogin\') AND ((Games.GameFile)=\'$GameFile\') AND ((User.User_File)=\'$UserFile\'));|;
-		if (&DB_Call($db,$sql)) { 
-#			print "<P>User $User Updated for $GameFile\n";
-   		&LogOut(100, "Status updated to $playerstate for $in{'GameFile'} by $userlogin",$LogFile);
-		} else { &LogOut(10,"ERROR: player_status failed updating for User $User_Login in $GameFile",$ErrorLog);}
+    # If updating to Inactive, need to run the StarsAI code
+    # Or to Active if the player was Inactive
+    if ($PlayerStatus eq 'Inactive' || ($PlayerStatus eq 'Active')) {
+      $updateStatus = &StarsAI($GameFile, $PlayerID, $PlayerStatus );
+    } else { $updateStatus = 1; } # If setting to IDLE, we still need to update the SQL
+    if ($updateStatus) {
+      #  Update the database
+      my $Player = $PlayerID+1;
+      # Different SQL if we know the Player number (true for Admin, not for user)
+      if ($Player) {
+        $sql = qq|UPDATE [User] INNER JOIN (Games INNER JOIN (_PlayerStatus INNER JOIN GameUsers ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus) ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login SET GameUsers.PlayerStatus = $update WHERE (((Games.HostName)=\'$userlogin\') AND ((Games.GameFile)=\'$GameFile\') AND ((User.User_File)=\'$UserFile\') AND (GameUsers.PlayerID=$Player));|;
+  		} else {
+        $sql = qq|UPDATE [User] INNER JOIN (Games INNER JOIN (_PlayerStatus INNER JOIN GameUsers ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus) ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login SET GameUsers.PlayerStatus = $update WHERE (((Games.HostName)=\'$userlogin\') AND ((Games.GameFile)=\'$GameFile\') AND ((User.User_File)=\'$UserFile\') );|;
+      }
+  		if (&DB_Call($db,$sql)) { 
+     		&LogOut(100, "Status updated to $PlayerStatus for $GameFile by $userlogin",$LogFile);
+        # And email affected player(s)
+        # First, get the name and email address of all the players for this game. 
+        $sql = qq|SELECT Games.GameFile, Games.GameName, User.User_Login, User.User_Email, GameUsers.PlayerID, GameUsers.PlayerStatus, [_PlayerStatus].PlayerStatus_txt FROM [User] INNER JOIN (_PlayerStatus INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\'));|;
+      	if (&DB_Call($db,$sql)) { 
+      		while ($db->FetchRow()) { 
+      			%PlayerValues = $db->DataHash(); 
+      #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
+      			push (@PlayerData, { %PlayerValues });
+            # Tease out who the current user is
+            # BUG: Won't work if it's the host changing the player status
+            #if ($PlayerValues{'User_Login'} eq $userlogin) { $User = $PlayerValues{'User_Login'}}
+      		}
+          # Next, loop through the list to email all the players and let them know what's happened. 
+          my $LoopPosition = 0; #Start with the first player in the array.
+          $MailFrom = $mail_from;
+        #  $Subject = "$mail_prefix $PlayerData[0]{'GameName'} : Player Status Change to $PlayerStatus";
+          # Not displaying the player name solves several problems, not the lease
+          # not having that value, and revealing anonymous players
+          $Subject = "$mail_prefix $PlayerData[0]{'GameName'} : Player Status Change";
+          $Message = "User $User status changed in $PlayerData[0]{'GameName'}.";
+          while ($LoopPosition <= ($#PlayerData)) { # work the way through the array
+            $MailTo = $PlayerData[$LoopPosition]{'User_Email'};
+            $smtp = &Mail_Open;
+            &Mail_Send($smtp, $MailTo, $MailFrom, $Subject, $Message);
+            $LoopPosition++;
+          }
+          &Mail_Close($smtp); 
+  		} else { &LogOut(10,"ERROR: player_status failed updating PlayerID: $PlayerID for User $User_Login in $GameFile",$ErrorLog);}
+        }
 	} else { &LogOut(10,"ERROR: Invalid attempt to update player_status=$update for $User_Login by $userlogin for $GameFile",$ErrorLog);}
-  # And email affected player(s)
-  # First, get the name and email address of all the players for this game. 
-  $sql = qq|SELECT Games.GameFile, Games.GameName, User.User_Login, User.User_Email, GameUsers.PlayerID, GameUsers.PlayerStatus, [_PlayerStatus].PlayerStatus_txt FROM [User] INNER JOIN (_PlayerStatus INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\'));|;
-	if (&DB_Call($db,$sql)) { 
-		while ($db->FetchRow()) { 
-			%PlayerValues = $db->DataHash(); 
-#			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
-			push (@PlayerData, { %PlayerValues });
-      # Tease out who the current user is
-      # BUG: Won't work if it's the host changing the player status
-      #if ($PlayerValues{'User_Login'} eq $userlogin) { $User = $PlayerValues{'User_Login'}}
-		}
-	} 
+	} else { &LogOut(10,"ERROR: Invalid attempt(2) to update player_status=$update for $User_Login by $userlogin for $GameFile",$ErrorLog);}
 	&DB_Close($db);
-  # Next, loop through the list to email all the players and let them know what's happened. 
-  my $LoopPosition = 0; #Start with the first player in the array.
-  $MailFrom = $mail_from;
-#  $Subject = "$mail_prefix $PlayerData[0]{'GameName'} : Player Status Change to $PlayerStatus";
-  # Not displaying the player name solves several problems, not the lease
-  # not having that value, and revealing anonymous players
-  $Subject = "$mail_prefix $PlayerData[0]{'GameName'} : Player Status Change";
-  $Message = "User $User status changed in $PlayerData[0]{'GameName'}.";
-  while ($LoopPosition <= ($#PlayerData)) { # work the way through the array
-    $MailTo = $PlayerData[$LoopPosition]{'User_Email'};
-    $smtp = &Mail_Open;
-    &Mail_Send($smtp, $MailTo, $MailFrom, $Subject, $Message);
-    $LoopPosition++;
-  }
-  &Mail_Close($smtp); 
 }
   
 sub submit_forcegen {

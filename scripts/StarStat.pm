@@ -208,14 +208,15 @@ sub Check_Turn {
 # }
 
 sub Check_GameFile {
+  # Where game_file is the game prefix of the file name
   my($game_file) = @_;
   my $Game_Loc = $File_HST . '/' . $game_file . '/' . $game_file . '.hst';
   if (-e $Game_Loc) {
   	&SLogOut(400,"Game Exists at $Game_Loc: Game File = $game_file",$LogFile);
   	return 1;
   } else { 
-	&SLogOut(0,"Game does not exist at $Game_Loc for Game File $game_file",$ErrorLog);
-	return 0
+	  &SLogOut(0,"Game does not exist at $Game_Loc for Game File $game_file",$ErrorLog);
+	  return 0
   }
 }
 
