@@ -1747,7 +1747,7 @@ sub StarsFix {
   # Need to return a string since passing an array through a URL is unlikely to work
   my $warning = '';
   foreach my $key (keys %warning) {
-    $warning .= $warning{$key} . ",";
+    $warning .= $warning{$key} . ',';
   }
   # Output the Stars! file with modified data
   # Since we don't need to rewrite the file if nothing needs cleaning, let's not (safer)
@@ -2305,7 +2305,7 @@ sub decryptAI {
       if ($typeId == 6) { # Player Block
       my $playerId = $decryptedData[0] & 0xFF; 
         if ($PlayerAI == $playerId) {
-          if ($NewStatus eq 'Active'  && $decryptedData[7] == 227 ) {
+          if (($NewStatus eq 'Active' || $NewStatus eq 'Idle')  && $decryptedData[7] == 227 ) {
             $action = 1;
             #Changing from Human(Inactive) to Human
             $decryptedData[7] = 225;

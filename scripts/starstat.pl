@@ -64,7 +64,7 @@ close(StarFile);
 #   Bit 4 (16)- Shareware Version
 
 $unpack = 'A2A4h8SSSS';
-#$Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts)
+#$Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts
 @FileValues = unpack($unpack,$FileValues);
 ($Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts) = @FileValues;
 
@@ -77,14 +77,17 @@ print "lidGame:\t$lidGame\n";
 
 # Game Version
 $ver = dec2bin($ver);
-#print "ver:$ver\n";
 $verInc = substr($ver,11,5);
 $verMinor = substr($ver,4,7);
 $verMajor = substr($ver,0,4);
 $verMajor = bin2dec($verMajor);
 $verMinor = bin2dec($verMinor);
 $verInc = bin2dec($verInc);
-$ver = $verMajor . "." . $verMinor . "." . $verInc;
+#$verInc = $ver & 0x1F; #five leftmost bits 000xxxxx
+#$verMinor = $ver & 1E0; #00000000xxx00000
+#$verMajor = $ver & F000; #xxxx000000000000
+$ver = "$verMajor" . "." . "$verMinor" . "." . "$verInc";
+
 print "Version:\t$ver (" . $Version{$ver} . ")\n";
 
 # Turn
@@ -95,6 +98,7 @@ print "turn:\t$turn\n";
 $iPlayer = &dec2bin($iPlayer);
 $iPlayer = substr($iPlayer,11,5);
 $iPlayer = bin2dec($iPlayer);
+#$iPlayer = $iPlayer & 0x1F;
 $iPlayer=$iPlayer +1; # Correcting for 0-15
 print "iPlayer:\t$iPlayer\n"; 
 
@@ -117,27 +121,33 @@ print "dt:\t$dt" . ":" . @dt[$dt] . ':' . @dt_verbose[$dt] . "\n";
 # These are 1 character, so there's no need to convert them back to decimal
 # Turn state (.x file only)
 $fDone = substr($dts, 7,1);
+#$fDone = $dts & 0x01;
 #print "fDone\t$fDone\n";
 print $fDone . ':' . @fDone[$fDone] . "\n";
 
 # Host instance is using this file (dtHost, dtTurn).
 $fInUse = substr($dts, 6, 1);
+#$fInUse = ($dts & 0x02) >> 1;
 print $fInUse . ':' . @fInUse[$fInUse] . "\n";
 
 # Are multiple turns included (.m only)
 $fMulti = substr($dts, 5,1);
+#$fMulti = ($dts & 0x04) >> 2;
 print $fMulti . ':' . @fMulti[$fMulti] . "\n";
 
 # Is the Game Over
 $fGameOver = substr($dts, 4,1);  # Probably 4
+#$fGameOver = ($dts & 0x08) >> 3;
 print $fGameOver . ':' . @fGameOver[$fGameOver] . "\n";
 
 # Shareware
 $fShareware = substr($dts, 3, 1);
+#$fShareware = ($dts & 0x10) >> 4;
 print $fShareware . ':' . @fShareware[$fShareware] . "\n";
 
 # Unknown
 $unknown = substr($dts, 0, 1);  # is not always 1|0
+#$unknown = ($dts & 0x80) >> 7;
 
 
 print "\n";

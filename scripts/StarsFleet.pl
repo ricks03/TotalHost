@@ -287,11 +287,11 @@ sub decryptShip {
         if ($isPopulation) { print "\tP:$population ";}
         if ($isFuel)       { print "\tF:$fuel ";}
         print "\n";
-     } elsif ( $typeId == 3 ) { # Waypoint Delete Block in .x files
-       my ($fleetId, $waypointId);
-       $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
-       $waypointId = $decryptedData[2]& 0xFF;
-       print "WP$typeId: fleetId:$fleetId, waypointId:$waypointId\n";
+      } elsif ( $typeId == 3 ) { # Waypoint Delete Block in .x files
+        my ($fleetId, $waypointId);
+        $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
+        $waypointId = $decryptedData[2]& 0xFF;
+        print "WP$typeId: fleetId:$fleetId, waypointId:$waypointId\n";
       } elsif ( $typeId == 4 || $typeId == 5 ) { # waypoint block (add/change) in .x files 
         # Setting destination task adds a change (so a Task 4 & Task 5)
         my @showTaskId = ('no task', 'Transport', 'Colonize', 'Remote Mining', 'Merge with Fleet', 'Scrap Fleet', 'Lay Minefield', 'Patrol', 'Route', 'Transfer Fleet');
@@ -302,33 +302,52 @@ sub decryptShip {
         my $yDest = &read16(\@decryptedData, 6);  
         my $targetId = ($decryptedData[8] & 0xFF) + (($decryptedData[9] & 1) << 8);  # ID for destination like Fleet Merge, 511 is current location
         my $warp =  $decryptedData[10] >> 4; # left 4 bits
-        my $taskId = $decryptedData[10] >> 0 & 0xF; # right 4 bits
-        my $targetType = ($decryptedData[11]& 0xff) % 16; #0-Unknown, 1-planet, 2-fleet, 4-deep space, 8-wormhole/trader/minefield/salvage
-		    my $unknownBitsWithTargetType = ($decryptedData[11]& 0xff) >> 4;
+        #my $taskId = $decryptedData[10] >> 0 & 0x0F; # right 4 bits
+        my $taskId = $decryptedData[10] & 0x0F; # right 4 bits
+        my $targetType = ($decryptedData[11]& 0xFF) % 16; #0-Unknown, 1-planet, 2-fleet, 4-deep space, 8-wormhole/trader/minefield/salvage
+		    my $unknownBitsWithTargetType = ($decryptedData[11]& 0xFF) >> 4;
         if ($targetId == 511) { $targetId = 'self'; }
         print "WP$typeId: waypointId:$waypointId, fleetId:$fleetId, playerId:$playerId, targetId:$targetId, targetType:" . showDestType($targetType) . ", Dest:$xDest" . "x$yDest, warp:$warp, task:" . $showTaskId[$taskId];
         # Subtasks
         # Bytes 12+ are specific task data.
-        if ($taskId == 1) { #Transport    # max value 4000 in GUI
+        # "Additional" empty cargo types won't be present
+        # If there's fuel, for example, you'll have all cargo type
+        # If there's only boranium, there wll be bytes for iron and boranium
+        if ($taskId == 1) { #Transport   ( max value 4000 in GUI )
           my ($ironium, $boranium, $germanium, $population, $fuel);
           my ($taskIronium, $taskBoranium, $taskGermanium,$taskPopulation, $taskFuel);
           my $index = 12;
           my @showTransportTask = ('no action','Load All Available','Unload All','Load Exactly','UnLoad Exactly','Fill Up to %','Wait For %','Load Optimal/Dunnage','Set Amount To','Set Waypoint To'); # Optimal is Fuel, Dunnage is other things
           $taskIronium = ($decryptedData[$index+1] >> 4 ); # left 4 bits  I think $decryptedData[$index+1] >> 4 & 0xF is the same
-          $ironium    = &bin2dec(((substr(&dec2bin(&read8($decryptedData[$index+1])), 12,4)) . substr(&dec2bin($decryptedData[$index]),8,8))); $index=$index+2; 
-          $taskBoranium = ($decryptedData[$index+1] >> 4);  # left 4 bits
-          $boranium   = &bin2dec(((substr(&dec2bin(&read8($decryptedData[$index+1])), 12,4)) . substr(&dec2bin($decryptedData[$index]),8,8))); $index=$index+2; 
-          $taskGermanium = ($decryptedData[$index+1] >> 4); # left 4 bits
-          $germanium  = &bin2dec(((substr(&dec2bin(&read8($decryptedData[$index+1])), 12,4)) . substr(&dec2bin($decryptedData[$index]),8,8))); $index=$index+2; 
-          $taskPopulation = ($decryptedData[$index+1] >> 4); # left 4 bits
-          $population = &bin2dec(((substr(&dec2bin(&read8($decryptedData[$index+1])), 12,4)) . substr(&dec2bin($decryptedData[$index]),8,8))); $index=$index+2;
-          $taskFuel = ($decryptedData[$index+1] >> 4); # left 4 bits
-          $fuel       = &bin2dec(((substr(&dec2bin(&read8($decryptedData[$index+1])), 12,4)) . substr(&dec2bin($decryptedData[$index]),8,8)));
-          if ($taskIronium)    { print ", i:$showTransportTask[$taskIronium]:$ironium"; }
-          if ($taskBoranium)   { print ", b:$showTransportTask[$taskBoranium]:$boranium" ; }
-          if ($taskGermanium)  { print ", g:$showTransportTask[$taskGermanium]:$germanium"; }
-          if ($taskPopulation) { print ", p:$showTransportTask[$taskPopulation]:$population";  }
-          if ($taskFuel)       { print ", f:$showTransportTask[$taskFuel]:$fuel"; }
+          if ($taskIronium)    { print ", xi:$showTransportTask[$taskIronium]:$ironium"; }
+          # The right-most 4 bits of $decrypted[index+1] shifted to in front of $decrypted[$index]; 
+          #$ironium    = &bin2dec(((substr(&dec2bin(&read8($decryptedData[$index+1])), 12,4)) . substr(&dec2bin($decryptedData[$index]),8,8))); $index=$index+2; 
+          $ironium    = (($decryptedData[$index+1] & 0x0F) << 8) + $decryptedData[$index]; 
+          $index=$index+2; 
+          if ($decryptedData[$index]) {
+            $taskBoranium = ($decryptedData[$index+1] >> 4); # left 4 bits 
+            if ($taskBoranium)   { print ", xb:$showTransportTask[$taskBoranium]:$boranium" ; }
+            $boranium    = (($decryptedData[$index+1] & 0x0F) << 8) + $decryptedData[$index]; 
+            $index=$index+2; 
+          }
+          if ($decryptedData[$index]) {
+            $taskGermanium = ($decryptedData[$index+1] >> 4); # left 4 bits
+            if ($taskGermanium)  { print ", xg:$showTransportTask[$taskGermanium]:$germanium"; }
+            $germanium    = (($decryptedData[$index+1] & 0x0F) << 8) + $decryptedData[$index]; 
+            $index=$index+2; 
+          }
+          if ($decryptedData[$index]) {
+            $taskPopulation = ($decryptedData[$index+1] >> 4);  # left 4 bits
+            if ($taskPopulation) { print ", xp:$showTransportTask[$taskPopulation]:$population";  }
+            $population    = (($decryptedData[$index+1] & 0x0F) << 8) + $decryptedData[$index]; 
+            $index=$index+2;
+          } 
+          if ($decryptedData[$index]) {
+            $taskFuel = ($decryptedData[$index+1] >> 4); # left 4 bits
+            if ($taskFuel)       { print ", xf:$showTransportTask[$taskFuel]:$fuel"; }
+            $fuel    = (($decryptedData[$index+1] & 0x0F) << 8) + $decryptedData[$index]; 
+            $index=$index+2;
+          } 
         } 
         if ($taskId == 6) { #Lay Minefield 
           # If no values are set (the defaults) there are no additional bytes added

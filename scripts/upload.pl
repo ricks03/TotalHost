@@ -201,9 +201,14 @@ sub ValidateFileUpload {
       if ($fixFiles && -e $fixFile) { 
         &LogOut(200, "ValidateFileUpload: A fixfile: $fixFile fixFiles: $fixFiles, $err, $File_Loc", $LogFile); 
         print "<P>Checking file for exploits ...\n";
+        sleep 1;
         $err .= &StarsFix($File_Loc, $GameFile, $turn);   #$File_Loc includes path
       } 
-      if ($err) { &LogOut(0, "ValidateFileUpload: fixFiles $fixFiles, $err, $File_Loc", $ErrorLog); }
+      if ($err) {
+       # Append the error(s) to the .fixed file
+       &process_fix($game_file, "$err");
+       &LogOut(0, "ValidateFileUpload: fixFiles $fixFiles, $err, $turn, $File_Loc", $ErrorLog);
+      }
       
 			&LogOut(100,"ValidateFileUpload: Valid Turn file $File_Loc, moving it", $LogFile);
       

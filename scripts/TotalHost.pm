@@ -54,6 +54,7 @@ our @EXPORT = qw(
 	clean clean_filename
 	DaysToAdd ValidTurnTime ValidFreq CheckHolidays LoadHolidays ShowHolidays
   show_race_block
+  process_fix
 );
 # Remarked out functions: FileData FixTime MakeGameStatus checkboxes checkboxnull
 #  showCategory
@@ -1196,5 +1197,40 @@ sub show_race_block {
   
   # Decrypt the data, block by block
   &displayBlockRace(@fileBytes);
+}
+
+sub process_fix {
+	# When the Fix scripts run (detecting errors) they need to log somewhere. 
+  # And then be available on the host's display.
+  # The fix file is stored as .fixed in the folder for the game
+	## The format for each article is id<tab>epochtime<tab>year<tab>story
+	## and stored in chronologic order, newest first
+  # Called from upload.pl
+	my ($GameFile, $new_fix) = @_;
+	my @fixes;
+	my $fixfile = $File_HST . '/' . $GameFile . '/' . "$GameFile.fixed";
+	my $HSTFile = $File_HST . '/' . $GameFile . '/' . $GameFile . '.HST';
+	($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
+	if (!(-e $fixfile)) { # If there's no fix file, create one. 
+  	open (OUT_FILE, ">$fixfile") || die("Cannot create $fixfile file"); 
+  	print OUT_FILE "\n";
+  	close(OUT_FILE);
+	}
+
+	# Read in the old fixes
+	open (IN_FILE,$fixfile) || die("Can\'t open fix file");
+	@fixes = <IN_FILE>;
+	close(IN_FILE);
+	# Write out the fixes with the current news at the beginning 
+	# (So the data is from new to old)
+	$fixfile = ">" . $fixfile;
+	open (OUTFILE, $fixfile) || die("Can\'t create news file!");
+	#print OUTFILE $id . "\t";
+	print OUTFILE localtime() . "\t";
+	print OUTFILE "Turn:$HST_Turn\t";
+	print OUTFILE "\t$new_fix\n";
+	print OUTFILE @fixes;
+	close (OUTFILE);
+	&LogOut (0,"process_fix: Update .fixed with $new_fix for $GameFile", $LogFile);
 }
 
