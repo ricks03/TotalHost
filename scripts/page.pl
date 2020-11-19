@@ -1154,8 +1154,9 @@ sub show_game {
     # Restart Game
 		if ($GameValues{'HostName'} eq $session->param("userlogin") && $GameValues{'GameStatus'} eq '9') { print qq|<BUTTON $host_style type="submit" name="cp" value="Restart Game" | . &button_help('RestartGame') . qq|>Restart Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Change personal game state from active to Idle and vice versa.
+    # BUG: If Inactive shouldn't be able to change to Idle, or Idle should make player Active
 		if (($current_player eq $userlogin) && ($player_status == 1) && ($GameValues{'GameStatus'} ne '9')) { print qq|<BUTTON $user_style type="submit" name="cp" value="Go Idle" | . &button_help('GoIdle') . qq|>Go Idle</BUTTON>\n|; $button_count = &button_check($button_count);}
-		if (($current_player eq $userlogin) && ($player_status == 2) && ($GameValues{'GameStatus'} ne '9')) { print qq|<BUTTON $user_style type="submit" name="cp" value="Go Active" | . &button_help('GoActive') . qq|>Go Active</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($current_player eq $userlogin) && ($player_status == 4) && ($GameValues{'GameStatus'} ne '9')) { print qq|<BUTTON $user_style type="submit" name="cp" value="Go Active" | . &button_help('GoActive') . qq|>Go Active</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Email Players
 		if ($GameValues{'HostName'} eq $session->param("userlogin") && $players) { print qq|<BUTTON $host_style type="submit" name="cp" value="Email Players" | . &button_help('EmailPlayers') . qq|>Email Players</BUTTON>\n|; $button_count = &button_check($button_count);}
  		# Download the zip file. Don't bother displaying zip file option when there IS no history.
@@ -1180,8 +1181,16 @@ sub show_game {
 		# Set the DEF File
 		if ($GameValues{'HostName'} eq $userlogin && ($GameValues{'GameStatus'} eq '6' )) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="DEF File" | . &button_help('DEFFile') .  qq|>DEF File</BUTTON>\n|; $button_count = &button_check($button_count);}
 		print qq|</form>\n|;
-		&DB_Close($db);
-		print qq|<hr><P>|; 
+		&DB_Close($db); 
+    
+    # Display the Fixed information to the host
+    if ($GameValues{'HostName'} eq $userlogin) { 
+      print qq|<hr>|; 
+      print "<b>Results of the StarsFix Bug/Exploit Detection</b><P>";
+      &show_fix($GameValues{'GameFile'}); 
+    }
+  
+		print qq|<hr><P>|;  
 		if ($GameValues{'Notes'}) { print qq|<table border=1 width=100%><tr><td><b>Game Notes</b>: $GameValues{'Notes'}</td></tr></table>\n|; }
 
 		# Display the TH game parameters
@@ -1308,7 +1317,7 @@ sub process_game_launch {
 			print OUT_FILE "$def_data[0]\n"; # Game Name
 			print OUT_FILE "$def_data[1]\n"; # Universe Values
 			print OUT_FILE "$def_data[2]\n"; # Game Settings
-			print OUT_FILE "$counter\n"; # # of players
+			print OUT_FILE "$counter\n"; # of players
 
 			# Print out the race information
 			my $path;
@@ -1387,6 +1396,30 @@ sub process_game_launch {
 	}
 }
 
+sub show_fix {
+	#Display the current fixes for a game
+	my ($GameFile) = @_;
+	my @fixes;
+	my $id, $secs, $turn, $story, $l_time;
+	my $fixfile = $File_HST . '/' . $GameFile . '/' . "$GameFile.fixed";
+	# Check to see if there is a news file
+	if (!(-e $fixfile)) { # Create the new file if it doesn't exist
+  	open (OUT_FILE, ">$fixfile") || die("Cannot create $fixfile file"); 
+  	print OUT_FILE "Results of the StarsFix Bug/Cheat Detection\n";
+  	close(OUT_FILE);
+	} else { open (IN_FILE,$fixfile) || die("Can\'t open fix file");
+		@fixes = <IN_FILE>;
+		close(IN_FILE);
+    # Only print fixes if there are fixes
+    if (@fixes > 1) {
+  		foreach my $key (@fixes) {
+  	 		# ($id, $secs, $turn, $story) = split('\t', $key);
+        print "$key<br>\n";
+  		}
+    } else { print "No fixes for bugs/cheats have been processed. Yeay!\n"; }
+	}
+}
+
 sub process_news {
 	# The news file is stored as .news in the folder for the game
 	# The format for each article is id<tab>epochtime<tab>year<tab>story
@@ -1398,7 +1431,7 @@ sub process_news {
 	$new_news =~ s/\n/<br>/g;
 	my @news;
 	my $newsfile = $File_HST . '/' . $GameFile . '/' . "$GameFile.news";
-	my $HSTFile = $File_HST . '/' . $GameFile . '/' . $GameFile . '.hst';
+	my $HSTFile = $File_HST . '/' . $GameFile . '/' . $GameFile . '.HST';
 	($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
 	if (!(-e $newsfile)) { # If there's no news file, create one. 
 		&create_news($newsfile);
@@ -1499,7 +1532,7 @@ sub lp_list_games {
 				$menu_left{"<i>$GameName</i>"} = qq|page.pl?lp=profile_game&cp=show_game&rp=show_news&GameFile=$GameFile|;
 			} else { 	$menu_left{"<i>$GameName</i>"} = qq|page.pl?lp=profile_game&cp=show_game&rp=&GameFile=$GameFile|; }
 		}
-	} else { &LogOut(10,"ERROR: Finding list_games",$ErrorLog); }
+	} else { &LogOut(10,"lp_list_games: Error finding list_games $sql",$ErrorLog); }
 	&DB_Close($db);
 	return %menu_left;
 }
@@ -1524,7 +1557,7 @@ sub lp_list_new {
 	      ($GameName, $GameFile) = $db->Data("GameName", "GameFile");
 			$menu_left{"<i>$GameName<i>"} = qq|page.pl?lp=profile_game&cp=show_game&rp=&GameFile=$GameFile|; 
 		}
-	} else { &LogOut(10,"ERROR: Finding list_new",$ErrorLog); }
+	} else { &LogOut(10,"ERROR: Finding list_new $sql",$ErrorLog); }
 	&DB_Close($db);
 	return %menu_left;
 }
@@ -1545,7 +1578,7 @@ sub list_races {
 			} else { print qq|<tr><td><a href=$Location_Scripts/page.pl?lp=profile_race&cp=show_race&rp=list_races&RaceFile=$RaceFile>$RaceName</a></td></tr>\n|; }
 		}
 		unless ($c) {print "<tr><td>  No races found</td></tr>";}
-	} else { &LogOut(10,"ERROR: Finding list_races",$ErrorLog);}
+	} else { &LogOut(10,"ERROR: Finding list_races $sql",$ErrorLog);}
 	print "</table>\n";
 	&DB_Close($db);
 }
@@ -2081,6 +2114,8 @@ sub update_game {
 
  	$db = &DB_Open($dsn);
 	if ($in{'type'} eq 'edit') {
+    # AutoInactive is, deceptively, the AutoIdle feature
+    # in order to avoid a DB update
    	my $sql = qq|Update Games  SET 
 								GameDescrip = '$in{'GameDescrip'}',
 								DailyTime = $in{'DailyTime'},  
@@ -2109,7 +2144,7 @@ sub update_game {
 								HostAccess = '$HostAccess',
 								Notes = '$in{'Notes'}', 
 								MaxPlayers = $MaxPlayers, 
-                AutoIdle = $AutoIdle
+								AutoInactive = $AutoIdle
 								WHERE GameFile = '$GameFile' AND HostName = '$userlogin';|;
 		if (&DB_Call($db,$sql)) { 
       print "<P>Game Updated!\n"; 
@@ -2121,7 +2156,7 @@ sub update_game {
     	$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Game Parameters Edited|;
     	$GameValues{'Message'} = "Game Parameters have been edited for $GameValues{'GameName'} ($GameFile). Please review Game page for any changes.\n";
     	&Email_Turns($GameFile, \%GameValues, 0);
-    } else { print "Update failed\n"; &LogOut(0,"$in{'GameName'} update failed for $userlogin", $ErrorLog); }
+    } else { print "Update failed\n"; &LogOut(0,"$in{'GameName'} update $sql failed for $userlogin", $ErrorLog); }
 	} elsif ($in{'type'} eq 'create') {
 #180312		$CleanGameFile = &clean_filename($GameFile);
 #180312		&LogOut(200,"update_game GF $GameFile CGF $CleanGameFile",$LogFile);
@@ -2976,8 +3011,8 @@ sub show_player_status {
 		$LoopPosition++;
 	}
 	print "</table>\n";
-  print qq|<P>Idle will cause turn submission status to be ignored for turn generation|;
-  print qq|<P>Inactive will change the Status to Human (Inactive) and enable the housekeeping AI.|;
+  print qq|<P>Idle ignores turn submission status for turn generation.|;
+  print qq|<P>Inactive alters the HST status to "Human (Inactive)" and enables the housekeeping AI.|;
   
 }
 
@@ -2988,6 +3023,7 @@ sub process_player_status {
 	my $update = 0;
 	my $db = &DB_Open($dsn);
 	# Get the valid player statuses from the database
+  # for display
 	$sql = qq|SELECT * FROM _PlayerStatus;|;
 	if (&DB_Call($db,$sql)) { 
 		while ($db->FetchRow()) { 
@@ -2997,11 +3033,11 @@ sub process_player_status {
 		}
 	}
   # If the new player status matches an entry in the database
-  print "UPDATE: $update   TXT: $TXT PLAYERSTATUS: $PlayerStatus\n";
 	if ($update) {
     # If updating to Inactive, need to run the StarsAI code
     # Or to Active if the player was Inactive
-    if ($PlayerStatus eq 'Inactive' || ($PlayerStatus eq 'Active')) {
+    # Or to Idle from Inactive could be a thing.
+    if ($PlayerStatus eq 'Inactive' || $PlayerStatus eq 'Active' || $PlayerStatus eq 'Idle') {
       $updateStatus = &StarsAI($GameFile, $PlayerID, $PlayerStatus );
     } else { $updateStatus = 1; } # If setting to IDLE, we still need to update the SQL
     if ($updateStatus) {
@@ -3014,7 +3050,7 @@ sub process_player_status {
         $sql = qq|UPDATE [User] INNER JOIN (Games INNER JOIN (_PlayerStatus INNER JOIN GameUsers ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus) ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login SET GameUsers.PlayerStatus = $update WHERE (((Games.HostName)=\'$userlogin\') AND ((Games.GameFile)=\'$GameFile\') AND ((User.User_File)=\'$UserFile\') );|;
       }
   		if (&DB_Call($db,$sql)) { 
-     		&LogOut(100, "Status updated to $PlayerStatus for $GameFile by $userlogin",$LogFile);
+     		&LogOut(100, "StarsAI: Status updated to $PlayerStatus for $GameFile by $userlogin",$LogFile);
         # And email affected player(s)
         # First, get the name and email address of all the players for this game. 
         $sql = qq|SELECT Games.GameFile, Games.GameName, User.User_Login, User.User_Email, GameUsers.PlayerID, GameUsers.PlayerStatus, [_PlayerStatus].PlayerStatus_txt FROM [User] INNER JOIN (_PlayerStatus INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\'));|;
@@ -3042,10 +3078,10 @@ sub process_player_status {
             $LoopPosition++;
           }
           &Mail_Close($smtp); 
-  		} else { &LogOut(10,"ERROR: player_status failed updating PlayerID: $PlayerID for User $User_Login in $GameFile",$ErrorLog);}
+  		} else { &LogOut(10,"StarsAI: player_status failed updating PlayerID: $PlayerID for User $User_Login in $GameFile",$ErrorLog);}
         }
-	} else { &LogOut(10,"ERROR: Invalid attempt to update player_status=$update for $User_Login by $userlogin for $GameFile",$ErrorLog);}
-	} else { &LogOut(10,"ERROR: Invalid attempt(2) to update player_status=$update for $User_Login by $userlogin for $GameFile",$ErrorLog);}
+	} else { &LogOut(10,"StarsAI: Invalid attempt to update player_status=$update for $User_Login by $userlogin for $GameFile",$ErrorLog);}
+	} else { &LogOut(10,"StarsAI: Invalid attempt(2) to update player_status=$update for $User_Login by $userlogin for $GameFile",$ErrorLog);}
 	&DB_Close($db);
 }
   
