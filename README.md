@@ -16,7 +16,7 @@ but adds a number of features such as:
 - Cleaning/Removing information about other players stored in the turn files. 
 
 
-There are also standalone utilities (generally named stars*.pl) for resetting a password, viewing race and ship design information, extracting player messages in .X|.M files, creating movies from completed games, graphing resources, and the ability to clean some of the shared data from individual player .M files, fixing known Stars! bugs, and changing AI status. These are/were developed generally as precursors to adding functionality to TotalHost.
+There are also standalone utilities (generally named stars*.pl) for resetting a password, viewing race, fleet and ship design information, extracting player messages in .X|.M files, creating movies from completed games, graphing resources, and the ability to clean some of the shared data from individual player .M files, fixing known Stars! bugs, and changing AI status. These are/were developed generally as precursors to adding functionality to TotalHost.
 
 For simplicity, the entire implementation is on a Windows VM running Apache, and ODBC calls to an Access database. 
 The entire implementation is in Perl (except some Java for the movie-generating code).
