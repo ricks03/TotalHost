@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dataroot xmlns:od="urn:schemas-microsoft-com:officedata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  xsi:noNamespaceSchemaLocation="_GameStatus.xsd" generated="2021-05-14T12:50:45">
+<_GameStatus>
+<GameStatus>0</GameStatus>
+<GameStatus_TXT>Pending Start</GameStatus_TXT>
+</_GameStatus>
+<_GameStatus>
+<GameStatus>1</GameStatus>
+<GameStatus_TXT>Pending Closed</GameStatus_TXT>
+</_GameStatus>
+<_GameStatus>
+<GameStatus>2</GameStatus>
+<GameStatus_TXT>In Progress</GameStatus_TXT>
+</_GameStatus>
+<_GameStatus>
+<GameStatus>4</GameStatus>
+<GameStatus_TXT>Paused</GameStatus_TXT>
+</_GameStatus>
+<_GameStatus>
+<GameStatus>5</GameStatus>
+<GameStatus_TXT>Need Replacement</GameStatus_TXT>
+</_GameStatus>
+<_GameStatus>
+<GameStatus>9</GameStatus>
+<GameStatus_TXT>Finished</GameStatus_TXT>
+</_GameStatus>
+<_GameStatus>
+<GameStatus>3</GameStatus>
+<GameStatus_TXT>Delayed</GameStatus_TXT>
+</_GameStatus>
+<_GameStatus>
+<GameStatus>6</GameStatus>
+<GameStatus_TXT>Creation in Progress</GameStatus_TXT>
+</_GameStatus>
+<_GameStatus>
+<GameStatus>7</GameStatus>
+<GameStatus_TXT>Awaiting Players</GameStatus_TXT>
+</_GameStatus>
+</dataroot>
