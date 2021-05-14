@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dataroot xmlns:od="urn:schemas-microsoft-com:officedata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  xsi:noNamespaceSchemaLocation="_GameType.xsd" generated="2021-05-14T12:50:54">
+<_GameType>
+<GameType>1</GameType>
+<GameType_txt>Daily</GameType_txt>
+</_GameType>
+<_GameType>
+<GameType>2</GameType>
+<GameType_txt>Hourly</GameType_txt>
+</_GameType>
+<_GameType>
+<GameType>3</GameType>
+<GameType_txt>Required</GameType_txt>
+</_GameType>
+<_GameType>
+<GameType>4</GameType>
+<GameType_txt>All In</GameType_txt>
+</_GameType>
+</dataroot>

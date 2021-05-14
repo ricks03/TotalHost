@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dataroot xmlns:od="urn:schemas-microsoft-com:officedata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  xsi:noNamespaceSchemaLocation="_Holidays.xsd" generated="2021-05-14T12:51:07">
+<_Holidays>
+<Holiday>2018-12-25T00:00:00</Holiday>
+<Holiday_txt>Xmas</Holiday_txt>
+<Nationality>US</Nationality>
+</_Holidays>
+<_Holidays>
+<Holiday>2018-11-25T00:00:00</Holiday>
+<Holiday_txt>Tgiving</Holiday_txt>
+<Nationality>US</Nationality>
+</_Holidays>
+<_Holidays>
+<Holiday>2018-07-04T00:00:00</Holiday>
+<Holiday_txt>4th July</Holiday_txt>
+<Nationality>US</Nationality>
+</_Holidays>
+</dataroot>

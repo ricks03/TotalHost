@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dataroot xmlns:od="urn:schemas-microsoft-com:officedata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  xsi:noNamespaceSchemaLocation="_UserStatus.xsd" generated="2021-05-14T12:51:27">
+<_UserStatus>
+<User_Status>1</User_Status>
+<User_Status_txt>Active</User_Status_txt>
+<User_Status_Detail>Account active and in good standing</User_Status_Detail>
+</_UserStatus>
+<_UserStatus>
+<User_Status>-1</User_Status>
+<User_Status_txt>Locked</User_Status_txt>
+<User_Status_Detail>Account Locked for multiple failed logins</User_Status_Detail>
+</_UserStatus>
+<_UserStatus>
+<User_Status>-2</User_Status>
+<User_Status_txt>Suspended</User_Status_txt>
+<User_Status_Detail>Inactivated temporarily for some reason</User_Status_Detail>
+</_UserStatus>
+<_UserStatus>
+<User_Status>-3</User_Status>
+<User_Status_txt>Inactive</User_Status_txt>
+<User_Status_Detail>Account not accessed for x days</User_Status_Detail>
+</_UserStatus>
+<_UserStatus>
+<User_Status>-4</User_Status>
+<User_Status_txt>Disabled</User_Status_txt>
+<User_Status_Detail>Account no longer valid</User_Status_Detail>
+</_UserStatus>
+<_UserStatus>
+<User_Status>-5</User_Status>
+<User_Status_txt>New</User_Status_txt>
+<User_Status_Detail>New Inactive User Account</User_Status_Detail>
+</_UserStatus>
+<_UserStatus>
+<User_Status>2</User_Status>
+<User_Status_txt>Reset</User_Status_txt>
+<User_Status_Detail>Password Reset</User_Status_Detail>
+</_UserStatus>
+<_UserStatus>
+<User_Status>-6</User_Status>
+<User_Status_txt>Banned</User_Status_txt>
+<User_Status_Detail>User Has Been Banned</User_Status_Detail>
+</_UserStatus>
+<_UserStatus>
+<User_Status>-7</User_Status>
+<User_Status_txt>Pending</User_Status_txt>
+<User_Status_Detail>User Account Pending</User_Status_Detail>
+</_UserStatus>
+</dataroot>

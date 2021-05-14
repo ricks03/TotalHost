@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dataroot xmlns:od="urn:schemas-microsoft-com:officedata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  xsi:noNamespaceSchemaLocation="_PlayerStatus.xsd" generated="2021-05-14T12:51:16">
+<_PlayerStatus>
+<PlayerStatus>1</PlayerStatus>
+<PlayerStatus_txt>Active</PlayerStatus_txt>
+</_PlayerStatus>
+<_PlayerStatus>
+<PlayerStatus>2</PlayerStatus>
+<PlayerStatus_txt>Inactive</PlayerStatus_txt>
+</_PlayerStatus>
+<_PlayerStatus>
+<PlayerStatus>3</PlayerStatus>
+<PlayerStatus_txt>Banned</PlayerStatus_txt>
+</_PlayerStatus>
+<_PlayerStatus>
+<PlayerStatus>4</PlayerStatus>
+<PlayerStatus_txt>Idle</PlayerStatus_txt>
+</_PlayerStatus>
+</dataroot>
