@@ -55,7 +55,7 @@ my $inName;
 my $filename; 
 $inName = $ARGV[0]; # input file
 $inBlock = $ARGV[1]; # Desired block Type
-$inBin = $ARGV[2]; # Desired block Type
+#$inBin = $ARGV[2]; # Desired block Type
 unless ($inBlock) { $inBlock = -1;}
 $filename = $inName;
 
@@ -173,6 +173,17 @@ sub processData {
   if ($inBlock == $typeId || $inBlock == -1) {
     if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
     if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
+    my ($checkSum1, $checkSum2);
+    if ($debug && $typeId == 0) {
+      $checkSum1 = 0; $checkSum2 = 0;
+      for (my $i = 0; $i < scalar @decryptedData; $i=$i+2) {
+         $checkSum1 = $checkSum1^$decryptedData[$i];
+      }
+      for (my $i = 1; $i < scalar @decryptedData; $i=$i+2) {
+       $checkSum2 = $checkSum2^$decryptedData[$i];
+       }
+      print "Block $typeId  X1: $checkSum1    X2: $checkSum2\n";
+    }
     if ($inBin) {
       if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
       my $counter =0;
@@ -189,21 +200,21 @@ sub processData {
 }
 
 sub unshiftBytes {
-  # Display the byte information without decrypting, a variation on &decryptBytes
-  # Needed to display Block 8 in decimal so I can treat it like everyting else.
-  # Not not really decrypted, just not changing the variables from &decryptBytes
+  # Display the byte information without nocrypting, a variation on &nocryptBytes
+  # Needed to display Block 8 in decimal so I can treat it like everything else.
+  # Not not really nocrypted, just not changing the variables from &nocryptBytes
   my ($byteArray) = @_;
   my @byteArray = @{ $byteArray }; 
   my $size = @byteArray;
-  my @decryptedBytes = (); 
-  my ($decryptedChunk, $decryptedBytes, $chunk);
+  my @nocryptedBytes = (); 
+  my ($nocryptedChunk, $nocryptedBytes, $chunk);
   my $padding;
   # Add padding to 4 bytes
   ($byteArray, $padding) = &addPadding (\@byteArray);
   @byteArray = @ {$byteArray };
   my $paddedSize = $size + $padding;
-  # Now decrypt, processing 4 bytes at a time
-  @decryptedBytes = ();
+  # Now nocrypt, processing 4 bytes at a time
+  @nocryptedBytes = ();
   for (my $i = 0; $i <  $paddedSize; $i+=4) {
     # Swap bytes using indexes in this order:  4 3 2 1
     $chunk =  (
@@ -212,23 +223,18 @@ sub unshiftBytes {
         (ord($byteArray[$i+1]) << 8)  | 
          ord($byteArray[$i])
     );
-    # XOR with a (semi) random number
-#    ($newRandom, $seedA, $seedB) = &nextRandom($seedA, $seedB);
-    # Store the random value being used to start the decryption, as I'll 
-    # need it to reencrypt the player information
-#    $decryptedChunk = $chunk ^ $newRandom;
-    $decryptedChunk = $chunk;
-    # Write out the decrypted data, swapped back
-    my $decryptedBytes = $decryptedChunk & 0xFF;
-    push @decryptedBytes, $decryptedBytes;
-    $decryptedBytes = ($decryptedChunk >> 8) & 0xFF;
-    push @decryptedBytes, $decryptedBytes;
-    $decryptedBytes = ($decryptedChunk >> 16) & 0xFF;
-    push @decryptedBytes, $decryptedBytes;
-    $decryptedBytes = ($decryptedChunk >> 24) & 0xFF;
-    push @decryptedBytes, $decryptedBytes;
+    $nocryptedChunk = $chunk;
+    # Write out the nocrypted data, swapped back
+    my $nocryptedBytes = $nocryptedChunk & 0xFF;
+    push @nocryptedBytes, $nocryptedBytes;
+    $nocryptedBytes = ($nocryptedChunk >> 8) & 0xFF;
+    push @nocryptedBytes, $nocryptedBytes;
+    $nocryptedBytes = ($nocryptedChunk >> 16) & 0xFF;
+    push @nocryptedBytes, $nocryptedBytes;
+    $nocryptedBytes = ($nocryptedChunk >> 24) & 0xFF;
+    push @nocryptedBytes, $nocryptedBytes;
   }    
   # Strip off any padding
-  @decryptedBytes = &stripPadding(\@decryptedBytes, $padding);
-  return \@decryptedBytes, $padding;
+  @nocryptedBytes = &stripPadding(\@nocryptedBytes, $padding);
+  return \@nocryptedBytes, $padding;
 }   

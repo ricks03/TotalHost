@@ -137,11 +137,6 @@ sub decryptBlock {
       $seedY = $seedB; # Used to reverse the decryption
       push @outBytes, @block;
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
-      my ($nocryptedData, $padding) = &displayBytes(\@data); 
-      my @nocryptedData = @{ $nocryptedData };
-      &processData(\@nocryptedData,$typeId,$offset,$size);
-      #$fileFooter = &getFileFooterBlock(\@data, $size);
-      #print "Footer $fileFooter\n";
       push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted
