@@ -35,18 +35,6 @@ use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
 my $debug = 0;
 
-#Stars random number generator class used for encryption
-my @primes = ( 
-                3, 5, 7, 11, 13, 17, 19, 23, 
-                29, 31, 37, 41, 43, 47, 53, 59,
-                61, 67, 71, 73, 79, 83, 89, 97,
-                101, 103, 107, 109, 113, 127, 131, 137,
-                139, 149, 151, 157, 163, 167, 173, 179,
-                181, 191, 193, 197, 199, 211, 223, 227,
-                229, 233, 239, 241, 251, 257, 263, 279,
-                271, 277, 281, 283, 293, 307, 311, 313 
-        );
-        
 my $inBlock = '';
 my $inBin = 0; 
 my $inName = $ARGV[0]; # input file
@@ -129,6 +117,10 @@ sub decryptBlock {
     if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) { # File Header Block
+      my ($unshiftedData, $padding) = &unshiftBytes(\@data); 
+      my @unshiftedData = @{ $unshiftedData };
+      &processData(\@unshiftedData,$typeId,$offset,$size);
+
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
@@ -137,17 +129,16 @@ sub decryptBlock {
       $seedY = $seedB; # Used to reverse the decryption
       push @outBytes, @block;
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+      my ($unshiftedData, $padding) = &unshiftBytes(\@data); 
+      my @unshiftedData = @{ $unshiftedData };
+      &processData(\@unshiftedData,$typeId,$offset,$size);
+      
       push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
-      if ($debug) { print "\nDATA DECRYPTED:\n" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
-#      if ($typeId == 29) {
-#        $skip = 1;
-#        $skipcounter = $skipcounter + $size;
-#      } else { 
       &processData(\@decryptedData,$typeId,$offset,$size);
 #      }
       # END OF MAGIC
@@ -209,6 +200,8 @@ sub processData {
 
   if ($inBlock == $typeId || $inBlock eq -1) {
   print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t";
+  print "\nDATA DECRYPTED:\n" . join (" ", @decryptedData), "\n"; 
+
   if ($inBin) {
     if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
     my $counter =0;
@@ -217,7 +210,6 @@ sub processData {
       $counter++;
     }  
     print "\n";    
-  } else {print "\t" . join ( " ", @decryptedData ), "\n";}
-  }
+   }
 }
 
