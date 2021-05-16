@@ -30,6 +30,56 @@
 # StarsMsg not implemented in TotalHost
 # StarsFix implemented (fox .x files)
 
+# Here is a list of blocks and their types I found so far. I’ve never met several of them in any game file, which I can access to, but you can try to find them in your own game files using this small command line tool (there is no decryption code, since block headers are never encrypted), and please if you find them let me know:
+# https://wiki.starsautohost.org/wiki/Technical_Information
+# 0	FileFooterBlock (Year: .M, .HST   Checksum XOR .R, null .X, .H) 
+# 1	ManualSmallLoadUnloadTaskBlock
+# 2	ManualMediumLoadUnloadTaskBlock
+# 3	WaypointDeleteBlock
+# 4	WaypointAddBlock
+# 5	WaypointChangeTaskBlock
+# 6	PlayerBlock
+# 7	PlanetsBlock
+# 8	FileHeaderBlock (unencrypted)
+# 9	FileHashBlock
+# 10	WaypointRepeatOrdersBlock
+# 11	Never met it
+# 12	EventsBlock
+# 13	PlanetBlock
+# 14	PartialPlanetBlock
+# 15	Never met it
+# 16	FleetBlock
+# 17	PartialFleetBlock
+# 18	Never met it
+# 19	WaypointTaskBlock
+# 20	WaypointBlock
+# 21	FleetNameBlock
+# 22	Never met it
+# 23	MoveShipsBlock
+# 24	FleetSplitBlock
+# 25	ManualLargeLoadUnloadTaskBlock
+# 26	DesignBlock
+# 27	DesignChangeBlock
+# 28	ProductionQueueBlock
+# 29	ProductionQueueChangeBlock
+# 30	BattlePlanBlock
+# 31	BattleBlock (content isn't decoded yet)
+# 32	CountersBlock
+# 33	MessagesFilterBlock
+# 34	ResearchChangeBlock
+# 35	PlanetChangeBlock
+# 36	ChangePasswordBlock (.x), Password (.HST)
+# 37	FleetsMergeBlock
+# 38	PlayersRelationChangeBlock
+# 39	BattleContinuationBlock (content isn't decoded yet)
+# 40	MessageBlock
+# 41	Record made by AI in H file (content isn't decoded yet)
+# 42	SetFleetBattlePlanBlock
+# 43	ObjectBlock
+# 44	RenameFleetBlock
+# 45	PlayerScoresBlock
+# 46	SaveAndSubmitBlock
+
 package StarsBlock;
 #use TotalHost;
 do 'config.pl';
@@ -71,6 +121,7 @@ our @EXPORT = qw(
   showCategory
   getMask
   PLogOut
+  shiftBytes unshiftBytes
 );  
 
 my $debug = 1;
@@ -234,7 +285,6 @@ sub getFileHeaderBlock {
   $fGameOver = substr($dts, 4,1);  # Probably 4
   # Shareware
   $fShareware = substr($dts, 3, 1);
-  &PLogOut(400,"binSeed:$binSeed,Shareware:$fShareware,Player:$Player,Turn:$turn,GameID:$lidGame,fMulti:$fMulti", $LogFile);
   return $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti;
 }
 
@@ -2458,4 +2508,78 @@ sub PLogOut {
     } else { print $PrintString . "\n"; }
 	}
 }
+
+sub unshiftBytes {
+  # Display the byte information without decrypting, a variation on &decryptBytes
+  # Needed to display Block 8 & 0 in decimal so I can treat it like everything else.
+  # Not decrypted, just unshifted from Binary
+  my ($shiftedBytes) = @_;
+  my @shiftedBytes = @{ $shiftedBytes }; 
+  my $size = @shiftedBytes;
+  my @unshiftedBytes; 
+  my $padding;
+  # Add padding to 4 bytes
+  ($shiftedBytes, $padding) = &addPadding (\@shiftedBytes);
+  @shiftedBytes = @ {$shiftedBytes };
+  my $paddedSize = $size + $padding;
+  # Now decrypt, processing 4 bytes at a time
+  @unshiftedBytes = ();
+  for (my $i = 0; $i <  $paddedSize; $i+=4) {
+    # Swap bytes using indexes in this order:  4 3 2 1
+    my $chunk =  (
+        (ord($shiftedBytes[$i+3]) << 24) | 
+        (ord($shiftedBytes[$i+2]) << 16) | 
+        (ord($shiftedBytes[$i+1]) << 8)  | 
+         ord($shiftedBytes[$i])
+    );
+    # Write out the decrypted data, swapped back
+    my $unshiftedBytes = $chunk     & 0xFF;
+    push @unshiftedBytes, $unshiftedBytes;
+    $unshiftedBytes = ($chunk >> 8) & 0xFF;
+    push @unshiftedBytes, $unshiftedBytes;
+    $unshiftedBytes = ($chunk >> 16) & 0xFF;
+    push @unshiftedBytes, $unshiftedBytes;
+    $unshiftedBytes = ($chunk >> 24) & 0xFF;
+    push @unshiftedBytes, $unshiftedBytes;
+  }    
+  # Strip off any padding
+  @unshiftedBytes = &stripPadding(\@unshiftedBytes, $padding);
+  return \@unshiftedBytes;
+}   
+
+sub shiftBytes {
+  # Shift data unshifted from binary back to binary
+  # The equivalent of encrypting on unencrypted data
+  my ($unshiftedBytes) = @_; 
+  my @unshiftedBytes = @{ $unshiftedBytes };
+  my @shiftedBytes;
+  my $size = @unshiftedBytes;
+  my $padding;
+  # Add padding to 4 bytes
+  ($unshiftedBytes, $padding) = &addPadding(\@unshiftedBytes);
+  @unshiftedBytes = @ {$unshiftedBytes };
+  my $paddedSize = $size + $padding;
+  # Now shift, processing 4 bytes at a time
+  for(my $i = 0; $i <$paddedSize; $i+=4) {
+    # Swap bytes:  4 3 2 1
+    my $chunk = (
+          ($unshiftedBytes[$i+3] << 24) | 
+          ($unshiftedBytes[$i+2] << 16) | 
+          ($unshiftedBytes[$i+1] << 8)  | 
+           $unshiftedBytes[$i]
+    );
+    # Write out the shifted data, swapped back
+    my $shiftedBytes = chr($chunk      & 0xFF);
+    push @shiftedBytes, $shiftedBytes;
+    $shiftedBytes = chr(($chunk >> 8)  & 0xFF);
+    push @shiftedBytes, $shiftedBytes;
+    $shiftedBytes = chr(($chunk >> 16) & 0xFF);
+    push @shiftedBytes, $shiftedBytes;
+    $shiftedBytes = chr(($chunk >> 24) & 0xFF);
+    push @shiftedBytes, $shiftedBytes;
+  }
+  # Strip off any padding
+  @shiftedBytes = &stripPadding(\@shiftedBytes, $padding);
+  return \@shiftedBytes;
+} 
 

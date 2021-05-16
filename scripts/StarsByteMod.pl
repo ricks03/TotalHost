@@ -36,18 +36,6 @@ use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
 my $debug = 1; # Enable better debugging output. Bigger the better
 
-#Stars random number generator class used for encryption
-my @primes = ( 
-                3, 5, 7, 11, 13, 17, 19, 23, 
-                29, 31, 37, 41, 43, 47, 53, 59,
-                61, 67, 71, 73, 79, 83, 89, 97,
-                101, 103, 107, 109, 113, 127, 131, 137,
-                139, 149, 151, 157, 163, 167, 173, 179,
-                181, 191, 193, 197, 199, 211, 223, 227,
-                229, 233, 239, 241, 251, 257, 263, 279,
-                271, 277, 281, 283, 293, 307, 311, 313 
-        );
-
 ##########  
 my $inBlock = '';
 my $inBin = 0; 
@@ -177,12 +165,13 @@ sub decryptBlock {
     @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
-    #if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-    #if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
+    if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) {  # File Header Block
-      if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
-      if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
+       # Convert the nonencrypted Block 8 data
+       my ($unshiftedData, $padding) = &unshiftBytes(\@data); 
+       my @unshiftedData = @{ $unshiftedData };
+      &processData(\@unshiftedData,$typeId,$offset,$size);
 
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
@@ -201,6 +190,9 @@ sub decryptBlock {
 
       push @outBytes, @block;
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+       my ($unshiftedData, $padding) = &unshiftBytes(\@data); 
+       my @unshiftedData = @{ $unshiftedData };
+      &processData(\@unshiftedData,$typeId,$offset,$size);
       push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted
@@ -246,8 +238,6 @@ sub processData {
         $counter++;
       }  
       print "\n";    
-    } else {
-#      print "\t" . join ( "\t", @decryptedData ), "\n";
     }
   }
 }
