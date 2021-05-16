@@ -212,7 +212,9 @@ sub decryptPWD2 {
          # If you reset the password in those you can corrupt at the very least the player race name 
         my $playerId = $decryptedData[0] & 0xFF; 
         # The playerId of Race files is 255
-        if ((($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) && ($playerId == $Player) || uc($ext) eq '.HST' || $playerId == 255){
+        #print "Player ID: $playerId $Player\n";
+        #print "Data: $decryptedData[12] $decryptedData[13] $decryptedData[14] $decryptedData[15]\n";
+        if ((($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) && (($playerId == $Player) | (uc($ext) eq '.HST') | ($playerId == 255))) {
           # Replace the password with blank
           $decryptedData[12] = 0;
           $decryptedData[13] = 0;
