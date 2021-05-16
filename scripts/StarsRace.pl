@@ -272,7 +272,7 @@ sub decryptBlockRace {
           my $MTItems =  $decryptedData[82] + ($decryptedData[83] * 0x100);
           my @MTItems = &showMTItems($MTItems);
           print 'MT Items:' . join(',',@MTItems) . "\n";
-          #$decryptedData[82-109]; unknown, but in pairs
+          #$decryptedData[84-109]; unknown, but in pairs
           # Interestingly, if the player relations have never been set, the
           # player relations length will be 0, with no bytes after it
           # For the player relations values
