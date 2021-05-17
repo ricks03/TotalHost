@@ -65,6 +65,7 @@
 
 use strict;
 use warnings;   
+use warnings::unused;   
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
 my $debug = 0;
@@ -144,10 +145,13 @@ sub decryptPWD2 {
   my @encryptedBlock;
   my @outBytes;
   my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti );
-  my ( $random, $seedA, $seedB, $seedX, $seedY );
+  my ( $seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   my $pwdreset = 0;  # has the password been reset
+  my $playerId;
+  my @singularRaceName;
+  my @pluralRaceName;
   my ($checkSum1, $checkSum2); # The checksums for .r file Block 0
   while ($offset < @fileBytes) {
     # Get block info and data
@@ -162,9 +166,8 @@ sub decryptPWD2 {
     if ($typeId == 8) {  # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      my ($unshiftedData, $padding) = &unshiftBytes(\@data); 
+      my ($unshiftedData) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
-      if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
       if ($debug) { print "DECRYPTED:" . join (" ", @unshiftedData), "\n"; } 
 
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
@@ -176,9 +179,8 @@ sub decryptPWD2 {
       # shift the data from binary
       my ($unshiftedData) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
-      if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
       if ($debug) { print "DECRYPTED:" . join (" ", @unshiftedData), "\n"; } 
-
+      #if (uc($ext) =~ /R/) { print "Race CheckSum (original):" . join (" ", @unshiftedData), "\n"; } 
       if ( $pwdreset                                             # If the password has been reset, fix the checksum
            && $size                                              # .x files don't have any data in block 0
            && $unshiftedData[0] > 0 && $unshiftedData[1] > 0     # race files have values set for the checksum
@@ -188,7 +190,7 @@ sub decryptPWD2 {
         # change the checksum values
         $unshiftedData[0] = $checkSum1;
         $unshiftedData[1] = $checkSum2;
-        
+        #print "Race Checksum (Calculated): $checkSum1 $checkSum2\n";
         #shift the data back to binary
         my $shiftedData = &shiftBytes(\@unshiftedData);
         my @shiftedData = @{ $shiftedData };
@@ -208,12 +210,25 @@ sub decryptPWD2 {
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
-         # There are player blocks from other players in the .M file, and
-         # If you reset the password in those you can corrupt at the very least the player race name 
-        my $playerId = $decryptedData[0] & 0xFF; 
-        # The playerId of Race files is 255
-        #print "Player ID: $playerId $Player\n";
-        #print "Data: $decryptedData[12] $decryptedData[13] $decryptedData[14] $decryptedData[15]\n";
+        # We need the race name info for calculating the race checksum if we reset a race password
+        $playerId = $decryptedData[0] & 0xFF; 
+        my $fullDataFlag = ($decryptedData[6] & 0x04); 
+        my $index = 8; 
+        if ($fullDataFlag) { 
+          $index = 112;
+          my $playerRelationsLength = $decryptedData[112]; 
+          $index = $index + $playerRelationsLength + 1;
+        }  
+        my $singularNameLength = $decryptedData[$index] & 0xFF;
+        my $singularMessageEnd = $index + $singularNameLength;
+        my $pluralNameLength = $decryptedData[$index+$singularNameLength+1] & 0xFF;
+        if ($pluralNameLength == 0) { $pluralNameLength = 1; } # Because there's a 0 byte after it
+        $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+        $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
+
+        # There are player blocks from other players in the .M file. 
+        #   If you reset the password in those you can corrupt at the very least the player race name 
+        # The playerId of race (.R) files is 255
         if ((($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) && (($playerId == $Player) | (uc($ext) eq '.HST') | ($playerId == 255))) {
           # Replace the password with blank
           $decryptedData[12] = 0;
@@ -223,15 +238,8 @@ sub decryptPWD2 {
           $pwdreset = 1;
           print "Block $typeId password reset!\n";
                                               
-          if (uc($ext) =~ /R/) { # rebuild the checksum bytes for race files   
-            # Checksums are the XOR of the even bytes, and the XOR of the odd bytes (in Block 6)
-            $checkSum1 = 0; $checkSum2 = 0;
-            for (my $i = 0; $i < scalar @decryptedData; $i=$i+2) {
-              $checkSum1 = $checkSum1^$decryptedData[$i];
-            }
-            for (my $i = 1; $i < scalar @decryptedData; $i=$i+2) {
-              $checkSum2 = $checkSum2^$decryptedData[$i];
-            }
+          if (uc($ext) =~ /R/ && $pwdreset) { # recalculate the checksum for race files   
+            ($checkSum1, $checkSum2) = &raceCheckSum(\@decryptedData, $singularRaceName[$playerId], $pluralRaceName[$playerId]);
           }
         } else { 
           # In .HST some Player blocks could be password protected, and some not 

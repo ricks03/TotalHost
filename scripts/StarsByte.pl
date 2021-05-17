@@ -31,7 +31,7 @@
 # https://github.com/stars-4x/starsapi  
 
 use strict;
-use warnings;   
+use warnings;  
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
 my $debug = 1; # Enable better debugging output. Bigger the better
@@ -101,8 +101,7 @@ sub decryptBlock {
   my @encryptedBlock;
   my @outBytes;
   my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
-  my ( $fileFooter ); 
-  my ( $random, $seedA, $seedB, $seedX, $seedY);
+  my ( $seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   while ($offset < @fileBytes) {
@@ -117,7 +116,7 @@ sub decryptBlock {
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) {  # File Header Block
       # Convert the nonencrypted Block 8 data
-      my ($unshiftedData, $padding) = &unshiftBytes(\@data); 
+      my ($unshiftedData) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
       &processData(\@unshiftedData,$typeId,$offset,$size);
 
@@ -173,48 +172,3 @@ sub processData {
     }
   }
 }
-
-sub unshiftBytes {
-  # Display the byte information without decrypting, a variation on &decryptBytes
-  # Needed to display Block 8 in decimal so I can treat it like everyting else.
-  # Not not really decrypted, just not changing the variables from &decryptBytes
-  my ($byteArray) = @_;
-  my @byteArray = @{ $byteArray }; 
-  my $size = @byteArray;
-  my @decryptedBytes = (); 
-  my ($decryptedChunk, $decryptedBytes, $chunk);
-  my $padding;
-  # Add padding to 4 bytes
-  ($byteArray, $padding) = &addPadding (\@byteArray);
-  @byteArray = @ {$byteArray };
-  my $paddedSize = $size + $padding;
-  # Now decrypt, processing 4 bytes at a time
-  @decryptedBytes = ();
-  for (my $i = 0; $i <  $paddedSize; $i+=4) {
-    # Swap bytes using indexes in this order:  4 3 2 1
-    $chunk =  (
-        (ord($byteArray[$i+3]) << 24) | 
-        (ord($byteArray[$i+2]) << 16) | 
-        (ord($byteArray[$i+1]) << 8)  | 
-         ord($byteArray[$i])
-    );
-    # XOR with a (semi) random number
-#    ($newRandom, $seedA, $seedB) = &nextRandom($seedA, $seedB);
-    # Store the random value being used to start the decryption, as I'll 
-    # need it to reencrypt the player information
-#    $decryptedChunk = $chunk ^ $newRandom;
-    $decryptedChunk = $chunk;
-    # Write out the decrypted data, swapped back
-    my $decryptedBytes = $decryptedChunk & 0xFF;
-    push @decryptedBytes, $decryptedBytes;
-    $decryptedBytes = ($decryptedChunk >> 8) & 0xFF;
-    push @decryptedBytes, $decryptedBytes;
-    $decryptedBytes = ($decryptedChunk >> 16) & 0xFF;
-    push @decryptedBytes, $decryptedBytes;
-    $decryptedBytes = ($decryptedChunk >> 24) & 0xFF;
-    push @decryptedBytes, $decryptedBytes;
-  }    
-  # Strip off any padding
-  @decryptedBytes = &stripPadding(\@decryptedBytes, $padding);
-  return \@decryptedBytes, $padding;
-}   

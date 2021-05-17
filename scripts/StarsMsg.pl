@@ -149,7 +149,10 @@ sub processData {
      } 
     my $singularNameLength = $decryptedData[$index] & 0xFF;
     my $singularMessageEnd = $index + $singularNameLength;
-    my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
+    # changed this 210516
+    #my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
+    my $pluralNameLength = $decryptedData[$index+$singularNameLength+1] & 0xFF;
+    if ($pluralNameLength == 0) { $pluralNameLength = 1; } # Because there's a 0 byte after it
     $playerId++; # As 0 is "Everyone" need to use representative IDs
     $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
     $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
@@ -162,7 +165,7 @@ sub processData {
     my $byte8 =  &read16(\@decryptedData, 8); # unknown
     my $messageBytes = &read16(\@decryptedData, 10);
     my $messageLength = $size -1;
-    $message = &decodeBytesForStarsMessage(@decryptedData[11..$messageLength]);
+    $message = &decodeBytesForStarsString(@decryptedData[11..$messageLength]);
     if ($debug) { print "typeId: $typeId\n"; }
     if ($debug) { print "\nDATA DECRYPTED:" . join ( " ", @decryptedData ), "\n"; }
 #    print "From: $senderId, To: $recipientId, \"$message\"\n"; 
