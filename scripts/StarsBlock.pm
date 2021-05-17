@@ -111,7 +111,7 @@ our @EXPORT = qw(
   showPRT showLRT
   showFactoriesCost1LessGerm
   showMTItems
-  decodeBytesForStarsString decodeBytesForStarsMessage
+  decodeBytesForStarsString
   getPlayers resetPlayers
   resetRace showRace
   StarsClean decryptClean
@@ -122,6 +122,7 @@ our @EXPORT = qw(
   getMask
   PLogOut
   shiftBytes unshiftBytes
+  raceCheckSum
 );  
 
 my $debug = 1;
@@ -140,7 +141,12 @@ sub StarsPWD {
                   139, 149, 151, 157, 163, 167, 173, 179,
                   181, 191, 193, 197, 199, 211, 223, 227,
                   229, 233, 239, 241, 251, 257, 263, 279,
-                  271, 277, 281, 283, 293, 307, 311, 313 
+                  271, 277, 281, 283, 293, 307, 311, 313,
+                  
+                  317,331,337,347,349,353,359,367,373,379,383,389,397,401,409,419,
+                  421,431,433,439,443,449,457,461,463,467,479,487,491,499,503,509,
+                  521,523,541,547,557,563,569,571,577,587,593,599,601,607,613,617,
+                  619,631,641,643,647,653,659,661,673,677,683,691,701,709,719,727
           );
   
 #  my $MFile = $File_HST . '/' . $GameFile . '/' . $GameFile . '.m' . $Player;
@@ -820,7 +826,10 @@ sub displayBlockRace {
         }  
         my $singularNameLength = $decryptedData[$index] & 0xFF;
         my $singularMessageEnd = $index + $singularNameLength;
-        my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
+        # changed this 210516
+        #my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
+        my $pluralNameLength = $decryptedData[$index+$singularNameLength+1] & 0xFF;
+        if ($pluralNameLength == 0) { $pluralNameLength = 1; } # Because there's a 0 byte after it
         my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
         my $pluralRaceName = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
         
@@ -1055,18 +1064,17 @@ sub showMTItems {
   else { $string[0] = "None"; return @string }
 }
 
-#Duplicate of decodeBytesforStarsMsg ??
 sub decodeBytesForStarsString {
   my (@res) = @_;
   my $hexChars='';
   my ($b, $b1,$b2, $firstChar, $secondChar);
   my ($ch1, $ch2, $index, $result);
-  #$hexDigits      = "0123456789ABCDEF";
+  #$hexDigits        = "0123456789ABCDEF";
   my $encodesOneByte = " aehilnorst";
   my $encodesB       = "ABCDEFGHIJKLMNOP";
   my $encodesC       = "QRSTUVWXYZ012345";
   my $encodesD       = "6789bcdfgjkmpquv";
-  my $encodesE       = "wxyz+-,!.?:;\'*%\$";
+  my $encodesE       = "wxyz+-,!.?:;\'*%\$";  # the \ character here is escaping the ' and $
 
   for (my $i = 1; $i < scalar(@res); $i++) {
     $b = $res[$i];
@@ -1100,101 +1108,25 @@ sub decodeBytesForStarsString {
   		$t++;  # need to advance twice
   	}
   	elsif ($ch1 eq 'E'){
+      # use next nibble
   		$ch2 = substr($hexChars,$t+1,1);
   		$index = &parseInt($ch2,16);
   		$result .= substr($encodesE, $index, 1);
   		$t++;
   	}
   	elsif ($ch1 eq 'D'){
+      # use next nibble
   		$ch2 = substr($hexChars,$t+1,1);
   		$index = &parseInt($ch2,16);
   		$result .= substr($encodesD, $index, 1);
   		$t++;
   	}
   	elsif ($ch1 eq 'C'){
+      # use next nibble
   		$ch2 = substr($hexChars,$t+1,1);
   		$index = &parseInt($ch2,16);
   		$result .= substr($encodesC, $index, 1);
 		  $t++;
-  	}
-  	elsif ($ch1 eq 'B'){
-  		$ch2 = substr($hexChars,$t+1,1);
-  		$index = &parseInt($ch2,16);
-  		$result .= substr($encodesB, $index, 1);
-  		$t++;
-  	}
-  	else {
-  		$index = &parseInt($ch1,16);
-  		$result .= substr($encodesOneByte, $index, 1);
-  	}
-  }
-	return $result;
-}
-
-# Duplicate of forStarsString?
-sub decodeBytesForStarsMessage {
-  my (@res) = @_;
-  my $hexChars='';
-  my ($b, $b1,$b2, $firstChar, $secondChar);
-  my ($ch1, $ch2, $index, $result);
-  #$hexDigits      = "0123456789ABCDEF";
-  my $encodesOneByte = " aehilnorst";
-  my $encodesB       = "ABCDEFGHIJKLMNOP";
-  my $encodesC       = "QRSTUVWXYZ012345";
-  my $encodesD       = "6789bcdfgjkmpquv";
-  my $encodesE       = "wxyz+-,!.?:;\'*%\$";
-
-  for (my $i = 1; $i < scalar(@res); $i++) {
-    $b = $res[$i];
-    $b1 = ($b & 0xff) >> 4; # the left nibble of the byte
-    $b2 = ($b & 0xff) % 16; # the right nibble of the byte
-    $firstChar = &nibbleToChar($b1);
-    $secondChar = &nibbleToChar($b2);
-    $hexChars .= $firstChar;
-    $hexChars .= $secondChar;
-  }
-  for (my $t = 0; $t < length($hexChars); $t++) {
-  	$ch1 = substr($hexChars,$t,1);
-  	if ($ch1 eq 'F'){
-      # Use 3 nibbles
-      # BUG: Should likely be using charToNibble here
-      # In some cases this is the last character
-      unless ($t+2 > length($hexChars)) {
-        my $ch3 = substr($hexChars,$t+2,1);  # Get hex character
-        $ch3 = hex ($ch3); # convert to decimal
-        $ch3 = &dec2bin($ch3);  # convert to binary
-        $ch3 = substr($ch3,-4);  # convert to nibble
-        my $ch4 = substr($hexChars,$t+1,1);
-        $ch4 = hex ($ch4); # convert to decimal
-        $ch4 = &dec2bin($ch4); # convert to binary
-        $ch4 = substr($ch4,-4); # convert to nibble
-        $ch2 = $ch3 . $ch4;
-        $ch2 = chr(&bin2dec($ch2));
-        $result .= $ch2;
-      }
-      $t++;  # need to advance twice (format to make more readable)
-  		$t++;  # need to advance twice
-  	}
-  	elsif ($ch1 eq 'E'){
-      # use next nibble
-      $ch2 = substr($hexChars,$t+1,1);
-  		$index = &parseInt($ch2,16);
-  		$result .= substr($encodesE, $index, 1);
-  		$t++;
-  	}
-  	elsif ($ch1 eq 'D'){
-      # use next nibble
-  		$ch2 = substr($hexChars,$t+1,1);
-  		$index = &parseInt($ch2,16);
-  		$result .= substr($encodesD, $index, 1);
-  		$t++;
-  	}
-  	elsif ($ch1 eq 'C'){
-      # use next nibble  		
-      $ch2 = substr($hexChars,$t+1,1);
-  		$index = &parseInt($ch2,16);
-  		$result .= substr($encodesC, $index, 1);
-		$t++;
   	}
   	elsif ($ch1 eq 'B'){
       # use next nibble
@@ -1211,6 +1143,7 @@ sub decodeBytesForStarsMessage {
   }
 	return $result;
 }
+
 
 sub getPlayers {
   my ($getBits) = @_;
@@ -1310,7 +1243,10 @@ sub showRace {
   }  
   my $singularNameLength = $decryptedData[$index] & 0xFF;
   my $singularMessageEnd = $index + $singularNameLength;
-  my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
+  # updated 210516
+  #my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
+  my $pluralNameLength = $decryptedData[$index+$singularNameLength+1] & 0xFF;
+  if ($pluralNameLength == 0) { $pluralNameLength = 1; }
   $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
   $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
   $raceData = "playerID: $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
@@ -1482,7 +1418,7 @@ sub showRace {
 #         } 
 #         my $singularNameLength = $decryptedData[$index] & 0xFF;
 #         my $singularMessageEnd = $index + $singularNameLength;
-#         my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
+#         my $pluralNameLength = $decryptedData[$index+2] & 0xFF;  <<<<< This is updated elsewhere
 #         $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
 #         $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
 #         print "playerName $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
@@ -1494,7 +1430,7 @@ sub showRace {
 #         my $byte8 =  &read16(\@decryptedData, 8); # unknown
 #         my $messageBytes = &read16(\@decryptedData, 10);
 #         my $messageLength = $size -1;
-#         my $message = &decodeBytesForStarsMessage(@decryptedData[11..$messageLength]);
+#         my $message = &decodeBytesForStarsString(@decryptedData[11..$messageLength]);
 #         if ($debug) { print "typeId: $typeId\n"; }
 #         if ($debug) { print "\nDATA DECRYPTED:" . join ( " ", @decryptedData ), "\n"; }
 #         print "From: $senderId, To: $recipientId, \"$message\"\n"; 
@@ -2581,5 +2517,51 @@ sub shiftBytes {
   # Strip off any padding
   @shiftedBytes = &stripPadding(\@shiftedBytes, $padding);
   return \@shiftedBytes;
+} 
+
+sub raceCheckSum {  # calculate a race checksum
+  # The race checksum is calculated from the array of decrypted data of Block 6
+  #  without the singular/plural race name data
+  # The singular and plural race names are recalculated as ord arrays, 
+  #  and each padded to 15 characters
+  # Then the data arrray has added to it:
+  # + 0 0    (to replace the race name size fields I suspect) 
+  # + the 1st two ord from the singular name, and the 1st two ord from the plural
+  # + the 2nd two ord from singular, and 2nd two ord from plural
+  # ...
+  # 
+  # the 1st checksum byte is the XOR of the even data bytes
+  # the 2nd checksum byte is the XOR of the odd data bytes
+  
+  my ($decryptedData, $singularRaceName, $pluralRaceName) = @_;
+  my @decryptedData = @{ $decryptedData };
+  my ($checkSum1, $checkSum2);
+  my $datalength = scalar @decryptedData - (1 + length($singularRaceName) + 1 + length($pluralRaceName) + 1);
+  my @dData = @decryptedData[0..$datalength];
+  # get the ascii values of the Race names - singular
+  my @singularRaceNameOrd = unpack("C*", $singularRaceName); #array of ascii values
+  unshift (@singularRaceNameOrd, 0); # add a starting 0
+  for (my $i = scalar @singularRaceNameOrd; $i <= 15; $i++) {
+   push (@singularRaceNameOrd, 0); # Pad out the array
+  }
+  my @pluralRaceNameOrd = unpack("C*", $pluralRaceName); #array of ascii values
+  unshift (@pluralRaceNameOrd, 0); # add a starting 0
+  for (my $i = scalar @pluralRaceNameOrd; $i <= 15; $i++) {
+    push (@pluralRaceNameOrd, 0); # Pad out the array
+  }
+  for (my $i=0; $i <= 15 ; $i=$i+2) { # add ords to the array in pairs (as we do odd/even)
+    push (@dData, $singularRaceNameOrd[$i]);
+    push (@dData, $singularRaceNameOrd[$i+1]);
+    push (@dData, $pluralRaceNameOrd[$i]);
+    push (@dData, $pluralRaceNameOrd[$i+1]);
+  }
+  for (my $i = 0; $i < scalar @dData; $i=$i+2) {
+    $checkSum1 = $checkSum1^int($dData[$i]);  # Force numification
+  }
+  # Checksum 2: Odd bytes
+  for (my $i = 1; $i < scalar @dData; $i=$i+2) {
+    $checkSum2 = $checkSum2^int($dData[$i]); # Force numification
+  }
+  return $checkSum1, $checkSum2;
 } 
 
