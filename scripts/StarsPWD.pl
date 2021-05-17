@@ -239,7 +239,7 @@ sub decryptPWD2 {
           print "Block $typeId password reset!\n";
                                               
           if (uc($ext) =~ /R/ && $pwdreset) { # recalculate the checksum for race files   
-            ($checkSum1, $checkSum2) = &raceCheckSum(\@decryptedData, $singularRaceName[$playerId], $pluralRaceName[$playerId]);
+            ($checkSum1, $checkSum2) = &raceCheckSum(\@decryptedData, $singularRaceName[$playerId], $pluralRaceName[$playerId], $singularNameLenth, $pluralNameLength);
           }
         } else { 
           # In .HST some Player blocks could be password protected, and some not 

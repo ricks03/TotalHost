@@ -319,7 +319,7 @@ sub decryptBlockRace {
         }
         
         # Calculate the race checksums
-        ($checkSum1, $checkSum2) = &raceCheckSum(\@decryptedData, $singularRaceName[$playerId], $pluralRaceName[$playerId]);
+        ($checkSum1, $checkSum2) = &raceCheckSum(\@decryptedData, $singularRaceName[$playerId], $pluralRaceName[$playerId], $singularNameLength, $pluralNameLength);
         print "Calculated Race Checksum: $checkSum1  \t$checkSum2\n";
       }
       # END OF MAGIC

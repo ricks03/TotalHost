@@ -2533,10 +2533,10 @@ sub raceCheckSum {  # calculate a race checksum
   # the 1st checksum byte is the XOR of the even data bytes
   # the 2nd checksum byte is the XOR of the odd data bytes
   
-  my ($decryptedData, $singularRaceName, $pluralRaceName) = @_;
+  my ($decryptedData, $singularRaceName, $pluralRaceName, $singularNameLength, $pluralNameLength) = @_;
   my @decryptedData = @{ $decryptedData };
   my ($checkSum1, $checkSum2);
-  my $datalength = scalar @decryptedData - (1 + length($singularRaceName) + 1 + length($pluralRaceName) + 1);
+  my $datalength = scalar @decryptedData - (1 + $singularNameLength + 1 + $pluralNameLength + 1);
   my @dData = @decryptedData[0..$datalength];
   # get the ascii values of the Race names - singular
   my @singularRaceNameOrd = unpack("C*", $singularRaceName); #array of ascii values
