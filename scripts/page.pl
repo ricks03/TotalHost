@@ -878,8 +878,14 @@ sub show_game {
 			}
 		} 
 
+		# BUG: check the def file for when the game was created, as it's not stored in the DB
+    #   but probably should be
+    my $defFileTime = "$FileHST\\$GameValues{'GameFile'}\\$GameValues{'GameFile'}.def";
+    if (-e $defFileTime) {  
+		  print "<P>Created: ". localtime((stat($defFileTime))[9]);
+    } 
 		# Useful when debugging turn issues to know when the system currently thinks it is.
-		print "<P>Now: ". localtime(time()); 
+    print "<br>Now: ". localtime(time()); 
 		# If next turn is undefined(0) AND it's a game in progress somehow, display that the 
 		# next generation will be immediate
 		if ($GameValues{'NextTurn'} ne 0 && $GameValues{'GameStatus'} ne 7 && $GameValues{'GameStatus'} ne 9 && $GameValues{'GameStatus'} ne 4) { 
