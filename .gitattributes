@@ -6,4 +6,6 @@ html/chromejs/* linguist-vendored
 html/chrometheme/* linguist-vendored
 html/Strategy/* linguist-vendored
 downloads/* linguist-vendored
+database/*.xml linguist-vendored
+database/*.xsd linguist-vendored
 * text=auto
