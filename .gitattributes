@@ -4,5 +4,6 @@
 *.pm linguist-language=Perl
 html/chromejs/* linguist-vendored
 html/chrometheme/* linguist-vendored
+html/Strategy/* linguist-vendored
 downloads/* linguist-vendored
 * text=auto
