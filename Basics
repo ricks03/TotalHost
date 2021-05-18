@@ -1,0 +1,52 @@
+All stars files are divided into blocks. Each block is data about a particular thing: https://wiki.starsautohost.org/wiki/Technical_Information
+
+IF you look at the utility files (Stars*.pl), they're generally breaking down one (or more blocks) as a precursor to use them in TH. Block 8 is in every file type, and is not encrypted (significant because it contains the data to decrypt things, and what type the file is)
+
+
+So most of the utilities do (effectively):
+
+If block 8 then do this
+elsif block 0 then do this
+else
+  decrypt the block (block 0 and 8 aren't encrypted)
+  if block n then output the data in readable format
+  elsif block o then then output the data in readable format
+  elsif block p then then output the data in readable format
+  ...
+
+until it's all the encrypted blocks needed for that particular category. Often that's just a single block. These scripts output the results for that particular block(s) as an initial analysis of the files.
+
+StarsScore displays the data from the Score block, StarsFleet displays the data for fleet blocks. StarsRace displays the data for Race blocks, StarsMsg displays Message blocks. StarsQueue displays the data from the build queue(s), StarsShip the ship blocks, etc.
+
+There's also a "parent" utility I use all the type - StarsByte.pl, which prints out all the blocks in a file with the raw data. And a few utilities that then do data-level analysis or changes (e.g., StarsClean, StarsFix, StarsPWD) which actually remove shared data, fix bugs within the file, change passwords, respectively.
+
+So if you wanted to output an entire .x file, all you'd need to do is create a script that included ALL the code for the decrypted blocks that are in .x files, instead of just a particular subset of blocks.
+
+The output is formatted to show me what all the bytes of that file tell you, bytes at a time. If you just put all of the "if block n then do this" code in a single utility, you could reformat the output in a format however you wanted.
+
+Looking at the code, StarsScore (which itself has block 45, never in .x files) is a REALLY good example of how most everything else works.
+
+For example, starsscore.pl says says:
+if ($typeId == 45) { # PlayerScoresBlock
+...
+}
+
+Adding  elsif typeID= for the other block types from the other utilities:
+elsif ($typeId == 30) {}   from StarsPlan for the battle plan block
+elsif ($typeId == 6} {} from StarsRace, for the race block
+elsif ($typeId == 13) {}
+elsif ($typeId == 28|29) {}  from StarsQueue for the production queues.
+elsif ($typeId == 40) {} from StarsMsg for the message block
+elsif ($typeId == 1|2|3}
+elsif ($typeId == 4|5) {}
+elsif ($typeId == 6) {}
+elsif ($typeId == 7) {}
+elsif ($typeId == 10) {} (and more, from StarsFleet for fleet info)
+else { print "$TypeId is not included yet!"}
+
+All of those blocks are always bracketted by:
+     # WHERE THE MAGIC HAPPENS
+     # END OF MAGIC
+
+
+Remove the line-by-line printing of data from each block's output, and just format the data and output at the end of each block (which is what my first example, StarsScore, does). All the daughter code for decryption is is StarsBlock.pm; StarsScore is a good baseline/starting point.
