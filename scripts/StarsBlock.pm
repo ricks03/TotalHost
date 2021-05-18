@@ -122,7 +122,7 @@ our @EXPORT = qw(
   getMask
   PLogOut
   shiftBytes unshiftBytes
-  raceCheckSum
+  raceCheckSum  checkRaceCorrupt
 );  
 
 my $debug = 1;
@@ -133,21 +133,6 @@ sub StarsPWD {
   my ($File) = @_;   # .m File is full file path
   use File::Copy;
   #Stars random number generator class used for encryption
-  my @primes = ( 
-                  3, 5, 7, 11, 13, 17, 19, 23, 
-                  29, 31, 37, 41, 43, 47, 53, 59,
-                  61, 67, 71, 73, 79, 83, 89, 97,
-                  101, 103, 107, 109, 113, 127, 131, 137,
-                  139, 149, 151, 157, 163, 167, 173, 179,
-                  181, 191, 193, 197, 199, 211, 223, 227,
-                  229, 233, 239, 241, 251, 257, 263, 279,
-                  271, 277, 281, 283, 293, 307, 311, 313,
-                  
-                  317,331,337,347,349,353,359,367,373,379,383,389,397,401,409,419,
-                  421,431,433,439,443,449,457,461,463,467,479,487,491,499,503,509,
-                  521,523,541,547,557,563,569,571,577,587,593,599,601,607,613,617,
-                  619,631,641,643,647,653,659,661,673,677,683,691,701,709,719,727
-          );
   
 #  my $MFile = $File_HST . '/' . $GameFile . '/' . $GameFile . '.m' . $Player;
   &PLogOut(300, "Password Reset Started for : $File", $LogFile);
@@ -329,7 +314,12 @@ sub initDecryption {
                   139, 149, 151, 157, 163, 167, 173, 179,
                   181, 191, 193, 197, 199, 211, 223, 227,
                   229, 233, 239, 241, 251, 257, 263, 279,
-                  271, 277, 281, 283, 293, 307, 311, 313 
+                  271, 277, 281, 283, 293, 307, 311, 313,
+                  
+                  317,331,337,347,349,353,359,367,373,379,383,389,397,401,409,419,
+                  421,431,433,439,443,449,457,461,463,467,479,487,491,499,503,509,
+                  521,523,541,547,557,563,569,571,577,587,593,599,601,607,613,617,
+                  619,631,641,643,647,653,659,661,673,677,683,691,701,709,719,727
           );
 
   # Convert fileBytes back to an array. Use two prime numbers as random seeds.
@@ -2564,4 +2554,87 @@ sub raceCheckSum {  # calculate a race checksum
   }
   return $checkSum1, $checkSum2;
 } 
+
+
+###
+
+sub checkRaceCorrupt {
+  my ($filename) = @_;
+
+  my $FileValues;
+  my @fileBytes;
+  open(StarFile, "<$filename");
+  binmode(StarFile);
+  while (read(StarFile, $FileValues, 1)) {
+    push @fileBytes, $FileValues; 
+  }
+  close(StarFile);
+  
+  # Decrypt the data, block by block
+  my @block;
+  my @data;
+  my ($decryptedData, $encryptedBlock, $padding);
+  my @decryptedData;
+  my @encryptedBlock;
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ( $seedA, $seedB );
+  my ( $typeId, $size );
+  my $offset = 0; #Start at the beginning of the file
+  my $pwdreset;
+  my ($checkSum1, $checkSum2);
+  while ($offset < @fileBytes) {
+    # Get block info and data
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
+    if ($typeId == 8) { # FileHeaderBlock, never encrypted
+      # We always have this data before getting to block 6, because block 8 is first
+      # If there are two (or more) block 8s, the seeds reset for each block 8
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
+      ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+      my ($unshiftedData) = &unshiftBytes(\@data); 
+      my @unshiftedData = @{ $unshiftedData };
+      # If this is a race file, validate the checksum
+      if (uc($ext) =~ /R/) {
+        unless ($unshiftedData[0] == $checkSum1 && $unshiftedData[1] == $checkSum2 ) {
+          return 1;   # This race file is corrupt
+        } else {
+          return 0; # This race file is not corrupt
+        }
+      }
+    } else {
+      # Everything else needs to be decrypted
+      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
+      @decryptedData = @{ $decryptedData };
+      # WHERE THE MAGIC HAPPENS
+      if ($typeId == 6) { # Player Block
+        $playerId = $decryptedData[0] & 0xFF; # A Race file should have a player ID of 255
+        my $fullDataFlag = ($decryptedData[6] & 0x04); 
+        # We figure out names here, because they're here at 8 when not fullDataFlag 
+        my $index = 8; 
+        if ($fullDataFlag) { 
+          # The player names are at the end and are not a fixed length,
+          # The number of player relations bytes change where the names start   
+          # That also changes whether it's a fullData set or not. 
+          $index = 112;
+          my $playerRelationsLength = $decryptedData[112]; 
+          $index = $index + $playerRelationsLength + 1;
+        }  
+        my $singularNameLength = $decryptedData[$index] & 0xFF;
+        my $singularMessageEnd = $index + $singularNameLength;
+        my $pluralNameLength = $decryptedData[$index+$singularNameLength+1] & 0xFF;
+        if ($pluralNameLength == 0) { $pluralNameLength = 1; } # Because there's a 0 byte after it
+        $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+        $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
+         # Calculate the race checksums
+        ($checkSum1, $checkSum2) = &raceCheckSum(\@decryptedData, $singularRaceName[$playerId], $pluralRaceName[$playerId], $singularNameLength, $pluralNameLength);
+      }
+      # END OF MAGIC
+    }
+    $offset = $offset + (2 + $size); 
+  }
+}
 
