@@ -1,4 +1,8 @@
 # Auto detect text files and perform LF normalization
-*.pm linguist-detectable=false
-*.pl linguist-detectable=true
+#*.pm linguist-detectable=false
+# downloads/* linguist-detectable=false
+*.pm linguist-language=Perl
+html/chromejs/* linguist-vendored
+html/chrometheme/* linguist-vendored
+downloads/* linguist-vendored
 * text=auto
