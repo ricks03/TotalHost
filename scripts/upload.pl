@@ -113,6 +113,16 @@ sub ValidateFileUpload {
           return 0;    
       }
       
+      # Check to see if the race file is corrupt
+      if (&checkRaceCorrupt($File_Loc)) {
+        $err .= 'This race file is corrupt!!!';
+        &LogOut (0, "ValidateFileUpload: Race file $File_Loc corrupt for $userlogin",$ErrorLog);
+        &LogOut (0, "ValidateFileUpload: Currupt Race file: Deleted $File_Loc",$ErrorLog);
+        # BUG: Danger deleting user-defined files. 
+        unlink $File_Loc;
+        return 0;
+     }
+
   		# check the file for valid information
   		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
   
@@ -121,6 +131,8 @@ sub ValidateFileUpload {
   		if ( $checkmagic && $checkversion ) { # If this is indeed a valid Stars file
   
   			if ( $dt == 5 ) { # If it is a race file
+        
+          
   				# If the file doesn't exist already
           # Read in the user information so we know where to put the race file
           $sql = qq|SELECT * FROM User WHERE User_Login = '$userlogin';|;
