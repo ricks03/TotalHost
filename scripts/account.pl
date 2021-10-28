@@ -120,7 +120,7 @@ sub add_user {
   	$Date =&GetTimeString();
   	$hash = $in{'User_Password'} . $secret_key;
   	$passhash = sha1_hex($hash); 
-  	$sql = "INSERT INTO User ([User_Login], [User_Last], [User_First], [User_Password], [User_Email], [User_Status], [User_Creation], [User_Modified], [EmailTurn], [EmailList]) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', '-5','$Date','$Date', 1, 1);";
+  	$sql = "INSERT INTO User ([User_Login], [User_Last], [User_First], [User_Password], [User_Email], [User_Status], [User_Creation], [User_Modified], [EmailTurn], [EmailList]) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', -5,'$Date','$Date', 1, 1);";
   	&LogOut(100,$sql,$SQLLog);
   	if (&DB_Call($db,$sql)) { print "<P>Done!  Check your email to activate your account. \n"; }
   	else { print '<P>Error creating account. Duplicate User ID?'; &LogOut(10,"ERROR: Adding New User $in{'User_Login'} $in{'User_Email'}",$ErrorLog);}
@@ -184,9 +184,20 @@ sub activate_user {
 		$session->param("userlogin", $User_Login);
 		$session->param("email", $User_Email);
 		&LogOut(100,"Account Activated for $User_Login",$LogFile);
+    # Get the serial number for this user
+    # which will be the serial number of the line of the corresponding User ID. 
+    # We lose some this way, but we have 7 million so I think it will be ok. 
+    my $user_serial;
+   if (-e $File_Serials) { # If the serial file exists
+      open (IN_FILE,$File_Serials) || &LogOut(0,"Can\'t open Serials File $File_Serials",$ErrorLog);
+      chomp(my @serials = <IN_FILE>);
+		  close(IN_FILE);
+      my $id_update = $User_ID + 1; 
+      $user_serial = $serials[$id_update]; # to match line number of serial file
+    } else { &LogOut(0,"Missing Serials File $File_Serials",$ErrorLog);}
 		$Date =&GetTimeString();
     $userfile = substr(sha1_hex(time()), 5, 8); 
-		$sql = "UPDATE User SET User_Status='1', User_Modified='$Date', User_File='$userfile'  WHERE User_ID=$id;";
+		$sql = "UPDATE User SET User_Status=1, User_Modified='$Date', User_File='$userfile', User_Serial='$user_serial'  WHERE User_ID=$id;";
 		&LogOut(100,$sql,$SQLLog);
 		&DB_Call($db,$sql);
 		$redirect = $WWW_HomePage . $Location_Scripts . '/page.pl';
@@ -224,7 +235,7 @@ sub reset_user {
   	$new_password = sha1_hex($temp);
   	$Date =&GetTimeString();
   	# add new temporary password to database
-  	$sql = "UPDATE User SET User_Password='$new_password', User_Status='2', User_Modified='$Date' WHERE User_ID=$id;";
+  	$sql = "UPDATE User SET User_Password='$new_password', User_Status=2, User_Modified='$Date' WHERE User_ID=$id;";
   	&LogOut(100,$sql,$SQLLog);
   	&DB_Call($db,$sql);
   	&DB_Close($db);
@@ -297,7 +308,7 @@ sub reset_password2 {
 		$hash = $new_password . $secret_key;
 		$userhash = sha1_hex($hash); 
 		$Date = &GetTimeString();
-		$sql = "UPDATE User SET User_Password='$userhash', User_Status='1', User_Modified='$Date' WHERE User_ID=$id;";
+		$sql = "UPDATE User SET User_Password='$userhash', User_Status=1, User_Modified='$Date' WHERE User_ID=$id;";
 		&LogOut(100,$sql,$SQLLog);
 		&DB_Call($db,$sql);
 		print "Password Updated for $in{'User_Login'}.";		

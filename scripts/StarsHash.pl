@@ -1,5 +1,6 @@
-# StarsByte.pl
-# Displays Stars! Block Data
+# StarsHash.pl
+# Deals with Block 9 File Hash Block
+# NOT WORKING
 #
 # Rick Steeves
 # starsah@corwyn.net
@@ -24,8 +25,25 @@
 #
 
 # Displays the bytes of a Stars! Block
+# Copy Protection Activates When Editing an Allies Turn File
+# https://wiki.starsautohost.org/wiki/Known_Bugs
 
-# Example Usage: StarsByte.pl c:\stars\game.m1
+# Factors in 
+#// Fills in the vrgbEnvCur buffer with the following:
+#// szWork[0] - szWork[3] : Label C:
+#// szWork[4] - szWork[5] : C: date/time of volume
+#// szWork[6] - szWork[8] : Label D:
+#// szWork[9]             : D: date/time of volume
+#// szWork[10]            : C: and D: drive size in 100's of MB
+#// Returns the length of vrgbEnvCur data (usually 11)
+
+# GlobalSettings=IUK30dFAN9eY1pKABAL3tVcWUpnp
+# is for SAH62J1E
+
+# GlobalSettings=DVK31UFA29lCFpKAAwZb1VcW1onp
+# is for E2WAENCB
+
+# Example Usage: StarsHash.pl c:\stars\game.x1
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
@@ -48,20 +66,7 @@ unless ($inBlock) { $inBlock = -1;}
 $filename = $inName;
 
 if (!($inName)) { 
-  print "\n\nDisplays the (decrypted) byte information in Stars! blocks.\n";
-  print "Will delimited-output Block Type, and bytes in decimal (or binary).\n";
-  print "If you include the Block Type, will list only that block type.\n";
-  print "For binary, add a third command line parameter.\n";
-  print "\nUsage: StarsByte.pl <input> <Block Type (optional)>\n\n";
-  print "Please enter the Stars! file as input. Example: \n";
-  print "  StarsByte.pl c:\\games\\test.m6 43 1\n\n";
-  print "Worth noting that if the specific data is \n";
-  print "two bytes, the data is stored: \n";
-  print "  A B C D E F\n";
-  print "but actually read by Stars! as:\n";
-  print "  (B A) (D C) (F E)\n\n";
-  print "Data is also often tightly packed, so the binary result represents\n";
-  print "the information using the bits (0 or 1).\n";
+  print "\n\nDisplays the hash information in Stars! blocks.\n";
   exit;
 }
 
@@ -118,32 +123,34 @@ sub decryptBlock {
       # Convert the nonencrypted Block 8 data
       my ($unshiftedData) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
-      &processData(\@unshiftedData,$typeId,$offset,$size);
+      if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
+      if ($debug) { print "DATA UNSHIFTED:" . join (" ", @unshiftedData), "\n"; }
 
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
-      $seedX = $seedA; # Used to reverse the decryption
-      $seedY = $seedB; # Used to reverse the decryption
-      push @outBytes, @block;
-    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+      my $gameId = &read32(\@unshiftedData, 4); 
+      print "gameId: $gameId  lidGame: $lidGame\n";
+    } elsif ($typeId == 0) {
       my ($unshiftedData) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
-      &processData(\@unshiftedData,$typeId,$offset,$size);
-      push @outBytes, @block;
+      $debug = 1;
+      if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
+      if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
+
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
+      $debug = 1;
+      if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
+      if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
-      &processData(\@decryptedData,$typeId,$offset,$size);
+      if ($typeId == 9) {
+        &processData(\@decryptedData,$typeId,$offset,$size);
+      }
       # END OF MAGIC
-      #reencrypt the data for output
-      ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
-      @encryptedBlock = @ { $encryptedBlock };
-      if ($debug > 1) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
-      push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
   }
@@ -154,21 +161,10 @@ sub processData {
   # Display the byte information
   my ($decryptedData,$typeId,$offset,$size)  = @_;
   my @decryptedData = @{ $decryptedData };
+  my $ordersSum = &read16(\@decryptedData, 0); print "OrdersSum: $ordersSum\n";
 
-  if ($inBlock == $typeId || $inBlock == -1) {
-    if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
-    if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-    if ($inBin) {
-      if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
-      my $counter =0;
-      foreach my $key ( @decryptedData ) { 
-        #print "byte  $counter:\t$key\t" . &dec2bin($key); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
-        print "$counter:$key\t" . substr(&dec2bin($key),8,8); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
-        $counter++;
-      }  
-      print "\n";    
-    } else {
-#      print "\t" . join ( "\t", @decryptedData ), "\n";
-    }
-  }
+#The remaining 15 bytes are Machine and Serial no hashes according to PaulCr.
+  
+  die;
 }
+

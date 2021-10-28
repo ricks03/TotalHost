@@ -557,7 +557,6 @@ print qq|</div>\n|;
 
 print qq|<!--5th drop down menu --> \n|;
 print qq|<div id="dropmenu5" class="dropmenudiv" style="width: 150px;">\n|;
-print qq|<a href="$Location_Scripts/index.pl?lp=home&cp=downloads">Downloads</a>\n|;
 print qq|<a href="$Location_Scripts/index.pl?lp=home&cp=faq">FAQ</a>\n|;
 print qq|<a href="$Location_Scripts/index.pl?lp=home&cp=features">Features</a>\n|;
 print qq|<a href="$Location_Scripts/index.pl?lp=home&cp=orderofevents">Order of Events</a>\n|;

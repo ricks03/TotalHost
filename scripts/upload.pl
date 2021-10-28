@@ -121,7 +121,7 @@ sub ValidateFileUpload {
         # BUG: Danger deleting user-defined files. 
         unlink $File_Loc;
         return 0;
-     }
+      }   
 
   		# check the file for valid information
   		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
