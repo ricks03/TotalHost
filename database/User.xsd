@@ -15,24 +15,10 @@
 <od:index index-name="PrimaryKey" index-key="User_Login " primary="yes" unique="yes" clustered="no" order="asc"/>
 <od:index index-name="User_ID" index-key="User_ID " primary="no" unique="no" clustered="no" order="asc"/>
 <od:index index-name="USerID" index-key="User_Login " primary="no" unique="no" clustered="no" order="asc"/>
-<od:tableProperty name="OrderByOn" type="1" value="0"/>
+<od:tableProperty name="OrderByOn" type="1" value="1"/>
 <od:tableProperty name="Orientation" type="2" value="0"/>
 <od:tableProperty name="DefaultView" type="2" value="2"/>
-<od:tableProperty name="GUID" type="9" value="jRgsqTh/N0KKfsvJf91fUg==
-"/>
-<od:tableProperty name="DisplayViewsOnSharePointSite" type="2" value="1"/>
-<od:tableProperty name="TotalsRow" type="1" value="0"/>
-<od:tableProperty name="FilterOnLoad" type="1" value="0"/>
-<od:tableProperty name="OrderByOnLoad" type="1" value="1"/>
-<od:tableProperty name="HideNewField" type="1" value="0"/>
-<od:tableProperty name="BackTint" type="6" value="100"/>
-<od:tableProperty name="BackShade" type="6" value="100"/>
-<od:tableProperty name="ThemeFontIndex" type="4" value="-1"/>
-<od:tableProperty name="AlternateBackThemeColorIndex" type="4" value="-1"/>
-<od:tableProperty name="AlternateBackTint" type="6" value="100"/>
-<od:tableProperty name="AlternateBackShade" type="6" value="100"/>
-<od:tableProperty name="DatasheetGridlinesThemeColorIndex" type="4" value="-1"/>
-<od:tableProperty name="DatasheetForeThemeColorIndex" type="4" value="-1"/>
+<od:tableProperty name="OrderBy" type="12" value="User.User_ID"/>
 </xsd:appinfo>
 </xsd:annotation>
 <xsd:complexType>
@@ -43,10 +29,6 @@
 <od:fieldProperty name="ColumnWidth" type="3" value="-1"/>
 <od:fieldProperty name="ColumnOrder" type="3" value="1"/>
 <od:fieldProperty name="ColumnHidden" type="1" value="0"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
 </xsd:appinfo>
 </xsd:annotation>
 </xsd:element>
@@ -63,10 +45,6 @@
 <od:fieldProperty name="IMEMode" type="2" value="0"/>
 <od:fieldProperty name="IMESentenceMode" type="2" value="3"/>
 <od:fieldProperty name="UnicodeCompression" type="1" value="1"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
 </xsd:appinfo>
 </xsd:annotation>
 <xsd:simpleType>
@@ -88,10 +66,6 @@
 <od:fieldProperty name="IMEMode" type="2" value="0"/>
 <od:fieldProperty name="IMESentenceMode" type="2" value="3"/>
 <od:fieldProperty name="UnicodeCompression" type="1" value="1"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
 </xsd:appinfo>
 </xsd:annotation>
 <xsd:simpleType>
@@ -113,10 +87,6 @@
 <od:fieldProperty name="IMEMode" type="2" value="0"/>
 <od:fieldProperty name="IMESentenceMode" type="2" value="3"/>
 <od:fieldProperty name="UnicodeCompression" type="1" value="1"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
 </xsd:appinfo>
 </xsd:annotation>
 <xsd:simpleType>
@@ -138,10 +108,6 @@
 <od:fieldProperty name="IMEMode" type="2" value="0"/>
 <od:fieldProperty name="IMESentenceMode" type="2" value="3"/>
 <od:fieldProperty name="UnicodeCompression" type="1" value="1"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
 </xsd:appinfo>
 </xsd:annotation>
 <xsd:simpleType>
@@ -163,10 +129,6 @@
 <od:fieldProperty name="IMEMode" type="2" value="0"/>
 <od:fieldProperty name="IMESentenceMode" type="2" value="3"/>
 <od:fieldProperty name="UnicodeCompression" type="1" value="1"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
 </xsd:appinfo>
 </xsd:annotation>
 <xsd:simpleType>
@@ -178,7 +140,7 @@
 <xsd:element name="User_Bio" minOccurs="0" od:jetType="text" od:sqlSType="nvarchar">
 <xsd:annotation>
 <xsd:appinfo>
-<od:fieldProperty name="ColumnWidth" type="3" value="-1"/>
+<od:fieldProperty name="ColumnWidth" type="3" value="1305"/>
 <od:fieldProperty name="ColumnOrder" type="3" value="0"/>
 <od:fieldProperty name="ColumnHidden" type="1" value="0"/>
 <od:fieldProperty name="Required" type="1" value="0"/>
@@ -187,10 +149,6 @@
 <od:fieldProperty name="IMEMode" type="2" value="0"/>
 <od:fieldProperty name="IMESentenceMode" type="2" value="3"/>
 <od:fieldProperty name="UnicodeCompression" type="1" value="1"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
 </xsd:appinfo>
 </xsd:annotation>
 <xsd:simpleType>
@@ -212,10 +170,6 @@
 <od:fieldProperty name="IMEMode" type="2" value="0"/>
 <od:fieldProperty name="IMESentenceMode" type="2" value="3"/>
 <od:fieldProperty name="UnicodeCompression" type="1" value="1"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
 </xsd:appinfo>
 </xsd:annotation>
 <xsd:simpleType>
@@ -234,10 +188,6 @@
 <od:fieldProperty name="Format" type="10" value="Yes/No"/>
 <od:fieldProperty name="Required" type="1" value="0"/>
 <od:fieldProperty name="DisplayControl" type="3" value="106"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
 </xsd:appinfo>
 </xsd:annotation>
 </xsd:element>
@@ -254,10 +204,6 @@
 <od:fieldProperty name="IMEMode" type="2" value="0"/>
 <od:fieldProperty name="IMESentenceMode" type="2" value="3"/>
 <od:fieldProperty name="UnicodeCompression" type="1" value="1"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
 </xsd:appinfo>
 </xsd:annotation>
 <xsd:simpleType>
@@ -276,10 +222,6 @@
 <od:fieldProperty name="Format" type="10" value="Yes/No"/>
 <od:fieldProperty name="Required" type="1" value="0"/>
 <od:fieldProperty name="DisplayControl" type="3" value="106"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
 </xsd:appinfo>
 </xsd:annotation>
 </xsd:element>
@@ -293,28 +235,20 @@
 <od:fieldProperty name="Format" type="10" value="Yes/No"/>
 <od:fieldProperty name="Required" type="1" value="0"/>
 <od:fieldProperty name="DisplayControl" type="3" value="106"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
 </xsd:appinfo>
 </xsd:annotation>
 </xsd:element>
-<xsd:element name="User_Status" minOccurs="0" od:jetType="byte" od:sqlSType="tinyint" type="xsd:unsignedByte">
+<xsd:element name="User_Status" minOccurs="0" od:jetType="integer" od:sqlSType="smallint" type="xsd:short">
 <xsd:annotation>
 <xsd:appinfo>
 <od:fieldProperty name="ColumnWidth" type="3" value="-1"/>
 <od:fieldProperty name="ColumnOrder" type="3" value="0"/>
 <od:fieldProperty name="ColumnHidden" type="1" value="0"/>
+<od:fieldProperty name="Description" type="10" value="Active/Banned/Pending (hmm add active registered and active unregistered)"/>
 <od:fieldProperty name="DecimalPlaces" type="2" value="255"/>
 <od:fieldProperty name="DefaultValue" type="12" value="0"/>
 <od:fieldProperty name="Required" type="1" value="0"/>
 <od:fieldProperty name="DisplayControl" type="3" value="109"/>
-<od:fieldProperty name="Description" type="10" value="Active/Banned/Pending (hmm add active registered and active unregistered)"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
 </xsd:appinfo>
 </xsd:annotation>
 </xsd:element>
@@ -331,10 +265,6 @@
 <od:fieldProperty name="IMEMode" type="2" value="0"/>
 <od:fieldProperty name="IMESentenceMode" type="2" value="3"/>
 <od:fieldProperty name="UnicodeCompression" type="1" value="1"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
 </xsd:appinfo>
 </xsd:annotation>
 <xsd:simpleType>
@@ -356,10 +286,27 @@
 <od:fieldProperty name="IMEMode" type="2" value="0"/>
 <od:fieldProperty name="IMESentenceMode" type="2" value="3"/>
 <od:fieldProperty name="UnicodeCompression" type="1" value="1"/>
-<od:fieldProperty name="TextAlign" type="2" value="0"/>
-<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-<od:fieldProperty name="ResultType" type="2" value="0"/>
-<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
+</xsd:appinfo>
+</xsd:annotation>
+<xsd:simpleType>
+<xsd:restriction base="xsd:string">
+<xsd:maxLength value="50"/>
+</xsd:restriction>
+</xsd:simpleType>
+</xsd:element>
+<xsd:element name="User_Serial" minOccurs="0" od:jetType="text" od:sqlSType="nvarchar">
+<xsd:annotation>
+<xsd:appinfo>
+<od:fieldProperty name="ColumnWidth" type="3" value="-1"/>
+<od:fieldProperty name="ColumnOrder" type="3" value="0"/>
+<od:fieldProperty name="ColumnHidden" type="1" value="0"/>
+<od:fieldProperty name="Description" type="10" value="Stars Serial Number"/>
+<od:fieldProperty name="Required" type="1" value="0"/>
+<od:fieldProperty name="AllowZeroLength" type="1" value="1"/>
+<od:fieldProperty name="DisplayControl" type="3" value="109"/>
+<od:fieldProperty name="IMEMode" type="2" value="0"/>
+<od:fieldProperty name="IMESentenceMode" type="2" value="3"/>
+<od:fieldProperty name="UnicodeCompression" type="1" value="1"/>
 </xsd:appinfo>
 </xsd:annotation>
 <xsd:simpleType>
