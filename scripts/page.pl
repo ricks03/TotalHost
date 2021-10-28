@@ -2466,7 +2466,8 @@ sub read_def {
 		print "<P>Game Definition File not found!\n"; 
 		&LogOut(0,"read_def: Game Definition File $def_file not found for $userlogin",$ErrorLog);
 	}
- 	return \@Universe, \@Victory;
+# 	return \@Universe, \@Victory;
+  return "";  # BUG: Again, I don't know why I have to return noting here. 
 }
 
 sub read_game {
@@ -2512,7 +2513,8 @@ sub read_game {
 		if ($c/$col == int($c/$col)) { print qq|</tr><tr>|; }
 	}
 	print qq|</tr></table>\n|;
- 	return @Values;
+# 	211028 return @Values;
+  return "";     # BUG: I don't know why I have to return blank here. 
 }
 
 sub show_restore {
