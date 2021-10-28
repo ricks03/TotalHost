@@ -567,6 +567,7 @@ sub show_profile {
 	print qq|<tr><td><b>User ID:</b></td><td>$Profile{'User_Login'}</td></tr>\n|;
 	print qq|<tr><td><b>Name:</b></td><td>$Profile{'User_First'} $Profile{'User_Last'}</td></tr>\n|;
 	print qq|<tr><td><b>Email:</b></td><td>$Profile{'User_Email'}</td></tr>\n|;
+	print qq|<tr><td><b>Serial:</b></td><td>$Profile{'User_Serial'}</td></tr>\n|;
 	print qq|<tr><td><b>Bio:</b></td><td>$Profile{'User_Bio'}</td></tr>\n|;
 	print qq|<tr><td><b>Receive Turns via Email:</b></td><td>$Checked_Display[$Profile{'EmailTurn'}]</td></tr>\n|;
 	print qq|<tr><td><b>Receive New Game Notifications:</b></td><td>$Checked_Display[$Profile{'EmailList'}]</td></tr>\n|;
@@ -1190,7 +1191,8 @@ sub show_game {
 		&DB_Close($db); 
     
     # Display the Fixed information to the host
-    if ($GameValues{'HostName'} eq $userlogin) { 
+    # don't display until the game is in progress. 
+    if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} =~ /^[2345]$/ && $HST_Turn != 2400) { 
       print qq|<hr>|; 
       print "<b>Results of the StarsFix Bug/Exploit Detection</b><P>";
       &show_fix($GameValues{'GameFile'}); 
@@ -1411,7 +1413,7 @@ sub show_fix {
 	# Check to see if there is a news file
 	if (!(-e $fixfile)) { # Create the new file if it doesn't exist
   	open (OUT_FILE, ">$fixfile") || die("Cannot create $fixfile file"); 
-  	print OUT_FILE "Results of the StarsFix Bug/Cheat Detection\n";
+  	#print OUT_FILE "Results of the StarsFix Bug/Cheat Detection\n";
   	close(OUT_FILE);
 	} else { open (IN_FILE,$fixfile) || die("Can\'t open fix file");
 		@fixes = <IN_FILE>;

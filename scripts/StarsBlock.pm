@@ -306,6 +306,9 @@ sub initDecryption {
   my ($part1, $part2, $part3, $part4); 
   my ($rounds, $random, $seedA, $seedB);
   #Stars random number generator class used for encryption
+	# * IMPORTANT:  One number here is not prime (279 instead of 269).  
+  # * An analysis of the stars EXE with a hex editor
+	# * also shows a primes table with 279.  Fun!  
   my @primes = ( 
                   3, 5, 7, 11, 13, 17, 19, 23, 
                   29, 31, 37, 41, 43, 47, 53, 59,
@@ -903,15 +906,15 @@ sub displayBlockRace {
 #             } 
 #           } else { print "Player Relations never set\n"; }
           print "<img src=\"$WWW_Image" . "logo" . $logo . ".png\">\n";
-          print "<P>$singularRaceName:$pluralRaceName\n"; 
+          print "<P><u>Race Name</u>: $singularRaceName : $pluralRaceName\n"; 
           print "<P><u>Spend Leftover Points</u>: " . &showLeftoverPoints($spendLeftoverPoints) . "\n";
           print "<P><u>PRT</u>: " . &showPRT($PRT) . "\n";
-          print "<P><u>LRTs:</u> " . join(', ',@LRTs) . "\n";
-          print "<P>Grav: " . &showHab($lowGravity,$centreGravity,$highGravity, 0) . ", Temp: " . &showHab($lowTemperature,$centreTemperature,$highTemperature,1) . ", Rad: " . &showHab($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
+          print "<P><u>LRTs</u>: " . join(', ',@LRTs) . "\n";
+          print "<P><u>Hab</u>: Grav: " . &showHab($lowGravity,$centreGravity,$highGravity, 0) . ", Temp: " . &showHab($lowTemperature,$centreTemperature,$highTemperature,1) . ", Rad: " . &showHab($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
           print "<P><u>Productivity</u>: Colonist " . $resourcePerColonist*100 .", Factory: Produce $producePerFactory, Cost To Build $toBuildFactory, May Operate $operateFactory, Mine: Produce $producePerMine, Resources to Build $toBuildMine, May Operate $operateMine\n";
-          print "<P>FactoriesCost1LessGerm: " . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
+          print "<P><u>FactoriesCost1LessGerm</u>: " . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
           print "<P><u>Research Cost</u>:  Energy " . &showResearchCost($researchEnergy) . ", Weapons " . &showResearchCost($researchWeapons) . ", Propulsion " . &showResearchCost($researchProp). ", Construction " . &showResearchCost($researchConstruction) . ", Electronics " . &showResearchCost($researchElectronics) . ", Biotech " . &showResearchCost($researchBiotech) . "\n";
-          print "<P>Expensive Tech Starts at 3: " . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n";
+          print "<P><u>Expensive Tech Starts at 3</u>: " . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n";
         }
       }
       # END OF MAGIC
@@ -2598,12 +2601,11 @@ sub checkRaceCorrupt {
       my ($unshiftedData) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
       # If this is a race file, validate the checksum
-      if (uc($ext) =~ /R/) {
-        unless ($unshiftedData[0] == $checkSum1 && $unshiftedData[1] == $checkSum2 ) {
-          return 1;   # This race file is corrupt
-        } else {
-          return 0; # This race file is not corrupt
-        }
+
+      unless ($unshiftedData[0] == $checkSum1 && $unshiftedData[1] == $checkSum2 ) {
+        return 1;   # This race file is corrupt
+      } else {
+        return 0; # This race file is not corrupt
       }
     } else {
       # Everything else needs to be decrypted

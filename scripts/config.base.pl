@@ -65,7 +65,9 @@ $FileDownload = 'd:\TH\Download'; #Location where turns & .xy are downloaded
 $FileDownloads = 'd:\TH\Downloads'; #Location of movies
 #$File_Scripts = 'd:/TH/scripts';
 #$ScriptLocation='d:/TH/scripts';
+$File_Serials = 'd:/TH/serialC.txt'; # Text file of serial numbers
 $File_WWWRoot = 'd:/TH/html';
+
 $WWW_Image = '/images/';
 $WWW_Notes = '/Notes/';
 #$WWW_Download = '/Download/';
@@ -131,16 +133,4 @@ $user_style = qq|style="width:120px;height:24;"|;
 
 my (@singularRaceName, @pluralRaceName);
 $singularRaceName[0] = "Everyone";
-# 
-# #Stars random number generator class used for encryption
-# my @primes = ( 
-#                 3, 5, 7, 11, 13, 17, 19, 23, 
-#                 29, 31, 37, 41, 43, 47, 53, 59,
-#                 61, 67, 71, 73, 79, 83, 89, 97,
-#                 101, 103, 107, 109, 113, 127, 131, 137,
-#                 139, 149, 151, 157, 163, 167, 173, 179,
-#                 181, 191, 193, 197, 199, 211, 223, 227,
-#                 229, 233, 239, 241, 251, 257, 263, 279,
-#                 271, 277, 281, 283, 293, 307, 311, 313 
-#         );
-# 
+
