@@ -283,6 +283,8 @@ sub FileData {
 	# break out the incoming file name to useful bits
 	my ($File) = @_;
 	$File = lc($File); 
+  # Strip off any directory
+  # $File =~ s{^.*[:\\/]}{}s;     # remove the leading path  
 	my $game_file = lc($File);
 	$game_file=~ s/(.*)(\..+)/$1/;
 	my $file_player = lc($File);

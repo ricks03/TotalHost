@@ -1,4 +1,4 @@
-# StarsRace.pl
+# StarsPlan.pl
 #
 # Rick Steeves
 # starsah@corwyn.net
@@ -115,9 +115,8 @@ sub decryptBlockPlan {
       print 'Turn: ',$turn+2400,"\n";
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
       #push @outBytes, @block;
-     } elsif ($typeId == 7) {
+     } elsif ($typeId == 7) { # Planet block (.xy file)
       # Note that planet's data requires something extra to decrypt. 
-      # Fortunately block 7 isn't in my test files
       die "BLOCK 7 found. ERROR!\n";
     } else {
       # Everything else needs to be decrypted

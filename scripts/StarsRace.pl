@@ -159,9 +159,6 @@ sub decryptBlockRace {
       } else { 
         push @outBytes, @block;
       }
-    } elsif ($typeId == 7) {
-      # Note that planet's data requires something extra to decrypt. 
-      die "BLOCK 7 found. ERROR! .XY file\n";
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 

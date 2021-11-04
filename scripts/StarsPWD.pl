@@ -162,7 +162,7 @@ sub decryptPWD2 {
 
     if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
     if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
-    
+
     if ($typeId == 8) {  # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
@@ -200,9 +200,8 @@ sub decryptPWD2 {
       } else {
         push @outBytes, @block;
       }
-    } elsif ($typeId == 7) {
+    } elsif ($typeId == 7) { # Planet block (.xy file)
       # Note that planet's data requires something extra to decrypt. 
-      # Fortunately block 7 isn't in my test files
       print "BLOCK 7 found. ERROR! .XY file!\n"; die;
     } else {
       # Everything else needs to be decrypted
