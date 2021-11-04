@@ -1143,21 +1143,6 @@ sub waypointTask {
 #   return ($check); 
 # } 
 
-# sub FileData {
-# 	# break out the incoming file name to useful bits
-# 	my ($File) = @_;
-# 	$File = lc($File); 
-# 	my $game_file = lc($File);
-# 	$game_file=~ s/(.*)(\..+)/$1/;
-# 	my $file_player = lc($File);
-# 	$file_player =~ s/(.*)(\.)(.)(.*)/$4/;
-# 	my $file_type = lc($File); 
-# 	$file_type =~ s/(.*)(\.)(.)(.*)/$3/;
-# 	my $file_ext = lc($File);
-# 	$file_ext =~ s/(.*)(\.)(.*)/$3/;
-# 	return $game_file, $file_player, $file_type, $file_ext; 	
-# }
-
 sub FleetMerge {
   # BUG: Only takes into account Merge, and also needs to take into account
   # move and split

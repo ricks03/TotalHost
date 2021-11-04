@@ -366,6 +366,8 @@ sub decryptBytes {
   @byteArray = @ {$byteArray };
   my $paddedSize = $size + $padding;
   # Now decrypt, processing 4 bytes at a time
+  #BUG: I don't think I need this extra flush of the array
+  #but this would break everythign and I don't want to test it right now.
   @decryptedBytes = ();
   for (my $i = 0; $i <  $paddedSize; $i+=4) {
     # Swap bytes using indexes in this order:  4 3 2 1
@@ -560,10 +562,10 @@ sub decryptPWD {
   my @encryptedBlock;
   my @outBytes;
   my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
-  my ( $random, $seedA, $seedB, $seedX, $seedY);
+  my ( $seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
-  my $pwdreset = 0;
+  my $pwdreset = 0; # has the password been reset
   while ($offset < @fileBytes) {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
@@ -574,8 +576,8 @@ sub decryptPWD {
     &PLogOut(400, "BLOCK typeId: $typeId, Offset: $offset, Size: $size", $LogFile);
     my $BlockRaw = "BLOCK RAW: Size " . @block . ":\n" . join ("", @block);
     &PLogOut(400, $BlockRaw, $LogFile);
-    # FileHeaderBlock, never encrypted
-    if ($typeId == 8) {
+    
+    if ($typeId == 8) {  # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
@@ -585,10 +587,9 @@ sub decryptPWD {
       push @outBytes, @block;
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
       push @outBytes, @block;
-    } elsif ($typeId == 7) {
+    } elsif ($typeId == 7) { # Planet block (.xy file)
       # Note that planet's data requires something extra to decrypt. 
-      # Fortunately block 7 isn't in my test files
-      &PLogOut(0, "BLOCK 7 found. ERROR!", $ErrorLog); die;
+       &PLogOut(0, "BLOCK 7 found. ERROR!", $ErrorLog); die;
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
@@ -596,11 +597,12 @@ sub decryptPWD {
       &PLogOut(400, "DATA DECRYPTED:" . join (" ", @decryptedData), $LogFile);
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
+        # We need the race name info for calculating the race checksum if we reset a race password
+        my $playerId = $decryptedData[0] & 0xFF; 
 # So apparently there are player blocks from other players in the .M file, and
 # If you reset the password in those you corrupt at the very least the player race name 
 #        if (($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) {
         # BUG: Fixing for only PlayerID = Player blocks will break for .HST
-        my $playerId = $decryptedData[0] & 0xFF; 
         if ((($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) && ($playerId == $Player)){
           &PLogOut(200,"Block $offset password blanked for M File", $LogFile);
           print "Block $offset password blanked for M File\n";
