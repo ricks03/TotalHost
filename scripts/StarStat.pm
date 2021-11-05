@@ -22,7 +22,7 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-use TotalHost;
+#use TotalHost;  # Disabled 211105
 package StarStat;
 do 'config.pl';
 
@@ -74,11 +74,11 @@ sub starstat {
 	read(StarFile, $FileValues, 22);
 	close(StarFile);
 
-# BUG: At some point I changed this string to SA4LSSsS but I don't
+# 211104 BUG: At some point I changed this string to SA4LSSsS but I don't
 # know why, and then it didn't line up with statstat.pl	
-# The chase is A2 to S (string) and h8 to L (which is probably a long)
-  $unpack = "A2A4h8SSSS";
-#	$unpack = "SA4LSSsS";
+# The change is A2 to S (string) and h8 to L (which is probably a long)
+#  $unpack = "A2A4h8SSSS";
+	$unpack = "SA4LSSsS";
 	#$Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts
 	@FileValues = unpack($unpack,$FileValues);
 	($Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts) = @FileValues;

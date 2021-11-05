@@ -88,7 +88,7 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
 	$filetype='m';
 	# need to check the database to see whether the logged in user gets access
 	# does the game file, player ID, and user ID exist (aka permitted)? 
-	$sql = qq|SELECT Games.GameFile, User.User_ID, GameUsers.PlayerID FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$gamefile\') AND ((User.User_Login)=\'$userlogin\') AND ((GameUsers.PlayerID)=$turn_id));|;
+	$sql = qq|SELECT Games.GameFile, User.User_ID, GameUsers.PlayerID, GameUsers.PlayerStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$gamefile\') AND ((User.User_Login)=\'$userlogin\') AND ((GameUsers.PlayerID)=$turn_id));|;
 	$db = &DB_Open($dsn);
 	my %GameValues;
 	if (&DB_Call($db,$sql)) { 
@@ -97,7 +97,9 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
 #		while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
 	}
 	else { &error('ERROR: Finding user $userlogin to download file'); }
-	if ($GameValues{'GameFile'}) { $download_ok = 1; }
+  # If the player was found, and not banned from the game (which could get them 
+  # access if they hacked the URL
+	if ($GameValues{'GameFile'} && $GameValues{'PlayerStatus'} ne '3') { $download_ok = 1; }
 	else {
 	#see if they are in the game, and the game permits anyone in the game to download
 		$sql = qq|SELECT Games.GameFile, Games.SharedM, User.User_ID FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$gamefile\') AND ((User.User_Login)=\'$userlogin\') AND ((Games.SharedM)=Yes));|;
