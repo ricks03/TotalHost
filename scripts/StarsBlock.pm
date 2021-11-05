@@ -82,6 +82,7 @@
 
 package StarsBlock;
 #use TotalHost;
+use StarStat;
 do 'config.pl';
 
 require Exporter;
@@ -122,7 +123,8 @@ our @EXPORT = qw(
   getMask
   PLogOut
   shiftBytes unshiftBytes
-  raceCheckSum  checkRaceCorrupt
+  raceCheckSum checkRaceCorrupt
+  checkSerials decryptSerials
 );  
 
 my $debug = 1;
@@ -2642,3 +2644,120 @@ sub checkRaceCorrupt {
   }
 }
 
+sub checkSerials {
+  # Check a Stars Block and return results of analysis. 
+  # Currently only for the .x Block 9 serial/hardware hash 
+  # Stand-alone code is in StarsSecure.pl
+  
+  my ($inFile) = @_;   # The uploaded file
+  use File::Basename;  # Used to get filename components
+  $inFile = basename($inFile);  # The uploaded file name sans path (IE6 fix). 
+  ($game_file, $file_player, $file_type, $file_ext) = &FileData ($inFile); # The filename as component parts  
+  my $uploadFile = $File_Upload . '/' . $inFile; # The uploaded .x file w/ path
+  my $inDir = $FileHST . '\\' . $game_file; # The game directory
+  my %block9;
+  my @block9data; # block 9 data from of a single .x file
+  my $err;  
+  my $FileValues='';
+  my @fileBytes=();
+
+  # get the block9 information for the uploaded file
+  open(StarFile, "<$uploadFile" );
+  binmode(StarFile);
+  while ( read(StarFile, $FileValues, 1)) {
+    push @fileBytes, $FileValues; 
+  }
+  close(StarFile);
+  # Decrypt the data, block by block, to get the Block 9 serial and hardware hash
+  @block9data = &decryptSerials(@fileBytes);
+  $block9{$inFile} = [@block9data]; # store array in a hash
+   
+  # Read game uploaded .x files and  add block 9 data+
+  opendir(DIR, $inDir); 
+  while (defined(my $file = readdir(DIR))) {  
+    my $filename =  $FileHST .'\\' . $game_file . '\\' . $file;
+    next unless ($file =~ /^(\w+[\w.-]+\.[xX]\d{1,2})$/); # skip unless it's a .x[n] file
+    # BUG: index might be better here than regexp?
+    if ($inFile =~ /$file/i) { next; } # Skip if .x file present/uploaded previously 
+
+    # Read in the file
+    @fileBytes=();
+    open(StarFile, "<$filename" );
+    binmode(StarFile);
+    while ( read(StarFile, $FileValues, 1)) {
+      push @fileBytes, $FileValues; 
+    }
+    close(StarFile);
+    # Decrypt the data, block by block, to get the serial and hardware hash
+    @block9data = &decryptSerials(@fileBytes);
+    $block9{$file} = [@block9data]; # store array in a hash
+  }
+  closedir(DIR);
+
+  # Loop through the stored .x file information for comparison
+  foreach my $file1 ( sort keys %block9 ) {
+    # Check it against all the files in the array
+    foreach my $file2 ( sort keys %block9 ) {
+      if ($file1 eq $file2) { next; } # if it's the same file then skip it
+      # Check to see if the serial numbers are the same
+      if (@{$block9{$file1}}[0] eq @{$block9{$file2}}[0]) {
+        # If the serial numbers are the same, the hardware hashes must be the same
+        if (@{$block9{$file1}}[1] eq @{$block9{$file2}}[1]) {
+          # BUG: This should really be added as a warning, but permit a file upload. 
+          # If the serial and hardware hash are the same, it's ok, but the two players 
+          # are on the same PC. 
+          #$err .= "<P>Info   : " . uc($file1) . " same serial/hardware hash as " . uc($file2). ",";
+        } else {
+          # Different computer, same serial. Problem. 
+          $err .= uc($file1) . " same serial as " . uc($file2) . " but different hardware hash,"; 
+        }
+      } else { 
+        #OK     : Different serials in the two files.  
+      } 
+    } 
+  } 
+  # If any results were reported, return them.
+  if ($err) { $err .= "DISCARDING FILE"; }
+  return $err;
+}
+
+sub decryptSerials {
+  my (@fileBytes) = @_;
+  my @block;
+  my @data;
+  my ($decryptedData, $padding);
+  my @decryptedData;
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ($seedA, $seedB);
+  my ($FileValues, $typeId, $size);
+  my $offset = 0; #Start at the beginning of the file
+  my ($hardware, $serial);
+  
+  while ($offset < @fileBytes) {
+    # Get block info and data
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ($typeId, $size) = &parseBlock($FileValues, $offset);
+    # BUG 211101: I could increase performance by not defining @data AND @block
+    #    true across all the copies of this function
+    # shift'ing it twice would do it I think. 
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
+    if ($typeId == 8) { # File Header Block, never encrypted
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+      ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+    } else {
+      # Everything else needs to be decrypted
+      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
+      @decryptedData = @{ $decryptedData };
+      # WHERE THE MAGIC HAPPENS
+      if ($typeId == 9) {
+        $serial = &read32(\@decryptedData, 2);  # serial number, blocks 2-5
+        $hardware = pack("C*", @decryptedData[6..16]); #get the hardware hash as a string
+        return ($serial, $hardware); # might as well stop immediately
+      }
+      # END OF MAGIC
+    }
+    $offset = $offset + (2 + $size); 
+  }
+}
