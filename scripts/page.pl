@@ -251,7 +251,7 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
 # And the CANCEL button uses the value of "show_games"
 } elsif ($in{'cp'} eq 'show_games' || $in{'cp'} eq 'CANCEL') {
 #	$sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile) ON User.User_Login = GameUsers.User_Login GROUP BY Games.GameFile, Games.GameName, Games.GameStatus, User.User_ID HAVING User.User_ID=| . $session->param("userid") . qq|;|;
-	$sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip, Games.HostName FROM Games ORDER BY Games.GameStatus;|;
+	$sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip, Games.HostName FROM Games ORDER BY Games.GameStatus, Games.NextTurn DESC;|;
 	print "<td>"; &list_games($sql, 'All Games'); print "</td>";
 } elsif ($in{'cp'} eq 'show_games_inprogress') {
 	$sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip, Games.HostName FROM Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE GameUsers.User_Login='$userlogin' AND Games.GameStatus>1 AND Games.GameStatus<6 ORDER BY Games.GameStatus;|;
@@ -444,7 +444,7 @@ if ($in{'rp'} eq 'my_games') {
 # Display a list of completed games
 } elsif ($in{'rp'} eq 'games_complete') { 
 	print "<td width=$rp_width>";
-	$sql = "SELECT * FROM Games WHERE GameStatus = 9;";
+	$sql = "SELECT * FROM Games WHERE GameStatus = 9 ORDER BY Games.NextTurn DESC;";
 	&rp_list_games($sql,'Completed Games');
 	print "</td>\n";
 # Display a list of my races
