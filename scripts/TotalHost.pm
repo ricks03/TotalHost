@@ -1200,9 +1200,9 @@ sub show_race_block {
 
 sub process_fix {
 	# When the Fix scripts run (detecting errors) they need to log somewhere. 
-  # And then be available on the host's display.
+  # And then be available on the display.
   # The fix file is stored as .fixed in the folder for the game
-	## The format for each article is id<tab>epochtime<tab>year<tab>story
+	## The format for each entry is id<tab>epochtime<tab>year<tab>result
 	## and stored in chronologic order, newest first
   # Called from upload.pl
 	my ($GameFile, $new_fix) = @_;
@@ -1211,25 +1211,27 @@ sub process_fix {
 	my $HSTFile = $File_HST . '/' . $GameFile . '/' . $GameFile . '.HST';
 	($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
 	if (!(-e $fixfile)) { # If there's no fix file, create one. 
-  	open (OUT_FILE, ">$fixfile") || die("Cannot create $fixfile file"); 
+  	open (OUT_FILE, ">$fixfile") || &LogOut (0,"process_fix: Failed to create $fixfile for $GameFile", $ErrorLog); 
   	print OUT_FILE "\n";
   	close(OUT_FILE);
 	}
 
 	# Read in the old fixes
-	open (IN_FILE,$fixfile) || die("Can\'t open fix file");
+	open (IN_FILE,$fixfile) || &LogOut (0,"process_fix: Failed to open $fixfile for $GameFile", $ErrorLog);
 	@fixes = <IN_FILE>;
 	close(IN_FILE);
 	# Write out the fixes with the current news at the beginning 
 	# (So the data is from new to old)
 	$fixfile = ">" . $fixfile;
+	&LogOut (200,"process_fix: Update .fixed with $new_fix for $GameFile", $ErrorLog);
 	open (OUTFILE, $fixfile) || die("Can\'t create news file!");
 	#print OUTFILE $id . "\t";
 	print OUTFILE localtime() . "\t";
 	print OUTFILE "Turn:$HST_Turn\t";
+  # Since these are CSV, let's remove the last ',' for display
+  if (substr($new_fix,-1) eq ',') { chop $new_fix; }
 	print OUTFILE "\t$new_fix\n";
 	print OUTFILE @fixes;
 	close (OUTFILE);
-	&LogOut (0,"process_fix: Update .fixed with $new_fix for $GameFile", $LogFile);
 }
 

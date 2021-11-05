@@ -927,6 +927,7 @@ sub show_game {
   			# If the player isn't active indicate such
   			if ($PlayerValues{'PlayerStatus'} == 1) { $del = ''; $del2 = ''; 
         } elsif ($PlayerValues{'PlayerStatus'} == 4) { $del = '<i>'; $del2 = '</del>';
+        } elsif ($PlayerValues{'PlayerStatus'} == 3) { $del = '<small>'; $del2 = '</small>';
         } elsif ($PlayerValues{'PlayerStatus'} == 2) { $del = '<del>'; $del2 = '</del>';}
         if ($CHK_Status eq 'Deceased') { $del = '<del>'; $del2 = '</del>';}
 
@@ -973,7 +974,8 @@ sub show_game {
     				print "$file_date\n";
     			} else { print "Not Submitted\n"; }
           if ($PlayerValues{'PlayerStatus'} == 4) { print ' (idle)'; }
-          if ($PlayerValues{'PlayerStatus'} == 2) { print ' (inactive-Housekeeping AI)'; }
+          elsif ($PlayerValues{'PlayerStatus'} == 3) { print ' (Banned)'; }
+          elsif ($PlayerValues{'PlayerStatus'} == 2) { print ' (inactive-Housekeeping AI)'; }
           if ($CHK_Status eq 'Deceased') { print " -Deceased"; }
           print "</td>\n";
         }
@@ -1103,12 +1105,15 @@ sub show_game {
   			        #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
                 %RaceValues = $db->DataHash(); 
                 print qq|<OPTION value="$RaceValues{'RaceFile'}">$RaceValues{'RaceName'}</OPTION>\n|;
+                $races_exist=1;
   					  }
   				    print qq|</SELECT>\n|;
             }
   				  # Join the game
-  				  print qq|<BUTTON $user_style type="submit" name="cp" value="Join Game" | . &button_help("JoinGame") . qq|>Join Game</BUTTON>\n|;
-          } else { print "<h3><font color=red>You cannot join the game unless you have a race uploaded to your Profile. Would you like to <a href=\"/scripts/page.pl?lp=profile_race&cp=upload_race&rp=my_races\">upload one</a>?</font></h3>\n"; } 
+            if ($races_exist) {
+  				    print qq|<BUTTON $user_style type="submit" name="cp" value="Join Game" | . &button_help("JoinGame") . qq|>Join Game</BUTTON>\n|;
+            } else { print "<h3><font color=red>You cannot join a game without a race in your Profile. Would you like to <a href=\"/scripts/page.pl?lp=profile_race&cp=upload_race&rp=my_races\">upload one</a>?</font></h3>\n"; } 
+          }  
   			} 
   		}
       # Display turn generation schedule
@@ -1169,6 +1174,9 @@ sub show_game {
  		# Download the zip file. Don't bother displaying zip file option when there IS no history.
 		if (($HST_Turn > 2400) && ($current_player eq $userlogin) ) { print qq|<BUTTON $user_style type ="button" name="Download" | . &button_help('GetHistory') . qq| onClick = window.open("$Location_Scripts/download.pl?file=$GameValues{'GameFile'}.zip")>Get History</BUTTON>|; $button_count = &button_check($button_count);}
 		# Delete the game
+    # Give me admin access to delete all of them , but the delete function requires game name and Host ID to match
+    # And I don't have host id when I get there because I'm matching on user to be more secure.
+		#if (($GameValues{'HostName'} eq $session->param("userlogin") || $userlogin eq 'rsteeves') && ($GameValues{'GameStatus'} =~ /^[04679]$/)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Delete Game" | . &button_help('DeleteGame') .  qq|>Delete Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[04679]$/)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Delete Game" | . &button_help('DeleteGame') .  qq|>Delete Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Remove Password
 		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[23459]$/)) 	{print qq|<BUTTON $host_style type="submit" name="cp" value="Remove PWD" | . &button_help('RemovePWD') .  qq|>Remove PWD</BUTTON>\n|; $button_count = &button_check($button_count);}
@@ -3023,6 +3031,7 @@ sub show_player_status {
 	print "</table>\n";
   print qq|<P>Idle ignores turn submission status for turn generation.|;
   print qq|<P>Inactive alters the HST status to "Human (Inactive)" and enables the housekeeping AI.|;
+  print qq|<P>Banned prevents the player from downloading turns. |;
   
 }
 
@@ -3275,12 +3284,15 @@ sub display_warning {
   my ($warning) = @_;
   my @warnings;
   if ($warning) {
-    print "<font color=red><ul>\n";
+#    print "<font color=red><ul>\n";
+    print "<font color=red>\n";
     @warnings = split (',',$warning);
     foreach my $warned (@warnings) {
-      print "<li>$warned</li>\n";
+#      print "<li>$warned</li>\n";
+      print "<P>$warned</P>\n";
     } 
-    print "</ul></font>\n";
+#    print "</ul></font>\n";
+    print "</font>\n";
   } else {
     print "<P><font color=red>Warning: Using the Browser Reload function will repeat the last Action.</font></P>\n";
   }

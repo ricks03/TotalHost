@@ -74,7 +74,6 @@ while (defined(my $file = readdir(DIR))) {
     # index might be better here than regexp
     #next if ($inFile && $inFile =~ /$file/i); # Skip for the case-insensitive file we started with 
     if ($inFile && !($file =~ /$game_file/i)) { next; } # Skip if it's a different file 
-    print "Reading file: $filename ... ";
     open(StarFile, "<$filename" );
     binmode(StarFile);
     while ( read(StarFile, $FileValues, 1)) {
@@ -84,8 +83,7 @@ while (defined(my $file = readdir(DIR))) {
   
     # Decrypt the data, block by block
     my @block9data = &decrypt_Serials(@fileBytes);
-    $block9{$file} = \@block9data; # store array in a hash
-    print "OK\n";
+    $block9{$file} = [@block9data]; # store array in a hash
 }
 closedir(DIR);
 print "\n";
@@ -112,26 +110,7 @@ foreach my $file1 ( sort keys %block9 ) {
 } 
 
 exit;
-# 
-# ####################################
-# sub readBlock9 {
-#   # Read in a binary Stars! file, byte by byte
-#   my ($filename) = @_;  # full path
-#   my $FileValues;
-#   my @fileBytes;
-#   open(StarFile, "<$filename" );
-#   binmode(StarFile);
-#   while ( read(StarFile, $FileValues, 1)) {
-#     push @fileBytes, $FileValues; 
-#   }
-#   close(StarFile);
-#   
-#   # Decrypt the data, block by block
-#   my ($serial, $hardware) = &decryptBlock9(@fileBytes);
-#   return $serial, $hardware;
-# }
-# 
-########################
+
 sub decrypt_Serials {
   my (@fileBytes) = @_;
   my @block;
