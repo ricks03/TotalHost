@@ -73,10 +73,13 @@ sub starstat {
 	binmode(StarFile);
 	read(StarFile, $FileValues, 22);
 	close(StarFile);
-	
-#	$unpack = "A2A4h8SSSS";
-	$unpack = "SA4LSSsS";
-	#$Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts)
+
+# BUG: At some point I changed this string to SA4LSSsS but I don't
+# know why, and then it didn't line up with statstat.pl	
+# The chase is A2 to S (string) and h8 to L (which is probably a long)
+  $unpack = "A2A4h8SSSS";
+#	$unpack = "SA4LSSsS";
+	#$Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts
 	@FileValues = unpack($unpack,$FileValues);
 	($Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts) = @FileValues;
 	# Game Version
@@ -194,19 +197,6 @@ sub Check_Turn {
 	}
 }
 
-# 
-# sub Check_GameFile {
-#   my($game_file) = @_;
-#   my $Game_Loc = $File_HST . '/' . $game_file . '/' . $game_file . '.hst';
-#   if (-e $Game_Loc) {
-#   	print "<P>Game Exists at $Game_Loc: Game File = $game_file\n";
-#   	return 1;
-#   } else { 
-# 	print "<P>Game does not exist at $Game_Loc for Game File $game_file\n";
-# 	return 0
-#   }
-# }
-
 sub Check_GameFile {
   # Where game_file is the game prefix of the file name
   my($game_file) = @_;
@@ -219,27 +209,6 @@ sub Check_GameFile {
 	  return 0
   }
 }
-
-# sub Check_GameID {
-# 	# Check in the database or file system to see that the Game ID is valid
-# 	my ($game_file, $Game_ID) = @_;
-# 	my $Game_Loc = $File_HST . '/' . $game_file . '/' . $game_file . '.hst';
-# 	# Check to see if the HST file exists at all
-# 	if (-e $Game_Loc) {
-# 		# Get the data for the game
-# 		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($Game_Loc);
-# 		if ($lidGame == $Game_ID) {
-# 			print "<P>Game ID $Game_ID matches Hosted Game ID $lidGame\n";
-# 			return 1; 
-# 		} else {
-# 			print "<P>Game ID $Game_ID DOES NOT MATCH HOSTED Game ID $lidGame\nFile NOT ACCEPTED\n";
-# 			return 0;
-# 		}
-# 	} else {
-# 		print "<P>No game exists for Game: $game_file\n";
-# 		return 0;
-# 	}
-# }
 
 sub Check_GameID {
 	# Check in the database or file system to see that the Game ID is valid
@@ -349,7 +318,6 @@ sub SLogOut {
   my $LogFileDate = $LogFile . '.' . $Year . '.' . $Month . '.' . $WeekofMonth; 
 
 	if ($Logging <= $logging) { 
-#		print $PrintString . "\n";
 		$PrintString = localtime(time()) . " : " . $PrintString;
 		open (LOGFILE, ">>$LogFileDate");
 		print LOGFILE "$PrintString\n\n";
