@@ -1,5 +1,6 @@
-# StarsShip.pl
-#
+# StarsFleet.pl
+#  NOT WORKING for BLOCK 20
+
 # Rick Steeves
 # starsah@corwyn.net
 # Version History
@@ -76,10 +77,10 @@ my $fleetMergeCounter = 0; #Array to track fleet merge orders
 my $filename = $ARGV[0]; # input file
 my $outFileName = $ARGV[1];
 if (!($filename)) { 
+  print "\nLists fleet data\n";
   print "\n\nUsage: StarsFleet.pl <input file>\n\n";
   print "Please enter the input file (.X|.M|.HST). Example: \n";
   print "  StarsFleet.pl c:\\games\\test.m1\n\n";
-  print "Lists fleet data:\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
 }
@@ -232,19 +233,31 @@ sub decryptShip {
       if ($typeId == 1 || $typeId == 2 || $typeId == 25) {
         #typeID = 1 : ManualSmallLoadUnloadTaskBlock, 1 kt > 127 kt 
         #typeID = 2 : ManualMediumLoadUnloadTaskBlock, 128 kt > 32767 kt
-        #typeID =25 : ManualLargeLoadUnloadTaskBlock, 32768kt > 
+        #typeID =25 : ManualLargeLoadUnloadTaskBlock, 32768kt >   
         my ($fromId, $fromIdType, $toId, $toIdType);
+        my ($fromFleetId, $toFleetId);
+        my ($fromPlayerId, $toPlayerId);
+        my ($fromOwnerId, $toOwnerId);
         my $contents;
         my ($ironium, $boranium, $germanium, $population, $fuel);
         my ($index, $indexStep, $indexFlip, $indexHalf);
         my ($isIronium, $isBoranium, $isGermanium, $isPopulation, $isFuel);
         
-        $toId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
-        $fromId = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 7) << 8);
+        # OwnerId and Id are 0-15 (+1 for displayed value)
+        # OwnerId of 127 is none (deep space)
+        # OwnerId of 0 is a planet
+        $fromOwnerId = $decryptedData[1] >> 1;
+        $toOwnerId = $decryptedData[3] >> 1;
+        # toId of 511 is deep space
+        $fromId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
+        $toId = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 1) << 8);
+        # ID type determines if From and To IDs are fleet, planet, packet, deep space
+        # TO / FROM Types: unknown (0), planet (1), fleet (2), space (4), salvage/packet/MT(8)
+        $toIdType = $decryptedData[4] >> 4;  # right 4 bits
+        $fromIdType =  ($decryptedData[4] >> 0) & 0xF;   # left 4 bits
+        print "\tFROM: Owner:$fromOwnerId, ID:$fromId(" . &showDestType($fromIdType) . ")  TO: Owner:$toOwnerId, ID:$toId(" .&showDestType($toIdType) . ")\n";
         #if ($planetId == 2047) { $planetId = 'Deep Space'; }
-        # TO / FROM : unknown (0), planet (1), fleet (2), space (4), salvage/packet/MT(8)
-        $fromIdType = $decryptedData[4] >> 4;  # right 4 bits
-        $toIdType =  ($decryptedData[4] >> 0) & 0xF;   # left 4 bits
+        
         $index = 5;
         $contents = $decryptedData[$index];
         $isIronium = &getMask($contents,0);
@@ -257,7 +270,7 @@ sub decryptShip {
         # typeId 1 is 1 byte, typeId 2 is 2 bytes, and typeId 25 is 3 bytes
         # If the value is negative (unload), bit 7 is 1, and the remaining 7 bits are flipped.
         if ($typeId == 1 ) {
-          $indexStep = 1; $indexHalf = 128; $indexFlip = 254; print "Small Load:";
+          $indexStep = 1; $indexHalf = 128; $indexFlip = 254; print "\tSmall Load:";
 #          if ($isIronium)    { $ironium = $decryptedData[$index]; if ($ironium >= $indexHalf) { $ironium = $ironium -$indexFlip; } $index=$index+$indexStep; }
           if ($isIronium)    { $ironium = $decryptedData[$index]; if ($ironium >= $indexHalf) { $ironium = -(~$ironium & 0xFF)+ 1; } $index=$index+$indexStep; }
           if ($isBoranium)   { $boranium = $decryptedData[$index]; if ($boranium >= $indexHalf) { $boranium = -(~$boranium & 0xFF) + 1; } $index=$index+$indexStep; }
@@ -265,21 +278,20 @@ sub decryptShip {
           if ($isPopulation) { $population = $decryptedData[$index]; if ($population >= $indexHalf) { $population = -(~$population & 0xFF) + 1 ; } $index=$index+$indexStep;}
           if ($isFuel)       { $fuel = $decryptedData[$index]; if ($fuel >= $indexHalf) { $fuel = -(~$fuel & 0xFF) + 1; } }
         } elsif ( $typeId == 2 ) {
-          $indexStep = 2; $indexFlip = 2**16; $indexHalf = $indexFlip/2; print "Medium Load:";
+          $indexStep = 2; $indexFlip = 2**16; $indexHalf = $indexFlip/2; print "\tMedium Load:";
           if ($isIronium)    { $ironium = &read16(\@decryptedData, $index); if ($ironium >= $indexHalf) { $ironium = $ironium -$indexFlip; } $index=$index+$indexStep; }
           if ($isBoranium)   { $boranium = &read16(\@decryptedData, $index); if ($boranium >= $indexHalf) { $boranium = $boranium -$indexFlip; } $index=$index+$indexStep; }
           if ($isGermanium)  { $germanium = &read16(\@decryptedData, $index); if ($germanium >= $indexHalf) { $germanium = $germanium -$indexFlip; } $index=$index+$indexStep; }
           if ($isPopulation) { $population = &read16(\@decryptedData, $index); if ($population >= $indexHalf) { $population = $population -$indexFlip; } $index=$index+$indexStep;}
           if ($isFuel)       { $fuel = &read16(\@decryptedData, $index); if ($fuel >= $indexHalf) { $fuel = $fuel -$indexFlip; }}
         } elsif ($typeId == 25 ) { 
-          $indexStep = 4; $indexFlip = 2**32; $indexHalf = $indexFlip/2; print "Large Load:";
+          $indexStep = 4; $indexFlip = 2**32; $indexHalf = $indexFlip/2; print "\tLarge Load:";
           if ($isIronium)    { $ironium = &read32(\@decryptedData, $index); if ($ironium >= $indexHalf) { $ironium = $ironium -$indexFlip; }$index=$index+$indexStep; }
           if ($isBoranium)   { $boranium = &read32(\@decryptedData, $index); if ($boranium >= $indexHalf) { $boranium = $boranium -$indexFlip; } $index=$index+$indexStep; }
           if ($isGermanium)  { $germanium = &read32(\@decryptedData, $index); if ($germanium >= $indexHalf) { $germanium = $germanium -$indexFlip; } $index=$index+$indexStep; }
           if ($isPopulation) { $population = &read32(\@decryptedData, $index); if ($population >= $indexHalf) { $population = $population -$indexFlip; } $index=$index+$indexStep;}
           if ($isFuel)       { $fuel = &read32(\@decryptedData, $index); if ($fuel >= $indexHalf) { $fuel = $fuel -$indexFlip; }}
         }
-        print "\tFROM: Id:$fromId(" . &showDestType($fromIdType) . ")  TO: Id:$toId(" .&showDestType($toIdType) . ")\n";
         print "\ti:$isIronium, b:$isBoranium, g:$isGermanium, p:$isPopulation, f:$isFuel\n";
         if ($isIronium)    { print "\tI:$ironium "; }
         if ($isBoranium)   { print "\tB:$boranium "; }
@@ -512,7 +524,7 @@ sub decryptShip {
         $fleetBlock{$fleetId} = { %fleet };
         #$fleetcounter++;
         print "\n";
-      } elsif ($typeId == 20 ) { # waypoint block in .m files , waypoint block (20)
+      } elsif ($typeId == 20 ) { # waypoint block 20 in .m files. 8 Bytes
 #         my %waypoint; # to store waypoints in a hash
         my ($targetType, $warp, $taskId);
         my @showTaskId;
@@ -712,7 +724,7 @@ sub showDestType {
   my @category;
   $category[0] = 'unknown';
   $category[1] = 'Planet';
-  $category[2] = 'Ship';
+  $category[2] = 'Fleet';
   $category[4] = 'Deep Space';
   $category[8] = 'Salvage/Packet/MT/Minefield';
   return ($category[$type]);
