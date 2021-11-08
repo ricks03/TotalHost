@@ -67,7 +67,7 @@ close(StarFile);
 # know why, and then it didn't line up with statstat.pl	
 # The chase is A2 to S (string) and h8 to L (which is probably a long)
 #  $unpack = "A2A4h8SSSS";
-	$unpack = "SA4LSSsS";
+$unpack = "SA4LSSsS";
 #$Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts
 @FileValues = unpack($unpack,$FileValues);
 ($Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts) = @FileValues;

@@ -125,6 +125,8 @@ our @EXPORT = qw(
   shiftBytes unshiftBytes
   raceCheckSum checkRaceCorrupt
   checkSerials decryptSerials
+  readFleetFile writeFleetFile printFleet
+  readQueueFile writeQueueFile printQueue
 );  
 
 my $debug = 1;
@@ -159,11 +161,11 @@ sub StarsPWD {
   unless ($outBytes) { return 0; }
   my @outBytes = @{$outBytes};
   # Output the Stars! File with blank password(s)
-  open (OutFile, '>:raw', "$File");
+  open (OUTFILE, '>:raw', "$File");
   for (my $i = 0; $i < @outBytes; $i++) {
-    print OutFile $outBytes[$i];
+    print OUTFILE $outBytes[$i];
   }
-  close (OutFile);
+  close (OUTFILE);
   return 1;
 }
 
@@ -1532,7 +1534,6 @@ sub decryptClean {
   my ($wormholeId, $targetId, $beenThrough, $canSee, $stability);
   # For packets
   my ($targetAndSpeed, $destPlanetId, $WarpSpeedMinus4, $WarpOverMDLimit);
-  
   # For Player Block 6
   my ($playerId, $ShipSlotsUsed, $PlanetCount);
   my ($FleetAndStarBaseDesignCount, $FleetCount, $StarBaseDesignCount); 
@@ -1540,9 +1541,7 @@ sub decryptClean {
   my $playerRelations; # byte, 0 neutral, 1 friend, 2 enemy
   # The values used when cleaning race values. Defaults to Humanoids
   my @resetRace =  ( 81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 );
-
   my $LogOutput;
-
   my $offset = 0; #Start at the beginning of the file
   while ($offset < @fileBytes) {
     # Get block info and data
@@ -1684,16 +1683,16 @@ sub StarsFix {
   my $queueCounter = 0;
   my %queueList;
   &PLogOut(100,"StarsFix: fixing .x: $xFile", $LogFile);
-  
   #read in the .queue file for Cheap Starbase analysis  
-  my $queueFile =  $FileHST . '\\' . $GameFile. '\\' . $GameFile . '.hst' . ".$turn" . '.queue';
+#  my $queueFile =  $FileHST . '\\' . $GameFile. '\\' . $GameFile . '.hst' . ".$turn" . '.queue';
+  my $queueFile =  $FileHST . '\\' . $GameFile. '\\' . $GameFile . ".$turn" . '.queue';
   if (-e $queueFile ) { 
     my ($Player,$planetId,$itemId,$count,$completePercent,$itemType, $queueSize);
     my @queueFile;
     &PLogOut(200,"StarsFix: Reading in QUEUEFILE $queueFile", $LogFile);
-    open (IN_FILE,$queueFile) || die("Cannot open $queueFile file");
-    @queueFile = <IN_FILE>;
-  	close IN_FILE;
+    open (QUEUEFILE,$queueFile) || die("Cannot open $queueFile file");
+    @queueFile = <QUEUEFILE>;
+  	close QUEUEFILE;
     # Turn the file into a usable hash
     foreach my $line (@queueFile) {
     	chomp($line);
@@ -1710,7 +1709,6 @@ sub StarsFix {
       $queueCounter++;
     }
   }
-  
   # Read in the binary Stars! file(s), byte by byte
   my $fileValues;
   my @fileBytes;
@@ -1763,7 +1761,6 @@ sub decryptFix {
   my ($fileBytes, $queueList) = @_;
   my @fileBytes = @{$fileBytes};
   my %queueList = %$queueList;
-
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
@@ -1826,7 +1823,72 @@ sub decryptFix {
         my $isHomeworld = ($flags & 0x80) != 0;
         my $index = 4;
         # More in the block I don't care about right now.       
-      } 
+      } elsif ($typeId == 1 || $typeId == 2 || $typeId == 25) { #Manual Load Task block
+        #typeID = 1 : ManualSmallLoadUnloadTaskBlock, 1 kt > 127 kt 
+        #typeID = 2 : ManualMediumLoadUnloadTaskBlock, 128 kt > 32767 kt
+        #typeID =25 : ManualLargeLoadUnloadTaskBlock, 32768kt >   
+        my ($fromId, $fromIdType, $toId, $toIdType);
+        my ($fromOwnerId, $toOwnerId);
+        my $contents;
+        my ($ironium, $boranium, $germanium, $population, $fuel);
+        my ($index, $indexStep, $indexFlip, $indexHalf);
+        my ($isIronium, $isBoranium, $isGermanium, $isPopulation, $isFuel);
+        
+        # OwnerId and Id are 0-15 (+1 for displayed value)
+        # OwnerId of 127 is none (deep space)
+        # OwnerId of 0 is a planet
+        $fromOwnerId = $decryptedData[1] >> 1;
+        $toOwnerId = $decryptedData[3] >> 1;
+        # toId of 511 is deep space
+        $fromId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
+        $toId = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 1) << 8);
+        # ID type determines if From and To IDs are fleet, planet, packet, deep space
+        # TO / FROM Types: unknown (0), planet (1), fleet (2), space (4), salvage/packet/MT(8)
+        $toIdType = $decryptedData[4] >> 4;  # right 4 bits
+        $fromIdType =  ($decryptedData[4] >> 0) & 0xF;   # left 4 bits
+        $index = 5;
+        $contents = $decryptedData[$index];
+        $isIronium = &getMask($contents,0);
+        $isBoranium = &getMask($contents,1);
+        $isGermanium = &getMask($contents,2);
+        $isPopulation = &getMask($contents,3);
+        $isFuel = &getMask($contents,4);
+        $index++;
+        # The different load blocks use a different number of bytes to represent the data
+        # typeId 1 is 1 byte, typeId 2 is 2 bytes, and typeId 25 is 3 bytes
+        # If the value is negative (unload), bit 7 is 1, and the remaining 7 bits are flipped.
+        if ($typeId == 1 ) {
+          $indexStep = 1; $indexHalf = 128; $indexFlip = 254; print "\tSmall Load:";
+          if ($isIronium)    { $ironium = $decryptedData[$index]; if ($ironium >= $indexHalf) { $ironium = -(~$ironium & 0xFF)+ 1; } $index=$index+$indexStep; }
+          if ($isBoranium)   { $boranium = $decryptedData[$index]; if ($boranium >= $indexHalf) { $boranium = -(~$boranium & 0xFF) + 1; } $index=$index+$indexStep; }
+          if ($isGermanium)  { $germanium = $decryptedData[$index]; if ($germanium >= $indexHalf) { $germanium = -(~$germanium & 0xFF) + 1; } $index=$index+$indexStep; }
+          if ($isPopulation) { $population = $decryptedData[$index]; if ($population >= $indexHalf) { $population = -(~$population & 0xFF) + 1 ; } $index=$index+$indexStep;}
+          if ($isFuel)       { $fuel = $decryptedData[$index]; if ($fuel >= $indexHalf) { $fuel = -(~$fuel & 0xFF) + 1; } }
+        } elsif ( $typeId == 2 ) {
+          $indexStep = 2; $indexFlip = 2**16; $indexHalf = $indexFlip/2; print "\tMedium Load:";
+          if ($isIronium)    { $ironium = &read16(\@decryptedData, $index); if ($ironium >= $indexHalf) { $ironium = $ironium -$indexFlip; } $index=$index+$indexStep; }
+          if ($isBoranium)   { $boranium = &read16(\@decryptedData, $index); if ($boranium >= $indexHalf) { $boranium = $boranium -$indexFlip; } $index=$index+$indexStep; }
+          if ($isGermanium)  { $germanium = &read16(\@decryptedData, $index); if ($germanium >= $indexHalf) { $germanium = $germanium -$indexFlip; } $index=$index+$indexStep; }
+          if ($isPopulation) { $population = &read16(\@decryptedData, $index); if ($population >= $indexHalf) { $population = $population -$indexFlip; } $index=$index+$indexStep;}
+          if ($isFuel)       { $fuel = &read16(\@decryptedData, $index); if ($fuel >= $indexHalf) { $fuel = $fuel -$indexFlip; }}
+        } elsif ($typeId == 25 ) { 
+          $indexStep = 4; $indexFlip = 2**32; $indexHalf = $indexFlip/2; print "\tLarge Load:";
+          if ($isIronium)    { $ironium = &read32(\@decryptedData, $index); if ($ironium >= $indexHalf) { $ironium = $ironium -$indexFlip; }$index=$index+$indexStep; }
+          if ($isBoranium)   { $boranium = &read32(\@decryptedData, $index); if ($boranium >= $indexHalf) { $boranium = $boranium -$indexFlip; } $index=$index+$indexStep; }
+          if ($isGermanium)  { $germanium = &read32(\@decryptedData, $index); if ($germanium >= $indexHalf) { $germanium = $germanium -$indexFlip; } $index=$index+$indexStep; }
+          if ($isPopulation) { $population = &read32(\@decryptedData, $index); if ($population >= $indexHalf) { $population = $population -$indexFlip; } $index=$index+$indexStep;}
+          if ($isFuel)       { $fuel = &read32(\@decryptedData, $index); if ($fuel >= $indexHalf) { $fuel = $fuel -$indexFlip; }}
+        }
+        # If a transfer is from a planet to an enemy fleet, it could be an exploit of the Mineral Upload bug
+        # Can be done with some work so it occurs either as a to or from transfer
+        if (
+          (($toOwnerId == 0 &&  $toIdType == 1 ) && ($fromOwnerId != $Player && $fromIdType == 2) && ($ironium > 0 || $boranium > 0 || $germanium > 0)) 
+          ||
+          (($fromOwnerId == 0 &&  $fromIdType == 1 ) && ($toOwnerId != $Player && $toIdType == 2) && ($ironium < 0 || $boranium < 0 || $germanium < 0))
+          ) {
+          $err .= "WARNING: Potential Mineral Upload Exploit\n";      
+        }
+      }
       # Detect the Cheap Starbase in the producton queue
       elsif ( $typeId == 28 || $typeId == 29) { # ProductionQueueBlock and ProductionQueueChangeBlock
         # if not a .x file, we get the player Id from the most recent planet info
@@ -2237,11 +2299,11 @@ sub StarsAI {
     # Create the backup file
   	copy($filename, $backupfile);
     # Output the Stars! File with updated player status
-    open (OutFile, '>:raw', "$filename");
+    open (OUTFILE, '>:raw', "$filename");
     for (my $i = 0; $i < @outBytes; $i++) {
-      print OutFile $outBytes[$i];
+      print OUTFILE $outBytes[$i];
     }
-    close (OutFile);
+    close (OUTFILE);
     &PLogOut(200," StarsAI: Updated $filename for playerId:$playerAI to $NewStatus ", $LogFile);
   } else { 
     &PLogOut(200," StarsAI: Did not update $filename for playerId:$playerAI to $NewStatus ", $LogFile); 
@@ -2762,3 +2824,175 @@ sub decryptSerials {
     $offset = $offset + (2 + $size); 
   }
 }
+
+sub readFleetFile {
+   my ($fleetFile) = @_;
+#  if (-e $fleetFile ) {
+    # Read in the file data
+    my @fleetFile;
+    open (FLEETFILE,$fleetFile) || &PLogOut(0," readFleetFile: cannot open $fleetfile", $ErrorLog);
+    @fleetFile = <FLEETFILE>;
+  	close FLEETFILE;
+    # Turn the file into a usable array
+    my $fleetCounter = 0;
+    my %fleetList;
+    foreach my $line (@fleetFile) {
+    	chomp($line);
+      my ($ownerId,$fleetId,$x,$y,$battlePlan,$fleetCargo,$shipTypes,$shipCount)	= split ('\|', $line);
+      print "$ownerId,$fleetId,$x,$y,$battlePlan,$fleetCargo,$shipTypes,$shipCount";
+      $fleetList{$fleetCounter}{ownerId} = $ownerId;
+      $fleetList{$fleetCounter}{fleetId} = $fleetId;
+      $fleetList{$fleetCounter}{x} = $x;
+      $fleetList{$fleetCounter}{y} = $y;
+      $fleetList{$fleetCounter}{battlePlan} = $battlePlan;
+      $fleetList{$fleetCounter}{fleetCargo} = $fleetCargo; 
+      $fleetList{$fleetCounter}{shipTypes}  = $shipTypes;
+      $fleetList{$fleetCounter}{shipCount}  = $shipCount; # This array doesn't have counts for any design after the last one with a number.
+      $fleetCounter++
+    }
+#  }
+  return \%fleetList;
+}
+
+sub writeFleetFile {
+  ($FleetFile, $fleetList) = @_;
+  my %fleetList = %$fleetList;
+  open (FLEETFILE, ">$FleetFile");
+  for my $fleetCounter (keys %fleetList) {
+    #my $fleetfile = "$key,$fleetList{$key}{'ownerId'},$fleetList{$key}{'fleetId'},$fleetList{$key}{'x'},$fleetList{$key}{'y'},$fleetList{$key}{'battlePlan'},$fleetList{$key}{'fleetCargo'},";
+#       print FLEETFILE "$ownerId|";
+#       print FLEETFILE "$fleetId|";
+#       print FLEETFILE $fleetList{$ownerId}{$fleetId}{x} . '|';
+#       print FLEETFILE $fleetList{$ownerId}{$fleetId}{y} . '|';
+#       print FLEETFILE $fleetList{$ownerId}{$fleetId}{battlePlan} . '|';
+#       print FLEETFILE $fleetList{$ownerId}{$fleetId}{fleetCargo} . '|';
+#       print FLEETFILE $fleetList{$ownerId}{$fleetId}{shipTypes} . '|';
+#       print FLEETFILE $fleetList{$ownerId}{$fleetId}{shipCount};
+#       print FLEETFILE "\n";    print FLEETFILE "$fleetList{$fleetCounter}{ownerId}";
+    print FLEETFILE "$fleetList{$fleetCounter}{ownerId}";
+    print FLEETFILE ",$fleetList{$fleetCounter}{fleetId}";
+    print FLEETFILE ",$fleetList{$fleetCounter}{x}";
+    print FLEETFILE ",$fleetList{$fleetCounter}{y}";
+    print FLEETFILE ",$fleetList{$fleetCounter}{battlePlan}";
+    print FLEETFILE ",$fleetList{$fleetCounter}{fleetCargo}";
+    my @shipCount = @{$fleetList{$fleetCounter}{'shipCount'}};
+    my $fleetfile;
+    my $shipct = 0;
+    foreach my $val (@shipCount) {
+      if ($val ) { $fleetfile .= "$val";}
+      else { $fleetfile .= "0";}
+      if ($shipct <15) { $fleetfile .= ','; }
+      $shipct++;
+    }
+    print FLEETFILE ",$fleetfile";
+    print FLEETFILE "\n";
+  }
+  close FLEETFILE;
+}
+
+sub printFleet {  
+   my ($fleetList) = @_;
+   my %fleetList = %$fleetList;
+   print "\n\nFLEET INFO:\n";
+   for my $fleetCounter (sort keys %fleetList) {
+    #  print "fleetId:$fleetCounter  player:$fleetList{$fleetCounter}{'player'}, ownerId:$fleetList{$fleetCounter}{'owner'}, x:$fleetList{$fleetCounter}{'x'}, y:$fleetList{$fleetCounter}{'y'}, battlePlan:$fleetList{$fleetCounter}{'battlePlan'}\n";
+     print "$fleetList{$fleetCounter}{'ownerId'},$fleetList{$fleetCounter}{'fleetId'},$fleetList{$fleetCounter}{'x'},$fleetList{$fleetCounter}{'y'},$fleetList{$fleetCounter}{'battlePlan'},$fleetList{$fleetCounter}{'fleetCargo'},";
+     my @shipCount = @{$fleetList{$fleetCounter}{'shipCount'}};
+     my $shipct = 0;
+     foreach my $val (@shipCount) {
+       if ($val ) { print "$val";}
+       else { print "0";}
+      if ($shipct <15) { print ","; }
+       $shipct++;
+     }
+     print "\n";
+  }
+  print "\n";
+}
+
+# print "\n\nFLEET INFO:\n";
+# # Display all the fleet info
+# foreach my $fleetCounter (sort keys %fleetList) {
+# #  foreach my $key2 (sort keys %{ $fleetList{$key1} }) {
+# #     print "$key1, $key2: $fleetList{$key1}{$key2}";
+# #    print "\n";
+#   print "$fleetList{$fleetCounter}{'ownerId'},$fleetList{$fleetCounter}{'fleetId'},$fleetList{$fleetCounter}{'x'},$fleetList{$fleetCounter}{'y'},$fleetList{$fleetCounter}{'battlePlan'},$fleetList{$fleetCounter}{'fleetCargo'},";
+# #   }
+# #   print "\n";
+# }
+
+# print "\n\nFLEET INFO:\n";
+# # Display all the fleet info
+# foreach my $playerId (sort keys %fleetList) {
+#   foreach my $fleetId (sort keys %{ $fleetList{$playerId} }) {
+#      print "Player ID: $playerId\tFleet: $fleetId\t";
+#     foreach my $val (keys %{ $fleetList{$playerId}{$fleetId} }) {
+#       print "$val: $fleetList{$playerId}{$fleetId}{$val}\t";
+#     }
+#     print "\n";
+#   }
+#   print "\n";
+# }
+
+
+
+sub readQueueFile {
+  my ($queueFile) = @_;
+  my ($Player,$planetId,$itemId,$count,$completePercent,$itemType, $queueSize);
+  print "Reading in QUEUEFILE $queueFile\n";
+  open (QUEUEFILE,$queueFile) || die("Cannot open $queueFile file");
+  @queueFile = <QUEUEFILE>;
+	close QUEUEFILE;
+  # Turn the file into a usable hash
+  my $queueCounter = 0;
+  foreach my $line (@queueFile) {
+  	chomp($line);
+   	($Player,$planetId,$itemId,$count,$completePercent,$itemType, $queueSize)	= split (",", $line);
+    # There is no unique combination of values for a queue
+    # So using a faux-counter
+    $queueList{$queueCounter}{Player} = $Player;
+    $queueList{$queueCounter}{planetId} = $planetId;
+    $queueList{$queueCounter}{itemId} = $itemId;
+    $queueList{$queueCounter}{count} = $count;
+    $queueList{$queueCounter}{completePercent} = $completePercent;
+    $queueList{$queueCounter}{itemType} = $itemType;
+    $queueList{$queueCounter}{queueSize} = $queueSize;
+    $queueCounter++;
+  }
+  return \%queueList;
+}
+
+sub writeQueueFile {
+  my ($queueFile, $queueList) = @_;
+  my %queueList = %$queueList;
+  open (QUEUEFILE, ">$queueFile");
+  foreach my $queueCounter (keys %queueList) {
+    print QUEUEFILE "$queueList{$queueCounter}{Player},$queueList{$queueCounter}{planetId},$queueList{$queueCounter}{itemId},$queueList{$queueCounter}{count},$queueList{$queueCounter}{completePercent},$queueList{$queueCounter}{itemType},$queueList{$queueCounter}{queueSize}\n";
+  }
+  close QUEUEFILE;
+  &PLogOut(100, "Done writing out $queueFile", $LogFile);
+}
+
+sub printQueue {
+  my ($queueList) = @_;
+  my %queueList = %$queueList;
+  foreach my $queueCounter (sort keys %queueList) {
+    print "$queueCounter:\t";
+    foreach my $var (keys %{ $queueList{$queueCounter} }) {
+      print "$var: $queueList{$queueCounter}{$var}\t";
+    }
+    print "\t";
+    print $queueList{$queueCounter}{Player};
+    print $queueList{$queueCounter}{planetId};
+    print $queueList{$queueCounter}{itemId};
+    print $queueList{$queueCounter}{count};
+    print $queueList{$queueCounter}{completePercent};
+    print $queueList{$queueCounter}{itemType};
+    print $queueList{$queueCounter}{queueSize};
+    print "\n";
+  }
+}
+
+
+
+

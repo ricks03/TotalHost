@@ -180,13 +180,3 @@ sub decryptBlockPlan {
   }
   #return \@outBytes;
 }
-
-# sub getMask {
-# # Return true if the associated bit is set for the number
-#   my ($number, $position) = @_;
-#   my $new_num = $number >> ($position ); 
-#     # if it results to '1' then bit is set, 
-#     # else it results to '0' bit is unset 
-#   my $check = $new_num &1;
-#   return ($check); 
-# } 

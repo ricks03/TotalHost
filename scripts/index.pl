@@ -59,7 +59,8 @@ print "<P>\n";
 
 if ($id ) {
 %menu_left = 	(
-				"1About Us"			=> "$Location_Scripts/index.pl?lp=home&cp=aboutus",
+				"0About Us"			=> "$Location_Scripts/index.pl?lp=home&cp=aboutus",
+ 				"1Features" 			=> "$Location_Scripts/index.pl?cp=features",
 				"2FAQ"				=> "$Location_Scripts/index.pl?lp=home&cp=faq",
 				"3Order of Events"	=> "$Location_Scripts/index.pl?lp=home&cp=orderofevents",
 				"3Game Defaults"	=> "$Location_Scripts/index.pl?lp=home&cp=gamedefaults",
@@ -72,7 +73,8 @@ if ($id ) {
 				);
 } elsif ($in{'lp'} eq 'home') {
 %menu_left = 	(
-				"1About Us"			=> "$Location_Scripts/index.pl?lp=home&cp=aboutus",
+				"0About Us"			=> "$Location_Scripts/index.pl?lp=home&cp=aboutus",
+ 				"1Features" 			=> "$Location_Scripts/index.pl?cp=features",
 				"2FAQ"				=> "$Location_Scripts/index.pl?lp=home&cp=faq",
 				"3Order of Events"	=> "$Location_Scripts/index.pl?lp=home&cp=orderofevents",
 				"3Strategy Guide"	=> "$WWW_HomePage/Strategy/SSG.HTM",
@@ -83,6 +85,7 @@ if ($id ) {
 				);
 } else {
 %menu_left = 	(
+ 				"0Features" 			=> "$Location_Scripts/index.pl?cp=features",
  				"1Log In" 			=> "$Location_Scripts/index.pl?cp=login_page",
  				"2Sign Up" 			=> "$Location_Scripts/index.pl?cp=create",
  				"3Reset Password" 	=> "$Location_Scripts/index.pl?cp=reset_user",
@@ -108,6 +111,7 @@ if ($in{'cp'} eq 'login_page') { &login_page;
 } elsif ($in{'cp'} eq 'policies') { &show_html("$File_WWWRoot/THPolicies.htm"); 
 } elsif ($in{'cp'} eq 'bugs') { &show_html("$File_WWWRoot/THBugs.htm"); 
 } elsif ($in{'cp'} eq 'features') { &show_html("$File_WWWRoot/THFeatures.htm"); 
+} elsif ($in{'cp'} eq 'hidden') { &show_html("$File_WWWRoot/THHidden.htm"); 
 } elsif ($in{'cp'} eq 'alliance') { &show_html("$File_WWWRoot/THAlliance.htm"); 
 } elsif ($in{'cp'} eq 'deception') { &show_html("$File_WWWRoot/THDeception.htm"); 
 } elsif ($in{'cp'} eq 'intel') { &show_html("$File_WWWRoot/THIntel.htm"); 
