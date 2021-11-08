@@ -84,11 +84,11 @@ if ($outFileName) {   $newFile = $outFileName;  }
 else { $newFile = $dir . '\\' . $basefile . '.clean'; }
 if ($debug) { $newFile = "f:\\clean_" . $basefile;  } # Just for me
 
-open (OutFile, '>:raw', "$newFile");
+open (OUTFILE, '>:raw', "$newFile");
 for (my $i = 0; $i < @outBytes; $i++) {
-  print OutFile $outBytes[$i];
+  print OUTFILE $outBytes[$i];
 }
-close (OutFile);
+close (OUTFILE);
 
 print "File output: $newFile\n";
 unless ($ARGV[1]) { print "Don't forget to rename $newFile\n"; }

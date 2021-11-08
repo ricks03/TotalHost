@@ -135,12 +135,12 @@ foreach my $blockCounter (@decryptedBlock) {
 my $newFile; 
 if ($outFileName) { $newFile = $outFileName;  } 
 else { $newFile = $dir . '\\' . $basefile . '.clean'; }
-open (OutFile, '>:raw', "$newFile");
+open (OUTFILE, '>:raw', "$newFile");
 #  for (my $i = 0; $i < @outBytes; $i++) {
 foreach my $value (@outBytes) {
-  if ($value) { print OutFile $value; }
+  if ($value) { print OUTFILE $value; }
 }
-close (OutFile);
+close (OUTFILE);
 
  
 ################################################################

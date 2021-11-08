@@ -205,11 +205,11 @@ foreach $filename (@mFiles) {
   # Output the Stars! File with modified data
   # Don't do unless in clean write mode
   if ($clean > 1) {
-    open ( outFile, '>:raw', "$newFile" );
+    open ( OUTFILE, '>:raw', "$newFile" );
     for (my $i = 0; $i < @outBytes; $i++) {
-      print outFile $outBytes[$i];
+      print OUTFILE $outBytes[$i];
     }
-    close ( outFile);
+    close ( OUTFILE);
     
     print "File output: $newFile\n";
     unless ($ARGV[1] || -d $inName ) { print "Don't forget to rename $newFile\n"; }

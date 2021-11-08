@@ -35,6 +35,7 @@ use strict;
 use warnings;   
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
+use StarStat; # A Perl Modile from TotalHost
 
 my $debug = 0;
 my $fixFiles = 2; # 0, 2: display, write 
@@ -53,7 +54,8 @@ my $pic;
 my $slotCount; 
 my $slotEnd;
 my $mass;   # For full designs, this is calculated
-my $fuelCapacity; # calculated  
+my $cargoCapacity = 0; # calculated  
+my $fuelCapacity = 0; # calculated  
 my $slot;
 my $itemId;
 my $itemCategory;
@@ -66,12 +68,50 @@ my $shipNameLength;
 my $shipName;
 # Array to track waypoint information
 my @fleet;  # not used now? 
-my %fleetBlock;
-my $fleetcounter = 0;
+my %fleetList;
 my @waypoint;
 my $waypointcounter = 0;
 my @fleetMerge;
 my $fleetMergeCounter = 0; #Array to track fleet merge orders
+
+my %hullType; 
+$hullType{'0'} = [ 15,1,"Small Freighter",0,0,0,0,0,0,0,25,20,12,0,17,0,70,130,25,1,1,6146,1,12,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,85,51,49,55,53,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'1'} = [ 15,2,"Medium Freighter",1,0,0,0,3,0,0,60,40,20,0,19,4,210,450,50,1,1,6146,1,12,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,86,50,48,56,54,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'2'} = [ 15,3,"Large Freighter",2,0,0,0,8,0,0,125,100,35,0,21,8,1200,2600,150,1,2,6146,2,12,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,102,34,48,38,70,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'3'} = [ 15,4,"Super Freighter",3,0,0,0,13,0,0,175,125,45,0,21,12,3000,8000,400,1,3,6146,3,12,5,2048,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,4,136,34,64,40,72,104,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'4'} = [ 15,5,"Scout",4,0,0,0,0,0,0,8,10,4,2,4,16,0,50,20,1,1,2,1,6462,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,65,8,255,255,50,54,52,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'5'} = [ 15,6,"Frigate",5,0,0,0,6,0,0,8,12,4,2,4,20,0,125,45,1,1,2,2,6462,3,12,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,68,8,255,255,49,55,53,51,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'6'} = [ 15,7,"Destroyer",6,0,0,0,3,0,0,30,35,15,3,5,24,0,280,200,1,1,48,1,48,1,6462,1,8,2,4096,1,2048,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,67,8,255,255,66,21,117,70,68,35,99,0,0,0,0,0,0,0,0,0 ];
+$hullType{'7'} = [ 15,8,"Cruiser",7,0,0,0,9,0,0,90,85,40,5,8,28,0,600,700,1,2,6148,1,6148,1,48,2,48,2,6462,2,12,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,133,12,255,255,49,35,67,21,85,55,53,0,0,0,0,0,0,0,0,0 ];
+$hullType{'8'} = [ 15,9,"Battle Cruiser",8,0,0,0,10,0,0,120,120,55,8,12,32,0,1400,1000,1,2,6148,2,6148,2,48,3,48,3,6462,3,12,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,133,12,255,255,49,35,67,21,85,55,53,0,0,0,0,0,0,0,0,0 ];
+$hullType{'9'} = [ 15,10,"Battleship",9,0,0,0,13,0,0,222,225,120,25,20,36,0,2800,2000,1,4,6146,1,4,8,48,6,48,6,48,2,48,2,48,4,8,6,2048,3,2048,3,0,0,0,0,0,0,0,0,0,0,11,138,12,255,255,48,56,38,20,84,2,98,70,52,34,66,0,0,0,0,0 ];
+$hullType{'10'} = [ 15,11,"Dreadnought",10,0,0,0,16,0,0,250,275,140,30,25,40,0,4500,4500,1,5,12,4,12,4,48,6,48,6,2048,4,2048,4,48,8,48,8,8,8,52,5,52,5,6462,2,0,0,0,0,0,0,13,138,12,255,255,64,32,96,18,114,50,82,36,100,68,54,86,72,0,0,0 ];
+$hullType{'11'} = [ 15,12,"Privateer",11,0,0,0,4,0,0,65,50,50,3,2,44,250,650,150,1,1,12,2,6146,1,6462,1,6462,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,67,16,103,67,65,55,87,37,101,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'12'} = [ 15,13,"Rogue",12,0,0,0,8,0,0,75,60,80,5,5,48,500,2250,450,1,2,12,3,6400,2,2,1,6462,2,6462,2,6400,2,2048,1,2048,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,132,16,118,51,65,70,102,72,20,116,38,18,114,0,0,0,0,0,0,0 ];
+$hullType{'13'} = [ 15,14,"Galleon",13,0,0,0,11,0,0,125,105,70,5,5,52,1000,2500,900,1,4,12,2,12,2,6462,3,6462,3,6400,2,6144,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,132,16,118,50,64,19,115,21,117,54,86,72,0,0,0,0,0,0,0,0 ];
+$hullType{'14'} = [ 15,15,"Mini-Colony Ship",14,0,0,0,0,0,0,8,3,2,0,2,56,10,150,10,1,1,4096,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,86,52,50,54,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'15'} = [ 15,16,"Colony Ship",15,0,0,0,0,0,0,20,20,10,0,15,60,25,200,20,1,1,4096,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,86,52,50,54,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'16'} = [ 15,17,"Mini Bomber",16,0,0,0,1,0,0,28,35,20,5,10,64,0,120,50,1,1,64,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,192,20,255,255,51,53,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'17'} = [ 15,18,"B-17 Bomber",17,0,0,0,6,0,0,69,150,55,10,10,68,0,400,175,1,2,64,4,64,4,6146,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,192,20,255,255,49,51,53,55,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'18'} = [ 15,19,"Stealth Bomber",18,0,0,0,8,0,0,70,175,55,10,15,72,0,750,225,1,2,64,4,64,4,6146,1,2048,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,192,20,255,255,50,36,68,38,70,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'19'} = [ 15,20,"B-52 Bomber",19,0,0,0,15,0,0,110,280,90,15,10,76,0,750,450,1,3,64,4,64,4,64,4,64,4,6146,2,4,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,192,20,255,255,49,19,83,37,69,55,51,0,0,0,0,0,0,0,0,0 ];
+$hullType{'20'} = [ 15,21,"Midget Miner",20,0,0,0,0,0,0,10,20,10,0,3,80,0,210,100,1,1,128,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,24,255,255,51,53,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'21'} = [ 15,22,"Mini-Miner",21,0,0,0,2,0,0,80,50,25,0,6,84,0,210,130,1,1,6146,1,128,1,128,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,24,255,255,50,54,36,68,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'22'} = [ 15,23,"Miner",22,0,0,0,6,0,0,110,110,32,0,6,88,0,500,475,1,2,6154,2,128,2,128,1,128,2,128,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,24,255,255,49,55,35,37,67,69,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'23'} = [ 15,24,"Maxi-Miner",23,0,0,0,11,0,0,110,140,32,0,6,92,0,850,1400,1,3,6154,2,128,4,128,1,128,4,128,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,24,255,255,49,55,35,37,67,69,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'24'} = [ 15,25,"Ultra-Miner",24,0,0,0,14,0,0,100,130,30,0,6,96,0,1300,1500,1,2,6154,3,128,4,128,2,128,4,128,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,24,255,255,49,55,35,37,67,69,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'25'} = [ 15,26,"Fuel Transport",25,0,0,0,4,0,0,12,50,10,0,5,100,0,750,5,1,1,4,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,28,255,255,51,53,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'26'} = [ 15,27,"Super-Fuel Xport",26,0,0,0,7,0,0,111,70,20,0,8,104,0,2250,12,1,2,4,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,28,255,255,50,52,54,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'27'} = [ 15,28,"Mini Mine Layer",27,0,0,0,0,0,0,10,20,8,2,5,108,0,400,60,1,1,256,2,256,2,6146,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,16,255,255,50,36,68,54,0,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'28'} = [ 15,29,"Super Mine Layer",28,0,0,0,15,0,0,30,30,20,3,9,112,0,2200,1200,1,3,256,8,256,8,12,3,6146,3,6400,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,16,255,255,49,35,67,53,39,71,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'29'} = [ 15,30,"Nubian",29,0,0,0,26,0,0,100,150,75,12,12,124,0,5000,5000,1,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,0,0,0,0,0,0,13,130,16,255,255,64,32,96,18,114,50,82,36,100,68,54,86,72,0,0,0 ];
+$hullType{'30'} = [ 15,31,"Mini Morph",30,0,0,0,8,0,0,70,100,30,8,8,120,150,400,250,1,2,6462,3,6462,1,6462,1,6462,1,6462,2,6462,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,130,16,102,36,48,50,38,70,56,18,82,0,0,0,0,0,0,0,0,0 ];
+$hullType{'31'} = [ 15,32,"Meta Morph",31,0,0,0,10,0,0,85,120,50,12,12,116,300,700,500,1,3,6462,8,6462,2,6462,2,6462,1,6462,2,6462,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,130,16,102,36,48,50,38,70,56,18,82,0,0,0,0,0,0,0,0,0 ];
+$hullType{'32'} = [ 16,1,"Orbital Fort",32,0,0,0,0,0,0,0,80,24,0,34,128,0,0,100,2560,1,48,12,12,12,48,12,12,12,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,138,0,255,255,68,36,70,100,66,0,0,0,0,0,0,0,0,0,0,0 ];
+$hullType{'33'} = [ 16,2,"Space Dock",33,0,0,0,4,0,0,0,200,40,10,50,132,200,0,250,2560,1,48,16,12,24,48,16,4,24,2048,2,2048,2,48,16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,140,0,102,68,34,20,65,71,116,38,102,98,0,0,0,0,0,0,0,0 ];
+$hullType{'34'} = [ 16,3,"Space Station",34,0,0,0,0,0,0,0,1200,240,160,500,136,-1,0,500,2560,1,48,16,4,16,48,16,12,16,4,16,2048,3,48,16,2048,3,48,16,2560,1,12,16,0,0,0,0,0,0,0,0,12,142,0,102,68,66,5,3,88,80,133,100,131,36,48,70,56,0,0,0,0 ];
+$hullType{'35'} = [ 16,4,"Ultra Station",35,0,0,0,12,0,0,0,1200,240,160,600,140,-1,0,1000,2560,1,48,16,2048,3,48,16,4,20,4,20,2048,3,48,16,2048,3,48,16,2560,1,12,20,48,16,12,20,2048,3,48,16,16,144,0,102,68,36,80,66,88,98,38,70,3,131,56,100,102,48,34,5,133 ];
+$hullType{'36'} = [ 16,5,"Death Star",36,0,0,0,17,0,0,0,1500,240,160,700,144,-1,0,1500,2560,1,48,32,2048,4,2048,4,4,30,4,30,2048,4,48,32,2048,4,48,32,2560,1,12,20,2048,4,12,20,2048,4,48,32,16,146,0,102,68,20,96,65,104,98,38,71,2,130,40,116,102,32,34,6,134 ];
 
 #########################################        
 my $filename = $ARGV[0]; # input file
@@ -95,6 +135,7 @@ $dir  = dirname($filename);         # c:\stars
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
 $basename = $basefile;
 $basename =~  s/$ext//;
+my ($game_file, $file_player, $file_type, $file_ext) = &FileData ($basefile); 
 
 # Read in the binary Stars! file, byte by byte
 my $FileValues;
@@ -118,40 +159,18 @@ my @outBytes = @{$outBytes};
 #  $fleetLoop++;
 # }
 
-print "\n\nFLEET INFO:\n";
+&printFleet(\%fleetList);
 
-for my $key (keys %fleetBlock) {
-#  print "fleetId:$key  player:$fleetBlock{$key}{'player'}, ownerId:$fleetBlock{$key}{'owner'}, x:$fleetBlock{$key}{'x'}, y:$fleetBlock{$key}{'y'}, battlePlan:$fleetBlock{$key}{'battlePlan'}\n";
-  my @shipCount = @{$fleetBlock{$key}{'shipCount'}};
-  print "$key,$fleetBlock{$key}{'player'},$fleetBlock{$key}{'owner'},$fleetBlock{$key}{'x'},$fleetBlock{$key}{'y'},$fleetBlock{$key}{'battlePlan'},";
-  my $shipct = 0;
-  foreach my $val (@shipCount) {
-    if ($val ) { print "$val";}
-    else { print "0";}
-   if ($shipct <15) { print ","; }
-    $shipct++;
-  }
-  print "\n";
-}
+# my $waypointLoop = 0;
+# while ($waypointLoop <= ($#waypoint)) {
+#  print "Waypoint: fleetId: $waypoint[$waypointLoop]{'id'}, ownerId: $waypoint[$waypointLoop]{'owner'}, xDest: $waypoint[$waypointLoop]{'x'}, yDest: $waypoint[$waypointLoop]{'y'}, positionId: $waypoint[$waypointLoop]{'position'}\n";
+#  $waypointLoop++;
+# }
 
 # Output the fleet information to a file for future reference
 # This is so I only have to scan the HST file once. 
-my $FleetFile = $dir . '\\' . $basename . '.fleet';
-open (FLEETFILE, ">$FleetFile");
-for my $key (keys %fleetBlock) {
-  my @shipCount = @{$fleetBlock{$key}{'shipCount'}};
-  my $fleetfile = "$key,$fleetBlock{$key}{'player'},$fleetBlock{$key}{'owner'},$fleetBlock{$key}{'x'},$fleetBlock{$key}{'y'},$fleetBlock{$key}{'battlePlan'},";
-  my $shipct = 0;
-  foreach my $val (@shipCount) {
-    if ($val ) { $fleetfile .= "$val";}
-    else { $fleetfile .= "0";}
-   if ($shipct <15) { $fleetfile .= ","; }
-    $shipct++;
-  }
-  $fleetfile .= "\n";
-  print FLEETFILE $fleetfile;
-}
-close FLEETFILE;
+my $fleetFile = $dir . '\\' . $basename . $ext . '.fleet';
+&writeFleetFile ($fleetFile, \%fleetList);
 
 # my $waypointLoop = 0;
 # while ($waypointLoop <= ($#waypoint)) {
@@ -159,23 +178,23 @@ close FLEETFILE;
 #  $waypointLoop++;
 # }
 # 
-# print "\nRESULTS:\n";
-# if (%warning) { 
-#   foreach my $key (keys %warning)
-#   {
-#     print "$key: $warning{$key}\n";
-#   }
-#   print "\n";
-# } else { print "No issues found\n"; }
+print "\nRESULTS:\n";
+if (%warning) { 
+  foreach my $key (keys %warning)
+  {
+    print "$key: $warning{$key}\n";
+  }
+  print "\n";
+} else { print "No issues found\n"; }
 
-# Only create a new file if anything was wrong. 
-#if (scalar @outBytes && $fixFiles > 1) {
+# # Only create a new file if anything was wrong. 
+# #if (scalar @outBytes && $fixFiles > 1) {
 # if ($needsFixing && $fixFiles > 1) {
 #   # Create the output file name
 #   my $newFile; 
 #   if ($outFileName) { $newFile = $outFileName;  } 
-#   else { $newFile = $dir . '\\' . $basefile . '.clean'; }
-#   #if ($debug) { $newFile = $dir . '\\' . $basefile . '.clean';  } # Just for me
+#   else { $newFile = $dir . '\\' . $basefile . '.fleet'; }
+#   #if ($debug) { $newFile = $dir . '\\' . $basefile . '.fleet';  } # Just for me
 #   
 #   # Output the Stars! File with bugs fixed.
 #   open (OutFile, '>:raw', "$newFile");
@@ -190,7 +209,7 @@ close FLEETFILE;
 
 ################################################################
 sub decryptShip {
-  #my (@fileBytes) = @_;
+  my (@fileBytes) = @_;
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
@@ -202,6 +221,15 @@ sub decryptShip {
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   my $needsFixing;
+  my $fleetCounter = 0; 
+  my @designCargo; # Cargo capacity for a design
+  my @shipDesigns; # Since the design block doesn't include which player owns the block for .HST files.
+  my @starbaseDesigns; # Since the design block doesn't include which player owns the block for .HST files.
+  my $playerCounterShip = 0; # Start with the first player, and increment as we pass designs 
+  my $playerCounterStarbase = 0; # Start with the first player, and increment as we pass designs 
+  my $shipDesignCounter = 0; 
+  my $starbaseDesignCounter = 0; 
+  #  my @fleetCargo; # Cargo capacity for a fleet
   while ($offset < @fileBytes) {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
@@ -216,7 +244,6 @@ sub decryptShip {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
-      print "Turn: " . ($turn+2400) . "\n";
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -229,14 +256,11 @@ sub decryptShip {
       @decryptedData = @{ $decryptedData };
       if ( $debug  > 1) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
-      
-      if ($typeId == 1 || $typeId == 2 || $typeId == 25) {
+      if ($typeId == 1 || $typeId == 2 || $typeId == 25) { #Manual Load Task block
         #typeID = 1 : ManualSmallLoadUnloadTaskBlock, 1 kt > 127 kt 
         #typeID = 2 : ManualMediumLoadUnloadTaskBlock, 128 kt > 32767 kt
         #typeID =25 : ManualLargeLoadUnloadTaskBlock, 32768kt >   
         my ($fromId, $fromIdType, $toId, $toIdType);
-        my ($fromFleetId, $toFleetId);
-        my ($fromPlayerId, $toPlayerId);
         my ($fromOwnerId, $toOwnerId);
         my $contents;
         my ($ironium, $boranium, $germanium, $population, $fuel);
@@ -253,10 +277,9 @@ sub decryptShip {
         $toId = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 1) << 8);
         # ID type determines if From and To IDs are fleet, planet, packet, deep space
         # TO / FROM Types: unknown (0), planet (1), fleet (2), space (4), salvage/packet/MT(8)
-        $toIdType = $decryptedData[4] >> 4;  # right 4 bits
-        $fromIdType =  ($decryptedData[4] >> 0) & 0xF;   # left 4 bits
+        $toIdType = $decryptedData[4] >> 4;  # left 4 bits
+        $fromIdType =  ($decryptedData[4] >> 0) & 0xF;  # right 4 bits 
         print "\tFROM: Owner:$fromOwnerId, ID:$fromId(" . &showDestType($fromIdType) . ")  TO: Owner:$toOwnerId, ID:$toId(" .&showDestType($toIdType) . ")\n";
-        #if ($planetId == 2047) { $planetId = 'Deep Space'; }
         
         $index = 5;
         $contents = $decryptedData[$index];
@@ -299,19 +322,41 @@ sub decryptShip {
         if ($isPopulation) { print "\tP:$population ";}
         if ($isFuel)       { print "\tF:$fuel ";}
         print "\n";
-      } elsif ( $typeId == 3 ) { # Waypoint Delete Block in .x files
+        
+        # If a transfer is from a planet to an enemy fleet, it could be an exploit of the Mineral Upload bug
+        # Can be done with some work so it occurs either as a to or from transfer
+        if (
+          (($toOwnerId == 0 &&  $toIdType == 1 ) && ($fromOwnerId != $Player && $fromIdType == 2) && ($ironium > 0 || $boranium > 0 || $germanium > 0)) 
+          ||
+          (($fromOwnerId == 0 &&  $fromIdType == 1 ) && ($toOwnerId != $Player && $toIdType == 2) && ($ironium < 0 || $boranium < 0 || $germanium < 0))
+          ) {
+          print "WARNING: This could be a Mineral Upload Exploit\n";
+        }
+      } 
+      elsif ( $typeId == 3 ) { # Waypoint Delete Block in .x files
         my ($fleetId, $waypointId);
         $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
         $waypointId = $decryptedData[2]& 0xFF;
         print "WP$typeId: fleetId:$fleetId, waypointId:$waypointId\n";
-      } elsif ( $typeId == 4 || $typeId == 5 ) { # waypoint block (add/change) in .x files 
+      } 
+      # Part of the detection of the minefield 0-coordinate bug, but 
+      # the fleet block isn't mapped well-enough for me to figure out the coordinates
+      # easily
+      # THIS WOULD HAVE BEEN LESS WORK IF I'D KNOWN THIS WAS FIXED IN JRC4
+      elsif ( $typeId == 4 || $typeId == 5 ) { # waypoint block (add/change) in .x files 
         # Setting destination task adds a change (so a Task 4 & Task 5)
+#       my %waypoint; # to store waypoints in a hash
         my @showTaskId = ('no task', 'Transport', 'Colonize', 'Remote Mining', 'Merge with Fleet', 'Scrap Fleet', 'Lay Minefield', 'Patrol', 'Route', 'Transfer Fleet');
+#         my $fleetId = $decryptedData[0]; 
         my $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
+#         my $ownerId = $decryptedData[1]; 
         my $playerId = $decryptedData[1] & 0xFF;
+#         my $positionObjectId = &read16(\@decryptedData, 2);
         my $waypointId = &read16(\@decryptedData, 2);
 			  my $xDest = &read16(\@decryptedData, 4);  
+#         my $unknownBitsWithWarp = $decryptedData[6] & 0x0F;
         my $yDest = &read16(\@decryptedData, 6);  
+#         my $positionObjectType = $decryptedData[7] & 0xFF;
         my $targetId = ($decryptedData[8] & 0xFF) + (($decryptedData[9] & 1) << 8);  # ID for destination like Fleet Merge, 511 is current location
         my $warp =  $decryptedData[10] >> 4; # left 4 bits
         #my $taskId = $decryptedData[10] >> 0 & 0x0F; # right 4 bits
@@ -379,22 +424,33 @@ sub decryptShip {
           print ", Intercept $showPatrolIntercept[$patrolIntercept], Warp Factor:$showPatrolWarp[$patrolWarp]\n";
         }
         print "\n";
-        
         my %waypoint; # to store waypoints in a hash
         $waypoint{'id'} = $fleetId;
         $waypoint{'owner'} = $playerId;
         $waypoint{'x'} = $xDest;
         $waypoint{'y'} = $yDest;
+        # $waypoint{'position'} = $positionObjectId;     
         $waypoint[$waypointcounter] = { %waypoint };
         $waypointcounter++;
-      } elsif ($typeId == 10 ) { # waypoint repeat orders block
+      } 
+      elsif ($typeId == 6) { # Player Block
+        # Partial player block; see StarsRace.pl
+        my $playerId = $decryptedData[0] & 0xFF; 
+        my $shipDesigns = $decryptedData[1] & 0xFF;
+        my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);
+        my $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4);
+        $shipDesigns[$playerId] = $shipDesigns;
+        $starbaseDesigns[$playerId] = $starbaseDesigns;
+      }
+      elsif ($typeId == 10 ) { # waypoint repeat orders block
         my $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
         my $waypointTask = $decryptedData[2]; # 0-disable repeat, 1-repeat
         my $unknown = $decryptedData[3]; # always 0;
         print "WP Repeat: fleetID: $fleetId";
         if ( $waypointTask ) { print "\n"; }
         else { print " DELETE\n"; }
-      } elsif ($typeId == 16 ) { # Fleet block and partial fleet block
+      } 
+      elsif ($typeId == 16 ) { # Fleet block and partial fleet block
         # don't care about a partial fleet block (17), as that would be a different
         # player's fleet.
         my %fleet; # To store the values in a hash
@@ -418,13 +474,13 @@ sub decryptShip {
         my ($warp, $waypointCount);
         my ($unknownBitsWithWarp); # partial fleet data
         my $battlePlan; # full fleet data
+        my $fleetCargo = 0; # fleet cargo capacity
         
         $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
         $ownerId = $decryptedData[1] >> 1;
         $byte2 = $decryptedData[2];
 	      $byte3 = $decryptedData[3];
         $kindByte = $decryptedData[4];
-        #print "\nKindByte: $kindByte\n";
         $byte5 = $decryptedData[5];
         my $shipCountTwoBytes;
         if (($byte5 & 8) == 0) { $shipCountTwoBytes = 1; 
@@ -447,19 +503,22 @@ sub decryptShip {
           } else { $shipCount[$bit] =0; } # Pad out the array
           $mask <<= 1;
         }
-        #print "\n\nshipTypes: " . &dec2bin($shipTypes) . "\n";
-        my $shipct =0 ;
+        my $shipct = 0;
         foreach my $val (@shipCount) {
-          if ( $val ) { print "designSlot: $shipct   shipCount: $val\n";}
-          #else { print "designNumber: $shipct   shipCount: 0\n";}
+          if ( $val ) { 
+            $fleetCargo += $designCargo[$shipct] * $val;
+             print "designSlot: $shipct shipCount: $val fleetCargo: $fleetCargo\n";
+          }
+          else { 
+            $fleetCargo += 0;
+             print "designSlot: $shipct shipCount: 0 fleetCargo: $fleetCargo\n";
+          }
           $shipct++;
         }
         # PARTIAL_KIND = 3, PICK_POCKET_KIND = 4, FULL_KIND = 7;
         #if ($kindByte != 7 && $kindByte != 4 && $kindByte != 3) {
-        # BUG: all the values seem to end up equally the fuel value
         if ($kindByte == 7 || $kindByte == 4) {
           $contentsLengths = &read16(\@decryptedData, $index);
-          #print "ContentLengths: $contentsLengths  \t" . dec2bin($contentsLengths) . "\n";
           $iLength = $contentsLengths & 0x03;
           $iLength = 4 >> (3 - $iLength);
           $bLength = ($contentsLengths & 0x0C) >> 2;
@@ -470,7 +529,6 @@ sub decryptShip {
           $popLength = 4 >> (3 - $popLength);
           $fuelLength = $contentsLengths >> 8;
           $fuelLength = 4 >> (3 - $fuelLength);
-          #print "Lengths: i:$iLength, b:$bLength, g:$gLength, p:$popLength, f:$fuelLength\n";
           $index += 2;
           $ironium = &readN(\@decryptedData, $index, $iLength);
           $index += $iLength;
@@ -509,32 +567,33 @@ sub decryptShip {
           $index += 4;
           print "DeltaX:$deltaX, deltaY:$deltaY, warp:$warp, mass:$mass\n"; 
         }
-        $x = &read16(\@decryptedData, 8); # Correct  (likely only in full block?)
+        $x = &read16(\@decryptedData, 8);  # Correct (likely only in full block?)
         $y = &read16(\@decryptedData, 10); # Correct (likely only in full block?)
-        print "Fleet: fleetId: $fleetId, ownerId: $ownerId, x: $x, y: $y, shipTypes:" . &dec2bin($shipTypes) . "\n";
-        #$fleet{'id'} = $fleetId;
-        $fleet{'player'} = $Player; # BUG: Are these different than "owner"? Likely
-        $fleet{'owner'} = $ownerId;
+        print "Fleet: ownerId: $ownerId, fleetId: $fleetId, x: $x, y: $y, battlePlan: $battlePlan, Cargo: $fleetCargo, shipTypes:" . &dec2bin($shipTypes) . "\n";
+        $fleetCounter++;
+        $fleet{'ownerId'} = $ownerId;
+        $fleet{'fleetId'} = $fleetId;
         $fleet{'x'} = $x;
         $fleet{'y'} = $y;
         $fleet{'battlePlan'} = $battlePlan;
+        $fleet{'fleetCargo'} = $fleetCargo;
         $fleet{'shipTypes'}  = &dec2bin($shipTypes);
         $fleet{'shipCount'}  = \@shipCount; # This array doesn't have counts for any design after the last one with a number.
-        #$fleet[$fleetcounter] = { %fleet };
-        $fleetBlock{$fleetId} = { %fleet };
-        #$fleetcounter++;
-        print "\n";
-      } elsif ($typeId == 20 ) { # waypoint block 20 in .m files. 8 Bytes
-#         my %waypoint; # to store waypoints in a hash
+        $fleetList{$fleetCounter} = { %fleet };
+      } 
+      elsif ($typeId == 20 ) { # waypoint block 20 in .m files. 8 Bytes
+        #my %waypoint; # to store waypoints in a hash
         my ($targetType, $warp, $taskId);
         my @showTaskId;
+        #my $fleetId = $decryptedData[0]; 
         my $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
+        #my $ownerId = $decryptedData[1]; 
         my $playerId = $decryptedData[1] & 0xFF;
+        #my $positionObjectId = &read16(\@decryptedData, 2);
         my $waypointId = &read16(\@decryptedData, 2);
 			  my $xDest = &read16(\@decryptedData, 4);  
-        my $yDest = &read16(\@decryptedData, 6);  
-        my $targetId = ($decryptedData[8] & 0xFF) + (($decryptedData[9] & 1) << 8);  # ID for destination like Fleet Merge, 511 is current location
-        print "WP$typeId: waypointId:$waypointId, fleetId:$fleetId, playerId:$playerId, targetId:$targetId, targetType:" . &showDestType($targetType) . ", Dest:$xDest" . "x$yDest, warp:$warp, task:" . $showTaskId[$taskId];
+        #my $yDest = &read16(\@decryptedData, 6);  
+        my $yDest = &read16(\@decryptedData, 6);
 # #        my $unknownBitsWithWarp = $decryptedData[6] & 0x0F;
 # #        my $positionObjectType = $decryptedData[7] & 0xFF;
 # #        my $fullWaypointData;
@@ -551,145 +610,197 @@ sub decryptShip {
 #         $waypoint{'position'} = 'null';
 #         $waypoint[$waypointcounter] = { %waypoint };
 #         $waypointcounter++;
-#      }
-#       # Detect the Colonizer, Spack Dock SuperLatanium, and 10 starbase design bugs
-#       if ($typeId == 26 || $typeId == 27) { # Design & Design Change block
-#         print "\nPlayer: $Player\n";
-#         my $hullId;
-#         my $index = 0;
-#         my $err = ''; # reset error for each time we check a hull, because it could be fixed in a later change.
-#         $deleteDesign = $decryptedData[0] % 16;
-#         if ($deleteDesign == 0) { 
-#           $designNumber = $decryptedData[1] % 16; 
-#           print "Delete designNumber: $designNumber\n";
-#           $isStarbase = ($decryptedData[1] >> 4) % 2; 
-#           print "isStarbase: $isStarbase\n";  
-#         }
-#         if ( $typeId == 27 ) { $index = 2; } # for the two extra bytes in a .x file  
-#         # If the order is to delete a design, the rest of the data isn't there.  Don't expect it to be.
-#         if ($deleteDesign) { 
-#           $isFullDesign =  ($decryptedData[$index] & 0x04); print "isFullDesign: $isFullDesign\n";
-#           $isTransferred = ($decryptedData[$index+1] & 0x80); print "isTransferred: $isTransferred\n";
-#           $isStarbase = ($decryptedData[$index+1] & 0x40);  print "isStarbase: $isStarbase\n";
-#           $designNumber = ($decryptedData[$index+1] & 0x3C) >> 2; print "designNumber: $designNumber\n";
-#           $hullId = $decryptedData[$index+2] & 0xFF; print "HullId: $hullId (" . &showHull($hullId, 2) . ")\n";
-#           unless ($isStarbase) { $fuelCapacity = &showHull($hullId, 17); }
-#           $pic = $decryptedData[$index+3] & 0xFF; print "pic: $pic\n";  
-#           if ($hullId == 29) { $pic = 4*31; }  # No idea why these pics are swapped
-#           elsif ($hullId == 31) { $pic = 4*29; }
-#           if ($isFullDesign) {
-#             # Since there can be a ship and base with the same hullId, 
-#             # need to be able to keep them separate
-#             if ($isStarbase) { $warnId = "base" . $designNumber; }
-#             else { $warnId = "ship" . $designNumber; }
-#             $armor = &read16(\@decryptedData, $index+4);  print "armor: $armor\n";
-#             $armorIndex = $index +4; # used to fix the Space Dock overflow
-#             $slotCount = $decryptedData[$index+6] & 0xFF; print "slotCount: $slotCount\n";  # Actual number of slots
-#             $turnDesigned = &read16(\@decryptedData, $index+7); print "turnDesigned: " . $turnDesigned . "\n";
-#             $totalBuilt = &read16(\@decryptedData, $index+9); print "totalBuilt: $totalBuilt\n";
-#             $totalRemaining = &read16(\@decryptedData, $index+13); print "totalRemaining: $totalRemaining\n";
-#             $slotEnd = $index+17+($slotCount*4); print "slotEnd: $slotEnd\n";
-#             $shipNameLength = $decryptedData[$slotEnd];          
-#             print "shipNameLength: $shipNameLength  (using nibbles as characters, not bytes)\n";
-#             $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
-#             $index = 17;  
-#             if ($typeId == 27) { $index += 2; } # x files have 2 more bytes
-#             # Loop through once for each slot
-#             for (my $itemSlot = 0; $itemSlot < $slotCount; $itemSlot++) {
-#               $itemCategory = &read16(\@decryptedData, $index);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
-#               $index += 2;
-#               $itemId = &read8($decryptedData[$index++]); # Use current value of index, and increment by 1
-#               $itemCountIndex = $index; # used for the Space Dock overflow. 
-#               $itemCount = &read8($decryptedData[$index++]);
-#               my ( $category_str,$item_str ) = &showCategory($itemCategory, $itemId);
-#               if ( $category_str && $item_str ) { print "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount\n"; }
-#               else { print "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount\n";}
-# 
-#               # Calculate actual fuel in hull (just because, in theory, I can)
-#               if ( $itemCount > 0 && !$isStarbase){
-# #                 my $key =  ($itemCategory << 8) | ( $itemId & 0xFF);
-# #                 mass += slot.count * Items.itemMasses.get(key); 
-# #                 if (itemCategory == Items.TechCategory.Mechanical.getMask()) 
-#                 if ( &getMask($itemCategory, 12) ) {
-#                   if ($itemId == 5) { $fuelCapacity += $itemCount * 250;  }
-#                   if ($itemId == 6) { $fuelCapacity += $itemCount * 500;  }
-#                 }
-# #                if ($itemCategory == Items.TechCategory.Electrical.getMask()) {
-#                 if ( &getMask($itemCategory, 11) ) {
-#                   if ($itemId == 16) { $fuelCapacity += $itemCount * 200; print "Adding fuel\n"; }
-#                 }
-#               }
-# 
-#               # Fix the colonizer bug
-#               # Ships with a colonisation module removed and the slot left empty can still colonise planets
-#               # If a colonizer hull is created, and then edited, it's going to put 2 (or more)  entries in the .x file.
-#               # so also need to filter.
-#               if ($itemId == 0 &&  $itemCategory == 4096 && $itemCount == 0) {
-#                 $err .= "***Colonizer bug detected in ship design slot $designNumber: $shipName (slot $itemSlot). ";
-#                 if ($fixFiles > 1) {
-#                   $err .= "  Fixed!!!";
-#                   ($decryptedData[$index-4], $decryptedData[$index-3]) = &write16(0);
-#                   $needsFixing = 1;
-#                 } else {$err .= " ";}
-#                 $warning{$warnId} = $err;
-#                 print $err . "\n"; 
-#               }
-#               # Fix Space Dock Armor slot Buffer Overflow with super latanium
-#               # If your race has ISB and RS, building a Space Dock with more than 21 SuperLat in the Armor slot 
-#               # will result in some sort of error (of massively increased armor)
-#               # Rick: I had hoped to fix this by simply rewriting the armor value. But it gets recalculated,
-#               # so resetting the itemCount is the only choice. 
-#               if ( $isStarbase && $hullId == 33 && $itemId == 11  && $itemCategory == 8 && $itemCount >=22  && $armor  >= 49518) {
-#                 $err = "***Spacedock Overflow bug of > 21 SuperLatanium detected in starbase design slot $designNumber: $shipName. ";
-#                 if ($fixFiles > 1) {
-#                   $err .= "  Fixed!!! ";
-#                   # reset the $itemCount 
-#                   $decryptedData[$itemCountIndex] = 21;
-#                   # Armor value should be 250 + (1500 * $itemCount) / 2
-#                   $armor = 250 + (1500 * 21) / 2; # correct for 21 Super Latanium
-#                   # reset the final armor value for the spacedock overflow bug
-#                   ($decryptedData[$armorIndex], $decryptedData[$armorIndex+1]) = &write16($armor);
-#                   $needsFixing = 1;
-#                 } else {$err .= " ";}
-#                 $warning{$warnId} = $err;
-#                 print $err . "\n";
-#               }
-#             }
-#           } else { # If it's not a full design
-#             $mass = &read16(\@decryptedData, 4); 
-#             $slotEnd = 6; 
-#             $shipNameLength = $decryptedData[$slotEnd]; 
-#             $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
-#           }
-#           if (!$isStarbase && $isFullDesign) { print "fuelCapacity(Ship): $fuelCapacity\n"; }
-#           print "shipName: $shipName\n";
-#           
-#           # Detect the 10th starbase design
-#           if ( $isStarbase && $designNumber == 9 && $deleteDesign && $Player > 0 ) {
-#             $err = "***Warning: Player $Player: Starbase ($shipName) in design slot 10 - Potential Crash if Player 1 Fleet 1 refuels when Last Player has a 10th starbase design";
-#             print $err . "\n"; 
-#             $warning{'ten'} = $err;
-#           } 
-#         } 
-#         # For the Colonizer bug & Spacedock overflow track whether the design was 
-#         # created, but remove the warning if the design was subsequently changed/deleted.
-#         # If this designNumber is broken, set warning. Otherwise clear warning
-#         # (because a later .x file entry fixed this designnumber)
-#         # Store the error in a hash so it's only one / ship / file
-#         # Will handle for multi-turn .m files.
-#         if (!$err && $warning{$warnId}) { 
-#           delete( $warning{$warnId} ); 
-#           print "Player Fix Noted\n";
-#         }
-#         # If the 10th starbase has been deleted, clear the warning
-#         if ( $isStarbase && $designNumber == 9 && $deleteDesign == 0 && $Player > 0 ){
-#           if ($warning{'ten'}) { 
-#             delete ($warning{'ten'}); 
-#             print "Player Fix Noted\n";
-#           }
-#         }
-#       }
-      } elsif ($typeId == 37) {  # Fleet Merge block
+      }
+      elsif ($typeId == 26 || $typeId == 27) { # Design & Design Change block
+        #print "\nTurn: " . ($turn+2400) . "\tPlayer ID: $Player\n";
+        print "\nBLOCK 26 Turn:" . ($turn+2400) . "\n";
+        my $hullId;
+        my $index = 0;
+        my $err = ''; # reset error for each time we check a hull, because it could be fixed in a later change.
+        $deleteDesign = $decryptedData[0] % 16;  # right-most 4 bits
+        if ($deleteDesign == 0) { 
+          $designNumber = $decryptedData[1] % 16; 
+          print "Delete designNumber: $designNumber\n";
+          $isStarbase = ($decryptedData[1] >> 4) % 2; 
+          print "isStarbase: $isStarbase\n";  
+        }
+        if ( $typeId == 27 ) { $index = 2; } # for the two extra bytes in a .x file  
+        # If the order is to delete a design, the rest of the data isn't there.  Don't expect it to be.
+        if ($deleteDesign) { 
+          $isFullDesign =  ($decryptedData[$index] & 0x04); 
+          print "isFullDesign: $isFullDesign\n";
+          $isTransferred = ($decryptedData[$index+1] & 0x80); 
+          print "isTransferred: $isTransferred\n";
+          $isStarbase = ($decryptedData[$index+1] & 0x40);  
+          print "isStarbase: $isStarbase\n";
+          $designNumber = ($decryptedData[$index+1] & 0x3C) >> 2; 
+          print "designNumber: $designNumber\n";
+          $hullId = $decryptedData[$index+2] & 0xFF; 
+          print "HullId: $hullId (" . &showHull($hullId, 2) . ")\n";
+          unless ($isStarbase) { $cargoCapacity = $hullType{$hullId}[16]; }
+          unless ($isStarbase) { $fuelCapacity = &showHull($hullId, 17); }
+          $pic = $decryptedData[$index+3] & 0xFF; 
+          print "pic: $pic\n";  
+          if ($hullId == 29) { $pic = 4*31; }  # No idea why these pics are swapped
+          elsif ($hullId == 31) { $pic = 4*29; }
+          if ($isFullDesign) {
+            # Since there can be a ship and base with the same hullId, 
+            # need to be able to keep them separate
+            if ($isStarbase) { $warnId = "base" . $designNumber; }
+            else { $warnId = "ship" . $designNumber; }
+            $armor = &read16(\@decryptedData, $index+4);  
+            print "armor: $armor\n";
+            $armorIndex = $index +4; # used to fix the Space Dock overflow
+            $slotCount = $decryptedData[$index+6] & 0xFF; 
+            print "slotCount: $slotCount\n";  # Actual number of slots
+            $turnDesigned = &read16(\@decryptedData, $index+7); 
+            print "turnDesigned: " . $turnDesigned . "\n";
+            $totalBuilt = &read16(\@decryptedData, $index+9); 
+            print "totalBuilt: $totalBuilt\n";
+            $totalRemaining = &read16(\@decryptedData, $index+13); 
+            print "totalRemaining: $totalRemaining\n";
+            $slotEnd = $index+17+($slotCount*4); 
+            print "slotEnd: $slotEnd\n";
+            $shipNameLength = $decryptedData[$slotEnd];          
+            print "shipNameLength: $shipNameLength  (using nibbles as characters, not bytes)\n";
+            $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
+            $index = 17;  
+            if ($typeId == 27) { $index += 2; } # x files have 2 more bytes
+            # Loop through once for each slot
+            for (my $itemSlot = 0; $itemSlot < $slotCount; $itemSlot++) {
+              $itemCategory = &read16(\@decryptedData, $index);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
+              $index += 2;
+              $itemId = &read8($decryptedData[$index++]); # Use current value of index, and increment by 1
+              $itemCountIndex = $index; # used for the Space Dock overflow. 
+              $itemCount = &read8($decryptedData[$index++]);
+              my ( $category_str,$item_str ) = &showCategory($itemCategory, $itemId);
+              if ( $category_str && $item_str ) { 
+                print "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount\n"; 
+              }
+              else { 
+                print "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount\n";
+              }
+
+              # Calculate actual fuel and cargo in hull (just because, in theory, I can)
+              if ( $itemCount > 0 && !$isStarbase){
+#                 my $key =  ($itemCategory << 8) | ( $itemId & 0xFF);
+#                 mass += slot.count * Items.itemMasses.get(key); 
+#                 if (itemCategory == Items.TechCategory.Mechanical.getMask()) 
+                if ( &getMask($itemCategory, 12) ) {
+                  if ($itemId == 2) { $cargoCapacity += $itemCount * 50;  }
+                  if ($itemId == 3) { $cargoCapacity += $itemCount * 100;  }
+                  if ($itemId == 4) { $cargoCapacity += $itemCount * 250;  }
+                  if ($itemId == 5) { $fuelCapacity += $itemCount * 250;  }
+                  if ($itemId == 6) { $fuelCapacity += $itemCount * 500;  }
+                }
+#                if ($itemCategory == Items.TechCategory.Electrical.getMask()) {
+                if ( &getMask($itemCategory, 11) ) {
+                  if ($itemId == 16) { $fuelCapacity += $itemCount * 200; }
+                }
+              }
+              
+              ##################################################################
+              # Fix the colonizer bug
+              # Ships with a colonisation module removed and the slot left empty can still colonise planets
+              # If a colonizer hull is created, and then edited, it's going to put 2 (or more)  entries in the .x file.
+              # so also need to filter.
+              if ($itemId == 0 &&  $itemCategory == 4096 && $itemCount == 0) {
+                $err .= "***Colonizer bug detected in ship design slot $designNumber: $shipName (slot $itemSlot). ";
+                if ($fixFiles > 1) {
+                  $err .= "  Fixed!!!";
+                  ($decryptedData[$index-4], $decryptedData[$index-3]) = &write16(0);
+                  $needsFixing = 1;
+                } else {$err .= " ";}
+                $warning{$warnId} = $err;
+                print $err . "\n"; 
+              }
+              # Fix Space Dock Armor slot Buffer Overflow with super latanium
+              # If your race has ISB and RS, building a Space Dock with more than 21 SuperLat in the Armor slot 
+              # will result in some sort of error (of massively increased armor)
+              # Rick: I had hoped to fix this by simply rewriting the armor value. But it gets recalculated,
+              # so resetting the itemCount is the only choice. 
+              if ( $isStarbase && $hullId == 33 && $itemId == 11  && $itemCategory == 8 && $itemCount >=22  && $armor  >= 49518) {
+                $err = "***Spacedock Overflow bug of > 21 SuperLatanium detected in starbase design slot $designNumber: $shipName. ";
+                if ($fixFiles > 1) {
+                  $err .= "  Fixed!!! ";
+                  # reset the $itemCount 
+                  $decryptedData[$itemCountIndex] = 21;
+                  # Armor value should be 250 + (1500 * $itemCount) / 2
+                  $armor = 250 + (1500 * 21) / 2; # correct for 21 Super Latanium
+                  # reset the final armor value for the spacedock overflow bug
+                  ($decryptedData[$armorIndex], $decryptedData[$armorIndex+1]) = &write16($armor);
+                  $needsFixing = 1;
+                } else {$err .= " ";}
+                $warning{$warnId} = $err;
+                print $err . "\n";
+              }
+              ##################################################################
+
+            }
+          } else { # If it's not a full design
+            $mass = &read16(\@decryptedData, 4); 
+            $slotEnd = 6; 
+            $shipNameLength = $decryptedData[$slotEnd]; 
+            $shipName = &decodeBytesForStarsString(@decryptedData[$slotEnd..$slotEnd+$shipNameLength]);
+          }
+          # Since the starbases have their own slots
+          if (!$isStarbase && $isFullDesign) { print "cargoCapacity(Ship): $cargoCapacity\n"; }
+          if (!$isStarbase && $isFullDesign) { print "fuelCapacity(Ship): $fuelCapacity\n"; }
+          print "shipName: $shipName\n";
+          if (!$isStarbase) { $designCargo[$designNumber] = $cargoCapacity;  }
+
+          ######################################################################
+          # Detect the 10th starbase design
+          if ( $isStarbase && $designNumber == 9 && $deleteDesign && $Player > 0 ) {
+            $err = "***Warning: Player $Player: Starbase ($shipName) in design slot 10 - Potential Crash if Player 1 Fleet 1 refuels when Last Player has a 10th starbase design";
+            print $err . "\n"; 
+            $warning{'ten'} = $err;
+          } 
+          ######################################################################
+        }
+        # As this block doesn't have playerId, you have to calculate playerId
+        # based on the values in Block 6
+        # There has to be a better way to do this!!
+        if (!$isStarbase) {
+          while (  $shipDesigns[$playerCounterShip] == 0 && $playerCounterShip < 16 ) {
+            $shipDesignCounter = $shipDesigns[$playerCounterShip];
+            $playerCounterShip++;
+            }
+          $shipDesignCounter = $shipDesigns[$playerCounterShip];
+          $shipDesigns[$playerCounterShip]--;
+          print "Block 26: Player Id (Ship): $playerCounterShip\n";
+        }
+        else {  # starbase   # UNINITIAZED BUG SOMEWHERE
+          while (  $starbaseDesigns[$playerCounterStarbase] == 0 && $playerCounterStarbase < 16 ) {
+            $starbaseDesignCounter = $starbaseDesigns[$playerCounterStarbase];
+            $playerCounterStarbase++;
+          }
+          $starbaseDesignCounter = $starbaseDesigns[$playerCounterStarbase];
+          $starbaseDesigns[$playerCounterStarbase]--;
+          print "Block 26: Player Id (Base): $playerCounterStarbase\n";
+        }
+
+        ########################################################################
+        # For the Colonizer bug & Spacedock overflow track whether the design was 
+        # created, but remove the warning if the design was subsequently changed/deleted.
+        # If this designNumber is broken, set warning. Otherwise clear warning
+        # (because a later .x file entry fixed this designnumber)
+        # Store the error in a hash so it's only one / ship / file
+        # Will handle for multi-turn .m files.
+        if (!$err && $warning{$warnId}) { 
+          delete( $warning{$warnId} ); 
+          print "Player Fix Noted\n";
+        }
+        # If the 10th starbase has been deleted, clear the warning
+        if ( $isStarbase && $designNumber == 9 && $deleteDesign == 0 && $Player > 0 ){
+          if ($warning{'ten'}) { 
+            delete ($warning{'ten'}); 
+            print "Player Fix Noted\n";
+          }
+        }
+        ########################################################################
+      } 
+      elsif ($typeId == 37) {  # Fleet Merge block
         my $fleetNumber1 = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
         print "Fleet Number1: $fleetNumber1\n";
         my $fleetNumber2 = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 1) << 8);
@@ -713,11 +824,12 @@ sub decryptShip {
   #return \@outBytes;
 }
 
-# sub showHull {
-#   my ($hullType, $position) = @_;
-#   if ($hullType{$hullType}[$position]) {  return $hullType{$hullType}[$position]; }
-#   else { return $hullType; }
-# }
+sub showHull {
+  my ($hullType, $position) = @_;
+  if ($hullType{$hullType}[$position]) {  return $hullType{$hullType}[$position]; }
+  # BUG: Why would I want to return the hull type when the value is blank? 
+  else { return $hullType; }
+}
 
 sub showDestType {
   my ($type) = @_;
@@ -727,7 +839,7 @@ sub showDestType {
   $category[2] = 'Fleet';
   $category[4] = 'Deep Space';
   $category[8] = 'Salvage/Packet/MT/Minefield';
-  return ($category[$type]);
+  return $category[$type];
 }
 
 # sub showCategory {
@@ -795,16 +907,6 @@ sub showDestType {
 #   elsif ($task == 7) { return "?"; }
 #   elsif ($task == 9) { return "?"; }
 # }
-
-# sub getMask {
-# # Return true if the associated bit is set for the number
-#   my ($number, $position) = @_;
-#   my $new_num = $number >> ($position ); 
-#     # if it results to '1' then bit is set, 
-#     # else it results to '0' bit is unset 
-#   my $check = $new_num &1;
-#   return ($check); 
-# } 
 
 #     public static int ITEM_ID_INDEX = 0;
 #     public static int MASS_INDEX = 7;
@@ -1018,43 +1120,4 @@ sub showDestType {
 # 14,14,"Trans-Galactic Super Scoop",14,4,0,12,0,0,0,18,24,6,4,16,10,0,0,0,0,0,0,0,0,0,65,90,108,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 # 14,15,"Trans-Galactic Mizer Scoop",15,4,0,16,0,0,0,11,20,5,2,13,11,0,0,0,0,0,0,0,0,0,0,70,84,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 # 14,16,"Galaxy Scoop",16,5,0,20,0,0,0,8,12,4,2,9,191,4,0,0,0,0,0,0,0,0,0,0,60,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-
-# my %hullType; 
-# $hullType{'0'} = [ 15,1,"Small Freighter",0,0,0,0,0,0,0,25,20,12,0,17,0,70,130,25,1,1,6146,1,12,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,85,51,49,55,53,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'1'} = [ 15,2,"Medium Freighter",1,0,0,0,3,0,0,60,40,20,0,19,4,210,450,50,1,1,6146,1,12,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,86,50,48,56,54,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'2'} = [ 15,3,"Large Freighter",2,0,0,0,8,0,0,125,100,35,0,21,8,1200,2600,150,1,2,6146,2,12,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,102,34,48,38,70,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'3'} = [ 15,4,"Super Freighter",3,0,0,0,13,0,0,175,125,45,0,21,12,3000,8000,400,1,3,6146,3,12,5,2048,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,4,136,34,64,40,72,104,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'4'} = [ 15,5,"Scout",4,0,0,0,0,0,0,8,10,4,2,4,16,0,50,20,1,1,2,1,6462,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,65,8,255,255,50,54,52,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'5'} = [ 15,6,"Frigate",5,0,0,0,6,0,0,8,12,4,2,4,20,0,125,45,1,1,2,2,6462,3,12,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,68,8,255,255,49,55,53,51,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'6'} = [ 15,7,"Destroyer",6,0,0,0,3,0,0,30,35,15,3,5,24,0,280,200,1,1,48,1,48,1,6462,1,8,2,4096,1,2048,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,67,8,255,255,66,21,117,70,68,35,99,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'7'} = [ 15,8,"Cruiser",7,0,0,0,9,0,0,90,85,40,5,8,28,0,600,700,1,2,6148,1,6148,1,48,2,48,2,6462,2,12,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,133,12,255,255,49,35,67,21,85,55,53,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'8'} = [ 15,9,"Battle Cruiser",8,0,0,0,10,0,0,120,120,55,8,12,32,0,1400,1000,1,2,6148,2,6148,2,48,3,48,3,6462,3,12,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,133,12,255,255,49,35,67,21,85,55,53,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'9'} = [ 15,10,"Battleship",9,0,0,0,13,0,0,222,225,120,25,20,36,0,2800,2000,1,4,6146,1,4,8,48,6,48,6,48,2,48,2,48,4,8,6,2048,3,2048,3,0,0,0,0,0,0,0,0,0,0,11,138,12,255,255,48,56,38,20,84,2,98,70,52,34,66,0,0,0,0,0 ];
-# $hullType{'10'} = [ 15,11,"Dreadnought",10,0,0,0,16,0,0,250,275,140,30,25,40,0,4500,4500,1,5,12,4,12,4,48,6,48,6,2048,4,2048,4,48,8,48,8,8,8,52,5,52,5,6462,2,0,0,0,0,0,0,13,138,12,255,255,64,32,96,18,114,50,82,36,100,68,54,86,72,0,0,0 ];
-# $hullType{'11'} = [ 15,12,"Privateer",11,0,0,0,4,0,0,65,50,50,3,2,44,250,650,150,1,1,12,2,6146,1,6462,1,6462,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,67,16,103,67,65,55,87,37,101,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'12'} = [ 15,13,"Rogue",12,0,0,0,8,0,0,75,60,80,5,5,48,500,2250,450,1,2,12,3,6400,2,2,1,6462,2,6462,2,6400,2,2048,1,2048,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,132,16,118,51,65,70,102,72,20,116,38,18,114,0,0,0,0,0,0,0 ];
-# $hullType{'13'} = [ 15,14,"Galleon",13,0,0,0,11,0,0,125,105,70,5,5,52,1000,2500,900,1,4,12,2,12,2,6462,3,6462,3,6400,2,6144,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,132,16,118,50,64,19,115,21,117,54,86,72,0,0,0,0,0,0,0,0 ];
-# $hullType{'14'} = [ 15,15,"Mini-Colony Ship",14,0,0,0,0,0,0,8,3,2,0,2,56,10,150,10,1,1,4096,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,86,52,50,54,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'15'} = [ 15,16,"Colony Ship",15,0,0,0,0,0,0,20,20,10,0,15,60,25,200,20,1,1,4096,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,86,52,50,54,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'16'} = [ 15,17,"Mini Bomber",16,0,0,0,1,0,0,28,35,20,5,10,64,0,120,50,1,1,64,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,192,20,255,255,51,53,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'17'} = [ 15,18,"B-17 Bomber",17,0,0,0,6,0,0,69,150,55,10,10,68,0,400,175,1,2,64,4,64,4,6146,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,192,20,255,255,49,51,53,55,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'18'} = [ 15,19,"Stealth Bomber",18,0,0,0,8,0,0,70,175,55,10,15,72,0,750,225,1,2,64,4,64,4,6146,1,2048,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,192,20,255,255,50,36,68,38,70,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'19'} = [ 15,20,"B-52 Bomber",19,0,0,0,15,0,0,110,280,90,15,10,76,0,750,450,1,3,64,4,64,4,64,4,64,4,6146,2,4,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,192,20,255,255,49,19,83,37,69,55,51,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'20'} = [ 15,21,"Midget Miner",20,0,0,0,0,0,0,10,20,10,0,3,80,0,210,100,1,1,128,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,24,255,255,51,53,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'21'} = [ 15,22,"Mini-Miner",21,0,0,0,2,0,0,80,50,25,0,6,84,0,210,130,1,1,6146,1,128,1,128,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,24,255,255,50,54,36,68,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'22'} = [ 15,23,"Miner",22,0,0,0,6,0,0,110,110,32,0,6,88,0,500,475,1,2,6154,2,128,2,128,1,128,2,128,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,24,255,255,49,55,35,37,67,69,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'23'} = [ 15,24,"Maxi-Miner",23,0,0,0,11,0,0,110,140,32,0,6,92,0,850,1400,1,3,6154,2,128,4,128,1,128,4,128,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,24,255,255,49,55,35,37,67,69,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'24'} = [ 15,25,"Ultra-Miner",24,0,0,0,14,0,0,100,130,30,0,6,96,0,1300,1500,1,2,6154,3,128,4,128,2,128,4,128,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,24,255,255,49,55,35,37,67,69,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'25'} = [ 15,26,"Fuel Transport",25,0,0,0,4,0,0,12,50,10,0,5,100,0,750,5,1,1,4,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,28,255,255,51,53,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'26'} = [ 15,27,"Super-Fuel Xport",26,0,0,0,7,0,0,111,70,20,0,8,104,0,2250,12,1,2,4,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,28,255,255,50,52,54,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'27'} = [ 15,28,"Mini Mine Layer",27,0,0,0,0,0,0,10,20,8,2,5,108,0,400,60,1,1,256,2,256,2,6146,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,16,255,255,50,36,68,54,0,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'28'} = [ 15,29,"Super Mine Layer",28,0,0,0,15,0,0,30,30,20,3,9,112,0,2200,1200,1,3,256,8,256,8,12,3,6146,3,6400,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,16,255,255,49,35,67,53,39,71,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'29'} = [ 15,30,"Nubian",29,0,0,0,26,0,0,100,150,75,12,12,124,0,5000,5000,1,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,6462,3,0,0,0,0,0,0,13,130,16,255,255,64,32,96,18,114,50,82,36,100,68,54,86,72,0,0,0 ];
-# $hullType{'30'} = [ 15,31,"Mini Morph",30,0,0,0,8,0,0,70,100,30,8,8,120,150,400,250,1,2,6462,3,6462,1,6462,1,6462,1,6462,2,6462,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,130,16,102,36,48,50,38,70,56,18,82,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'31'} = [ 15,32,"Meta Morph",31,0,0,0,10,0,0,85,120,50,12,12,116,300,700,500,1,3,6462,8,6462,2,6462,2,6462,1,6462,2,6462,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,130,16,102,36,48,50,38,70,56,18,82,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'32'} = [ 16,1,"Orbital Fort",32,0,0,0,0,0,0,0,80,24,0,34,128,0,0,100,2560,1,48,12,12,12,48,12,12,12,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,138,0,255,255,68,36,70,100,66,0,0,0,0,0,0,0,0,0,0,0 ];
-# $hullType{'33'} = [ 16,2,"Space Dock",33,0,0,0,4,0,0,0,200,40,10,50,132,200,0,250,2560,1,48,16,12,24,48,16,4,24,2048,2,2048,2,48,16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,140,0,102,68,34,20,65,71,116,38,102,98,0,0,0,0,0,0,0,0 ];
-# $hullType{'34'} = [ 16,3,"Space Station",34,0,0,0,0,0,0,0,1200,240,160,500,136,-1,0,500,2560,1,48,16,4,16,48,16,12,16,4,16,2048,3,48,16,2048,3,48,16,2560,1,12,16,0,0,0,0,0,0,0,0,12,142,0,102,68,66,5,3,88,80,133,100,131,36,48,70,56,0,0,0,0 ];
-# $hullType{'35'} = [ 16,4,"Ultra Station",35,0,0,0,12,0,0,0,1200,240,160,600,140,-1,0,1000,2560,1,48,16,2048,3,48,16,4,20,4,20,2048,3,48,16,2048,3,48,16,2560,1,12,20,48,16,12,20,2048,3,48,16,16,144,0,102,68,36,80,66,88,98,38,70,3,131,56,100,102,48,34,5,133 ];
-# $hullType{'36'} = [ 16,5,"Death Star",36,0,0,0,17,0,0,0,1500,240,160,700,144,-1,0,1500,2560,1,48,32,2048,4,2048,4,4,30,4,30,2048,4,48,32,2048,4,48,32,2560,1,12,20,2048,4,12,20,2048,4,48,32,16,146,0,102,68,20,96,65,104,98,38,71,2,130,40,116,102,32,34,6,134 ];
 

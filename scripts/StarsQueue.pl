@@ -34,6 +34,7 @@ use strict;
 use warnings;   
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
+use StarsStat;
 do 'config.pl';
 
 my $debug = 0;
@@ -106,9 +107,9 @@ if (lc($ext) eq '.hst') {
   
   # Read in the file data
   print "Reading in QUEUEFILE $queueFile\n";
-  open (IN_FILE,$queueFile) || die("Cannot open $queueFile file");
-  @queueList = <IN_FILE>;
-	close IN_FILE;
+  open (QUEUEFILE,$queueFile) || die("Cannot open $queueFile file");
+  @queueList = <QUEUEFILE>;
+	close QUEUEFILE;
   print "Done reading in $queueFile\n";
   # Turn the file into a usable array
   #my($Player,$planetId,$itemId,$count,$completePercent,$itemType,$queueSize);
@@ -243,20 +244,20 @@ sub decryptQueue {
   return \@outBytes, \%queueList;
 }
 
-sub FileData {
-	# break out the incoming file name to useful bits
-	my ($File) = @_;
-	$File = lc($File); 
-	my $game_file = lc($File);
-	$game_file=~ s/(.*)(\..+)/$1/;
-	my $file_player = lc($File);
-	$file_player =~ s/(.*)(\.)(.)(.*)/$4/;
-	my $file_type = lc($File); 
-	$file_type =~ s/(.*)(\.)(.)(.*)/$3/;
-	my $file_ext = lc($File);
-	$file_ext =~ s/(.*)(\.)(.*)/$3/;
-	return $game_file, $file_player, $file_type, $file_ext; 	
-}
+# sub FileData {
+# 	# break out the incoming file name to useful bits
+# 	my ($File) = @_;
+# 	$File = lc($File); 
+# 	my $game_file = lc($File);
+# 	$game_file=~ s/(.*)(\..+)/$1/;
+# 	my $file_player = lc($File);
+# 	$file_player =~ s/(.*)(\.)(.)(.*)/$4/;
+# 	my $file_type = lc($File); 
+# 	$file_type =~ s/(.*)(\.)(.)(.*)/$3/;
+# 	my $file_ext = lc($File);
+# 	$file_ext =~ s/(.*)(\.)(.*)/$3/;
+# 	return $game_file, $file_player, $file_type, $file_ext; 	
+# }
 
 sub showQueue {
    my ($points) = @_;
