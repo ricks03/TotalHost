@@ -218,7 +218,7 @@ sub Email_Turns { #email turns out to the appropropriate players
 		}
 		&LogOut(200, "Email_Turns: Message: $Message", $LogFile);
 		if ($Attach) {
-			my $Path = $File_HST . '/' . $GameFile . '/' . $GameFile . '.m' . $PlayerID[$i];
+			my $Path = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.m' . $PlayerID[$i];
 			&LogOut(200,"Email_Turns: Emailing turn: $Email[$i], $mail_from, $Subject, $Message, $Path",$LogFile);
 			&MailAttach($Email[$i], $mail_from, $Subject, $Message, $Path);
 		} else {
@@ -469,8 +469,8 @@ sub html_banner {
 	if ( $cookie && $debug) { print qq|<td width=20%>Cookie: $cookie</td>\n|;}
  	if ( $session->param("logged-in") ) {
 		print qq|<td width=10%>$hello</td>\n|;
- 		print qq|<td align=right width=5%><a href=$Location_Scripts/account.pl?action=logout>Log Out</a></td>\n|;
-# 		print qq|<td align=right width=5%><a href=$Location_Scripts/account.pl?action=logoutfull>Erase</a></td>\n|;
+ 		print qq|<td align=right width=5%><a href=$WWW_Scripts/account.pl?action=logout>Log Out</a></td>\n|;
+# 		print qq|<td align=right width=5%><a href=$WWW_Scripts/account.pl?action=logoutfull>Erase</a></td>\n|;
  	}
 	print qq|</tr>\n</table>\n|;
 }
@@ -531,36 +531,36 @@ sub html_menu {
 print qq|<div class="chromestyle" id="chromemenu">|;
 print qq|<ul>|;
 print qq|<li><table width=200><tr width=200><td width=200></td></tr></table></li>|;
-print qq|<li><a href="$Location_Scripts/index.pl?lp=home">Home</a></li>|;
-if ($session->param("userid")) { print qq|<li><a href="$Location_Scripts/page.pl?lp=profile&cp=show_profile" rel="dropmenu3">Profile</a></li>|; }
-if ($session->param("userid")) { print qq|<li><a href="$Location_Scripts/page.pl?lp=game&cp=show_first_game&rp=games" rel="dropmenu4">Games</a></li>|; }
-#print qq|<li><a href="$Location_Scripts/index.pl" rel="dropmenu4">Info</a></li>|;
+print qq|<li><a href="$WWW_Scripts/index.pl?lp=home">Home</a></li>|;
+if ($session->param("userid")) { print qq|<li><a href="$WWW_Scripts/page.pl?lp=profile&cp=show_profile" rel="dropmenu3">Profile</a></li>|; }
+if ($session->param("userid")) { print qq|<li><a href="$WWW_Scripts/page.pl?lp=game&cp=show_first_game&rp=games" rel="dropmenu4">Games</a></li>|; }
+#print qq|<li><a href="$WWW_Scripts/index.pl" rel="dropmenu4">Info</a></li>|;
 #print qq|<li><a href="#" rel="dropmenu5">Info</a></li>\n|;
-print qq|<li><a href="$Location_Scripts/index.pl?lp=home" rel="dropmenu5">Quick Info</a></li>\n|;
+print qq|<li><a href="$WWW_Scripts/index.pl?lp=home" rel="dropmenu5">Quick Info</a></li>\n|;
 print qq|</ul></div>|;
 
 print qq|<!--3rd drop down menu -->\n|;
 print qq|<div id="dropmenu3" class="dropmenudiv" style="width: 150px;">\n|;
-print qq|<a href="$Location_Scripts/page.pl?lp=profile&cp=show_profile&rp=my_games">My Profile</a>\n|;
-print qq|<a href="$Location_Scripts/page.pl?lp=profile_game&cp=show_first_game">My Games</a>\n|;
-print qq|<a href="$Location_Scripts/page.pl?lp=profile_race&cp=show_first_race&rp=my_races">My Races</a>\n|;
-print qq|<a href="$Location_Scripts/page.pl?lp=profile&cp=edit_password">Change Password</a>\n|;
+print qq|<a href="$WWW_Scripts/page.pl?lp=profile&cp=show_profile&rp=my_games">My Profile</a>\n|;
+print qq|<a href="$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game">My Games</a>\n|;
+print qq|<a href="$WWW_Scripts/page.pl?lp=profile_race&cp=show_first_race&rp=my_races">My Races</a>\n|;
+print qq|<a href="$WWW_Scripts/page.pl?lp=profile&cp=edit_password">Change Password</a>\n|;
 print qq|</div>\n|;
 
 
 print qq|<!--4th drop down menu -->\n|;
 print qq|<div id="dropmenu4" class="dropmenudiv" style="width: 150px;">\n|;
-print qq|<a href="$Location_Scripts/page.pl?lp=game&cp=show_games&rp=">Games</a>\n|;
-print qq|<a href="$Location_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=show_news">My Games</a>\n|;
-print qq|<a href="$Location_Scripts/page.pl?lp=game&cp=show_new">New Games</a>\n|;
+print qq|<a href="$WWW_Scripts/page.pl?lp=game&cp=show_games&rp=">Games</a>\n|;
+print qq|<a href="$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=show_news">My Games</a>\n|;
+print qq|<a href="$WWW_Scripts/page.pl?lp=game&cp=show_new">New Games</a>\n|;
 print qq|</div>\n|;
 
 print qq|<!--5th drop down menu --> \n|;
 print qq|<div id="dropmenu5" class="dropmenudiv" style="width: 150px;">\n|;
-print qq|<a href="$Location_Scripts/index.pl?lp=home&cp=features">Features</a>\n|;
-print qq|<a href="$Location_Scripts/index.pl?lp=home&cp=faq">FAQ</a>\n|;
-print qq|<a href="$Location_Scripts/index.pl?lp=home&cp=orderofevents">Order of Events</a>\n|;
-print qq|<a href="$Location_Scripts/index.pl?lp=home&cp=tips">Tips</a>\n|;
+print qq|<a href="$WWW_Scripts/index.pl?lp=home&cp=features">Features</a>\n|;
+print qq|<a href="$WWW_Scripts/index.pl?lp=home&cp=faq">FAQ</a>\n|;
+print qq|<a href="$WWW_Scripts/index.pl?lp=home&cp=orderofevents">Order of Events</a>\n|;
+print qq|<a href="$WWW_Scripts/index.pl?lp=home&cp=tips">Tips</a>\n|;
 print qq|</div>\n|;
 
 print <<eof;
@@ -578,7 +578,7 @@ sub clean_old_sessions {
 	# Clean the server
 	if (int(rand(10)) == 1) {
   		# expire old sessions
-  		$filez = $session_dir ."/*";
+  		$filez = $Dir_Sessions ."/*";
   		while ($file = glob($filez)) {
     		@stat=stat $file; 
     		$days = (time()-$stat[9]) / (60*60*24);
@@ -703,10 +703,10 @@ sub list_games {
 			# change the links for new games and running games, since their results should be different
 			if ($GameStatus == 6 || $GameStatus == 7) {
 				#Display Game Name
-				print qq|<td>&nbsp&nbsp<a href=$Location_Scripts/page.pl?lp=game&cp=show_game&rp=show_news&GameFile=$GameFile>$GameName</a></td>|;
+				print qq|<td>&nbsp&nbsp<a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=show_news&GameFile=$GameFile>$GameName</a></td>|;
 			} else {
 				#Display Game Name
-				print qq|<td>&nbsp&nbsp<a href=$Location_Scripts/page.pl?lp=game&cp=show_game&rp=show_news&GameFile=$GameFile>$GameName</a></td>|;
+				print qq|<td>&nbsp&nbsp<a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=show_news&GameFile=$GameFile>$GameName</a></td>|;
 			}
 			# Display Game Status
 			print qq|<td>$GameStatus[$GameStatus]</td>\n|;
@@ -734,8 +734,8 @@ sub rp_list_games {
  	    ($GameName, $GameFile, $GameStatus) = $db->Data("GameName", "GameFile", "GameStatus");
  			print qq|<tr><td>|;
  			print  qq|<img src="$StatusBall{$GameStatus[$GameStatus]}" alt='$GameStatus[$GameStatus]' border="0"></a>|; 
-      if ($GameStatus == 7) { print qq|&nbsp&nbsp<a href=$Location_Scripts/page.pl?lp=game&cp=show_game&rp=show_news&GameFile=$GameFile>$GameName</a>|;
-      } else { print qq|&nbsp&nbsp<a href=$Location_Scripts/page.pl?lp=game&cp=show_game&rp=show_news&GameFile=$GameFile>$GameName</a>|; }
+      if ($GameStatus == 7) { print qq|&nbsp&nbsp<a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=show_news&GameFile=$GameFile>$GameName</a>|;
+      } else { print qq|&nbsp&nbsp<a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=show_news&GameFile=$GameFile>$GameName</a>|; }
  			print qq|</td></tr>\n|;
 		}
 		if (!($countgames)) { print "<tr><td>&nbsp&nbsp No Games Found</td></tr>"; }
@@ -768,11 +768,11 @@ sub LoadGamesInProgress {
 # 	my @CHK;
 #   &LogOut(200, "Running Get_CHK", $LogFile);
 #   &Make_CHK($GameFile);
-# #   my($CheckGame) = $executable . ' -v ' . $FileHST . '\\' . $GameFile . '\\' . $GameFile . '.hst';
+# #   my($CheckGame) = $executable . ' -v ' . $DirGames . '\\' . $GameFile . '\\' . $GameFile . '.hst';
 # #   system($CheckGame);
 # #	sleep 1;
 #   @CHK = &Read_CHK($GameFile);
-# # 	my $CHK_FILE = $File_HST . '/' . $GameFile . '/' . $GameFile . '.chk';
+# # 	my $CHK_FILE = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.chk';
 # #   open (IN_CHK,$CHK_FILE) || &LogOut(0,"<P>Cannot open stupid .chk file $CHK_FILE for $GameFile after $CheckGame",$ErrorLog);
 # #   chomp (@CHK = <IN_CHK>);
 # #  	close(IN_CHK);
@@ -782,7 +782,7 @@ sub LoadGamesInProgress {
 sub Make_CHK { 
 # Updates the CHK file for a game
 	my($GameFile) = @_;
-  my($CheckGame) = $executable . ' -v ' . $FileHST . '\\' . $GameFile . '\\' . $GameFile . '.hst';
+  my($CheckGame) = $executable . ' -v ' . $DirGames . '\\' . $GameFile . '\\' . $GameFile . '.hst';
   &LogOut(200, "Make_CHK: Running for $GameFile, $CheckGame", $LogFile);
   system($CheckGame);
 	sleep 2;
@@ -792,7 +792,7 @@ sub Read_CHK {
 # Returns the values from an existing CHK file for a game
 	my($GameFile) = @_;
 	my @CHK;
-	my $CHK_FILE = $File_HST . '/' . $GameFile . '/' . $GameFile . '.chk';
+	my $CHK_FILE = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.chk';
   &LogOut(200, "Read_CHK: Running for $CHK_FILE", $LogFile);
   # IF for some reason there's no CHK file, make one. 
   unless (-f $CHK_FILE) { &Make_CHK($GameFile); }
@@ -805,7 +805,7 @@ sub Read_CHK {
 sub Eval_CHK { 
 # Evaluate the existing .chk file for a game and determine if all turns are in.
 	my($GameFile) = @_;
-	my($CHKFile) = $File_HST . '/' . $GameFile . '/' . $GameFile . '.chk'; 
+	my($CHKFile) = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.chk'; 
 	my($ToGenerate) = 'True';	
 	if (-e $CHKFile) { #Check to see if .chk file is there.
 		# Read in appropriate .chk file
@@ -902,21 +902,21 @@ sub GenerateTurn { # Generate a turn and refresh files
 	# Generate the actual Stars! turns
 	# There is a Stars! bug when you generate this way from the command line with / the .x[n] file isn't deleted.
 	# So you have to use \ (eg d:\th\games instead of d:/th/games)
-	my($GenTurn) = $executable . ' -g' . $NumberofTurns . ' ' . $File_HST . '\\' .  $GameFile . '\\' . $GameFile . '.hst';
+	my($GenTurn) = $executable . ' -g' . $NumberofTurns . ' ' . $Dir_Games . '\\' .  $GameFile . '\\' . $GameFile . '.hst';
 	system($GenTurn);
 	sleep 3;
   #
   # Clean the .M files
   # Works on a folder-by-folder game-by-game basis. 
   # Requires a file named 'clean' in the game folder
-  my $cleanFile = $FileHST . '\\' . $GameFile . '\\' . 'clean';
+  my $cleanFile = $DirGames . '\\' . $GameFile . '\\' . 'clean';
   if ($cleanFiles && -e $cleanFile) { &StarsClean($GameFile); }
   #
   # Update the CHK File
   &Make_CHK($GameFile);
 	# Copy files to the correct (safe) location for download
   # BUG: Why do we do this? 
-	my $turn_dir = $File_HST . '/' .  $GameFile . '/';
+	my $turn_dir = $Dir_Games . '/' .  $GameFile . '/';
 	my @turn_files = ();
 	opendir(DIR, $turn_dir) or &LogOut(0,"GenerateTurn: Can\'t opendir $turn_dir for $GameFile",$ErrorLog); 
 	while (defined($file = readdir(DIR))) {
@@ -930,13 +930,13 @@ sub GenerateTurn { # Generate a turn and refresh files
     #  Download.pl looks in the actual game folder.
     #
     # Create the directory if it does not exist
-    my $newdir = $File_Download . '/' . $GameFile;
+    my $newdir = $Dir_Download . '/' . $GameFile;
     unless (-d  $newdir ) {  mkdir $newdir || &LogOut(0, "GenerateTurn: Cannot create $newdir, $userlogin", $ErrorLog); }
 		if ($file =~ /\.M|\.X|\.x|\.news|\.CHK/) {
 # 191204 If this is truly where things should download from, no need for the CHK And .X file
 #		if ($file =~ /\.M|\.X|\.x/) {
-	 		my($Game_Source)= $File_HST . '/' . $GameFile . '/' . $file;  
-	 		my($Game_Destination)= $File_Download . '/' . $GameFile . '/' . $file;  
+	 		my($Game_Source)= $Dir_Games . '/' . $GameFile . '/' . $file;  
+	 		my($Game_Destination)= $Dir_Download . '/' . $GameFile . '/' . $file;  
 			&LogOut(200,"GenerateTurn: copy $Game_Source > $Game_Destination",$LogFile);
 	 		copy($Game_Source, $Game_Destination);
 		} 
@@ -949,7 +949,7 @@ sub Game_Backup {  # Backup the current game
 	my ($file_name) = @_;
 	use File::Copy;
 	# Copy the file to a backup location
- 	my($Game_Source)= $File_HST . '/' . $file_name ;  #
+ 	my($Game_Source)= $Dir_Games . '/' . $file_name ;  #
 	my ($HST_File) = $Game_Source . '/' . $file_name . '.hst';
 	my($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HST_File);
 	my $Game_Backup = $Game_Source . '/' . $turn; 
@@ -1201,14 +1201,14 @@ sub show_race_block {
 sub process_fix {
 	# When the Fix scripts run (detecting errors) they need to log somewhere. 
   # And then be available on the display.
-  # The fix file is stored as .fixed in the folder for the game
+  # The warning/fix file is stored as .warning in the folder for the game
 	## The format for each entry is id<tab>epochtime<tab>year<tab>result
 	## and stored in chronologic order, newest first
   # Called from upload.pl
-	my ($GameFile, $new_fix) = @_;
+	my ($GameFile, $newWarning) = @_;
 	my @fixes;
-	my $fixfile = $File_HST . '/' . $GameFile . '/' . "$GameFile.fixed";
-	my $HSTFile = $File_HST . '/' . $GameFile . '/' . $GameFile . '.HST';
+	my $fixfile = $Dir_Games . '/' . $GameFile . '/' . "$GameFile.warnings";
+	my $HSTFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.HST';
 	($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
 	if (!(-e $fixfile)) { # If there's no fix file, create one. 
   	open (OUT_FILE, ">$fixfile") || &LogOut (0,"process_fix: Failed to create $fixfile for $GameFile", $ErrorLog); 
@@ -1220,17 +1220,19 @@ sub process_fix {
 	open (IN_FILE,$fixfile) || &LogOut (0,"process_fix: Failed to open $fixfile for $GameFile", $ErrorLog);
 	@fixes = <IN_FILE>;
 	close(IN_FILE);
-	# Write out the fixes with the current news at the beginning 
-	# (So the data is from new to old)
-	$fixfile = ">" . $fixfile;
-	&LogOut (200,"process_fix: Update .fixed with $new_fix for $GameFile", $ErrorLog);
-	open (OUTFILE, $fixfile) || die("Can\'t create news file!");
-	#print OUTFILE $id . "\t";
-	print OUTFILE localtime() . "\t";
-	print OUTFILE "Turn:$HST_Turn\t";
-  # Since these are CSV, let's remove the last ',' for display
-  if (substr($new_fix,-1) eq ',') { chop $new_fix; }
-	print OUTFILE "\t$new_fix\n";
+	# Write out the fixes with the current news at the beginning (So the data is from new to old)
+	$fixfile = '>' . $fixfile;
+	&LogOut (200,"process_fix: Update .warning with $newWarning for $GameFile", $ErrorLog);
+	open (OUTFILE, $fixfile) || die("Can\'t create fix file!");
+
+  # Since these are CSV,
+  @newWarning = split(',', $newWarning);
+  foreach my $warning (@newWarning) { 
+	  print OUTFILE "Turn:$HST_Turn\t";
+	  print OUTFILE localtime() . "\t";
+    print OUTFILE "\t$warning\n"; 
+  }
+  # Now append the old warnings
 	print OUTFILE @fixes;
 	close (OUTFILE);
 }

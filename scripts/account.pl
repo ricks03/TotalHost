@@ -35,7 +35,7 @@ use Email::Valid;
 foreach my $field (param()) { $in{$field} = param($field); }
 
 #my $cgi = new CGI;      
-#my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$session_dir"});
+#my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
 #$cookie = $cgi->cookie(TotalHost);
 # Doesn't need to validate, because everything in here doesn't require auth.
 #&validate($cgi,$session);
@@ -46,7 +46,7 @@ foreach my $field (param()) { $in{$field} = param($field); }
 if ($in{'action'} eq 'login') { &login; die;
 } elsif ($in{'action'} eq 'logout' || $in{'action'} eq 'logoutfull') { 
 	my $cgi = new CGI;
-	my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$session_dir"});
+	my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
 	$sessionid = &get_cookie($cgi);
 	$sessionid = $session->id unless $sessionid;
 	if ($in{'action'} eq 'logout') { &logout($cgi,$session); die;}
@@ -56,7 +56,7 @@ if ($in{'action'} eq 'login') { &login; die;
 }
 
 my $cgi = new CGI;      
-my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$session_dir"});
+my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
 $cookie = $cgi->cookie(TotalHost);
 print $cgi->header();
 
@@ -64,25 +64,25 @@ print $cgi->header();
 
 if ($in{'action'} eq 'add_user' || $in{'action'} eq 'activate_user' ) {
 	%menu_left = 	(
-				"1About Us"			=> "$Location_Scripts/index.pl?lp=home&cp=aboutus",
-				"2FAQ"				=> "$Location_Scripts/index.pl?lp=home&cp=faq",
+				"1About Us"			=> "$WWW_Scripts/index.pl?lp=home&cp=aboutus",
+				"2FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
 				"3Strategy Guide"	=> "$WWW_HomePage/Strategy/SSG.HTM",
-				"4Downloads"		=> "$Location_Scripts/index.pl?lp=home&cp=downloads",
-				"3Order of Events"	=> "$Location_Scripts/index.pl?lp=home&cp=orderofevents",
-				"3Game Defaults"	=> "$Location_Scripts/index.pl?lp=home&cp=gamedefaults",
-				"5Other Sites"	=> "$Location_Scripts/index.pl?lp=home&cp=othersites",
-				"3Game Policies"	=> "$Location_Scripts/index.pl?lp=home&cp=policies",
- 				"9Log In" 			=> "$Location_Scripts/index.pl?cp=login_page",
- 				"9Sign Up" 			=> "$Location_Scripts/index.pl?cp=create"
+				"4Downloads"		=> "$WWW_Scripts/index.pl?lp=home&cp=downloads",
+				"3Order of Events"	=> "$WWW_Scripts/index.pl?lp=home&cp=orderofevents",
+				"3Game Defaults"	=> "$WWW_Scripts/index.pl?lp=home&cp=gamedefaults",
+				"5Other Sites"	=> "$WWW_Scripts/index.pl?lp=home&cp=othersites",
+				"3Game Policies"	=> "$WWW_Scripts/index.pl?lp=home&cp=policies",
+ 				"9Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
+ 				"9Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create"
 				);
 } else {
 %menu_left = 	(
- 				"1Log In" 			=> "$Location_Scripts/index.pl?cp=login_page",
- 				"2Sign Up" 			=> "$Location_Scripts/index.pl?cp=create",
- 				"3Reset Password" 	=> "$Location_Scripts/index.pl?cp=reset_user",
- 				"4Logout" 			=> "$Location_Scripts/index.pl?cp=logout",
+ 				"1Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
+ 				"2Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create",
+ 				"3Reset Password" 	=> "$WWW_Scripts/index.pl?cp=reset_user",
+ 				"4Logout" 			=> "$WWW_Scripts/index.pl?cp=logout",
  				);
-# 				"5Erase" 			=> "$Location_Scripts/index.pl?cp=logoutfull"
+# 				"5Erase" 			=> "$WWW_Scripts/index.pl?cp=logoutfull"
 }
 
 &html_left(\%menu_left);
@@ -134,7 +134,7 @@ sub add_user {
   	$Subject = $mail_prefix . 'Account Creation';
   	$Message = "\n\nA request was submitted to create an account $User_Login.\n";
   	$Message .= "To activate your account, select the link below:\n";
-  	$Message .= "$WWW_HomePage$Location_Scripts" . '/account.pl?action=activate_user&user=' . $in{'User_Login'} . '&new=' . $tmphash;
+  	$Message .= "$WWW_HomePage$WWW_Scripts" . '/account.pl?action=activate_user&user=' . $in{'User_Login'} . '&new=' . $tmphash;
   	$smtp = &Mail_Open;
   	&Mail_Send($smtp, $in{'User_Email'}, $mail_from, $Subject, $Message); # email user
   	&Mail_Send($smtp, $mail_from, $mail_from, $Subject, $Message); # notify site host
@@ -177,7 +177,7 @@ sub activate_user {
 	} else {  &LogOut(200,"Database call $sql failed",$LogFile);}
 	if ($id) {
 		my $cgi = new CGI;
-		my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$session_dir"});
+		my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
 		$sessionid = $session->id unless $sessionid;
 		$session->param("logged-in", 1);
 		$session->param("userid", $User_ID);
@@ -200,7 +200,7 @@ sub activate_user {
 		$sql = "UPDATE User SET User_Status=1, User_Modified='$Date', User_File='$userfile', User_Serial='$user_serial'  WHERE User_ID=$id;";
 		&LogOut(100,$sql,$SQLLog);
 		&DB_Call($db,$sql);
-		$redirect = $WWW_HomePage . $Location_Scripts . '/page.pl';
+		$redirect = $WWW_HomePage . $WWW_Scripts . '/page.pl';
 # handy function - don't lose. 
 #		&print_redirect($cgi,$sessionid,$redirect);
 		print "Account Activated for $User_Login" . ". Please Log In.";
@@ -243,7 +243,7 @@ sub reset_user {
   	$Subject = $mail_prefix . 'Password Reset Request';
   	$Message = "\n\nA request was submitted to reset your password for User ID: $in{'User_Login'}.\n";
   	$Message .= "To reset your password, select the link below:\n";
-  	$Message .= "$WWW_HomePage$Location_Scripts" . '/account.pl?action=reset_password&new=' . $new_password . '&user=' . $in{'User_Login'};
+  	$Message .= "$WWW_HomePage$WWW_Scripts" . '/account.pl?action=reset_password&new=' . $new_password . '&user=' . $in{'User_Login'};
   	print "Sending email with a link to reset the password\n";
   	$smtp = &Mail_Open;
   	&Mail_Send($smtp, $User_Email, $mail_from, $Subject, $Message);
@@ -275,7 +275,7 @@ sub reset_password {
 	if ($id) {
 print <<eof;
 <td>
-<form name="login" method=POST action="$Location_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">
+<form name="login" method=POST action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">
 <input type=hidden name="action" value="reset_password2">
 <input type=hidden name="User_Login" value="$User_Login">
 <br>Enter new password: <input type=text id="pass_temp">
@@ -374,27 +374,27 @@ sub login {
 		if ($id) {
 			&LogOut(100,"$submit_user Logged In",$LogFile);
 			my $cgi = new CGI;
-			my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$session_dir"});
+			my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
 			$sessionid = $session->id unless $sessionid;
 			$session->param("logged-in", 1);
 			$session->param("userid", $User_ID);
 			$session->param("userlogin", $User_Login);
 			$session->param("email", $User_Email);
-#			$redirect = $WWW_HomePage . $Location_Scripts . '/page.pl';
-#			$redirect = $WWW_HomePage . $Location_Scripts . '/index.pl?lp=home';
-			$redirect = $WWW_HomePage . $Location_Scripts . '/page.pl?lp=profile_game&cp=show_first_game';
+#			$redirect = $WWW_HomePage . $WWW_Scripts . '/page.pl';
+#			$redirect = $WWW_HomePage . $WWW_Scripts . '/index.pl?lp=home';
+			$redirect = $WWW_HomePage . $WWW_Scripts . '/page.pl?lp=profile_game&cp=show_first_game';
 			&print_redirect($cgi,$sessionid,$redirect);
 		} else {
 			&LogOut(100,"$submit_user failed to Log In",$LogFile);
 			my $cgi = new CGI;
-#			my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$session_dir"});
+#			my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
 #			$sessionid = $session->id unless $sessionid;
 #			$session->param("logged-in", 1);
 #			$session->param("userid", $User_ID);
 #			$session->param("userlogin", $User_Login);
 #			$session->param("email", $User_Email);
-			print $cgi->redirect( -URL => "$Location_Scripts/account.pl?action=login_fail");
-#			$redirect = $WWW_HomePage . $Location_Scripts . '/index.pl';
+			print $cgi->redirect( -URL => "$WWW_Scripts/account.pl?action=login_fail");
+#			$redirect = $WWW_HomePage . $WWW_Scripts . '/index.pl';
 #			&print_redirect($cgi,$sessionid,$redirect);
 		}
 #    }
@@ -409,7 +409,7 @@ sub logout {
         -PATH => '/',
 	    -EXPIRES=>	"+3M",
 	   );
-    print $cgi->redirect( -URL => "$Location_Scripts/index.pl", -cookie=> [$cookie]);
+    print $cgi->redirect( -URL => "$WWW_Scripts/index.pl", -cookie=> [$cookie]);
 }
 
 sub logoutfull { 
@@ -422,5 +422,5 @@ sub logoutfull {
         -PATH => '/',
 	    -EXPIRES=>	"-1M",
 	   );
-    print $cgi->redirect( -URL => "$Location_Scripts/index.pl", -cookie=> [$cookie]);
+    print $cgi->redirect( -URL => "$WWW_Scripts/index.pl", -cookie=> [$cookie]);
 }

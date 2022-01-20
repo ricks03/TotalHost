@@ -28,7 +28,7 @@ use warnings;
 use StarsBlock; # A Perl Module from TotalHost
 use StarStat; # A Perl module from TotalHost
 use File::Basename;  # Used to get filename components
-my ($game_file, $file_player, $file_type, $file_ext);
+my ($file_prefix, $file_player, $file_type, $file_ext);
 my $inDir = $ARGV[0];  # scan Directory
 my $inFile = $ARGV[1]; # input file
 
@@ -56,7 +56,7 @@ if (substr($inDir,-1) ne '\\') {  $inDir = $inDir . '\\'; }
 # if a file is specified, check to see if it exists
 if ($inFile) {
   if (-e $inFile) {
-    ($game_file, $file_player, $file_type, $file_ext) = &FileData (basename($inFile)); 
+    ($file_prefix, $file_player, $file_type, $file_ext) = &FileData (basename($inFile)); 
   } else {
     print "File: $inFile does not exist!\n"; exit;
   }
@@ -73,7 +73,7 @@ while (defined(my $file = readdir(DIR))) {
     # This regexp skips the ARGV[1] value
     # index might be better here than regexp
     #next if ($inFile && $inFile =~ /$file/i); # Skip for the case-insensitive file we started with 
-    if ($inFile && !($file =~ /$game_file/i)) { next; } # Skip if it's a different file 
+    if ($inFile && !($file =~ /$file_prefix/i)) { next; } # Skip if it's a different file 
     open(StarFile, "<$filename" );
     binmode(StarFile);
     while ( read(StarFile, $FileValues, 1)) {

@@ -3,8 +3,7 @@
 
 $debug=0;
 $WWW_HomePage = '';
-# Local Path
-$PerlLocation='c:/perl/bin/perl.exe';
+$PerlLocation='c:/perl/bin/perl.exe'; # Local Path
 
 # Logging
 # The higher the value the more log values show
@@ -24,13 +23,13 @@ $fixFiles = 1; # 0, 1, 2: display, clean but don't write, write
 
 
 # Where the accounts logs go
-$path_Log = 'd:/TH/logs';
-$file_Log = '/th.log';
-$LogFile = $path_Log . $file_Log;
-$file_ErrorLog = '/Error.log';
-$ErrorLog = $path_Log . $file_ErrorLog;
+$Dir_Log = 'd:/TH/logs';
+$File_Log = '/th.log';
+$LogFile = $Dir_Log . $File_Log;
+$File_ErrorLog = '/Error.log';
+$ErrorLog = $Dir_Log . $File_ErrorLog;
 $file_SQLLog = '/sql.log';
-$SQLLog = $path_Log . $file_SQLLog;
+$SQLLog = $Dir_Log . $file_SQLLog;
 
 $ip = $ENV{'REMOTE_ADDR'};
 $browser = $ENV{'HTTP_USER_AGENT'};
@@ -50,29 +49,21 @@ $imagemagick = 'C:\Program Files\ImageMagick-6.8.3-Q16\convert';
 $starmapper = 'd:\th\utils\starmapper\starmapper121\starmapper.bat';
 
 $FormMethod = 'Post'; # Method used for forms, Post or Get
-$File_Upload = 'd:/TH/Uploads';
-$File_UploadRace = 'd:/TH/Uploads';
-#$File_UploadTurn = 'd:/TH/Uploads';
-$File_UploadGame = 'd:/TH/Uploads';
-$File_Races = 'd:/TH/Races';
-$FileRaces = 'd:\TH\Races';
-#$File_Email = 'd:/TH/Email';
-#$FileEmail = 'd:\TH\Email';
-$File_HST = 'd:/TH/Games'; # Location of the actual game files used for turn gen
-$FileHST = 'd:\TH\Games'; # Location of the actual game files used for turn gen
-$File_Download = 'd:/TH/Download'; #Location where turns & .xy are downloaded
-$FileDownload = 'd:\TH\Download'; #Location where turns & .xy are downloaded
-$FileDownloads = 'd:\TH\Downloads'; #Location of movies
-#$File_Scripts = 'd:/TH/scripts';
-#$ScriptLocation='d:/TH/scripts';
+$Dir_Upload = 'd:/TH/Uploads';
+$DirUpload = 'd:\TH\Uploads';
+$DirRaces = 'd:\TH\Races';
+$Dir_Games = 'd:/TH/Games'; # Location of the actual game files used for turn gen
+$DirGames = 'd:\TH\Games'; # Location of the actual game files used for turn gen
+$Dir_Download = 'd:/TH/Download'; #Location where turns & .xy are downloaded
+$DirDownload = 'd:\TH\Download'; #Location where turns & .xy are downloaded
+$DirGraphs = 'd:\TH\Downloads'; #Location of movies & Graphs
 $File_Serials = 'd:/TH/serialC.txt'; # Text file of serial numbers
-$File_WWWRoot = 'd:/TH/html';
+$Dir_WWWRoot = 'd:/TH/html';
 
 $WWW_Image = '/images/';
 $WWW_Notes = '/Notes/';
-#$WWW_Download = '/Download/';
-$Location_Scripts = '/scripts';
-$Location_Index = $WWW_HomePage . $Location_Scripts . '/index.pl';
+$WWW_Scripts = '/scripts';
+$Location_Index = $WWW_HomePage . $WWW_Scripts . '/index.pl';
 # Email
 $mail_present = 1;
 $mail_server = '';
@@ -86,7 +77,7 @@ $mail_prefix = '[TH]: ';
 
 $min_players = 2; # The minimum number of players to create/launch a game
 # Sessions
-$session_dir = 'd:/th/sessions/';
+$Dir_Sessions = 'd:/th/sessions/';
 # Note if you change this all the current passwords will invalidate. 
 $secret_key = 'secret_key_for_md5_hashing';
 %TurnResult = ("turned in" => "In", "still out" => "Out", "right game" => "Wrong Game", "dead" => "Deceased", "right year" => "Wrong Year", "file corrupt" => "Corrupt");
@@ -132,5 +123,5 @@ $user_style = qq|style="width:120px;height:24;"|;
 # my $encodesE       = "wxyz+-,!.?:;\'*%\$";
 
 my (@singularRaceName, @pluralRaceName);
-$singularRaceName[0] = "Everyone";
+$singularRaceName[0] = 'Everyone';
 

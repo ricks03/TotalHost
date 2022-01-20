@@ -103,8 +103,7 @@ sub decryptBlock {
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
-    # FileHeaderBlock, never encrypted
-    if ($typeId == 8 ) { # File Header Block
+    if ($typeId == 8 ) { # File Header Block, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
