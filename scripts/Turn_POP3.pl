@@ -154,20 +154,20 @@ my $LoopPosition = 0; #Start with the first game in the array.
 while ($LoopPosition <= ($#msgdata)) { # work the way through the array
 #while ( my ($key, $value) = each(%msg) ) { 
 #	print "$key => $value\n"; 
-	my $game_file = $msgdata[$LoopPosition]{'msg_file'};
-# 	print "gamefile1: $game_file\n";
-# 	$game_file =~ s/^(.*)\-.+(\.x.*)/$1$2/i;
-# 	print "gamefile2: $game_file";
-	my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &ValidateFile($game_file,$msgdata[$LoopPosition]{'msg_path'});
-	print qq|	my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &ValidateFile($game_file,$msgdata[$LoopPosition]{'msg_path'});\n|;
+	my $file_prefix = $msgdata[$LoopPosition]{'msg_file'};
+# 	print "gamefile1: $file_prefix\n";
+# 	$file_prefix =~ s/^(.*)\-.+(\.x.*)/$1$2/i;
+# 	print "gamefile2: $file_prefix";
+	my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &ValidateFile($file_prefix,$msgdata[$LoopPosition]{'msg_path'});
+	print qq|	my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &ValidateFile($file_prefix,$msgdata[$LoopPosition]{'msg_path'});\n|;
 	# Check to see if it's a valid file
 	if ($Magic eq 'J3J3') {
 		print "Its $Magic\n";
 		# Check to see if it was sent by a valid player
-		print "Clean: $game_file\n";
+		print "Clean: $file_prefix\n";
 
 	 		my($X_Source)= $FileEmail . '/' . $file;  
-	 		my($X_Destination)= $File_HST . '/' . $game_file . '/' . $file;  
+	 		my($X_Destination)= $Dir_Games . '/' . $file_prefix . '/' . $file;  
 
 	}
 	$LoopPosition++;
@@ -187,13 +187,13 @@ while (defined($file = readdir(DIR))) {
 	if ((($file =~ /\.X/i)) && (!($file =~ /\.XY/i))) {
 		# Clean up the file name just in case. 
 		$clean_file = &clean($file);
-		($game_file, $file_player, $file_type, $file_ext) = &FileData($clean_file);
-		print qq|($game_file, $file_player, $file_type, $file_ext) = &FileData($clean_file);\n|;
+		($file_prefix, $file_player, $file_type, $file_ext) = &FileData($clean_file);
+		print qq|($file_prefix, $file_player, $file_type, $file_ext) = &FileData($clean_file);\n|;
 		# If it's a valid stars file and a .x file
 		($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &ValidateFile($clean_file, $FileEmail);
 		if ($Magic eq 'J3J3') {
 	 		my($X_Source)= $FileEmail . '/' . $file;  
-	 		my($X_Destination)= $File_HST . '/' . $game_file . '/' . $file;  
+	 		my($X_Destination)= $Dir_Games . '/' . $file_prefix . '/' . $file;  
 			&LogOut(200,"copy $X_Source > $X_Destination",$LogFile);
 	 		if (copy($X_Source, $X_Destination)) { &LogOut(200,"copy $Game_Source > $Game_Destination",$LogFile); }
 			else { &LogOut(0, "Copy: $X_Source > $X_Destination failed",$ErrorLog);}

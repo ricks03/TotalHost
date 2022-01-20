@@ -51,10 +51,10 @@ if (!($filename)) {
 
 # Name of the Game (the prefix for the .xy file)
 my $GameFile = $filename;  
-my $sourcedir = $FileHST . '\\' . $GameFile;
+my $sourcedir = $DirGames . '\\' . $GameFile;
 unless (-d $sourcedir) { die "Directory $sourcedir does not exist!\n"; }
 # Where final image will live
-my $graphPath = $FileDownloads . '\\graphs' . '\\' . $filename . '.png';
+my $graphPath = $DirGraphs . '\\graphs' . '\\' . $filename . '.png';
 
 # Get all of the years from the backup subdirectories
 # Expectation is folder structure is turn/year

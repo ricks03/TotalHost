@@ -21,7 +21,6 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 #use TotalHost;  # Disabled 211105
 package StarStat;
 do 'config.pl';
@@ -155,31 +154,10 @@ sub Check_Player {
 	}
 }
 
-# sub Check_Turn {
-# 	# Check against the existing game that this is for the correct turn.
-# 	my ($game_file, $x_turn) = @_;
-# 	my $Game_Loc = $File_HST . '/' . $game_file . '/' . $game_file . '.hst';
-# 	# Check to see if the HST file exists at all
-# 	if (-e $Game_Loc) {
-# 		# Get the data for the game
-# 		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($Game_Loc);
-# 		if ($turn == $x_turn) {
-# 			print "<P>Turn $x_turn matches Hosted Turn $turn\n";
-# 			return 1; 
-# 		} else {
-# 			print "<P>Turn $x_turn DOES NOT MATCH HOSTED Turn $turn\nFile NOT ACCEPTED\n";
-# 			return 0;
-# 		}
-# 	} else {
-# 		print "<P>No game exists for Game: $game_file\n";
-# 		return 0;
-# 	}
-# }
-
 sub Check_Turn {
 	# Check against the existing game that this is for the correct turn.
-	my ($game_file, $x_turn) = @_;
-	my $Game_Loc = $File_HST . '/' . $game_file . '/' . $game_file . '.hst';
+	my ($file_prefix, $x_turn) = @_;
+	my $Game_Loc = $Dir_Games . '/' . $file_prefix . '/' . $file_prefix . '.hst';
 	# Check to see if the HST file exists at all
 	if (-e $Game_Loc) {
 		# Get the data for the game
@@ -192,28 +170,28 @@ sub Check_Turn {
 			return 0;
 		}
 	} else {
-		&SLogOut(0,"No game exists for Game: $game_file",$ErrorLog);
+		&SLogOut(0,"No game exists for Game: $file_prefix",$ErrorLog);
 		return 0;
 	}
 }
 
 sub Check_GameFile {
-  # Where game_file is the game prefix of the file name
-  my($game_file) = @_;
-  my $Game_Loc = $File_HST . '/' . $game_file . '/' . $game_file . '.hst';
+  # Where file_prefix is the game prefix of the file name
+  my($file_prefix) = @_;
+  my $Game_Loc = $Dir_Games . '/' . $file_prefix . '/' . $file_prefix . '.hst';
   if (-e $Game_Loc) {
-  	&SLogOut(400,"Game Exists at $Game_Loc: Game File = $game_file",$LogFile);
+  	&SLogOut(400,"Game Exists at $Game_Loc: Game File = $file_prefix",$LogFile);
   	return 1;
   } else { 
-	  &SLogOut(0,"Game does not exist at $Game_Loc for Game File $game_file",$ErrorLog);
+	  &SLogOut(0,"Game does not exist at $Game_Loc for Game File $file_prefix",$ErrorLog);
 	  return 0
   }
 }
 
 sub Check_GameID {
 	# Check in the database or file system to see that the Game ID is valid
-	my ($game_file, $Game_ID) = @_;
-	my $Game_Loc = $File_HST . '/' . $game_file . '/' . $game_file . '.hst';
+	my ($file_prefix, $Game_ID) = @_;
+	my $Game_Loc = $Dir_Games . '/' . $file_prefix . '/' . $file_prefix . '.hst';
 	# Check to see if the HST file exists at all
 	if (-e $Game_Loc) {
 		# Get the data for the game
@@ -226,7 +204,7 @@ sub Check_GameID {
 			return 0;
 		}
 	} else {
-		&SLogOut(0,"No game exists for Game: $game_file",$ErrorLog);
+		&SLogOut(0,"No game exists for Game: $file_prefix",$ErrorLog);
 		return 0;
 	}
 }
@@ -254,16 +232,21 @@ sub FileData {
 	$File = lc($File); 
   # Strip off any directory
   # $File =~ s{^.*[:\\/]}{}s;     # remove the leading path  
-	my $game_file = lc($File);
-	$game_file=~ s/(.*)(\..+)/$1/;
+	my $file_prefix = lc($File);
+	$file_prefix=~ s/(.*)(\..+)/$1/;
 	my $file_player = lc($File);
 	$file_player =~ s/(.*)(\.)(.)(.*)/$4/;
 	my $file_type = lc($File); 
 	$file_type =~ s/(.*)(\.)(.)(.*)/$3/;
 	my $file_ext = lc($File);
 	$file_ext =~ s/(.*)(\.)(.*)/$3/;
-	&SLogOut(400, "FileData: $game_file, $file_player, $file_type, $file_ext",$LogFile);
-	return $game_file, $file_player, $file_type, $file_ext; 	
+	&SLogOut(400, "FileData: $file_prefix, $file_player, $file_type, $file_ext",$LogFile);
+  # Fixing output that's incorrect for HST files
+  if ($file_ext =~ /HST/i ) { 
+    $file_type='hst'; 
+    $file_player = 16;
+  }
+	return $file_prefix, $file_player, $file_type, $file_ext; 	
 }
 
 sub ValidateFile {
@@ -272,7 +255,7 @@ sub ValidateFile {
  	my $File_Loc = $FilePath . '\\' . $File;
 	if (!(-e $File_Loc)) { &SLogOut(0, "Validate file $File_Loc not found", $ErrorLog); return 0; }
 	# Break the filename apart into component parts
-	my ($game_file, $file_player, $file_type, $file_ext) = &FileData($File); 
+	my ($file_prefix, $file_player, $file_type, $file_ext) = &FileData($File); 
 	unless (&Check_FileType($file_type)) { return 0; }
 	# Race Files
 	if ($file_type eq 'r') {
@@ -286,7 +269,7 @@ sub ValidateFile {
 	# Log files
 	} elsif ($file_type eq 'x') {
 		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
-		if ( ($dt == 1) && &Check_Magic($Magic, $File_Loc) && &Check_Version($ver, $File_Loc) && &Check_GameFile($game_file) && &Check_Player($file_player,$iPlayer) && &Check_Turn($game_file, $turn) && &Check_GameID($game_file, $lidGame)) {
+		if ( ($dt == 1) && &Check_Magic($Magic, $File_Loc) && &Check_Version($ver, $File_Loc) && &Check_GameFile($file_prefix) && &Check_Player($file_player,$iPlayer) && &Check_Turn($file_prefix, $turn) && &Check_GameID($file_prefix, $lidGame)) {
 			return $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware;
 		} else { &SLogOut(0,"$File_Loc Not a valid Turn ( .x[n] ) file",$ErrorLog); return 0; }
 	} else { 

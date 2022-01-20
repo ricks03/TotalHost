@@ -73,11 +73,11 @@ if (!($GameFile)) {
 }
 
 # Name of the Game (the prefix for the .xy file)
-my $sourcedir = $FileHST . '\\' . $GameFile;
+my $sourcedir = $DirGames . '\\' . $GameFile;
 # Where to output the .ini, .pcx, and .bat files
 my $destdir = $sourcedir . '.mov';
 # Where final GIF will live
-my $moviePath = $FileDownloads . '\\movies';
+my $moviePath = $DirGraphs . '\\movies';
 
 #StarMapper
 my $DataOutFile;

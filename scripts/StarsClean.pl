@@ -325,7 +325,7 @@ sub processData {
         my $mineStatus = &read16(\@decryptedData, 12);   # includes detonating
         $mineStatus = dec2bin($mineStatus);
         my @mineStatus;
-        for (my $i=0; $i < 16; $i++)  {
+        for (my $i=0; $i <= 15; $i++)  {
            $mineStatus[$i] = substr($mineStatus,$i,1); 
         }
         $mineDetonate = &getMineDetonate(\@mineStatus); # bit 7 is detonating  status
