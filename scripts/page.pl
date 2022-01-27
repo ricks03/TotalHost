@@ -880,6 +880,7 @@ sub show_game {
 			}
 		} 
 
+    print "<br>Now: ". localtime(time()); 
 		# BUG: check the def file for when the game was created, as it's not stored in the DB
     #   but probably should be
     my $defFileTime = "$DirGames\\$GameValues{'GameFile'}\\$GameValues{'GameFile'}.def";
@@ -887,7 +888,7 @@ sub show_game {
 		  print "<P>Created: ". localtime((stat($defFileTime))[9]);
     } 
 		# Useful when debugging turn issues to know when the system currently thinks it is.
-    print "<br>Now: ". localtime(time()); 
+    
 		# If next turn is undefined(0) AND it's a game in progress somehow, display that the 
 		# next generation will be immediate
 		if ($GameValues{'NextTurn'} ne 0 && $GameValues{'GameStatus'} ne 7 && $GameValues{'GameStatus'} ne 9 && $GameValues{'GameStatus'} ne 4) { 
@@ -1428,15 +1429,15 @@ sub show_fix {
 	my @fixes;
 	my $id, $secs, $turn, $story, $l_time;
 	my $fixfile = $Dir_Games . '/' . $GameFile . '/' . "$GameFile.warnings";
-	# Check to see if there is a news file
+	# Check to see if there is a warnings file
 	if (!(-e $fixfile)) { # Create the new file if it doesn't exist
-  	open (OUT_FILE, ">$fixfile") || die("Cannot create $fixfile file"); 
+  	open (OUT_FILE, ">$fixfile") || &LogOut(100, "show_fix: could not create $fixfile", $ErrorLog); 
   	close(OUT_FILE);
-	} else { open (IN_FILE,$fixfile) || die("Can\'t open fix file");
+	} else { open (IN_FILE,$fixfile) || &LogOut(100, "show_fix: could not open $fixfile", $ErrorLog);
 		@fixes = <IN_FILE>;
 		close(IN_FILE);
     # Only print fixes if there are fixes
-    if (@fixes > 1) {
+    if (@fixes) {
   		foreach my $key (@fixes) {
   	 		# ($id, $secs, $turn, $story) = split('\t', $key);
         print "$key<br>\n";
@@ -2621,7 +2622,7 @@ sub process_restore {
 
 sub process_game_status {
 	# Change the current game state and report such.
-  # $sql doesn't really do anything, as nothing actually passes a $sql string,
+  # BUG: $sql doesn't really do anything, as nothing actually passes a $sql string,
   #   must be from an architecture change a while ago
 	my ($GameFile, $sql, $state) = @_;
 	my $success =0; 
@@ -2644,7 +2645,8 @@ sub process_game_status {
       $state_set = 1;
     }
     # Rebuild the .CHK file in case there's a problem
-    &Make_CHK($GameValues{'GameFile'});
+    # This was slow.
+    #&Make_CHK($GameValues{'GameFile'});
   } elsif ($state eq 'UnPause') {
     # Try to figure out when the next turn is due and update the date so
     # it doesn't just start generating
@@ -2656,7 +2658,7 @@ sub process_game_status {
 			($DaysToAdd2, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'},$NextDayOfWeek);
 			# Set the time for the next turn on the right day
 			$NewTurn = $CurrentDateSecs + $DaysToAdd1*86400 + $DaysToAdd2*86400 +($GameValues{'DailyTime'} *60*60); 
-      if (!$isDST) { $NewTurn = $NewTurn + (60*60); }
+      #if (!$isDST) { $NewTurn = $NewTurn + (60*60); }
       $GameValues{'GameStatus'} = 2; # So the value is changed if used later before a query.
 			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
       $GameValues{'GameStatus'} = 2; # When used later

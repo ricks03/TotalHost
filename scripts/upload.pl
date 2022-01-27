@@ -234,27 +234,6 @@ sub ValidateFileUpload {
       return 0; 
     } else {&LogOut(300, 'ValidateFileUpload: No errors', $LogFile); }
     
-    # Now that the file is OK, fix anything else wrong with it.
-    # Check (and potentially fix) the .x file for known Stars! exploits
-    # Requires .queue files
-    # Requires a file named 'fix' in the game folder as an additional safety net 
-    my $fixFile = $DirGames . '\\' . $GameFile . '\\' . 'fix';
-    my $warning; 
-    if ($fixFiles && -e $fixFile) { 
-      &LogOut(200, "ValidateFileUpload: fixfile: $fixFile fixFiles: $fixFiles, $File_Loc", $LogFile); 
-      print "<P>Checking file for exploits ...\n";
-      sleep 2;
-      my $gameDir = "$DirGames\\$file_prefix";
-      $warning = &StarsFix($gameDir, "$gameDir\\$file_prefix.$file_ext", $turn);
-      &LogOut(200, "ValidateFileUpload: $gameDir, $warning", $LogFile); 
-      
-      if ($warning) {
-        # Append the error(s) to the .warning file
-        $err .= "Expoit detected in .x file. See Exploits section for more details.\n";
-        &process_fix($file_prefix, "$warning");
-        &LogOut(0, "ValidateFileUpload: fixFiles $fixFiles, $errFix, $turn, $File_Loc", $ErrorLog);
-      }
-    }
     # Unless there was an error, move the file to the game folder
     unless ($err) { 
 			# Do whatever you would do with a valid change (.x) file
@@ -287,8 +266,29 @@ sub ValidateFileUpload {
         #         }
 				&DB_Close($db);
         &Make_CHK($file_prefix);   # BUG: - should really pull value from database, not user-input
-        # Append any errors from the Fix to the display
-        $err .= $errFix;
+        
+        # Now that the file is legit, fix anything else wrong with it.
+        # Check (and potentially fix) the .x file for known Stars! exploits
+        # Requires List files (.fleet, .queue, etc)
+        # Requires a file named 'fix' in the game folder as an additional safety net 
+        my $fixFile = $DirGames . '\\' . $GameFile . '\\' . 'fix';
+        my $warning; 
+        if ($fixFiles && -e $fixFile) { 
+          print "<P>Reviewing uploaded file ... \n";
+          &LogOut(200, "ValidateFileUpload: fixfile: $fixFile fixFiles: $fixFiles, $File_Loc", $LogFile); 
+          my $gameDir = "$DirGames\\$file_prefix";
+          $warning = &StarsFix($gameDir, "$gameDir\\$file_prefix.$file_ext", $turn);
+          &LogOut(200, "ValidateFileUpload: $gameDir, $warning", $LogFile); 
+          if ($warning) {
+            # Append any errors from the Fix to the display
+            $err .= $warning;
+            # Append the error(s) to the .warning file
+            &process_fix($file_prefix, "$warning");
+            &LogOut(0, "ValidateFileUpload: fixFiles $fixFiles, $err, $turn, $File_Loc", $ErrorLog);
+          }
+        }
+
+        
 				return 1; 
 			} else { 
         # If the file failed to move, report and remove. 
