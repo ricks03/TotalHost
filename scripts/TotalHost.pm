@@ -762,30 +762,13 @@ sub LoadGamesInProgress {
 	return \@GameData;
 }  
 
-# sub Get_CHK { 
-# # Updates the CHK file and returns the values
-# 	my($GameFile) = @_;
-# 	my @CHK;
-#   &LogOut(200, "Running Get_CHK", $LogFile);
-#   &Make_CHK($GameFile);
-# #   my($CheckGame) = $executable . ' -v ' . $DirGames . '\\' . $GameFile . '\\' . $GameFile . '.hst';
-# #   system($CheckGame);
-# #	sleep 1;
-#   @CHK = &Read_CHK($GameFile);
-# # 	my $CHK_FILE = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.chk';
-# #   open (IN_CHK,$CHK_FILE) || &LogOut(0,"<P>Cannot open stupid .chk file $CHK_FILE for $GameFile after $CheckGame",$ErrorLog);
-# #   chomp (@CHK = <IN_CHK>);
-# #  	close(IN_CHK);
-#  	return @CHK;
-# }
-
 sub Make_CHK { 
 # Updates the CHK file for a game
 	my($GameFile) = @_;
   my($CheckGame) = $executable . ' -v ' . $DirGames . '\\' . $GameFile . '\\' . $GameFile . '.hst';
   &LogOut(200, "Make_CHK: Running for $GameFile, $CheckGame", $LogFile);
   system($CheckGame);
-	sleep 2;
+	#sleep 2;
 }
 
 sub Read_CHK { 
@@ -1207,8 +1190,8 @@ sub process_fix {
   # Called from upload.pl
 	my ($GameFile, $newWarning) = @_;
 	my @fixes;
-	my $fixfile = $Dir_Games . '/' . $GameFile . '/' . "$GameFile.warnings";
-	my $HSTFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.HST';
+	my $fixfile = $Dir_Games . '/' . $GameFile . '/' . "$GameFile" . '.warnings';
+	my $HSTFile = $Dir_Games . '/' . $GameFile . '/' . "$GameFile" . '.HST';
 	($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
 	if (!(-e $fixfile)) { # If there's no fix file, create one. 
   	open (OUT_FILE, ">$fixfile") || &LogOut (0,"process_fix: Failed to create $fixfile for $GameFile", $ErrorLog); 
@@ -1217,13 +1200,13 @@ sub process_fix {
 	}
 
 	# Read in the old fixes
-	open (IN_FILE,$fixfile) || &LogOut (0,"process_fix: Failed to open $fixfile for $GameFile", $ErrorLog);
+	open (IN_FILE,$fixfile) || &LogOut (0,"process_fix: Failed to read $fixfile for $GameFile", $ErrorLog);
 	@fixes = <IN_FILE>;
 	close(IN_FILE);
 	# Write out the fixes with the current news at the beginning (So the data is from new to old)
 	$fixfile = '>' . $fixfile;
 	&LogOut (200,"process_fix: Update .warning with $newWarning for $GameFile", $ErrorLog);
-	open (OUTFILE, $fixfile) || die("Can\'t create fix file!");
+	open (OUTFILE, $fixfile) || &LogOut (0,"process_fix: failed to open fix file $fixfile", $ErrorLog);
 
   # Since these are CSV,
   @newWarning = split(',', $newWarning);

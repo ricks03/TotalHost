@@ -109,7 +109,7 @@ our @EXPORT = qw(
   showResearchCost showExpensiveTechStartsAt3
   showPlayerRelations
   showResearchPriority
-  showPRT showLRT
+  PRT showPRT LRT showLRT
   showFactoriesCost1LessGerm
   showMTItems
   decodeBytesForStarsString
@@ -957,17 +957,39 @@ sub charToNibble {
 }
 
 sub showHab {
-  my ($low,$center,$high, $type) = @_;
-  my @habBase = qw ( .12 -200 0) ; #The starting value for each hab range
-  my @habIncrement = qw (.24 4 1 ) ; # The size of the hab increment
+  my ($low,$center,$high,$type) = @_; # Type is 0,1,2 for grav, temp, rad
   my ($lowFixed, $centerFixed, $highFixed); 
-  if ($center == 255) {return "Immune"; }
-  else { 
+  my @habBase = qw ( .12 -200 0) ; #The starting value for each hab range, max 8.0, 200, 100
+  my @habIncrement = qw (.24 4 1 ) ; # The size of the hab increment
+  # BUG: Grav isn't right
+  # I don't know the formula, but I can brute force it: https://wiki.starsautohost.org/wikinew/craebild/habcalc.htm
+  # This might be the correct formula
+    #   function getClicksFromGrav(grav)
+    # {
+    #   grav *= 100;		//local copy (needs at least 2 bytes)
+    #   var result;		//unsigned char
+    #   var lowerHalf = 1;	//signed char
+    #   if (grav < 100) {
+    #     grav = Math.floor(10000/grav);	//integer truncation
+    #     lowerHalf = -1;
+    #   }
+    #   if (grav < 200) {
+    #     result = grav/4-25;
+    #   } else {
+    #     result = (grav + 400) / 24;
+    #   }
+    #   result = Math.floor(50.9+lowerHalf*result);
+    #   if (result < 1) result = 1;	//one less ambiguity
+    #   return result;
+    # }
+  my @gravity_table = ( 0.12, 0.12, 0.13, 0.13, 0.14, 0.14, 0.15, 0.15, 0.16, 0.17, 0.17, 0.18, 0.19, 0.20, 0.21, 0.22, 0.24, 0.25, 0.27, 0.29, 0.31, 0.33, 0.36, 0.40, 0.44, 0.50, 0.51, 0.52, 0.53, 0.54, 0.55, 0.56, 0.58, 0.59, 0.60, 0.62, 0.64, 0.65, 0.67, 0.69, 0.71, 0.73, 0.75, 0.78, 0.80, 0.83, 0.86, 0.89, 0.92, 0.96, 1.00, 1.04, 1.08, 1.12, 1.16, 1.20, 1.24, 1.28, 1.32, 1.36, 1.40, 1.44, 1.48, 1.52, 1.56, 1.60, 1.64, 1.68, 1.72, 1.76, 1.80, 1.84, 1.88, 1.92, 1.96, 2.00, 2.24, 2.48, 2.72, 2.96, 3.20, 3.44, 3.68, 3.92, 4.16, 4.40, 4.64, 4.88, 5.12, 5.36, 5.60, 5.84, 6.08, 6.32, 6.56, 6.80, 7.04, 7.28, 7.52, 7.76, 8.00 );
+  if ($center == 255) {return 'Immune'; } 
+  elsif ($type != 0 ) { # Grav is different
     $lowFixed = ($low * @habIncrement[$type]) + $habBase[$type];
     $centerFixed = ($center * @habIncrement[$type]) + $habBase[$type];
     $highFixed = ($high * @habIncrement[$type]) + $habBase[$type]; # Radiation is simple
-  }
- return "$low/$center/$high  (in clicks)"; 
+    return "$lowFixed/$centerFixed/$highFixed"; 
+  } else {return "$gravity_table[$low]/$gravity_table[$center]/$gravity_table[$high]"; }  # Because gravity is weird. 
 }
 
 sub showLeftoverPoints {
@@ -1004,10 +1026,38 @@ sub showResearchPriority {
   else {return "Error: $value\n"; }
 }
 
-sub showPRT {
+sub PRT {
   my ($prt) = @_;
   my @prts = qw (HE SS WM CA IS SD PP IT AR JOAT );
   return $prts[$prt]; 
+}
+
+sub showPRT {
+  my ($prt) = @_;
+  my @prts = ('HyperExpansion', 'Super Stealth', 'War Monger', 'Claim Adjustor', 'Inner Strength', 'Space Demolition', 'Packet Physics', 'Interstellar Traveller', 'Alternate Reality', 'Jack of all Trades' );
+  return $prts[$prt]; 
+}
+
+sub LRT {
+  my ($lrts) = @_;
+  my @string = ();
+  if (&bitTest($lrts, 0)) { push @string, 'IFE';  }
+  if (&bitTest($lrts, 1)) { push @string, 'TT'; }
+  if (&bitTest($lrts, 2)) { push @string, 'ARM'; }
+  if (&bitTest($lrts, 3)) { push @string, 'IS';  }
+  if (&bitTest($lrts, 4)) { push @string, 'GR';    }
+  if (&bitTest($lrts, 5)) { push @string, 'UR';    }
+  if (&bitTest($lrts, 6)) { push @string, 'MA'; }
+  if (&bitTest($lrts, 7)) { push @string, 'NRSE'; }
+  if (&bitTest($lrts, 8)) { push @string, 'CE';     }
+  if (&bitTest($lrts, 9)) { push @string, 'OBRM';   }
+  if (&bitTest($lrts, 10)) { push @string, 'NAS';  }
+  if (&bitTest($lrts, 11)) { push @string, 'LSP';     }
+  if (&bitTest($lrts, 12)) { push @string, 'BET';     }
+  if (&bitTest($lrts, 13)) { push @string, 'RS';     }
+  if (&bitTest($lrts, 14)) { push @string, 'Unused';     }
+  if (&bitTest($lrts, 15)) { push @string, 'Unused';     }
+  return @string;
 }
 
 sub showLRT {
@@ -1015,7 +1065,7 @@ sub showLRT {
   my @string = ();
   if (&bitTest($lrts, 0)) { push @string, 'ImprovedFuelEfficiency';  }
   if (&bitTest($lrts, 1)) { push @string, 'TotalTerraforming'; }
-  if (&bitTest($lrts, 2)) { push @string, 'AdvancedRemoteMining';  }
+  if (&bitTest($lrts, 2)) { push @string, 'AdvancedRemoteMining'; }
   if (&bitTest($lrts, 3)) { push @string, 'ImprovedStarbases';  }
   if (&bitTest($lrts, 4)) { push @string, 'GeneralisedResearch';    }
   if (&bitTest($lrts, 5)) { push @string, 'UltimateRecycling';    }
@@ -1030,7 +1080,7 @@ sub showLRT {
   if (&bitTest($lrts, 14)) { push @string, 'Unused';     }
   if (&bitTest($lrts, 15)) { push @string, 'Unused';     }
   if (@string) { return join (',', @string);  }
-  else { $string[0] = "None"; return @string; }
+  else { $string[0] = 'None'; return @string; }
 }
 
 sub showFactoriesCost1LessGerm {
@@ -1244,7 +1294,7 @@ sub showRace {
   if ($pluralNameLength == 0) { $pluralNameLength = 1; }
   $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
   $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
-  $raceData = "playerID: $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
+  $raceData .= "playerID: $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
   
   if ($fullDataFlag) { 
     my $homeWorld = &read16(\@decryptedData, 8);
@@ -1264,6 +1314,7 @@ sub showRace {
     my $highTemperature = $decryptedData[23];
     my $highRadiation   = $decryptedData[24];
     my $growthRate      = $decryptedData[25];
+    $raceData .=  'Grav:' . &showHab($lowGravity,$centreGravity,$highGravity,0) . ', Temp: ' . &showHab($lowTemperature,$centreTemperature,$highTemperature,1) . ', Rad: ' . &showHab($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
       # Worth noting all of these are +18 when in the fullDataFlag
     my $energyLevel           = $decryptedData[26];
     my $weaponsLevel          = $decryptedData[27];
@@ -2738,7 +2789,7 @@ sub decryptFix {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       
       @decryptedData = @{ $decryptedData };
-      if ( $debug  > 1) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
+      if ( $debug  > 1) { print "DATA DECRYPTED:" . join (' ', @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block. .m files can contain multiple pleyers. Only enough info for Fix. More elsewhere.
         my $playerId = $decryptedData[0] & 0xFF; # typically >> 1
