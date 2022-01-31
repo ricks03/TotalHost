@@ -29,7 +29,6 @@ use StarStat;
 use StarsBlock;
 do 'config.pl';
 
-
 #use strict;
 #use warnings;
 # Usable from the command line for a single game. Just give it the gamefile.
@@ -71,7 +70,6 @@ my @GameData = @$GameData;
 # }
 
 sub CheckandUpdate {
-  # BUG: Doesn't this always skip the first game? ? ? 
 	my $LoopPosition = 1; #Start with the first game in the array.
   print "Starting to check games\n";
   # This would be massively more clear if I read all of this in as a hash, instead
@@ -82,7 +80,7 @@ sub CheckandUpdate {
 	while ($LoopPosition <= ($#GameData)) { # work the way through the array
 		print 'Checking whether to generate for ' . $GameData[$LoopPosition]{'GameName'} . ":$GameData[$LoopPosition]{'GameFile'}...\n";
 		my($TurnReady) = 'False'; #Is it time to generate
-		my($NewTurn) = 0; #Localize the value for Next Turn. the next turn won't change unless told to
+		my($NewTurn) = 0; #Localize the value for Next Turn. The next turn won't change unless told to
 #		if ($GameData[$LoopPosition]{'ObserveHoliday'} ) { &CheckHolidays($GameData[$LoopPosition]{'NextTurn'}); }
 		#check to see if you should be checking, and don't do anything at an invalid time. 
 # 		if ((substr($GameData[$LoopPosition]{'DayFreq'},$WeekDay,1) == 0) && ($GameData[$LoopPosition]{'GameType'} == 1)) {
@@ -137,7 +135,7 @@ sub CheckandUpdate {
 				while (&ValidTurnTime($NewTurn,'Hour',$GameData[$LoopPosition]{'DayFreq'}, $GameData[$LoopPosition]{'HourFreq'}) ne 'True') { $NewTurn = $NewTurn + 3600; } 
 				# and just to be sure, make sure today is ok to generate before we approve everything
 				if (&ValidTurnTime($CurrentEpoch, 'Day',$GameData[$LoopPosition]{'DayFreq'}, $GameData[$LoopPosition]{'HourFreq'}) eq 'True') { $TurnReady = 'True'; } 
-				&LogOut(100,"#####Checkandupdate: New Turn : $NewTurn  TurnReady = $TurnReady",$LogFile);
+				&LogOut(100,"Checkandupdate: New Turn : $NewTurn  TurnReady = $TurnReady",$LogFile);
 				# If there are any delays set, then we need to clear them out, and reset the game status
 				# since if we're generating with a turn missing we've clearly hit the window past the delays.
 				if ($GameData[$LoopPosition]{'DelayCount'} > 0) {
@@ -226,10 +224,10 @@ sub CheckandUpdate {
 							&LogOut(200,"checkandupdate: NewTurn: $NewTurn > NormalNewTurn: $NormalNextTurn",$LogFile); 
 							# Don't increase the turn if it's already far enough in the future. 
  							$NewTurn = $NormalNextTurn;
-							print "3: New Turn True = " . localtime($NewTurn) . "\n";
+							print '3: New Turn True = ' . localtime($NewTurn) . "\n";
 						}
           }
-					print "4: New Turn Final = " . localtime($NewTurn) . "\n";
+					print '4: New Turn Final = ' . localtime($NewTurn) . "\n";
 				}
         # Hourly
 				# Next turn is generated Now + Game Interval
@@ -256,9 +254,6 @@ sub CheckandUpdate {
           }
         }	
       }
-      
-      #################
-      $TurnReady = 'True';
             
 	    # If a turn is ready, generate it and process it through. 
 			if ($TurnReady eq 'True') {
@@ -284,7 +279,7 @@ sub CheckandUpdate {
 					}
 				}
         
-				&GenerateTurn($NumberofTurns, $GameData[$LoopPosition]{'GameFile'});  # incl. fix and clean
+				unless ($disableGenerate) { &GenerateTurn($NumberofTurns, $GameData[$LoopPosition]{'GameFile'}); } # incl. fix and clean 
 
 				# get updated current turn so you can put it in the email, can vary based on force gen.
 				($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
@@ -354,14 +349,14 @@ sub CheckandUpdate {
 				&Email_Turns($GameData[$LoopPosition]{'GameFile'}, \%GameValues, 1);
 			}
 			#Print when the next turn will be generated.
-			if ($NewTurn) { print "1:Next turn for $GameData[$LoopPosition]{'GameFile'} gen on/after $NewTurn: " . localtime($NewTurn); }
-			else { print "2:Next turn for $GameData[$LoopPosition]{'GameFile'} gen on/after $GameData[$LoopPosition]{'NextTurn'}: " . localtime($GameData[$LoopPosition]{'NextTurn'}); }
+			if ($NewTurn) { print "\t1:Next turn for $GameData[$LoopPosition]{'GameFile'} gen on/after $NewTurn: " . localtime($NewTurn); }
+			else { print "\t2:Next turn for $GameData[$LoopPosition]{'GameFile'} gen on/after $GameData[$LoopPosition]{'NextTurn'}: " . localtime($GameData[$LoopPosition]{'NextTurn'}); }
 			if ($GameData[$LoopPosition]{'AsAvailable'} == 1) {	print ' or when all turns are in'; }		
 			print "\n";
 		}
 		$LoopPosition++;	#Now increment to check the next game
   	}
-	# Give the system a moment between each game, Stars! is slow. 
+	# Give the system a moment between each game, Stars! EXE is slow. 
 	sleep 2;
 }
 
