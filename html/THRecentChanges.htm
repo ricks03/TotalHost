@@ -6,6 +6,8 @@
 <body>
 <h2>Recent Changes to the TotalHost Site</h2>
 <ul>
+<li>220131 - Restoring a game from backup automatically pauses (and cleans up the Fix detection files)
+<li>220121 - can no longer join game when game is at max players
 <li>220119 - .x processing now stateful (adapting to changes in the .x file) for exploit/bug detection/fixing
 <li>220119 - TH Integrated: 32k Merge, SS Pop Steal, Mineral Upload, Space Dock, Cheap Colonizer, Cheap Starbase, 10th Starbase, Friendly Fire, Space Dock Armor, Serial checking, 
 <li>211111 - Added detection and fixing of 32k merge (TH integration TBD)
@@ -14,21 +16,26 @@
 <li>211105 - Simple version of roughly checking for the Mineral Upload exploit.
 <li>211104 - Added serial and hardware hash checking to safeguard against copy protection errors (TH integration TBD).
 <li>211028 - Serial number support (free serial, serial in profile)
+<li>211028 - Fixed bug in read_def that returning a value of the array makes it display the returned value.
 <li>210518 - TH will no longer let you upload a corrupt race file. 
 <li>210515 - StarsRace now detects and fixed corrupt race files. StarsPWD resets the password on race files. 
 <li>210514 - Games display the date the game was created. 
 <li>201119 - More blocks decoded. Fix for Idle state when editing game. Fix results log and display on host page. 
+<li>201119 - StarsFleet enhanced. StarsFix integrated. Movie/graph  performance boosted by referencing array.
 <li>201114 - Added new "Idle" player state (same as old Inactive state). Inactive now enables the housekeeping AI.
-<li>201106 - Modified overall code for massive performance boost by not passing fileBytes
+<li>201106 - Modified overall code (parseblock) for massive performance boost by not passing fileBytes
 <li>200604 - Added the StarsAI standalone which can toggle players active <> inactive.
+<li>201104 - Added multiturn to starstat
 <li>200603 - Added support for graphing of resources at end of game.
 <li>200509 - Added detect/correct for: Cheap Starbase, Friendly Fire
 <li>200430 - Added "host only" ability to post to News.
 <li>200423 - Vastly improved StarsShip.pl and site turn-fixing ability. Site can now detect (and correct) Colonizer bug and Spacedock bug. Warns for 10th Starbase bug.
+<li>200303 - Updates to newest code (fix PWD clean, movies)
 <li>000000 - Added "cleaning" ability, where information "shared" in the .m file is cleaned/removed (MT cargo, MT visitors, Minefields, wormhole sightings and visits, CA) 
 <li>200225 - Added ability to replace/swap players (even more possible with earlier password blanking). 
 <li>200225 - Added suite of movie functionality (creation and display)
 <li>200225 - Fixed minor corruption bug in password replacement for files with multiple player blocks
+<li>200225 - Major changes to include the starmapping function, and files for password cracking. 
 <li>191219 - turn delays now more clearly process on turns, not intervals.
 <li>191218 - .m files now get cleaned of player info if configured in config.
 <li>191203 - Now can download uploaded race files (again)
@@ -40,10 +47,15 @@
 <li>190214 - Fixed IE6 FilePath problem for file uploads. Invalid files are also now removed, not maintained.
 <li>190213 - Fixed issue where players couldn't delete a race file associated with a game after the game was over.
 <li>190213 - Fixed the issue where you could join a game even if you had no race file uploaded. 
+<li>180417 - Anon players now stay anon when their status is changed. 
 <li>180404 - Context-sensitive buttons for game creation now a lot more context-sensitive
+<li>180404 - Fixed Race Descrip Tip. Race shows version. Delete Race implemented. Start button appears when game pending start. Players have unique Ids. 
 <li>180403 - Can set Max Players for game
+<li>180403 - Logs roll over by week
+<li>189493 - Host can now delete an unstarted game
 <li>180402 - Improved Race upload tool tips
 <li>180402 - Now emails host when people join (and leave) their new game.
+<li>180316 - Restore game won't be an option if the year is 2400
 <li>180312 - Game status icons now show up (most) across the GUI (much like the player status icons)
 <li>180306 - Race files are now stored separately for each player profile.
 <li>130208 - Updated where and how documents display; added Library
