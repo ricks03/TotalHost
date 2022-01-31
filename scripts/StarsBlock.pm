@@ -1424,27 +1424,27 @@ sub StarsClean {
     # Decrypt the data, block by block
     # and modify appropriately
     my ($outBytes, $needsCleaning) = &decryptClean(@fileBytes);
+    &PLogOut(300,"StarsClean: $mFile Needs Cleaning : $needsCleaning", $LogFile);
     my @outBytes = @{$outBytes};
     
     # Output the Stars! file with modified data
     # Since we don't need to rewrite the file if nothing needs cleaning, let's not (safer)
-    if ($needsCleaning) {
+    if ($cleanFiles > 1 && $needsCleaning) {
       # Backup the file before we clean it
       # Because otherwise we can't get back to where we were, as the actual
       # backup is pre-turn generation, so random event will change.
-      # BUG: File name is important here, as backups work from the filename
-      #   So do we want these to be .m files?
-
-      my $mFilePreclean = "preclean." . $mFile;
+      my $mFilePreclean = $mFile . '.preclean';
 	    &PLogOut(300,"StarsClean Backup: $mFile > $mFilePreclean", $LogFile);
  	    copy($mFile, $mFilePreclean);
       &PLogOut(200," StarsClean: Pushing out $mFile post-cleaning for $GameFile", $LogFile);
-      open ( outFile, '>:raw', "$mFile" );
+      open ( CLEANFILE, '>:raw', "$mFile" );
       for (my $i = 0; $i < @outBytes; $i++) {
-        print outFile $outBytes[$i];
+        print CLEANFILE $outBytes[$i];
       }
-      close ( outFile);
+      close ( CLEANFILE );
       &PLogOut(200," StarsClean: Cleaned $mFile for $GameFile", $LogFile);
+    } else {
+      &PLogOut(200," StarsClean: $mFile did not need cleaning for $GameFile", $LogFile);
     }
   } 
 }
@@ -1457,10 +1457,10 @@ sub decryptClean {
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my $needsCleaning = 0;
   my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ($random, $seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
+  my $needsCleaning = 0;
     # For Object Block 43 
   my $objectId;    
   my $count = -1;
@@ -1482,7 +1482,6 @@ sub decryptClean {
   my $playerRelations; # byte, 0 neutral, 1 friend, 2 enemy
   # The values used when cleaning race values. Defaults to Humanoids
   my @resetRace =  ( 81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 );
-  my $LogOutput;
   my $offset = 0; #Start at the beginning of the file
   while ($offset < @fileBytes) {
     # Get block info and data
@@ -1491,13 +1490,11 @@ sub decryptClean {
     @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
-    if ($typeId == 43 ) { $debug = 1;  } else { $debug = 0;}
     # FileHeaderBlock, never encrypted
-    if ($typeId == 8 ) {
+    if ($typeId == 8 ) { # File Header Block
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
-      unless ($Magic eq 'J3J3') { &PLogOut(100,"decryptClean: One of the files is not a .M file. Stopped along the way.", $ErrorLog); }
       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -1509,7 +1506,17 @@ sub decryptClean {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
       @decryptedData = @{ $decryptedData };    
       # WHERE THE MAGIC HAPPENS
-      if ($typeId == 43) { # Check for special attributes in the Object Block
+      if ($typeId == 6) { # Player Block
+        my $PRT = $decryptedData[76];
+        if ($PRT == 3) { # Reset the info the CA player can see
+          $needsCleaning = 1;
+          #print &showRace(\@decryptedData,$size);
+          if ($cleanFiles) {   
+            @decryptedData = &resetRace(\@decryptedData,$Player);
+          }
+        }
+      }
+      elsif ($typeId == 43) { # Check for special attributes in the Object Block
         if ($size == 2) {
           my $count = &read16(\@decryptedData, 0);
         } else {
@@ -1517,19 +1524,22 @@ sub decryptClean {
           $number = $objectId & 0x01FF;
           $owner = ($objectId & 0x1E00) >> 9;
           $type = $objectId >> 13;
+          # BUG: MTID 12 bits, Type 4 bits.
+          # BUG: Wormhole ID 12 bits, Type ID 4 bits
+          
           # Mystery Trader
           if (&isMT($type)) {
             $needsCleaning = 1;
             $x = &read16(\@decryptedData, 2);
             $y = &read16(\@decryptedData, 4);
+            $xDest = &read16(\@decryptedData, 6);
+            $yDest = &read16(\@decryptedData, 8);
+            $warp = $decryptedData[10] % 16;
       			$metBits = &read16(\@decryptedData, 12);
       			$itemBits = &read16(\@decryptedData, 14);
       			$turnNo = &read16(\@decryptedData, 16); # Which doesn't report turn like everything else
             $turnNoDisplay =  $turnNo + 2401;
             my $MTPart = &getMTPartName($itemBits);
-            $LogOutput = "$turnNoDisplay: Mystery Trader: $x, $y met: " . &getPlayers($metBits) . ", $MTPart";
-            &PLogOut(100,"decryptClean: $LogOutput", $LogFile);
-
             if ($cleanFiles) { 
               # Reset players who has traded with MT
               ($decryptedData[12], $decryptedData[13]) = &resetPlayers($Player, &read16(\@decryptedData, 12));
@@ -1542,18 +1552,25 @@ sub decryptClean {
       			  $itemBits = &read16(\@decryptedData, 14);
               $MTPart = &getMTPartName($itemBits);
             }
-            $LogOutput = "$turnNoDisplay: Mystery Trader: $x, $y met: " . &getPlayers($metBits) . ", $MTPart";
-            &PLogOut(100,"decryptClean: $LogOutput", $LogFile);
           # Minefields
           } elsif (&isMinefield($type)) {
             $needsCleaning = 1;
+            # BUG: decay rate? (might be calculated)
             $x = &read16(\@decryptedData, 2); # 2 bytes
             $y = &read16(\@decryptedData, 4); # 2 bytes
+            $mineCount = &read32(\@decryptedData, 6); # 4 bytes
             $canSee = &read16(\@decryptedData, 10);
+            my $mineStatus = &read16(\@decryptedData, 12);   # includes detonating
+            $mineStatus = dec2bin($mineStatus);
+            my @mineStatus;
+            for (my $i=0; $i <= 15; $i++)  {
+               $mineStatus[$i] = substr($mineStatus,$i,1); 
+            }
+            $mineDetonate = &getMineDetonate(\@mineStatus); # bit 7 is detonating  status
+            $mineType = &getMineType(\@mineStatus); # bit 14+15 = mine type
+            $unk4 = &read16(\@decryptedData, 14);  # BUG: What is this, not player ID
             $turnNo = &read16(\@decryptedData, 16);
             $turnNoDisplay =  $turnNo + 2401;
-            $LogOutput = "$turnNoDisplay: MineField: $x, $y canSee: " . &getPlayers($canSee);
-            &PLogOut(100,"decryptClean: $LogOutput", $LogFile);
             if ($cleanFiles) {
               # Hard to find any data here as not much is known of the format
               # Reset players who can see the minefield
@@ -1561,20 +1578,23 @@ sub decryptClean {
               # reset values for display
               $canSee = &read16(\@decryptedData, 10);
             }
-            $LogOutput = "$turnNoDisplay: MineField: $x, $y canSee: " . &getPlayers($canSee);
-            &PLogOut(100,"decryptClean: $LogOutput", $LogFile);
           #Wormholes
           } elsif (isWormhole($type)) {
             $needsCleaning = 1;
             $x = &read16(\@decryptedData, 2);
             $y = &read16(\@decryptedData, 4);
+            $stability = &read16(\@decryptedData, 6);
+            #$stability = &dec2bin($stability);
     	      $canSee = &read16(\@decryptedData, 8);
     	      $beenThrough = &read16(\@decryptedData, 10);
     	      $targetId = &read16(\@decryptedData, 12) % 4096;   
+            # BUG: One of these fields is likely wormhole AGE.
+            $unk4 =  &read16(\@decryptedData, 12); #possibly random amount added to last stability value ?
+            $unk4 = &dec2bin ($unk4);                        
+            $unk5 =  &read16(\@decryptedData, 14);  # Always zeros? 
+            $unk5 = &dec2bin ($unk5);                        
             $turnNo = &read16(\@decryptedData, 16);
             $turnNoDisplay =  $turnNo + 2401;
-            $LogOutput = "$turnNoDisplay: Wormhole: $x, $y beenThrough: " . &getPlayers($beenThrough) . ", canSee: " . &getPlayers($canSee);
-            &PLogOut(100,"decryptClean: $LogOutput", $LogFile);
             if ($cleanFiles) { 
               # Reset players who can see wormhole
               ($decryptedData[8], $decryptedData[9]) = &resetPlayers ($Player, &read16(\@decryptedData, 8));
@@ -1585,35 +1605,41 @@ sub decryptClean {
               # reset values for display
               $beenThrough = &read16(\@decryptedData, 10);
             }
-            $LogOutput = "$turnNoDisplay: Wormhole: $x, $y beenThrough: " . &getPlayers($beenThrough) . ", canSee: " . &getPlayers($canSee);
-            &PLogOut(100,"decryptClean: $LogOutput", $LogFile);
-          } elsif (&isMinefield($type)) {
-            # Packet
-            # nothing decoded enough to clean
-          } 
-        }
-      }
-      if ($typeId == 6) { # Player Block
-        my $PRT = $decryptedData[76];
-        if ($PRT == 3) {
-          # Reset the info the CA player can see
-          $needsCleaning = 1;
-          $LogOutput = &showRace(\@decryptedData,$size);
-          &PLogOut(400,"decryptClean: $LogOutput", $LogFile);
-          if ($cleanFiles) {   
-            @decryptedData = &resetRace(\@decryptedData,$Player);
+          # Packet
+          } elsif (&isPacketOrSalvage($type)) {
+            $x = &read16(\@decryptedData, 2);
+            $y = &read16(\@decryptedData, 4);
+            $targetAndSpeed = &read16(\@decryptedData, 6);
+            $targetAndSpeed = &dec2bin($targetAndSpeed);
+            $destPlanetId = substr($targetAndSpeed,6,10);       # 10 bits
+            $destPlanetId = &bin2dec($destPlanetId);
+            $WarpSpeedMinus4 = substr($targetAndSpeed,2,4); #4 bits
+            $WarpSpeedMinus4 = &bin2dec($WarpSpeedMinus4);
+            $WarpOverMDLimit = substr($targetAndSpeed,2,2);# 2 bits 
+            $WarpOverMDLimit = &bin2dec($WarpOverMDLimit);
+            $ironium = &read16(\@decryptedData, 8);
+            $boranium = &read16(\@decryptedData, 10);
+            $germanium = &read16(\@decryptedData, 12);
+            # BUG: there's data that changes in byte 14. 
+            # fairly certain this isn't a player ID or CanSee??
+            $unk5 = &dec2bin(&read16(\@decryptedData, 14)); 
+            $turnNo = &read16(\@decryptedData, 16); # Doesn't appear to be turn info like the rest
+            $turnNoDisplay = $turnNo + 2401;
+            my $warpSpeed = $WarpSpeedMinus4 + 4;
+            if ($cleanFiles) {
+              # BUG: Decay rate wouldn't be public.
+              # BUG: Packet ownership must be included in here somewhere
+            }
           }
-          $LogOutput = &showRace(\@decryptedData,$size); 
-          &PLogOut(400,"decryptClean: $LogOutput", $LogFile);
         }
       }
-    # END OF MAGIC
-    #reencrypt the data for output
-    ($encryptedBlock, $seedX, $seedY) = &encryptBlock(\@block, \@decryptedData, $padding, $seedX, $seedY);
-    @encryptedBlock = @ { $encryptedBlock };
-    push @outBytes, @encryptedBlock;
-  }
-  $offset = $offset + (2 + $size); 
+      # END OF MAGIC
+      #reencrypt the data for output
+      ($encryptedBlock, $seedX, $seedY) = &encryptBlock(\@block, \@decryptedData, $padding, $seedX, $seedY);
+      @encryptedBlock = @ { $encryptedBlock };
+      push @outBytes, @encryptedBlock;
+    }
+    $offset = $offset + (2 + $size); 
   }
   return \@outBytes, $needsCleaning;
 }
@@ -1638,7 +1664,15 @@ sub StarsList {
   close(StarFile);
   # Decrypt the data, block by block, and process it
   # Include the directory to handle the difference between TH and standalone 
-  my ($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer) = &decryptFix($gameDir, $filename, \@fileBytes, \%fleetList, \%queueList, \%designList, \%$waypointList, $lastPlayer);
+  my %fleetList;
+  my %queueList;
+  my %designList;
+  my %waypointList;
+  my $lastPlayer;
+  my $warning;
+  my $needsfixing;
+  
+  ($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer) = &decryptFix($gameDir, $filename, \@fileBytes, \%fleetList, \%queueList, \%designList, \%$waypointList, $lastPlayer);
   @outBytes = @{$outBytes};
   %warning    = %$warning; # Tracking warnings generated
   %fleetList  = %$fleetList;
@@ -1646,23 +1680,31 @@ sub StarsList {
   %designList = %$designList;
   %waypointList = %$waypointList;
 
+  # Get rid of the old List Files in case they don't exist in the new turn
+  if (-e "$listPrefix.HST.fleet")    { unlink "$listPrefix.HST.fleet" }
+  if (-e "$listPrefix.HST.queue")    { unlink "$listPrefix.HST.queue" }
+  if (-e "$listPrefix.HST.waypoint") { unlink "$listPrefix.HST.waypoint" }
+  if (-e "$listPrefix.HST.design")   { unlink "$listPrefix.HST.design" }
+  #if (-e "$listPrefix.HST.last")     { unlink "$listPrefix.HST.last" }  # Never changes
+
+
   if (-d $gameDir) { # Check to make sure we're putting the List files in the right place
     if (%designList)   { &writeList("$listPrefix.HST.design", \%designList); }
     if (%queueList)    { &writeList("$listPrefix.HST.queue", \%queueList); }
     if (%fleetList)    { &writeList("$listPrefix.HST.fleet", \%fleetList); }
-    if (%waypointList) { &writeList("$listPrefix.HST.fleet", \%waypointList); }
+    if (%waypointList) { &writeList("$listPrefix.HST.waypoint", \%waypointList); }
     if ($lastPlayer) {
       open (LISTFILE, ">$listPrefix.HST.last");
       print LISTFILE "$lastPlayer"; 
       close (LISTFILE);
     }
-    &PLogOut(100, "StarsList: Done writing out List files", $LogFile)
+    &PLogOut(100, "StarsList: Done writing out List files for $listPrefix", $LogFile)
   } else { &PLogOut (0,"TurnMake: Directory $GameDir Missing for $listPrefix", $ErrorLog); }
 }
 
 sub StarsFix {
   # Return results from Stars! file for exploits (based off StarsFix & StarsQueue/StarsFleet/decryptQueue/decryptFleet
-  my ($gameDir, $filename, $turn) = @_; # .x file location includes path (Uploads)
+  my ($gameDir, $filename, $turn) = @_; # .x file location includes path (Uploads). BUG: Uploaded files are moved prior to StarsFix
   my $needsFixing = 0;
   
   # Get the pieces of file names
@@ -1705,7 +1747,7 @@ sub StarsFix {
  
   # read lastPlayer
   my $lastPlayer = -1; # storing the last player # for 10th Starbase
-  if (-e "$listPrefix.HST.last" && $file_type =~ /x/i) {
+  if ($file_type =~ /x/i && -e "$listPrefix.HST.last") {
     open (LISTFILE,"$listPrefix.HST.last");
     my @lastFile = <LISTFILE>;
     close LISTFILE;
@@ -1742,7 +1784,7 @@ sub StarsFix {
   }
     
   # Output the Stars! file with modified data
-  # Since we don't need to rewrite the file if nothing needs cleaning, let's not (safer)
+  # Since we don't need to rewrite the file if nothing needs fixing, let's not (safer)
   if ($needsFixing) {
     if ($fixFiles > 1) {  # Don't do unless in write mode
   	  &PLogOut(300,"StarsFix Backup: $filename > $filename.preFix", $LogFile);
@@ -2701,9 +2743,9 @@ sub decryptFix {
   # Exploit check .HST and .X files
   # $filename needs to be the full file path and name of file checked
   #   so we know what file_type we're checking (.x, .M, or .HST)
-  # Directory and file name are split as TH .x files are in a different place than the HST files
+  # BUG: NOT TRUE Directory and file name are split as TH .x files are in a different place than the HST files
   #   when they are scanned
-  my ($gameDir, $filename, $fileBytes, $fleetList, $queueList, $designList, $waypointList) = @_;
+  my ($gameDir, $filename, $fileBytes, $fleetList, $queueList, $designList, $waypointList, $lastPlayer) = @_;
   @fileBytes = @$fileBytes;
   %fleetList  = %$fleetList;
   %queueList  = %$queueList;
@@ -2724,7 +2766,7 @@ sub decryptFix {
   my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ($seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
-  my ($lastTurn);
+  my $lastTurn;
   my $skipTurns = 0;
   my $offset = 0; #Start at the beginning of the file
   my $needsFixing = 0; # Exploit or bug detected
@@ -2742,7 +2784,6 @@ sub decryptFix {
   my @designChanges; # used to track which starbase designs have been edited for cheap starbase
   # Tracking owner of the current design
   my %player;
-  #my $lastPlayer=-1; 
   my $warnId='';
   my %hullType = &readHullType;
   my %itemDetail = &readItemDetail();
@@ -2755,8 +2796,6 @@ sub decryptFix {
     @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
-    if ($debug > 1 ) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-    if ($debug > 100) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # Skip over the duplicate information in a turn file which include multiple turns
 #     if ( $skipTurns && $typeId != 8 ) {
 #       $offset = $offset + (2 + $size); 
@@ -2787,9 +2826,7 @@ sub decryptFix {
       push @outBytes, @block;
     } else {       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
-      
       @decryptedData = @{ $decryptedData };
-      if ( $debug  > 1) { print "DATA DECRYPTED:" . join (' ', @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block. .m files can contain multiple pleyers. Only enough info for Fix. More elsewhere.
         my $playerId = $decryptedData[0] & 0xFF; # typically >> 1
@@ -2983,7 +3020,7 @@ sub decryptFix {
         }
         
         ### 32K Merge & SS Pop Steal ###########################################
-        if (-e "$listPrefix.HST.fleet" && $file_type =~ /x/i) { # Requires fleet file
+        if ($file_type =~ /x/i && -e "$listPrefix.HST.fleet") { # Requires fleet file
           ### 32k Merge #######################################################
           $warnId = &zerofy($playerId) . '-32k-' . $fleetId . '+' . $waypointId; # adding a zero lets us sort on key
          if ($typeId == 5 && $taskId == 4 && $targetType == 2) {
@@ -3008,7 +3045,7 @@ sub decryptFix {
              if (exists ($warning{$warnId})) { delete ($warning{$warnId}); $needsFixing--;}
           }
           ### SS Pop Steal #####################################################
-          # typeId = 5 (waypoint change block ), taskId = 1 (Transport)
+          # typeId = 5 (waypoint change block), taskId = 1 (Transport)
           # targetType = 1 (Planet), taskPopulation = 1 (Load all Available)     
           # $fleetList{$ownerId}{$fleetId}{robberBaron} == 1 (Robber Baron in fleet)        
           # Load All Available doesn't flush any previous value for population, so don't check LoA value.
@@ -3028,7 +3065,7 @@ sub decryptFix {
           }
           ### freepop ############################################################
           # Check loading/unloading against fleet cargo
-          # BUG: This code is completely untested!!!!
+          # BUG: This code is completely untested!!!
   #         if ($typeId == 5 && $taskId == 1) {
   #           # Only check if we're in the ballpark of needing to check
   #           my ($errI, $errB, $errG, $errP, $errF) = (0) x 5;
@@ -3504,7 +3541,7 @@ sub decryptFix {
 
           ### Cheap Starbase ###################################################
           # Editing a starbase under construction at planet(s) with no starbase
-          if (-e "$listPrefix.HST.queue" && $file_type =~ /x/i) {
+          if ($file_type =~ /x/i && -e "$listPrefix.HST.queue") {
             if ($typeId == 27 && $isStarbase && $totalBuilt == 0) { # .x and Starbase
               foreach my $planetId (sort keys %{$queueList{$ownerId}}) { 
                 my @itemList = split (chr(31), $queueList{$ownerId}{$planetId}{item}); # $planetId = planetId
@@ -3641,9 +3678,12 @@ sub decryptFix {
               $err = 'Mineral Upload: Overage of '. ( $totalUpload{$toId}-$fleetList{$toOwnerId}{$toId}{cargoCapacity}) . ' from player ' . ($Player+1) . ' to player ' . ($toOwnerId+1). ', fleet ' . ($toId+1) . '.';
               $needsFixing++; 
               $warning{$warnId} = $err;
-              # BUG: If we make an adjustment here remember to update fleetList data
-              # Setting the contents to 0 seems to prevent the order from happening.
-              $decryptedData[5] = 0;
+              if ($fixFiles > 1) {
+                # BUG: If we make an adjustment here remember to update fleetList data
+                # Setting the contents to 0 seems to prevent the order from happening.
+                $decryptedData[5] = 0;
+                $err .= ' Fixed!! Canceled order.';
+              }
             } else { $err = ''; }
           }
         } else { print "Missing .fleet $listPrefix.HST.fleet. Cannot calculate Mineral Upload.\n"; }
@@ -3816,7 +3856,7 @@ sub decryptFix {
            $needsFixing++;
            if ($fixFiles > 1) {
              $decryptedData[3] = 2;
-             $err .= ' Fixed!!! Attack Who reset to Neutral/Enemy.';
+             $err .= ' Fixed!! Attack Who reset to Neutral/Enemy.';
            }
            $warning{$warnId} = $err;
         } else { $err = ''; }

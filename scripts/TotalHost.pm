@@ -885,50 +885,63 @@ sub GenerateTurn { # Generate a turn and refresh files
 	# Generate the actual Stars! turns
 	# There is a Stars! bug when you generate this way from the command line with / the .x[n] file isn't deleted.
 	# So you have to use \ (eg d:\th\games instead of d:/th/games)
+  # Because Stars! does the forcegen, there are no backups of the interim turns
 	my($GenTurn) = $executable . ' -g' . $NumberofTurns . ' ' . $Dir_Games . '\\' .  $GameFile . '\\' . $GameFile . '.hst';
 	system($GenTurn);
-	sleep 3;
-  #
+	sleep 4;
+
+  # update List files for exploit detection
+  if ($fixFiles && -e "$DirGames\\$GameFile\\fix") { 
+    my $listPrefix = "$DirGames\\$GameFile\\$GameFile"; # Just to make things easier to read
+    # Create the List files for the HST file. Note a lot of data returned that I'm ignoring here
+    &StarsList("$DirGames\\$GameFile", "$listPrefix.HST", ($turn+1)); 
+    &LogOut(50, "Exploit List file(s) created for $new_hst_file and $fixFile", $LogFile);
+  }
+
   # Clean the .M files
   # Works on a folder-by-folder game-by-game basis. 
   # Requires a file named 'clean' in the game folder
-  my $cleanFile = $DirGames . '\\' . $GameFile . '\\' . 'clean';
-  if ($cleanFiles && -e $cleanFile) { &StarsClean($GameFile); }
-  #
+  if ($cleanFiles && -e "$DirGames\\$GameFile\\clean") { 
+    &StarsClean($GameFile); 
+    &LogOut(50, "Cleaned .m Files for $GameFile", $LogFile);
+  }
+
   # Update the CHK File
   &Make_CHK($GameFile);
-	# Copy files to the correct (safe) location for download
-  # BUG: Why do we do this? 
-	my $turn_dir = $Dir_Games . '/' .  $GameFile . '/';
-	my @turn_files = ();
-	opendir(DIR, $turn_dir) or &LogOut(0,"GenerateTurn: Can\'t opendir $turn_dir for $GameFile",$ErrorLog); 
-	while (defined($file = readdir(DIR))) {
-		next unless (-f "$turn_dir/$file");
-		# Backup the log files, the turn files, the news file, and the CHK file
-    # Except this backup is done earlier in the Game_backup sub?
-    # BUG: 191204 Why exactly are we copying the files over to the download folder?
-    # Some old design point I've forgotten about? 
-    # Turns are currently downloaded from their native location.
-    # BUG: The delete game function likely doesn't look in the download folder for cleanup.
-    #  Download.pl looks in the actual game folder.
-    #
-    # Create the directory if it does not exist
-    my $newdir = $Dir_Download . '/' . $GameFile;
-    unless (-d  $newdir ) {  mkdir $newdir || &LogOut(0, "GenerateTurn: Cannot create $newdir, $userlogin", $ErrorLog); }
-		if ($file =~ /\.M|\.X|\.x|\.news|\.CHK/) {
-# 191204 If this is truly where things should download from, no need for the CHK And .X file
-#		if ($file =~ /\.M|\.X|\.x/) {
-	 		my($Game_Source)= $Dir_Games . '/' . $GameFile . '/' . $file;  
-	 		my($Game_Destination)= $Dir_Download . '/' . $GameFile . '/' . $file;  
-			&LogOut(200,"GenerateTurn: copy $Game_Source > $Game_Destination",$LogFile);
-	 		copy($Game_Source, $Game_Destination);
-		} 
-	}
-	closedir(DIR);
-	&LogOut(200,"GenerateTurn: Turns for $GameFile moved to $turn_dir",$LogFile);
+
+# I can't find anywhere that actually uses this code anymore; everything is in the GameFile location
+# If for some reason this gets reimplemented, delete needs to be updated to remove files in the Download folder.   
+# 	# Copy files to the correct (safe) location for download
+#   # BUG: Why do we do this? 
+# 	my $turn_dir = $Dir_Games . '/' .  $GameFile . '/';
+# 	opendir(DIR, $turn_dir) or &LogOut(0,"GenerateTurn: Can\'t opendir $turn_dir for $GameFile",$ErrorLog); 
+# 	while (defined($file = readdir(DIR))) {
+# 		next unless (-f "$turn_dir/$file");
+# 		# Backup the log files, the turn files, the news file, and the CHK file
+#     # Except this backup is done earlier in the Game_backup sub?
+#     # BUG: 191204 Why exactly are we copying the files over to the download folder?
+#     # Some old design point I've forgotten about? 
+#     # Turns are currently downloaded from their native location.
+#     # BUG: The delete game function likely doesn't look in the download folder for cleanup.
+#     #  Download.pl looks in the actual game folder.
+#     #
+#     # Create the directory if it does not exist
+#     my $newdir = $Dir_Download . '/' . $GameFile;
+#     unless (-d  $newdir ) {  mkdir $newdir || &LogOut(0, "GenerateTurn: Cannot create $newdir, $userlogin", $ErrorLog); }
+# 		if ($file =~ /\.M|\.X|\.x|\.news|\.CHK/) {
+# # 191204 If this is truly where things should download from, no need for the CHK And .X file
+# #		if ($file =~ /\.M|\.X|\.x/) {
+# 	 		my($Game_Source)= $Dir_Games . '/' . $GameFile . '/' . $file;  
+# 	 		my($Game_Destination)= $Dir_Download . '/' . $GameFile . '/' . $file;  
+# 			&LogOut(200,"GenerateTurn: copy $Game_Source > $Game_Destination",$LogFile);
+# 	 		copy($Game_Source, $Game_Destination);
+# 		} 
+# 	}
+# 	closedir(DIR);
+# 	&LogOut(200,"GenerateTurn: Turns for $GameFile moved to $turn_dir",$LogFile);
 }	
 
-sub Game_Backup {  # Backup the current game
+sub Game_Backup {  # Backup the current game folder
 	my ($file_name) = @_;
 	use File::Copy;
 	# Copy the file to a backup location
@@ -936,7 +949,6 @@ sub Game_Backup {  # Backup the current game
 	my ($HST_File) = $Game_Source . '/' . $file_name . '.hst';
 	my($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HST_File);
 	my $Game_Backup = $Game_Source . '/' . $turn; 
-	my @turn_files = ();
 	opendir(DIR, $Game_Source) or &LogOut(0,"<P>Game_Backup: Can\'t opendir $Game_Source for Backup",$ErrorLog); 
 	mkdir $Game_Backup;
   &LogOut(100,"Backup: $Game_Backup", $LogFile);

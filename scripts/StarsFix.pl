@@ -199,10 +199,10 @@ if ($file_type =~ /HST/i || $file_type =~ /M/i ) {
 
 # 
 # #BUG: These really are only writing out for debug purposes. 
-# if (-e "$listPrefix.HST.design" && $file_type =~ /x/i)   { &writeList("$listPrefix.$file_ext.design", \%designList); }
-# if (-e "$listPrefix.HST.queue" && $file_type =~ /x/i)    { &writeList("$listPrefix.$file_ext.queue", \%queueList); }
-# if (-e "$listPrefix.HST.fleet" && $file_type =~ /x/i)    { &writeList("$listPrefix.$file_ext.fleet", \%fleetList); }
-# if (-e "$listPrefix.HST.waypoint" && $file_type =~ /x/i) { &writeList("$listPrefix.$file_ext.waypoint", \%waypointList); }
+# if ($file_type =~ /x/i && -e "$listPrefix.HST.design")   { &writeList("$listPrefix.$file_ext.design", \%designList); }
+# if ($file_type =~ /x/i && -e "$listPrefix.HST.queue")    { &writeList("$listPrefix.$file_ext.queue", \%queueList); }
+# if ($file_type =~ /x/i && -e "$listPrefix.HST.fleet")    { &writeList("$listPrefix.$file_ext.fleet", \%fleetList); }
+# if ($file_type =~ /x/i && -e "$listPrefix.HST.waypoint") { &writeList("$listPrefix.$file_ext.waypoint", \%waypointList); }
 
 # Output any detected warnings
 print "\n\nFIX RESULTS:\n";

@@ -90,13 +90,6 @@ if ($in{'lp'} eq 'profile') {
  				);
 } elsif ($in{'lp'} eq 'profile_game') { 
 %menu_left = &lp_list_games($id);
-# %menu_left = 	(
-# # 				"0Games_" 			=> "",
-#  				"1My Games" 	=> "$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=show_news",
-#  #				"2My Profile" 	=> "$WWW_Scripts/page.pl?lp=profile&cp=show_profile&rp=my_games",
-# # 				"2XInvite People"	=> "",
-# # 				"2Create Game"	=> "",
-#  				);
 } elsif ($in{'lp'} eq 'profile_race') { 
 %menu_left = 	(
  				"1My Races" 	=> "$WWW_Scripts/page.pl?lp=profile_race&cp=show_first_race&rp=my_races",
@@ -341,10 +334,6 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
 } elsif ($in{'cp'} eq 'Start Game') {
 #		$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$in{'GameFile'}\' AND HostName=\'$userlogin\';|;
 		print "<td>"; 
-#    &process_game_launch($in{'GameFile'}); 
-#    &show_game($in{'GameFile'}); 
-#    print "</td>";
-    #180306
     if (&process_game_launch($in{'GameFile'})) { &show_game($in{'GameFile'}); }
 	  else { &show_game($in{'GameFile'})}
     print "</td>";
@@ -767,7 +756,6 @@ sub show_turngeneration {
 	} else { print "What kind of game IS this? \n"; &LogOut(0,"GameType Fail for $GameFile, $GameType", $ErrorLog);}
 }
 
-# merge of show_game and show_Game_new
 sub show_game {  
  	my ($GameFile) = @_;
 	my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware);
@@ -799,7 +787,6 @@ sub show_game {
 			}
 		} 
     
-    ######
     # Display the Game Status Data
     if ($in{'status'}) { 
       my $full_warning = $in{'status'};
@@ -818,7 +805,7 @@ sub show_game {
   		($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
 	    @CHK = &Read_CHK($GameFile); 
       print qq|<td align="center">Year $HST_Turn</td>\n|; 
-    } else { print qq|<td align="center">Year 2399</td>\n|; }
+    } else { print qq|<td align="center">Year 2399  ($GameValues{'GameFile'})</td>\n|; }
     print "</tr>\n";
 
     # Display the Game Status
@@ -860,26 +847,26 @@ sub show_game {
 			print ".</i>\n";
 		}
 
+    #Display Next Turn time
+    if (($GameValues{'NextTurn'} > 0) && ($GameValues{'GameType'} == 1 || $GameValues{'GameType'} == 2) ) { 
+			# Fix the display time for DST
+			my $NextTurnDST = &FixNextTurnDST($GameValues{'NextTurn'},$GameValues{'LastTurn'},1);
+			if ($GameValues{'GameStatus'} == 4) {
+				print "<br><font color=red>[PAUSED]</font>\n";
+			} else {
+				if ($GameValues{'GameStatus'} != 9) {
+					print "<br>Next turn due on or before: " . localtime($NextTurnDST) . " EST\n";  #BUG Need to be using DailyTime from database
+          print "<br>\n";
+				}
+			}
+		} 
+
     #Display when the last turn was generated if it was.
     unless ($GameValues{'GameStatus'} == 7 || $GameValues{'GameStatus'} == 0 )  {
   		if ($GameValues{'LastTurn'}) { print "<br>Last turn generation: " . localtime($GameValues{'LastTurn'}) ." EST\n";}
   		else { print "<br>No turns have been generated yet.\n"; }
     } 
     
-    #Display Next Turn time
-    if (($GameValues{'NextTurn'} > 0) && ($GameValues{'GameType'} == 1 || $GameValues{'GameType'} == 2) ) { 
-			# Fix the display time for DST
-			my $NextTurnDST = &FixNextTurnDST($GameValues{'NextTurn'},$GameValues{'LastTurn'},1);
-			if ($GameValues{'GameStatus'} == 4) {
-#				print "<br><font color=red>[PAUSED] Next turn due on or before: " . localtime($NextTurnDST) . " EST</font>\n";  #BUG Need to be using DailyTime from database
-				print "<br><font color=red>[PAUSED]</font>\n";
-			} else {
-				if ($GameValues{'GameStatus'} != 9) {
-					print "<br>Next turn due on or before: " . localtime($NextTurnDST) . " EST\n";  #BUG Need to be using DailyTime from database
-				}
-			}
-		} 
-
     print "<br>Now: ". localtime(time()); 
 		# BUG: check the def file for when the game was created, as it's not stored in the DB
     #   but probably should be
@@ -887,7 +874,6 @@ sub show_game {
     if (-e $defFileTime) {  
 		  print "<P>Created: ". localtime((stat($defFileTime))[9]);
     } 
-		# Useful when debugging turn issues to know when the system currently thinks it is.
     
 		# If next turn is undefined(0) AND it's a game in progress somehow, display that the 
 		# next generation will be immediate
@@ -906,7 +892,6 @@ sub show_game {
       print "<P>\n";
       # Display Active Game data If an active game and this data exists
 		  # display the game and player information from the CHK File
-      
       
   		print "<table>\n";
       # This won't execute without a CHK file (not available if the game isn't started)
@@ -933,7 +918,6 @@ sub show_game {
         } elsif ($PlayerValues{'PlayerStatus'} == 2) { $del = '<del>'; $del2 = '</del>';}
         if ($CHK_Status eq 'Deceased') { $del = '<del>'; $del2 = '</del>';}
 
-##################        
   			print qq|<tr>\n|;
   			if (($CHK_Status eq 'Out') && $del ) { print qq|<td><img src="$TurnBall{Idle}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|;} 
   			else { print qq|<td><img src="$TurnBall{$CHK_Status}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|; }  
@@ -1025,7 +1009,6 @@ sub show_game {
         }
 
   			print "</tr>\n";
-#############################        
   			
         # Store the current player ID for future reference
   			# BUG: Likely to fail if the player is in the game twice
@@ -1126,7 +1109,6 @@ sub show_game {
 		  &show_turngeneration($GameValues{'GameFile'}, $GameValues{'GameType'}, $GameValues{'DailyTime'}, $GameValues{'HourlyTime'}, $GameValues{'HourFreq'}, $GameValues{'DayFreq'}, $GameValues{'AsAvailable'});
       print "<P>\n";
     }
-#    print "</FORM>";   # Duplicate /FORM found 191203
    
     print "<P>\n";
     # Display the Buttons
@@ -1142,7 +1124,7 @@ sub show_game {
     # Display Refresh Button
     if ($GameValues{'GameStatus'} =~ /^[23479]$/) { print qq|<BUTTON $user_style type="submit" name="cp" value="Refresh" | . &button_help('Refresh') . qq|>Refresh</BUTTON>\n|; $button_count = &button_check($button_count);}
     # Start Game Display Start Button
-    if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '0') { print qq|<BUTTON $host_style type="submit" name="cp" value="Start Game" | . &button_help('StartGame') . qq|>Start Game</BUTTON>\n|; $button_count = &button_check($button_count);}
+    if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '0' && $playercount > 0) { print qq|<BUTTON $host_style type="submit" name="cp" value="Start Game" | . &button_help('StartGame') . qq|>Start Game</BUTTON>\n|; $button_count = &button_check($button_count);}
     # Lock the game and prepare to start
 #		if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '7' && $playeringame) { print qq|<BUTTON $host_style type="submit" name="cp" value="Lock Game" | . &button_help('LockGame') . qq|>Lock Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '7') { print qq|<BUTTON $host_style type="submit" name="cp" value="Lock Game" | . &button_help('LockGame') . qq|>Lock Game</BUTTON>\n|; $button_count = &button_check($button_count);}
@@ -1302,7 +1284,7 @@ sub process_game_launch {
 	($GameFile) = @_;
 	my $counter = 0;
 	# Determine how many players there are, and get all the race information
-	#Reorder them based on the random player ID generated when they joined the game
+	# Reorder them based on the random player ID generated when they joined the game
 	$sql = qq|SELECT * FROM GameUsers WHERE GameFile = '$GameFile' ORDER BY PlayerID;|;
 	$db = &DB_Open($dsn);
 	if (&DB_Call($db,$sql)) {
@@ -1316,7 +1298,7 @@ sub process_game_launch {
 
 	# Confirm that there are enough players to launch, otherwise abort. 
 	if ($counter >= $min_players) {
-		# Update all of the the player IDs in the database
+		# Update all of the player IDs in the database
 		# based on the sort order from the random Player IDs
 		for (my $i=1; $i <=$counter; $i++) {
       # Attempt to make the SQL query unique. 
@@ -1326,7 +1308,6 @@ sub process_game_launch {
 		}
 		# Read the DEF file in, and push it back out with the race file information	
 		my $def_file = "$DirGames\\$GameFile\\$GameFile.def"; 
-#		print "DEF: $def_file\n";
 		my @def_data = ();
 		if (-e $def_file) { #Check to see if .def file is there.
 			open (IN_FILE,$def_file);
@@ -1374,7 +1355,7 @@ sub process_game_launch {
 		# Starting system with "1" makes it launch asyncronously
 		# important if for some reasons stars hangs (like a corrupt race file).
 		system(1,$CreateGame);
-		sleep 4;
+		sleep 4; # Give Stars! time to create all the files
 
 		my $new_hst_file = "$DirGames\\$GameFile\\$GameFile.hst";
 		if (-e $new_hst_file) { 
@@ -1406,8 +1387,17 @@ sub process_game_launch {
 			&DB_Close($db);
       
       # Create the initial List file(s)
-      &StarsList("$DirGames\\$GameFile", "$DirGames\\$GameFile\\$GameFile.HST", '2400');
-		  &LogOut(50, "Exploit List file(s) created for $new_hst_file", $LogFile);
+      if ($fixFiles && -e "$DirGames\\$GameFile\\fix") { 
+        &StarsList("$DirGames\\$GameFile", "$DirGames\\$GameFile\\$GameFile.HST", '2400'); 
+		    &LogOut(50, "Exploit List file(s) created for $new_hst_file", $LogFile);
+      }
+      
+#       # Clean the initial .m files
+#       # There's no need to clean the initial .m files, because there's no other player data included for the CA. 
+#       if ($cleanFiles && -e "$DirGames\\$GameFile\\clean") { 
+#         &StarsClean($GameFile); 
+# 		    &LogOut(50, "Cleaned .m Files for $new_hst_file", $LogFile);
+#       }
 
 			return 1;
 		} else {
@@ -2078,9 +2068,7 @@ sub delete_game {
     # Get the functions to remove a directory
     use File::Path 'rmtree';
     if(-e $dir && $GameValues{'GameFile'} && (length($GameValues{'GameFile'}) > 0)) { 
-      
       rmtree(&clean($dir));
-#      print "<P>$dir\n";
       print "<P>Game files deleted for: $GameValues{'GameName'}.";
     } else { 
       print "<P>Game Directory $GameValues{'GameFile'} does not exist."; 
@@ -2101,7 +2089,7 @@ sub update_game {
 #180312	my ($GameFile) = @_;
 	$in{'GameName'} = &clean($in{'GameName'});
 	$in{'GameDescrip'} = &clean($in{'GameDescrip'});
-  my $GameFile =  $in{'GameFile'};
+  my $GameFile =  &clean($in{'GameFile'});
   # set boundaries on MaxPlayers
   if ($in{'MaxPlayers'} < 0 | $in{'MaxPlayers'} > 16) { $in{'MaxPlayers'} = 16;}
   else { $MaxPlayers = $in{'MaxPlayers'}; }

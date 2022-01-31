@@ -8,7 +8,7 @@
 # File Filter    Version 1.0                                     #
 # Created 04/15/2010 by Rick Steeves    Last Modified 01/22/10   #
 # Used to provide file access while authenticating users         #
-# used notes from 															  #
+# used notes from 															                 #
 # http://bytes.com/topic/perl/insights/857373-how-make-file-download-script-perl
 ##################################################################
 
@@ -56,7 +56,7 @@ if (my $error = $cgi->cgi_error()){
 } elsif  ($ENV{'HTTP_REFERER'} && $ENV{'HTTP_REFERER'} !~ m|^\Q$WWW_HomePage|io) { &error('Remote access forbidden.') }
 
 my %IN = $cgi->Vars;
-#Now we make sure there is a parameter named “file”.
+#Now we make sure there is a parameter named "file".
 my $file = $IN{'file'} or &error('No file selected.');
 
 #Sanitize file name request
@@ -79,7 +79,7 @@ my $download_ok = 0;
 my $filetype = '';
 my $sql; 
 
-# Check for the right kind of file, .xy of .x[1..99]
+# Check for the right kind of file, .xy or .x[1..99]
 # If it's an .xy file, let any user download
 if ($file =~ /^(\w+[\w.-]+\.xy)$/) { $download_ok = 1; $filetype='xy';} 
 

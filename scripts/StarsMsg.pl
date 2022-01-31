@@ -42,6 +42,7 @@ $singularRaceName[0] = 'Everyone'; # When there's no result
 $pluralRaceName[0] = 'Everyone'; # When there's no result
 
 ##########  
+my @mFiles;      
 my $inName = $ARGV[0]; # input file
 my $filename = $inName;
 
@@ -49,37 +50,64 @@ if (!($inName)) {
   print "\n\nDisplays the Player Messages in a Stars! file.\n";
   print "\nUsage: StarsMsg.pl <input> \n";
   print "  StarsMsg.pl c:\\games\\test.m6\n\n";
+  print "  StarsMsg.pl c:\\games\\test.x6\n\n";
+  print "  StarsMsg.pl c:\\games will list all messages in the folder\n";
   exit;
 }
 
 #Validate directory or file 
-unless (-e $inName ) { 
-  print "\nRequested file does not exist: $inName\n"; exit; 
+unless (-e $inName || -d $inName) { 
+  print "Requested object: $inName does not exist!\n"; exit; 
 }
 
-my ($basefile, $dir, $ext);
-# for c:\stars\mygamename.m1
-$basefile = basename($filename);    # mygamename.m1
-$dir  = dirname($filename);         # c:\stars
-($ext) = $basefile =~ /(\.[^.]+)$/; # .m1  extension
-
-if ($ext =~ /HST|hst/) { print "\nHST files do not include messages\n"; exit; }
-if ($ext =~ /[xX]/) { print "\nX files do not include the race names\n"; }
-
-print "\nFor File: $inName\n";
-
-# Read in the binary Stars! file, byte by byte
-my $FileValues;
-my @fileBytes;
-open(StarFile, "<$filename" );
-binmode(StarFile);
-while ( read(StarFile, $FileValues, 1)) {
-  push @fileBytes, $FileValues; 
+# Get all the file names in the directory, or just the one name
+# Note that directories test for files, but files don't test
+# for directories
+if (-d $inName) {  
+  # If a directory name was specified
+  my $file;
+  my $fullName;
+  opendir(BIN, $inName) or die "Cannot open directory $inName\n";
+  while (defined ($file = readdir BIN)) {
+    next if $file =~ /^\.\.?$/; # skip . and ..
+    next unless ($file =~  /(^.*\.[Mm]\d*$)/); #prefiltering for .m files
+    $fullName = "$inName\\$file";
+    push @mFiles, $fullName;
+  }
+} elsif (-e $inName) { 
+  # If a single .m or .x file name was specified
+  if ($inName =~ /^.*\.[mM]\d*$/ || $inName =~ /^.*\.[xX]\d*$/) {   $mFiles[0] = $inName; }
 }
-close(StarFile);
 
-# Decrypt the data, block by block
-my ($outBytes) = &decryptBlock(@fileBytes);
+if (@mFiles == 0) { 
+  die "Something went wrong. There\'s no information\nDid you specify a .M or .X file?\n"; 
+}
+
+my ($basefile, $dir, $ext); 
+  
+foreach $filename (@mFiles) {
+  # Loop through for each .m file in the directory
+  # for c:\stars\mygamename.m1
+  $basefile = basename($filename);    # mygamename.m1
+  $dir  = dirname($filename);         # c:\stars
+  ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1  extension
+  
+  print "\nFor File: $inName\n";
+  
+  # Read in the binary Stars! file, byte by byte
+  my $FileValues;
+  my @fileBytes;
+  open(StarFile, "<$filename" );
+  binmode(StarFile);
+  while ( read(StarFile, $FileValues, 1)) {
+    push @fileBytes, $FileValues; 
+  }
+  close(StarFile);
+  
+  # Decrypt the data, block by block
+  my ($outBytes) = &decryptBlock(@fileBytes);
+  
+}
   
 ################################################################
 sub decryptBlock {
@@ -102,7 +130,6 @@ sub decryptBlock {
     @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
-    if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     if ($typeId == 8 ) { # File Header Block, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
@@ -118,7 +145,6 @@ sub decryptBlock {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
       @decryptedData = @{ $decryptedData };  
-      if ( $debug  > 1) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
       # WHERE THE MAGIC HAPPENS
       &processData(\@decryptedData,$typeId,$offset,$size,$turn);
       # END OF MAGIC
@@ -136,7 +162,6 @@ sub processData {
   # Check the Player Block so we can get the race names
   # although there are no names in .x files
   if ($typeId == 6) { # Player Block
-    # added 0xFF without testing 200424
     my $playerId = $decryptedData[0] & 0xFF;
     my $fullDataFlag = ($decryptedData[6] & 0x04);
     my $index = 8;
@@ -155,7 +180,6 @@ sub processData {
     $playerId++; # As 0 is "Everyone" need to use representative IDs
     $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
     $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
-#    print "playerName $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
   } elsif ($typeId == 40) { # check the Message block 
     my $byte0 =  &read16(\@decryptedData, 0);  # unknown
     my $byte2 =  &read16(\@decryptedData, 2);  # unknown
@@ -165,8 +189,6 @@ sub processData {
     my $messageBytes = &read16(\@decryptedData, 10);
     my $messageLength = $size -1;
     $message = &decodeBytesForStarsString(@decryptedData[11..$messageLength]);
-    if ($debug) { print "typeId: $typeId\n"; }
-    if ($debug) { print "\nDATA DECRYPTED:" . join ( " ", @decryptedData ), "\n"; }
 #    print "From: $senderId, To: $recipientId, \"$message\"\n"; 
     if ($message) {
       if ($ext =~ /[xX]/) { 
