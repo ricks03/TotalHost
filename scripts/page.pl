@@ -1191,7 +1191,7 @@ sub show_game {
     my $fixenabled = $Dir_Games . '/' . $GameFile . '/' . 'fix';
     if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} =~ /^[2345]$/ && $HST_Turn != 2400 && -e $fixenabled) { 
       print qq|<hr>|; 
-      print "<b>Results of the StarsFix Bug/Exploit Detection</b><P>";
+      print "<b>Results of the Bug/Exploit Detection</b><P>";
       &show_fix($GameValues{'GameFile'}); 
     }
   

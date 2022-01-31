@@ -1687,7 +1687,6 @@ sub StarsList {
   if (-e "$listPrefix.HST.design")   { unlink "$listPrefix.HST.design" }
   #if (-e "$listPrefix.HST.last")     { unlink "$listPrefix.HST.last" }  # Never changes
 
-
   if (-d $gameDir) { # Check to make sure we're putting the List files in the right place
     if (%designList)   { &writeList("$listPrefix.HST.design", \%designList); }
     if (%queueList)    { &writeList("$listPrefix.HST.queue", \%queueList); }
@@ -1790,11 +1789,11 @@ sub StarsFix {
   	  &PLogOut(300,"StarsFix Backup: $filename > $filename.preFix", $LogFile);
    	  copy($filename, "$filename.preFix");
       &PLogOut(200," StarsFix: Pushing out $filename post-fixing", $LogFile);
-      open ( outFile, '>:raw', "$xFile" );
+      open ( OUTFILE, '>:raw', "$xFile" );
       for (my $i = 0; $i < @outBytes; $i++) {
-        print outFile $outBytes[$i];
+        print OUTFILE $outBytes[$i];
       }
-      close ( outFile);
+      close ( OUTFILE );
       &PLogOut(200," StarsFix: Fixed $filename", $LogFile);
     } else { &PLogOut(300," StarsFix: Not in Fix mode for $filename", $LogFile); }
     return $warning;
@@ -3090,7 +3089,7 @@ sub decryptFix {
   #           }
   #         }
           ########################################################################
-        } else { print "Missing .fleet $listPrefix.HST.fleet. Cannot check SS Pop Steal or 32k Fleet for Player:" . ($playerId+1) . ", Fleet:" . ($fleetId+1) . ", Waypoint:" . ($waypointId+1) . "\n"; }
+        } else { print "Missing .fleet $listPrefix.HST.fleet. Cannot check SS Pop Steal or 32k Fleet for Player:" . ($playerId+1) . ", Fleet:" . ($fleetId+1) . ", Waypoint:" . ($waypointId+1); }
         
         # Store the waypoint data for later use.
         $waypoint{playerId} = $playerId;
@@ -3548,7 +3547,7 @@ sub decryptFix {
                 foreach my $k (@itemList) {
                   my ($itemId,$count,$completePercent,$itemType) = split ('\|', $k);
                   if ($itemType == 4 && $itemId == $designId && $completePercent > 0 ) { # if the item is a ship design (4) partially complete
-                    $err = 'Cheap Starbase: Player ' . ($ownerId+1) . '. Do not edit a starbase under construction (design slot ' . ($designNumber+1) . ": $shipName).\n";
+                    $err = 'Cheap Starbase: Player ' . ($ownerId+1) . '. Do not edit a starbase under construction (design slot ' . ($designNumber+1) . ": $shipName).";
                     $index = 19;  
                     # Loop through each slot, setting the slot to 0
                     for (my $itemSlot = 0; $itemSlot < $slotCount; $itemSlot++) {
