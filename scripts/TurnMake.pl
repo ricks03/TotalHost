@@ -54,6 +54,7 @@ if ($commandline) {
   $GameData = &LoadGamesInProgress($db,'SELECT * FROM Games WHERE GameStatus=2 or GameStatus=3 ORDER BY GameFile');
 }
 my @GameData = @$GameData;
+
 &CheckandUpdate;  
 &DB_Close($db);
 
@@ -255,6 +256,9 @@ sub CheckandUpdate {
           }
         }	
       }
+      
+      #################
+      $TurnReady = 'True';
             
 	    # If a turn is ready, generate it and process it through. 
 			if ($TurnReady eq 'True') {
@@ -280,26 +284,11 @@ sub CheckandUpdate {
 					}
 				}
         
-				&GenerateTurn($NumberofTurns, $GameData[$LoopPosition]{'GameFile'});
+				&GenerateTurn($NumberofTurns, $GameData[$LoopPosition]{'GameFile'});  # incl. fix and clean
 
 				# get updated current turn so you can put it in the email, can vary based on force gen.
 				($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
 				$GameData[$LoopPosition]{'NextTurn'} = $NewTurn; # BUG? What is NewTurn
-
-        # Generate updated List files for exploit detection
-        my $fixFile = $DirGames  . '\\' . $GameData[$LoopPosition]{'GameFile'} . '\\' . 'fix';
-        if (-e $fixFile && $fixFiles) {
-          # Get rid of the old List Files in case they don't exist in the new turn
-          my $gameDir = $DirGames  . '\\' . $GameData[$LoopPosition]{'GameFile'};
-          my $listPrefix = "$gameDir\\$GameData[$LoopPosition]{'GameFile'}";
-          if (-e "$listPrefix.HST.fleet")    { unlink "$listPrefix.HST.fleet" }
-          if (-e "$listPrefix.HST.queue")    { unlink "$listPrefix.HST.queue" }
-          if (-e "$listPrefix.HST.waypoint") { unlink "$listPrefix.HST.waypoint" }
-          if (-e "$listPrefix.HST.design")   { unlink "$listPrefix.HST.design" }
-          if (-e "$listPrefix.HST.last")     { unlink "$listPrefix.HST.last" }
-          # Create the List files for the HST file. Note a lot of data returned that I'm ignoring here
-          &StarsList($gameDir, "$listPrefix.HST", $HST_Turn);
-        }
 
 				# Update the .chk file so it's current for the new turn
 				my @CHK = &Read_CHK($GameData[$LoopPosition]{'GameFile'});
