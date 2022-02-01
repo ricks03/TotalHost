@@ -169,6 +169,11 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
 	&process_game_leave($in{'GameFile'}, $in{'PlayerID'});
 	&show_game($in{'GameFile'});
 	print "</td>";
+} elsif ($in{'cp'} eq 'Remove Player') {
+	print "<td>";
+	&process_game_remove($in{'GameFile'}, $in{'PlayerID'});
+	&show_game($in{'GameFile'});
+	print "</td>";
 } elsif ($in{'cp'} eq 'Create Game') { 
 	print "<td>"; 
 #1800312	$GameFile = &update_game($in{'GameFile'}); 
@@ -191,17 +196,17 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
 } elsif ($in{'cp'} eq 'Lock Game') { 
 	# Option won't present with no players 
 	print "<td>"; 	
-	&process_game_status($in{'GameFile'}, $sql, 'Lock'); 
+	&process_game_status($in{'GameFile'}, 'Lock'); 
 	&show_game($in{'GameFile'}); 
 	print "</td>";
 } elsif ($in{'cp'} eq 'Unlock Game') { 
 	print "<td>"; 	
-	&process_game_status($in{'GameFile'}, $sql, 'Unlocked'); 
+	&process_game_status($in{'GameFile'}, 'Unlocked'); 
 	&show_game($in{'GameFile'}); 
 	print "</td>";
 } elsif ($in{'cp'} eq 'Restart Game') { 
 	print "<td>"; 	
-	&process_game_status($in{'GameFile'}, $sql, 'Restart'); 
+	&process_game_status($in{'GameFile'}, 'Restart'); 
   &display_warning;
 	&show_game($in{'GameFile'}); 
 	print "</td>";
@@ -299,15 +304,13 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
     &show_game($in{'GameFile'}); print "</td>\n";
 } elsif ($in{'cp'} eq 'Pause Game') {
 		print "<td>"; 
-    &process_game_status($in{'GameFile'}, $sql, 'Pause'); 
+    &process_game_status($in{'GameFile'}, 'Pause'); 
     &display_warning;
     &show_game($in{'GameFile'}); 
     print "</td>";
 } elsif ($in{'cp'} eq 'UnPause Game') { # unpause the game and reset then the next turn is due
-		# Get the time data from the game to determine when the next turn is due
-		# BUG: I believe will be broken when you use across DST zones.
 		print "<td>"; 
-    &process_game_status($in{'GameFile'}, $sql, 'UnPause');
+    &process_game_status($in{'GameFile'}, 'UnPause');
     &display_warning; 
     &show_game($in{'GameFile'}); print "</td>";
 } elsif ($in{'cp'} eq 'Delay Turn') {
@@ -328,7 +331,7 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
 	print "</td>\n";
 } elsif ($in{'cp'} eq 'End Game') {
 		print "<td>"; 
-    &process_game_status($in{'GameFile'}, $sql, 'Ended'); 
+    &process_game_status($in{'GameFile'}, 'Ended'); 
     &display_warning;
     &show_game($in{'GameFile'}); print "</td>";
 } elsif ($in{'cp'} eq 'Start Game') {
@@ -673,6 +676,7 @@ sub show_new_games {	# Display new games
 }
 
 sub process_game_leave {
+  # Leave a game that has not yet started.
 	my ($GameFile, $PlayerID) = @_;
 	my $sql = qq|DELETE User_Login, GameFile, PlayerID FROM GameUsers WHERE User_Login='$userlogin' AND GameFile='$GameFile' AND PlayerID=$PlayerID;|;
 	$db = &DB_Open($dsn);
@@ -699,6 +703,17 @@ sub process_game_leave {
     &Mail_Send($smtp, $MailTo, $MailFrom, $Subject, $Message);
 	  &Mail_Close($smtp);
   } else { &LogOut(0, "Failed to email host about new player $userlogin leaving $GameFile", $ErrorLog);}
+	&DB_Close($db);
+}
+
+sub process_game_remove {
+  # Remove a player frmom a game that has not yet started (much like process_game_leave)
+	my ($GameFile, $PlayerID) = @_;
+	my $sql = qq|DELETE User_Login, GameFile, PlayerID FROM GameUsers WHERE User_Login='$userlogin' AND GameFile='$GameFile' AND PlayerID=$PlayerID;|;
+	$db = &DB_Open($dsn);
+	if (&DB_Call($db,$sql)) { 
+    &LogOut(100,"$userlogin, $playerID removed from game $GameFile", $LogFile);
+  }
 	&DB_Close($db);
 }
 
@@ -868,8 +883,6 @@ sub show_game {
     } 
     
     print "<br>Now: ". localtime(time()); 
-		# BUG: check the def file for when the game was created, as it's not stored in the DB
-    #   but probably should be
     my $defFileTime = "$DirGames\\$GameValues{'GameFile'}\\$GameValues{'GameFile'}.def";
     if (-e $defFileTime) {  
 		  print "<P>Created: ". localtime((stat($defFileTime))[9]);
@@ -902,7 +915,6 @@ sub show_game {
   			my ($CHK_Status, $CHK_Name) = &Eval_CHKLine(@CHK[$Position]);    
         # If an error is reported in the CHK file (like Host File Locked) report it and then move on.
         if ($CHK_Status =~ /Error/) { print qq|<tr><td colspan="5">$CHK_Status</td></tr>|; $Position++; next; }
-#  			my($Player) = $Position -2;
         $Player++;
   			my $XFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.x' . $Player;
   			my $MFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.m' . $Player;
@@ -1011,7 +1023,6 @@ sub show_game {
   			print "</tr>\n";
   			
         # Store the current player ID for future reference
-  			# BUG: Likely to fail if the player is in the game twice
   			if ($PlayerValues{'User_Login'} eq $userlogin) { 
   				$current_player = $PlayerValues{'User_Login'}; 
   				$player_status = $PlayerValues{'PlayerStatus'}; 
@@ -1028,21 +1039,25 @@ sub show_game {
   		} 
     } else {
       # Display Data for New Games 
-      print qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod>\n|;
-  		print qq|<input type=hidden name="lp" value="profile_game">\n|;
-  		print qq|<input type=hidden name="rp" value="my_games">\n|;
-  		print qq|<input type=hidden name="GameFile" value="$GameValues{'GameFile'}">\n|;
-  		print qq|<input type=hidden name="GameName" value="$GameValues{'GameName'}">\n|;
+#       print qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod>\n|;
+#   		print qq|<input type=hidden name="lp" value="profile_game">\n|;
+#   		print qq|<input type=hidden name="rp" value="my_games">\n|;
+#   		print qq|<input type=hidden name="GameFile" value="$GameValues{'GameFile'}">\n|;
+#   		print qq|<input type=hidden name="GameName" value="$GameValues{'GameName'}">\n|;
+      my $formPrefix = qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod><input type=hidden name="lp" value="profile_game"><input type=hidden name="rp" value="my_games"><input type=hidden name="GameFile" value="$GameValues{'GameFile'}"><input type=hidden name="GameName" value="$GameValues{'GameName'}">|;
+      my $formSuffix = qq|</FORM>|;
   		# Display user information for unstarted games
   		my $UserLogin;
   		my $table;
-      my $sql = qq|SELECT Races.RaceName, * FROM GameUsers LEFT JOIN Races ON GameUsers.RaceFile = Races.RaceFile WHERE (((GameUsers.GameFile)='$GameFile')) ORDER BY GameUsers.JoinDate;|;
+      #my $sql = qq|SELECT Races.RaceName, * FROM GameUsers LEFT JOIN Races ON GameUsers.RaceFile = Races.RaceFile WHERE (((GameUsers.GameFile)='$GameFile')) ORDER BY GameUsers.JoinDate;|;
+      my $sql = qq|SELECT Races.RaceName, * FROM GameUsers LEFT JOIN Races ON (GameUsers.User_Login = Races.User_Login) AND (GameUsers.RaceFile = Races.RaceFile)  WHERE (((GameUsers.GameFile)='$GameFile')) ORDER BY GameUsers.JoinDate;|;
       
-  		if (&DB_Call($db,$sql)) { 
+      if (&DB_Call($db,$sql)) { 
   			$table = "<P><table border=1>\n";
-  			$table .= "<th>Pending Player User IDs</th><th>Race Name</th><th>Race File</th><th>Joined</th>\n";
-  			# as we won't show the leave game option once it's locked, no need for the table headers for it.
-  			if ($GameValues{'GameStatus'} == 7 ) { $table .= "<th></th>"; }
+  			$table .= "<tr><th>Pending Player User IDs</th><th>Race Name</th><th>Race File</th><th>Joined</th>\n";
+  			# as we won't show the remove player/leave game option once it's locked, no need for the table headers for it.
+  			if ($GameValues{'GameStatus'} == 7 ) { $table .= "<th></th><th></th>"; }
+        $table .= "</tr>";
         $players = 0;
   			# Find players currently in the (new) game
   			while ($db->FetchRow()) { 
@@ -1057,14 +1072,14 @@ sub show_game {
   				if ($UserValues{'RaceFile'}) { $table .= qq|<td>| . localtime($UserValues{'JoinDate'}) . qq|</td>\n|; }
   				#Don't permit players to leave or be removed unless the game is still awaiting players.
   				if ($GameValues{'GameStatus'} == 7 ) {  
-  				  if ($UserValues{'User_Login'} eq $userlogin) { 
+            if ( $userlogin eq $GameValues{'HostName'} ) { #remove player as host
+     					$table .= qq|<td>$formPrefix<BUTTON $host_style type="submit" name="cp" value="Remove Player" | . &button_help("RemovePlayer") . qq|>Remove Player</BUTTON><input id="$UserValues{'PlayerID'}" type=hidden name="PlayerID" value="$UserValues{'PlayerID'}">$formSuffix</td>\n|; 
+            }
+  				  if ($UserValues{'User_Login'} eq $userlogin) {  # Leave game as player
   						# Uses Player ID, which at this point is a semi(random) unique number we can use to remove 
   						# the correct entry if the player has signed up more than once with the same RaceFile
-  						$table .= qq|<td><BUTTON $user_style type="submit" name="cp" value="Leave Game" | . &button_help("LeaveGame") . qq|>Leave Game</BUTTON><input type=hidden name="PlayerID" value="$UserValues{'PlayerID'}"></td>\n|; 
-#     				} else {
-#               # BUG: Not implemented
-#     					$table .= qq|<td><BUTTON $user_style type="submit" name="cp" value="Remove Player" | . &button_help("RemovePlayer") . qq|>Remove Player</BUTTON><input type=hidden name="PlayerID" value="$UserValues{'PlayerID'}"></td>\n|; 
-            }
+  						$table .= qq|<td>$formPrefix<BUTTON $user_style type="submit" name="cp" value="Leave Game" | . &button_help("LeaveGame") . qq|>Leave Game</BUTTON><input type=hidden name="PlayerID" value="$UserValues{'PlayerID'}">$formSuffix</td>\n|;
+            } 
   				}
   				$table .= "</tr>\n";
   				$players = 1;
@@ -1080,6 +1095,7 @@ sub show_game {
       if ($playercount < $GameValues{'MaxPlayers'}) {
     		# Don't prompt to join game if you're already in it and the game doesn't permit duplicates
     		unless (&checknull($GameValues{'NoDuplicates'}) && $playeringame) {
+          print $formPrefix;
     			# Display the player's races available to join the game.
     			if ($GameValues{'GameStatus'} == 7 ) {
             my $races_exist=0;
@@ -1103,6 +1119,7 @@ sub show_game {
               } else { print "<h3><font color=red>You cannot join a game without a race in your Profile. Would you like to <a href=\"/scripts/page.pl?lp=profile_race&cp=upload_race&rp=my_races\">upload one</a>?</font></h3>\n"; } 
             }  
     			} 
+          print $formSuffix;  print "\n";
     		} else { print "<P>You can sign up only once. Host did not permit duplicate players.\n"; }
         } else { print "<P>No additional signups available. Game has reached the maximum player limit."; }
       # Display turn generation schedule
@@ -1183,7 +1200,7 @@ sub show_game {
 		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[9]$/) && (not -e $movieFile) && (-d $animateFile) && (-e $imagemagick) && (-e $starmapper)) 	{print qq|<BUTTON $host_style type="submit" name="cp" value="Movie" | . &button_help('Animate') .  qq|>Animate</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Set the DEF File
 		if ($GameValues{'HostName'} eq $userlogin && ($GameValues{'GameStatus'} eq '6' )) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="DEF File" | . &button_help('DEFFile') .  qq|>DEF File</BUTTON>\n|; $button_count = &button_check($button_count);}
-		print qq|</form>\n|;
+		print qq|</FORM>\n|;
 		&DB_Close($db); 
     
     # Display the Fixed information to the host
@@ -1361,7 +1378,7 @@ sub process_game_launch {
 		if (-e $new_hst_file) { 
 		  &LogOut(50, "Game $CreateGame Created", $LogFile);
 			# set the game status to paused. 
-			&process_game_status($GameFile, $sql, 'Launched'); 
+			&process_game_status($GameFile, 'Launched'); 
 			# set the "last submitted date for players to "now". 
 			$sql = qq|UPDATE GameUsers SET LastSubmitted = | . time() . qq| WHERE GameFile = \'$in{'GameFile'}\';|;
 			if (&DB_Call($db,$sql)) {
@@ -2580,13 +2597,18 @@ sub process_restore {
 	 	my $Backup_Destination_File = $Backup_Destination . '/' . $file;
 		if ($file =~ /^\./) { next; } # Skip the things I don't want to process
 		if ($file =~ /^\.\./) { next; } # Skip the things I don't want to process
-		if ($file =~ /\.XY/) { next; } # Skip the things I don't want to process
+		if ($file =~ /\.XY/) { next; } # Skip the things I don't want to process or the .x regex will remove it
 		unless (-d "$Backup_Destination_File") {
 			# It would be nice to narrow this down to only the range of .x files from 1-16
 			# but my skills at regexp escape me
 			if ($file =~ /^.*\.X.*/) {
 				&LogOut(100,"Deleting File: $file: $Backup_Destination_File",$LogFile);
 				unlink($Backup_Destination_File);
+			}
+      # remove List files, as they might not exist on the old turn
+      if ($file =~ /^.*\.HST\..*/) {
+				&LogOut(100,"Deleting File: $file: $Backup_Destination_File",$LogFile);
+			  unlink($Backup_Destination_File);
 			}
 		}
 	}
@@ -2600,19 +2622,20 @@ sub process_restore {
 		&LogOut(100,"Copy $Backup_Source_File to $Backup_Destination_File",$LogFile);
 	}
 	closedir(DIR);
+  
+  # Pause the restored game
+  &process_game_status($in{'GameFile'}, 'Pause'); 
+  
 	print "<P>Game restored!\n";
 	# Notify all players who want to be notified that the game status has changed. 
 	$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Restored from Backup|;
 	$GameValues{'Message'} = "Game: $GameValues{'GameName'} restored to year $restore_year.\n";
 	&Email_Turns($GameFile, \%GameValues, 0);
-
 }
 
 sub process_game_status {
 	# Change the current game state and report such.
-  # BUG: $sql doesn't really do anything, as nothing actually passes a $sql string,
-  #   must be from an architecture change a while ago
-	my ($GameFile, $sql, $state) = @_;
+	my ($GameFile, $state) = @_;
 	my $success =0; 
 	$db = &DB_Open($dsn);
   # Get the information about the game in question
@@ -3200,12 +3223,10 @@ sub process_remove_password {
   # Email the player and host the password has been reset
   # my $EmailPlayers = &checkboxnull($GameValues{'EmailPlayers'});
   # This is a big deal, so we always want to notify everyone.
-# 	if ($EmailPlayers) {
  		print "<P>Emailing players...\n";
  		$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Password Reset for Player $PlayerID|;
  		$GameValues{'Message'} = "The Host has reset the password for Player $PlayerID in $GameValues{'GameName'}\n";
  		&Email_Turns($GameFile, \%GameValues, 0);
-# 	}
     &LogOut(100,"Password reset for $File, $GameFile, $PlayerID", $LogFile);
     print 'Password removed. Remember to Save and Submit with a new password.';
   } else {

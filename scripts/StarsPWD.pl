@@ -138,7 +138,7 @@ if ($outBytes) {
 ################################################################
 sub decryptPWD2 {
   my (@fileBytes) = @_;
-  my @block;
+  my @block=();
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
@@ -160,16 +160,11 @@ sub decryptPWD2 {
     @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
-    if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-    if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
-
     if ($typeId == 8) {  # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       my ($unshiftedData) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
-      if ($debug) { print "DECRYPTED:" . join (" ", @unshiftedData), "\n"; } 
-
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
@@ -179,7 +174,6 @@ sub decryptPWD2 {
       # shift the data from binary
       my ($unshiftedData) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
-      if ($debug) { print "DECRYPTED:" . join (" ", @unshiftedData), "\n"; } 
       #if (uc($ext) =~ /R/) { print "Race CheckSum (original):" . join (" ", @unshiftedData), "\n"; } 
       if ( $pwdreset                                             # If the password has been reset, fix the checksum
            && $size                                              # .x files don't have any data in block 0
@@ -260,7 +254,6 @@ sub decryptPWD2 {
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
       @encryptedBlock = @ { $encryptedBlock };
-      if ($debug) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
       push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 

@@ -141,7 +141,7 @@ sub StarsPWD {
 #  my $MFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.m' . $Player;
   &PLogOut(300, "Password Reset Started for : $File", $LogFile);
 #   # Backup the current .m file
-# 	my $Backup_Destination_File   = $MFile . '.bak';
+# 	my $Backup_Destination_File   = $MFile . '.pwd';
 # 	copy($MFile, $Backup_Destination_File);
 # 	&PLogOut(100,"Copy $MFile to $Backup_Destination_File",$LogFile);
    
@@ -168,7 +168,6 @@ sub StarsPWD {
   close (OUTFILE);
   return 1;
 }
-
 
 #################################
 sub StarsRandom {
@@ -571,6 +570,10 @@ sub decryptPWD {
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   my $pwdreset = 0; # has the password been reset
+  my $playerId;
+  my @singularRaceName;
+  my @pluralRaceName;
+  my ($checkSum1, $checkSum2); # The checksums for .r file Block 0
   while ($offset < @fileBytes) {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
@@ -598,7 +601,7 @@ sub decryptPWD {
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
         # We need the race name info for calculating the race checksum if we reset a race password
-        my $playerId = $decryptedData[0] & 0xFF; 
+        $playerId = $decryptedData[0] & 0xFF; 
 # So apparently there are player blocks from other players in the .M file, and
 # If you reset the password in those you corrupt at the very least the player race name 
 #        if (($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) {
