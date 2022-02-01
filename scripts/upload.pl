@@ -294,8 +294,7 @@ sub ValidateFileUpload {
         # If the file failed to move, report and remove. 
         $err .= "<P>File failed to move!\n";
 				&LogOut(0,"ValidateFileUpload: File $File $File_Loc, $file_prefix failed to move for $userlogin",$ErrorLog);
-        # Remarked out for trouble shooting so the file still exists
-        #BUG: unlink ($File_Loc);
+        unlink ($File_Loc);
 			}
 		}
 	# Zip files
