@@ -11,11 +11,12 @@
 <xsd:element name="Races">
 <xsd:annotation>
 <xsd:appinfo>
+<od:index index-name="RaceID" index-key="RaceID " primary="no" unique="yes" clustered="no" order="asc"/>
 <od:index index-name="UsersRaces" index-key="User_Login " primary="no" unique="no" clustered="no" order="asc"/>
 <od:tableProperty name="OrderByOn" type="1" value="0"/>
 <od:tableProperty name="Orientation" type="2" value="0"/>
 <od:tableProperty name="DefaultView" type="2" value="2"/>
-<od:tableProperty name="GUID" type="9" value="0KPkYtpD50+S/BKfvdBacA==
+<od:tableProperty name="GUID" type="9" value="ABcDFD0yJkWUkWXzTv6SYA==
 "/>
 <od:tableProperty name="DisplayViewsOnSharePointSite" type="2" value="1"/>
 <od:tableProperty name="TotalsRow" type="1" value="0"/>
@@ -34,6 +35,20 @@
 </xsd:annotation>
 <xsd:complexType>
 <xsd:sequence>
+<xsd:element name="RaceID" minOccurs="1" od:jetType="autonumber" od:sqlSType="int" od:autoUnique="yes" od:nonNullable="yes" type="xsd:int">
+<xsd:annotation>
+<xsd:appinfo>
+<od:fieldProperty name="ColumnWidth" type="3" value="-1"/>
+<od:fieldProperty name="ColumnOrder" type="3" value="0"/>
+<od:fieldProperty name="ColumnHidden" type="1" value="0"/>
+<od:fieldProperty name="Description" type="10" value="Unique Race ID"/>
+<od:fieldProperty name="TextAlign" type="2" value="0"/>
+<od:fieldProperty name="AggregateType" type="4" value="-1"/>
+<od:fieldProperty name="ResultType" type="2" value="0"/>
+<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
+</xsd:appinfo>
+</xsd:annotation>
+</xsd:element>
 <xsd:element name="RaceFile" minOccurs="1" od:jetType="text" od:sqlSType="nvarchar" od:nonNullable="yes">
 <xsd:annotation>
 <xsd:appinfo>
