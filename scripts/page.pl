@@ -1049,19 +1049,24 @@ sub show_game {
   		# Display user information for unstarted games
   		my $UserLogin;
   		my $table;
+      # Fixed for duplicate race file names
       #my $sql = qq|SELECT Races.RaceName, * FROM GameUsers LEFT JOIN Races ON GameUsers.RaceFile = Races.RaceFile WHERE (((GameUsers.GameFile)='$GameFile')) ORDER BY GameUsers.JoinDate;|;
       my $sql = qq|SELECT Races.RaceName, * FROM GameUsers LEFT JOIN Races ON (GameUsers.User_Login = Races.User_Login) AND (GameUsers.RaceFile = Races.RaceFile)  WHERE (((GameUsers.GameFile)='$GameFile')) ORDER BY GameUsers.JoinDate;|;
       
       if (&DB_Call($db,$sql)) { 
   			$table = "<P><table border=1>\n";
-  			$table .= "<tr><th>Pending Player User IDs</th><th>Race Name</th><th>Race File</th><th>Joined</th>\n";
-  			# as we won't show the remove player/leave game option once it's locked, no need for the table headers for it.
-  			if ($GameValues{'GameStatus'} == 7 ) { $table .= "<th></th><th></th>"; }
-        $table .= "</tr>";
+  			$table .= "<tr><th>Pending Player User IDs</th><th>Race Name</th><th>Race File</th><th>Joined</th>";
         $players = 0;
   			# Find players currently in the (new) game
   			while ($db->FetchRow()) { 
   				%UserValues = $db->DataHash();
+          if ($playercount == 0) { # only on the first player
+      			# as we won't show the remove player once it's locked, no need for the table headers for it.
+      			if ($GameValues{'GameStatus'} == 7 && $userlogin eq $GameValues{'HostName'}) { $table .= "<th>Remove</th>"; }
+      			# as we won't show the game option once it's locked, no need for the table headers for it.
+      			if ($GameValues{'GameStatus'} == 7 && $userlogin eq $UserValues{'User_Login'}) { $table .= "<th>Leave</th>"; }
+            $table .= "</tr>\n";
+          }
   				$table .= "<tr>\n";
   				$table .= qq|<td>$UserValues{'User_Login'}</td>|;
           # Don't show the race name unless its your own
@@ -1073,12 +1078,12 @@ sub show_game {
   				#Don't permit players to leave or be removed unless the game is still awaiting players.
   				if ($GameValues{'GameStatus'} == 7 ) {  
             if ( $userlogin eq $GameValues{'HostName'} ) { #remove player as host
-     					$table .= qq|<td>$formPrefix<BUTTON $host_style type="submit" name="cp" value="Remove Player" | . &button_help("RemovePlayer") . qq|>Remove Player</BUTTON><input id="$UserValues{'PlayerID'}" type=hidden name="PlayerID" value="$UserValues{'PlayerID'}">$formSuffix</td>\n|; 
+     					$table .= qq|$formPrefix<td><BUTTON $host_style type="submit" name="cp" value="Remove Player" | . &button_help("RemovePlayer") . qq|>Remove Player</BUTTON><input id="$UserValues{'PlayerID'}" type=hidden name="PlayerID" value="$UserValues{'PlayerID'}"></td>$formSuffix\n|; 
             }
-  				  if ($UserValues{'User_Login'} eq $userlogin) {  # Leave game as player
+  				  if ($userlogin eq $UserValues{'User_Login'}) {  # Leave game as player
   						# Uses Player ID, which at this point is a semi(random) unique number we can use to remove 
   						# the correct entry if the player has signed up more than once with the same RaceFile
-  						$table .= qq|<td>$formPrefix<BUTTON $user_style type="submit" name="cp" value="Leave Game" | . &button_help("LeaveGame") . qq|>Leave Game</BUTTON><input type=hidden name="PlayerID" value="$UserValues{'PlayerID'}">$formSuffix</td>\n|;
+  						$table .= qq|$formPrefix<td><BUTTON $user_style type="submit" name="cp" value="Leave Game" | . &button_help("LeaveGame") . qq|>Leave Game</BUTTON><input type=hidden name="PlayerID" value="$UserValues{'PlayerID'}"></td>$formSuffix\n|;
             } 
   				}
   				$table .= "</tr>\n";
