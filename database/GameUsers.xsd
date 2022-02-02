@@ -17,6 +17,7 @@
 <od:index index-name="GamesGameUsers1" index-key="GameFile " primary="no" unique="no" clustered="no" order="asc"/>
 <od:index index-name="PlayerID" index-key="PlayerID " primary="no" unique="no" clustered="no" order="asc"/>
 <od:index index-name="PrimaryKey" index-key="GameFile User_Login PlayerID " primary="yes" unique="yes" clustered="no" order="asc asc asc"/>
+<od:index index-name="RaceID" index-key="RaceID " primary="no" unique="no" clustered="no" order="asc"/>
 <od:index index-name="UserID" index-key="User_Login " primary="no" unique="no" clustered="no" order="asc"/>
 <od:index index-name="UsersGameUsers" index-key="User_Login " primary="no" unique="no" clustered="no" order="asc"/>
 <od:tableProperty name="OrderByOn" type="1" value="0"/>
@@ -137,6 +138,23 @@
 <xsd:maxLength value="50"/>
 </xsd:restriction>
 </xsd:simpleType>
+</xsd:element>
+<xsd:element name="RaceID" minOccurs="0" od:jetType="longinteger" od:sqlSType="int" type="xsd:int">
+<xsd:annotation>
+<xsd:appinfo>
+<od:fieldProperty name="ColumnWidth" type="3" value="-1"/>
+<od:fieldProperty name="ColumnOrder" type="3" value="0"/>
+<od:fieldProperty name="ColumnHidden" type="1" value="0"/>
+<od:fieldProperty name="Description" type="10" value="Unique Race ID for race used in this game"/>
+<od:fieldProperty name="DecimalPlaces" type="2" value="255"/>
+<od:fieldProperty name="Required" type="1" value="0"/>
+<od:fieldProperty name="DisplayControl" type="3" value="109"/>
+<od:fieldProperty name="TextAlign" type="2" value="0"/>
+<od:fieldProperty name="AggregateType" type="4" value="-1"/>
+<od:fieldProperty name="ResultType" type="2" value="0"/>
+<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
+</xsd:appinfo>
+</xsd:annotation>
 </xsd:element>
 <xsd:element name="DelaysLeft" minOccurs="0" od:jetType="byte" od:sqlSType="tinyint" type="xsd:unsignedByte">
 <xsd:annotation>
