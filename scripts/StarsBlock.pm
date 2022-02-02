@@ -1920,7 +1920,7 @@ sub decryptAI {
             $decryptedData[13] = &read8(~$decryptedData[13]);
             $decryptedData[14] = &read8(~$decryptedData[14]);
             $decryptedData[15] = &read8(~$decryptedData[15]);
-            &PLogOut(200," StarsAI: Flipped playerId:$playerId to Inactive", $LogFile);
+            &PLogOut(200," StarsAI: Flipped playerId:$playerId to Inactive/AI", $LogFile);
           } else { &PLogOut(200," StarsAI: No Status Change for playerId:$playerId", $LogFile); }
         } 
       } # End of typeID 6

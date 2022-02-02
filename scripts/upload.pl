@@ -106,8 +106,7 @@ sub ValidateFileUpload {
   				$err .= 'Race Name $RaceName already exists in your profile.'; 
   				&LogOut (0,"ValidateFileUpload: Race Name $RaceName already exists in profile for UserLogin: $err", $ErrorLog);
           &LogOut (0,"ValidateFileUpload: Invalid Race DB Entry: Deleted $File_Loc",$ErrorLog);
-          # BUG: Danger deleting user-defined files. 
-          unlink $File_Loc;
+          unlink $File_Loc; #user-input cleaned as much as I can. 
           return 0;    
       }
       
@@ -116,8 +115,7 @@ sub ValidateFileUpload {
         $err .= 'This race file is corrupt!!!';
         &LogOut (0, "ValidateFileUpload: Race file $File_Loc corrupt for $userlogin",$ErrorLog);
         &LogOut (0, "ValidateFileUpload: Currupt Race file: Deleted $File_Loc",$ErrorLog);
-        # BUG: Danger deleting user-defined files. 
-        unlink $File_Loc;
+        unlink $File_Loc; #user-input cleaned as much as I can. 
         return 0;
       }   
 
@@ -149,7 +147,7 @@ sub ValidateFileUpload {
   					$db=&DB_Open($dsn);
   					$sql = "INSERT INTO Races (RaceName, RaceFile, User_Login, RaceDescrip, User_File) VALUES ('$RaceName', '$File', '$userlogin', '$RaceDescrip', '$UserValues{'User_File'}');";
   					if (&DB_Call($db,$sql)) { # If the SQL query is not a failure
-  							$err .= "Database Updated. ";
+  							$err .= "Database updated. ";
   							&LogOut(200, "ValidateFileUpload: Race Database Updated for $userlogin, $File: $err",$LogFile);
   							if (&Move_Race($File_Loc, $Race_Destination)) { # move the race to its final location
    								$err .= "Race File $File Uploaded.\n";
@@ -170,7 +168,7 @@ sub ValidateFileUpload {
   					}
   					&DB_Close($db);
   				} else {
-  					$err .= "Race File with that name: $File already exists";
+  					$err .= "<b>ERROR: Race File: $File already exists. Delete that Race (or rename your file) and try again!</b>";
             # Delete the temp file
             unlink ($File_Loc);
   					&LogOut(0, "ValidateFileUpload: Race File: $File $File_Loc already exists at $Race_Destination: $err", $ErrorLog); 
@@ -187,8 +185,7 @@ sub ValidateFileUpload {
   		} else {
   			$err .= "Invalid Race File upload of $File by $userlogin";
   			&LogOut(0, "ValidateFileUpload: Invalid race file upload of $File to $File_Loc by $userlogin. CheckMagic: $checkmagic, CheckVersion: $checkversion: $err", $ErrorLog);
-        # BUG: This is full of security errors, and you could be deleting a file that exists. 
-        unlink ($File_Loc);
+        unlink ($File_Loc); #user-input cleaned as much as I can. 
         &LogOut (0, "Invalid Race File: Deleted $File_Loc",$ErrorLog);
   			return 0;
   		}
@@ -206,13 +203,15 @@ sub ValidateFileUpload {
     elsif (!(&Check_Magic($Magic, $File_Loc)))      { $err .= "Invalid Magic $Magic,"; &LogOut(0,"ValidateFileUpload: Invalid Magic $Magic, $File_Loc for $userlogin",$ErrorLog); }
     elsif (!(&Check_Version($ver, $File_Loc)))      { $err .= "Invalid Version $ver,"; &LogOut(0,"ValidateFileUpload: Invalid version $ver, $File_Loc for $userlogin",$ErrorLog); }
     elsif (!(&Check_GameFile($file_prefix)))          { $err .= "Invalid Game File $file_prefix,"; &LogOut(0,"ValidateFileUpload: Invalid game file $file_prefix for $userlogin",$ErrorLog); }
-    # BUG: Check_Player checks the extension of the file against the starstat value of the player
-    # It doesn't actually check the User ID to confirm that user ID can submit the file. 
-    # That function should probably be in Check_Player, but Check_Player isn't aware
-    # of the other data it will need to figure that out ($id, $userlogin). 
+    # Check_Player checks the extension of the file against the starstat value of the player
   	elsif (!(&Check_Player($file_player,$iPlayer))) { $err .= "Invalid Player ID,"; &LogOut(0,"ValidateFileUpload: Invalid Player ID Turn file $File $File_Loc for $userlogin",$ErrorLog); }
+    # Check_Turn validates that this file is fo rthe correct turn.
 		elsif (!(&Check_Turn($file_prefix, $turn)))       { $err .= "Wrong Year! ($turn),"; &LogOut(0,"ValidateFileUpload: Invalid Year Turn file $File $File_Loc for $userlogin",$ErrorLog);}
-		elsif (!(&Check_GameID($file_prefix, $lidGame)))  { $err .= "Wrong Game!,"; &LogOut(0,"ValidateFileUpload: Invalid Game ID $file_prefix, $lidGame $File_Loc $File for $userlogin",$ErrorLog); }
+    # Check_GameID validates that the file is the correct file ID fo rthis game
+		elsif (!(&Check_GameID($file_prefix, $lidGame)))  { $err .= "Wrong Game! "; &LogOut(0,"ValidateFileUpload: Invalid Game ID $file_prefix, $lidGame $File_Loc $File for $userlogin",$ErrorLog); }
+    # Check_User validates that this user is the correct user for this turn
+		elsif (!(&Check_User($file_prefix, $userlogin, $iPlayer)))  { $err .= "Wrong User!,"; &LogOut(0,"ValidateFileUpload: Invalid User $file_prefix, $file_player,$iPlayer $File_Loc $File for $userlogin",$ErrorLog); }
+    chomp $err; # Remove trailing "," for multiple entries
       
     # Check that the turn won't trigger a serial/hardware conflict
     my $errSerial;
@@ -230,7 +229,7 @@ sub ValidateFileUpload {
       $err = 	uc($File) . " not a valid ( .x[n] ),$err $errSerial,"; 
       $err .= 'DISCARDING FILE';
 
-      unlink $File_Loc; # delete the uploaded file. BUG: Deleting user defined thing
+      unlink $File_Loc; # #user-input cleaned as much as I can. 
       return 0; 
     } else {&LogOut(300, 'ValidateFileUpload: No errors', $LogFile); }
     
@@ -287,7 +286,6 @@ sub ValidateFileUpload {
             &LogOut(0, "ValidateFileUpload: fixFiles $fixFiles, $err, $turn, $File_Loc", $ErrorLog);
           }
         }
-
         
 				return 1; 
 			} else { 
@@ -360,10 +358,20 @@ sub Print_Error {
   return 0;
 }      
 
-# sub Check_FileName {
-# 	# BUG:  Check_FileName Feature not implemented
-# 	my ($file_file) = @_; 
-# 	&LogOut(0,"Check_FileName for $file_file not implemented",$LogFile);
-# 	# Check against the database that this is a valid Game Name
-# 	return 1; 
-# }
+sub Check_User {
+  # Confirm the user submitting the file is actually in the game and the correct player
+  my ($file_prefix, $user_login, $playerId) = @_;
+    
+  my $sql = qq|SELECT * from GameUsers WHERE User_Login =\'$user_login\' AND GameFile = \'$file_prefix\' AND PlayerID = $playerId;|;
+  $db=&DB_Open($dsn);
+  if (&DB_Call($db,$sql)) { $db->FetchRow(); %GameValues = $db->DataHash(); }
+  &DB_Close($db);
+  if ($GameValues{'User_Login'} eq $user_login) { 
+    &LogOut(200,"Check_User: $file_prefix, $user_login, $playerId, $sql",$LogFile);
+    return 1;
+  } else {
+    &LogOut(0,"Check_User: Attempt to upload turn for different player: $file_prefix, $user_login",$ErrorLog);
+    return 0;
+  }
+}
+
