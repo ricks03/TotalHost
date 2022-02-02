@@ -22,9 +22,9 @@
 
 use CGI qw/:standard/;
 use Win32::ODBC;
-use TotalHost; 
-use StarStat;
-use StarsBlock;
+use TotalHost;  # eval'd at compile time
+use StarStat;   # eval'd at compile time
+use StarsBlock; # eval'd at compile time
 do 'config.pl';
 use File::Basename;
 
@@ -211,7 +211,7 @@ sub ValidateFileUpload {
 		elsif (!(&Check_GameID($file_prefix, $lidGame)))  { $err .= "Wrong Game! "; &LogOut(0,"ValidateFileUpload: Invalid Game ID $file_prefix, $lidGame $File_Loc $File for $userlogin",$ErrorLog); }
     # Check_User validates that this user is the correct user for this turn
 		elsif (!(&Check_User($file_prefix, $userlogin, $iPlayer)))  { $err .= "Wrong User!,"; &LogOut(0,"ValidateFileUpload: Invalid User $file_prefix, $file_player,$iPlayer $File_Loc $File for $userlogin",$ErrorLog); }
-    chomp $err; # Remove trailing "," for multiple entries
+    chop $err; # Remove trailing "," for multiple entries
       
     # Check that the turn won't trigger a serial/hardware conflict
     my $errSerial;
@@ -236,7 +236,7 @@ sub ValidateFileUpload {
     # Unless there was an error, move the file to the game folder
     unless ($err) { 
 			# Do whatever you would do with a valid change (.x) file
-		  &LogOut(100,"ValidateFileUpload: Valid Turn file $File_Loc, moving it", $LogFile);      
+		  &LogOut(100,"ValidateFileUpload: Valid Turn file $File_Loc, moving it to $GameFile", $LogFile);      
 			if (&Move_Turn($File, $file_prefix)) {
 				$db = &DB_Open($dsn);
 				# update the Last Submitted Field
@@ -246,31 +246,12 @@ sub ValidateFileUpload {
 				} else {
 					&LogOut(200, "ValidateFileUpload: Last Submitted update FAILED $File, $File_Loc, in $file_prefix for $userlogin", $ErrorLog); 
 				}
-        # BUG: Need to determine if the game is AsAvailable, to generate as turns are uploaded.
-        # 				$sql = "SELECT * FROM Games WHERE GameFile = \'$file_prefix\';";
-        # 				if (&DB_Call($db,$sql)) {
-        # 					# Load all game values into the array
-        # 	    			while ($db->FetchRow()) {
-        # 						%GameValues = $db->DataHash();
-        # #						while ( my ($key, $value) = each(%GameValues) ) { print "$key => $value\n"; }
-        # 					}
-        # 				}
-        #         if ($GameValues{'AsAvailable'} == 1 ) {
-        #           # If the game is AsAvailable, check to see if all Turns are in and whether we should generate. 
-        #           # The easiest way is likely to run TurnMake for the game
-        #           # since TurnMake is currently not a function
-        #           my $MakeTurn = "TurnMake.pl $GameValues{'GameFile'}";
-        #           &LogOut(100, "$MakeTurn, $LogFile");
-        #           &System($MakeTurn);
-        #         }
-				&DB_Close($db);
-        &Make_CHK($file_prefix);   # BUG: - should really pull value from database, not user-input
         
         # Now that the file is legit, fix anything else wrong with it.
         # Check (and potentially fix) the .x file for known Stars! exploits
         # Requires List files (.fleet, .queue, etc)
         # Requires a file named 'fix' in the game folder as an additional safety net 
-        my $fixFile = $DirGames . '\\' . $GameFile . '\\' . 'fix';
+        my $fixFile = "$DirGames\\$GameFile\\fix";
         my $warning; 
         if ($fixFiles && -e $fixFile) { 
           print "<P>Reviewing uploaded file ... \n";
@@ -286,13 +267,32 @@ sub ValidateFileUpload {
             &LogOut(0, "ValidateFileUpload: fixFiles $fixFiles, $err, $turn, $File_Loc", $ErrorLog);
           }
         }
-        
+        # If the game is AsAvailable, check to see if all Turns are in and whether we should generate. 
+   			$sql = "SELECT * FROM Games WHERE GameFile = \'$file_prefix\';";
+ 				# Load game values into the array
+        if (&DB_Call($db,$sql)) { $db->FetchRow(); %GameValues = $db->DataHash(); }
+        if ($GameValues{'AsAvailable'} == 1 ) {
+        # Don't immediately generate if the file generated warnings
+         if ($warning) {
+            $err .= "Not immediately generating As Available game $file_prefix due to Warnings. Will generate on next turn check however.\n";
+            &LogOut(100, "Upload: AsAvailable $err", $LogFile);
+          } else {
+            # Run TurnMake for the game since TurnMake is currently not a function
+            # TurnMake will handle for emails, CHK file, etc.
+            my $MakeTurn = "perl -I $DirScripts $DirScripts\\TurnMake.pl $GameFile >nul";
+            &LogOut(100, "Upload: AsAvailable $MakeTurn ", $LogFile);
+            system($MakeTurn); # Starting system with 1 makes it launch asynchronously, in case Stars! hangs
+          }
+        }
+				&DB_Close($db);
+        &Make_CHK($file_prefix);   # User-input cleaned as best we can.
 				return 1; 
 			} else { 
         # If the file failed to move, report and remove. 
         $err .= "<P>File failed to move!\n";
 				&LogOut(0,"ValidateFileUpload: File $File $File_Loc, $file_prefix failed to move for $userlogin",$ErrorLog);
-        unlink ($File_Loc);
+        unlink ($File_Loc); 
+        return 0;
 			}
 		}
 	# Zip files

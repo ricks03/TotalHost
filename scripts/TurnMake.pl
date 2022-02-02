@@ -24,10 +24,10 @@ use Win32::ODBC;
 require 'cgi-lib.pl';
 use CGI qw(:standard);
 use Net::SMTP;
-use TotalHost;
-use StarStat;
-use StarsBlock;
-do 'config.pl';
+use TotalHost; # eval'd at compile time
+use StarStat;  # eval'd at compile time
+use StarsBlock;# eval'd at compile time
+do 'config.pl';   
 
 #use strict;
 #use warnings;
@@ -47,10 +47,11 @@ $db = &DB_Open($dsn);
 # If a single game is specified, process only that game
 if ($commandline) {
   # Execute for a single GameFile
-  $GameData = &LoadGamesInProgress($db,'SELECT * FROM Games WHERE ((GameFile=\'$GameFile\') AND (GameStatus=2 or GameStatus=3)) ORDER BY GameFile');
+  print "CL\n";
+  $GameData = &LoadGamesInProgress($db,qq|SELECT * FROM Games WHERE (GameFile=\'$commandline\' AND (GameStatus=2 or GameStatus=3)) ORDER BY GameFile;|);
 } else {
   # Check all Games
-  $GameData = &LoadGamesInProgress($db,'SELECT * FROM Games WHERE GameStatus=2 or GameStatus=3 ORDER BY GameFile');
+  $GameData = &LoadGamesInProgress($db,qq|SELECT * FROM Games WHERE GameStatus=2 or GameStatus=3 ORDER BY GameFile;|);
 }
 my @GameData = @$GameData;
 
@@ -70,15 +71,16 @@ my @GameData = @$GameData;
 # }
 
 sub CheckandUpdate {
-	my $LoopPosition = 1; #Start with the first game in the array.
-  print "Starting to check games\n";
+	my $LoopPosition = 0; #Start with the first game in the array.
+  print "Starting to check games.\n";
   # This would be massively more clear if I read all of this in as a hash, instead
   # of an array. If I just moved $LoopPosition out, and instead performed this
   # as I walked thorugh the database. 
   # Heck, even if I read all the data in from the database, and then called this function one line/row
   # at a time. 
-	while ($LoopPosition <= ($#GameData)) { # work the way through the array
-		print 'Checking whether to generate for ' . $GameData[$LoopPosition]{'GameName'} . ":$GameData[$LoopPosition]{'GameFile'}...\n";
+  print "LOOP: $LoopPosition   Game Data: " . ($#GameData). "\n";
+	while ($LoopPosition <= ($#GameData)) { # work the way through the array. Empty array = -1
+		print "Checking whether to generate for Game $LoopPosition: $GameData[$LoopPosition]{'GameName'}: $GameData[$LoopPosition]{'GameFile'}...\n";
 		my($TurnReady) = 'False'; #Is it time to generate
 		my($NewTurn) = 0; #Localize the value for Next Turn. The next turn won't change unless told to
 #		if ($GameData[$LoopPosition]{'ObserveHoliday'} ) { &CheckHolidays($GameData[$LoopPosition]{'NextTurn'}); }
@@ -386,7 +388,10 @@ sub Turns_Missing {
 	if (&DB_Call($db,$sql)) { 
 		while ($db->FetchRow()) { 
 			%Values = $db->DataHash(); 
-			if ((index($Status[$Values{'PlayerID'}], 'turned in') == -1) && (index($Status[$Values{'PlayerID'}], 'dead') == -1)) { &LogOut(300,"OUT $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile); $TurnsMissing = 1; }
+			if ((index($Status[$Values{'PlayerID'}], 'turned in') == -1) && (index($Status[$Values{'PlayerID'}], 'dead') == -1)) { 
+        &LogOut(300,"OUT $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile); 
+        $TurnsMissing = 1; 
+      }
 			else { &LogOut(300,"IN $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile);  }
 		} 
 	}

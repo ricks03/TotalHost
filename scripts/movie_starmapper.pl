@@ -39,8 +39,8 @@
 #use strict; 
 #use warnings;
 
-# BUG: This pulls the turns from the TH backup dir(s) bu the last turn hasn't been 
-# backed up yet. 
+# This pulls the turns from the TH backup dir(s), so the last turn will only be
+# there if the game is ended.
 use File::Copy;
 use File::Copy::Recursive qw(fcopy rcopy dircopy fmove rmove dirmove);
 use File::Path 'rmtree';
@@ -73,7 +73,7 @@ if (!($GameFile)) {
 }
 
 # Name of the Game (the prefix for the .xy file)
-my $sourcedir = $DirGames . '\\' . $GameFile;
+my $sourcedir = "$DirGames\\$GameFile";
 # Where to output the .ini, .pcx, and .bat files
 my $destdir = $sourcedir . '.mov';
 # Where final GIF will live

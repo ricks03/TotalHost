@@ -724,8 +724,8 @@ sub show_turngeneration {
 	my ($GameFile, $GameType, $DailyTime, $HourlyTime, $HourFreq, $DayFreq, $AsAvailable) = @_;
 	# Display the Turn Generation Schedule formatted for GameType
 	print "<P><b>Turn Generation Schedule</b>:\n";
-	if ($GameType == 3) { print "Turns generated only when all turns are in.\n"; } 
-	elsif ($GameType == 4) { print " Turns Generated Manually.\n"; }
+	if ($GameType == 4) { print "Turns generated only when all turns are in.\n"; } 
+	elsif ($GameType == 3) { print " Turns Generated Manually.\n"; }
 	elsif ($GameType == 2) { 
     if ($HourlyTime >=1) {
 		  print " Turns generated every $HourlyTime hours"; 
@@ -892,10 +892,8 @@ sub show_game {
     
 		# If next turn is undefined(0) AND it's a game in progress somehow, display that the 
 		# next generation will be immediate
-		if ($GameValues{'NextTurn'} ne 0 && $GameValues{'GameStatus'} ne 7 && $GameValues{'GameStatus'} ne 9 && $GameValues{'GameStatus'} ne 4) { 
-      print "<P>Will gen with/on the next automated generation"; 
-      if ($GameValues{'AsAvailable'}) { print " or when all turns are in"; }
-      print ".\n";
+		if ($GameValues{'NextTurn'} ne 0 && $GameValues{'GameStatus'} ne 7 && $GameValues{'GameStatus'} ne 9 && $GameValues{'GameStatus'} ne 4 && $GameValues{'GameType'} ne 4) { 
+      print "<P>Will gen with/on the next automated generation.\n";
     }
     print "\n";
       
@@ -2716,6 +2714,9 @@ sub process_game_status {
     $sql = qq|UPDATE Games SET GameStatus = 9 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
     $GameValues{'GameStatus'} = 9; # When used later
     $state_set = 1;
+    # Back up the last turn. Useful for how movie making works, as it reads the backed up turns
+    my $turn;
+	  if ($turn = &Game_Backup($GameValues{'GameFile'})) { &LogOut(200,"Ended: Gamefile $GameValues{'GameFile'} Backed up for Turn: $turn",$LogFile); }
   } elsif ($state eq 'Restart') {
     $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\' AND GameStatus = 9;|;
     $GameValues{'GameStatus'} = 4; # When used later

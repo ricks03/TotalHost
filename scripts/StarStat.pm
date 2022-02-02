@@ -21,7 +21,6 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#use TotalHost;  # Disabled 211105
 package StarStat;
 do 'config.pl';
 
@@ -301,9 +300,9 @@ sub SLogOut {
   my $LogFileDate = $LogFile . '.' . $Year . '.' . $Month . '.' . $WeekofMonth; 
 
 	if ($Logging <= $logging) { 
-		$PrintString = localtime(time()) . " : " . $PrintString;
+		$PrintString = localtime(time()) . " : $Logging : " . $PrintString;
 		open (LOGFILE, ">>$LogFileDate");
-		print LOGFILE "$Logging: $PrintString\n\n";
+		print LOGFILE "$PrintString\n\n";
 		close LOGFILE;
 	}
 }

@@ -28,8 +28,7 @@
 # Example Usage: StarsRace.pl c:\stars\game.m1
 #
 # Gets the values from a Race File
-# Note that the race file has a checksum value, so writing out changes will 
-# fail.
+# Note that the race file has a checksum value.
 #
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
@@ -67,7 +66,8 @@ $dir  = dirname($filename);         # c:\stars
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
 
 # There is not race information in these files
-if ($ext =~ /[xX]/ || uc($ext) =~ /\.H\d/ ) { print "This file does not include race information\n"; exit; }
+#if ($ext =~ /[xX]/ || uc($ext) =~ /\.H\d/ ) { print "This file does not include race information\n"; exit; }
+if ($ext =~ /[xX]/ ) { print "This file does not include race information\n"; exit; }
 
 # Read in the binary Stars! file, byte by byte
 my $FileValues;
@@ -86,14 +86,14 @@ if ($outBytes) {
   print "*** Race File Corruption detected*******\n";
   # Create the output file name
   my $newFile; 
-  $newFile = $dir . '\\' . $basefile . '.fixed'; 
+  $newFile = "$dir\\$basefile.fixed"; 
   
   # Output the Stars! File with fixed checksum
-  open (OutFile, '>:raw', "$newFile");
+  open (OUTFILE, '>:raw', "$newFile");
   for (my $i = 0; $i < @outBytes; $i++) {
-    print OutFile $outBytes[$i];
+    print OUTFILE $outBytes[$i];
   }
-  close (OutFile);
+  close (OUTFILE);
   
   print "Fixed file: $newFile\n";
   unless ($ARGV[1] && $ARGV[1] eq $ARGV[0]) { print "\nRename\n$newFile\n to\n$filename\n"; }
@@ -113,7 +113,7 @@ sub decryptBlockRace {
   my ( $seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
-  my $pwdreset;
+  my $action;
   my ($checkSum1, $checkSum2);
   while ($offset < @fileBytes) {
     # Get block info and data
@@ -146,7 +146,7 @@ sub decryptBlockRace {
         print "***Race checksum invalid\n";
         $unshiftedData[0] = $checkSum1;
         $unshiftedData[1] = $checkSum2;
-        $pwdreset = 1; 
+        $action = 1; 
        } else {
           print "This race file is not corrupt\n";
         }
@@ -222,7 +222,7 @@ sub decryptBlockRace {
         my $points = 1650; 
         my @scienceCost = ( 150, 330, 540, 780, 1050, 1380 );
         my @prtCost     = (40,95,45,10,-100,-150,120,180,90,66); # HE,SS,WM,CA,IS,SD,PP,IT,AR,JOAT
-        my @lrtCost     = (-235,-25,-159,-201,40,-240,-155,160,240,255,325,180,70,30); #IFE,TT,ARM,ISB,GR,UR,MA,NRS,CE,OBRM,NAS,LSP,BET,RS
+        my @lrtCost     = (-235,-25,-159,-201,40,-240,-155,160,240,255,325,180,70,30); #IFE,TT,ARM,ISB,GR,UR,MA,NRSE,CE,OBRM,NAS,LSP,BET,RS
         my $tmpPoints=0;
         
         if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\t"; }
@@ -346,11 +346,13 @@ sub decryptBlockRace {
           $researchBiotech       = $decryptedData[75]; # (0:+75%, 1: 0%, 2:-50%)
           print 'Research Cost:' . &showResearchCost($researchEnergy) . ", " . &showResearchCost($researchWeapons) . ", " . &showResearchCost($researchProp). ", " . &showResearchCost($researchConstruction) . ", " . &showResearchCost($researchElectronics) . ", " . &showResearchCost($researchBiotech) . "\n";
           $PRT = $decryptedData[76]; # HE SS WM CA IS SD PP IT AR JOAT  
+          # 'HyperExpansion', 'Super Stealth', 'War Monger', 'Claim Adjustor', 'Inner Strength', 'Space Demolition', 'Packet Physics', 'Interstellar Traveller', 'Alternate Reality', 'Jack of all Trades' );
           print 'PRT:' . &showPRT($PRT) . "\n";
           @PRT = &PRT($PRT);
           #$decryptedData[77]; unknown , always 0
           $LRT =  $decryptedData[78]  + ($decryptedData[79] * 0x100); 
           @LRT = &LRT($LRT);
+          print "LRT: $LRT  @LRT\n";
           print 'LRTs:' . join(',',&showLRT($LRT)) . "\n";
           $checkBoxes = $decryptedData[81]; 
           #<Unknown bits="5"/> 
@@ -611,7 +613,7 @@ sub decryptBlockRace {
         $lrtCost{GR}  =40;
         $lrtCost{UR}  =-240;
         $lrtCost{MA}  =-155;
-        $lrtCost{NRS} =160; # NRSE
+        $lrtCost{NRSE} =160; # NRSE
         $lrtCost{CE}  =240;
         $lrtCost{OBRM} =255;
         $lrtCost{NAS} =325;
@@ -673,7 +675,7 @@ sub decryptBlockRace {
     } # typeid = 8 else
     $offset = $offset + (2 + $size); 
   } # main while
-  if ( $pwdreset ) { return \@outBytes; }
+  if ( $action ) { return \@outBytes; }
   else { return 0; }
 } # Main sub
 
