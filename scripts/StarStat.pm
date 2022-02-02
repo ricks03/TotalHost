@@ -303,7 +303,7 @@ sub SLogOut {
 	if ($Logging <= $logging) { 
 		$PrintString = localtime(time()) . " : " . $PrintString;
 		open (LOGFILE, ">>$LogFileDate");
-		print LOGFILE "$PrintString\n\n";
+		print LOGFILE "$Logging: $PrintString\n\n";
 		close LOGFILE;
 	}
 }
