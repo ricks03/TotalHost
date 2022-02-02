@@ -81,8 +81,8 @@
 # 46	SaveAndSubmitBlock
 
 package StarsBlock;
-#use TotalHost;
-use StarStat;
+use TotalHost; # eval'd at compile time
+use StarStat;  # eval'd at compile time
 do 'config.pl';
 
 require Exporter;
@@ -569,7 +569,7 @@ sub decryptPWD {
   my ( $seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
-  my $pwdreset = 0; # has the password been reset
+  my $action = 0; # has the password been reset
   my $playerId;
   my @singularRaceName;
   my @pluralRaceName;
@@ -614,7 +614,7 @@ sub decryptPWD {
           $decryptedData[13] = 0;
           $decryptedData[14] = 0;
           $decryptedData[15] = 0;  
-          $pwdreset = 1;
+          $action = 1;
         } else { 
 #           if ($playerId != $Player) { print "Block $offset is for another player!\n"; }
 #           # BUG: In .HST some Player blocks could be password protected, and some not
@@ -632,7 +632,7 @@ sub decryptPWD {
           $decryptedData[1] = 0;
           $decryptedData[2] = 0;
           $decryptedData[3] = 0; 
-          $pwdreset = 1;
+          $action = 1;
         } 
       }
       # END OF MAGIC
@@ -646,7 +646,7 @@ sub decryptPWD {
   }
   # If the password was not reset, no need to write the file back out
   # Faster, less risk of corruption
-  if ( $pwdreset ) { return \@outBytes; }
+  if ( $action ) { return \@outBytes; }
   else { return 0; }
 }
 
@@ -1047,7 +1047,7 @@ sub LRT {
   if (&bitTest($lrts, 0)) { push @string, 'IFE';  }
   if (&bitTest($lrts, 1)) { push @string, 'TT'; }
   if (&bitTest($lrts, 2)) { push @string, 'ARM'; }
-  if (&bitTest($lrts, 3)) { push @string, 'IS';  }
+  if (&bitTest($lrts, 3)) { push @string, 'ISB';  }
   if (&bitTest($lrts, 4)) { push @string, 'GR';    }
   if (&bitTest($lrts, 5)) { push @string, 'UR';    }
   if (&bitTest($lrts, 6)) { push @string, 'MA'; }
@@ -2444,7 +2444,7 @@ sub checkRaceCorrupt {
   my ( $seedA, $seedB );
   my ( $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
-  my $pwdreset;
+  my $action;
   my ($checkSum1, $checkSum2);
   while ($offset < @fileBytes) {
     # Get block info and data

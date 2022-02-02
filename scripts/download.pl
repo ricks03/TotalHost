@@ -28,7 +28,6 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 use CGI qw(:standard);
 use CGI::Session qw/-ip-match/;
 CGI::Session->name('TotalHost');
@@ -144,7 +143,6 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
 	$filetype='zip'; 
 	@gamelocation = ($Dir_Games . '/' . $gamefile);
 
-	# DEBUG
 #  print $cgi->header(-type=>'text/html'),
 #         $cgi->start_html(-title=>'Error');
 
@@ -206,7 +204,6 @@ sub download {
 	if ($filetype eq 'r') {
     $outputracefile = $DirRaces . "\\" . $RaceValues{'User_File'} . "\\$file";
    	open(DLFILE, '<', "$outputracefile") or return(0);
-#   	open(DLFILE, '<', "$dlfile") or return(0);
 	  # this prints the download headers with the file size included
 	  # so you get a progress bar in the dialog box that displays during file downloads. 
 	  print $cgi->header(-type            => 'application/x-download',

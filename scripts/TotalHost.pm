@@ -27,8 +27,8 @@ use CGI qw(:standard);
 use CGI::Session qw/-ip-match/;
 CGI::Session->name('TotalHost');
 package TotalHost;
-use StarStat;
-use StarsBlock;
+use StarStat; # eval'd at compile time
+use StarsBlock; # eval'd at compile time
 do 'config.pl';
 
 require Exporter;
@@ -206,11 +206,12 @@ sub Email_Turns { #email turns out to the appropropriate players
 		$Message = $GameVals{'Message'};
 		$Message .= "\n\n";
     # If there's a next turn scheduled, and the game isn't over
-		if ($GameVals{'NextTurn'} > 0 && $GameVals{'GameStatus'} != 9 && $GameVals{'GameStatus'} != 4 ) {
+		if ($GameVals{'NextTurn'} > 0 && $GameVals{'GameStatus'} != 9 && $GameVals{'GameStatus'} != 4 && $GameVals{'GameType'} != 3 && $GameVals{'GameType'} != 4 ) {
 			$Message .= "Next scheduled turn generation on or after " . localtime($GameVals{'NextTurn'});
-			if (&checkbox($GameVals{'AsAvailable'}) == 1 ) { $Message .= " or when all turns are in"; }
 			$Message .= ".\n\n";
 		}
+    if (&checkbox($GameVals{'AsAvailable'}) == 1 ) { $Message .= "Turns will generate again when all turns are in.\n\n"; }
+
 		if ($GameVals{'ForceGen'} == 1  && $GameVals{'GameStatus'} != 4 ) { 
 			$Message .= qq|Automated generation will force $GameVals{'ForceGenTurns'} years at a time for the next $GameVals{'ForceGenTimes'} turns|;
 			if ($HST_Turn eq '2400' || $HST_Turn eq '2401' ) { $Message .= " not including years 2400 and 2401, which will generate only one year"; }
@@ -746,16 +747,14 @@ sub rp_list_games {
 
 sub LoadGamesInProgress {
 	my ($db,$sql) = @_;
-	my $GameCounter; 
-	&LogOut(10,"Loading from Game database",$LogFile);
+	my $GameCounter = 0;  # Game counter
+	&LogOut(10,"Loading from Game database $sql",$LogFile);
 	if (&DB_Call($db,$sql)) {
-		# Load all game values into the array
-		$GameCounter = 0; # Game counter
-	    while ($db->FetchRow()) {
-			$GameCounter++;
-			my %GameValues = $db->DataHash();
+	  while ($db->FetchRow()) {
+			my %GameValues = $db->DataHash(); # Load all game values into the array
 #			while ( my ($key, $value) = each(%GameValues) ) { print "$key => $value\n"; }
 			@GameData[$GameCounter] = { %GameValues };
+			$GameCounter++;
 		}
 	}
 #   	for $href ( @GameData ) { print "{ "; for $role ( keys %$href ) { print "$role=$href->{$role} "; } print "}\n"; }

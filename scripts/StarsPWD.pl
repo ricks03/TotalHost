@@ -148,7 +148,7 @@ sub decryptPWD2 {
   my ( $seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
-  my $pwdreset = 0;  # has the password been reset
+  my $action = 0;  # has the password been reset
   my $playerId;
   my @singularRaceName;
   my @pluralRaceName;
@@ -175,7 +175,7 @@ sub decryptPWD2 {
       my ($unshiftedData) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
       #if (uc($ext) =~ /R/) { print "Race CheckSum (original):" . join (" ", @unshiftedData), "\n"; } 
-      if ( $pwdreset                                             # If the password has been reset, fix the checksum
+      if ( $action                                             # If the password has been reset, fix the checksum
            && $size                                              # .x files don't have any data in block 0
            && $unshiftedData[0] > 0 && $unshiftedData[1] > 0     # race files have values set for the checksum
            && uc($ext) =~ /R/                                    # And it's an R file
@@ -228,10 +228,10 @@ sub decryptPWD2 {
           $decryptedData[13] = 0;
           $decryptedData[14] = 0;
           $decryptedData[15] = 0;  
-          $pwdreset = 1;
+          $action = 1;
           print "Block $typeId password reset!\n";
                                               
-          if (uc($ext) =~ /R/ && $pwdreset) { # recalculate the checksum for race files   
+          if (uc($ext) =~ /R/ && $action) { # recalculate the checksum for race files   
             ($checkSum1, $checkSum2) = &raceCheckSum(\@decryptedData, $singularRaceName[$playerId], $pluralRaceName[$playerId], $singularNameLength, $pluralNameLength);
           }
         } else { 
@@ -246,7 +246,7 @@ sub decryptPWD2 {
           $decryptedData[1] = 0;
           $decryptedData[2] = 0;
           $decryptedData[3] = 0; 
-          $pwdreset = 1;
+          $action = 1;
           print "Block $typeId password reset!\n";
         }
       } 
@@ -260,6 +260,6 @@ sub decryptPWD2 {
   }
   # If the password was not reset, no need to write the file back out
   # Faster, less risk of corruption   
-  if ( $pwdreset ) { return \@outBytes; }
+  if ( $action ) { return \@outBytes; }
   else { return 0; }
 }
