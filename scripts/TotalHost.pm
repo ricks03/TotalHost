@@ -51,13 +51,14 @@ our @EXPORT = qw(
 	rp_list_games list_games LoadGamesInProgress
 	Make_CHK Read_CHK Eval_CHK Eval_CHKLine
 	Game_Backup File_Date
-	clean clean_filename
+	clean 
 	DaysToAdd ValidTurnTime ValidFreq CheckHolidays LoadHolidays ShowHolidays
   show_race_block
   process_fix
 );
 # Remarked out functions: FileData FixTime MakeGameStatus checkboxes checkboxnull
 #  showCategory
+# clean_filename
 
 # Print header information
 sub print_header {
@@ -495,7 +496,7 @@ sub html_left {
     	}
 	}
 	print qq|</table>\n|;
-# added for help system 120214
+
 	print qq|<P><hr>\n|;
 	print qq|<iframe id = "ifr" src="$WWW_Notes| . qq|blank.htm" name="your_name" marginwidth=0 marginheight=0 width="$lp_width" height="$height_help" frameborder="0" scrolling="auto"></iframe>\n|;
 	print qq|<table border=0>\n|;
@@ -672,20 +673,20 @@ sub checknull {  # Make something null return 0 else return the value
 # Very important subroutine -- get rid of all the naughty
 # metacharacters from the file name. If there are, we
 # complain bitterly and die.
-sub clean_filename {
-   my ($name) = @_;
-#   if ($name=~/^[\w\._-]+$/) {
-	if ($name =~ /^[A-Za-z0-9]+$/) {
-		my $clean_name = lc(substr($name,0,8));
-		&LogOut(200, "clean_filename: $clean_name",$LogFile);
-		return $clean_name;
-	} else {
-      print "<STRONG>Naughty characters detected. Only ";
-      print 'alphanumerics are allowed. A random game file name will be assigned to you.</STRONG>';
-      &LogOut(0,'clean_filename: Attempt to use naughty characters in File Name $name',$ErrorLog);
-		return 0;
-   }
-}
+# sub clean_filename {
+#    my ($name) = @_;
+# #   if ($name=~/^[\w\._-]+$/) {
+# 	if ($name =~ /^[A-Za-z0-9]+$/) {
+# 		my $clean_name = lc(substr($name,0,8));
+# 		&LogOut(200, "clean_filename: $clean_name",$LogFile);
+# 		return $clean_name;
+# 	} else {
+#       print "<STRONG>Naughty characters detected. Only ";
+#       print 'alphanumerics are allowed. A random game file name will be assigned to you.</STRONG>';
+#       &LogOut(0,'clean_filename: Attempt to use naughty characters in File Name $name',$ErrorLog);
+# 		return 0;
+#    }
+# }
 
 sub list_games {
 	my ($sql, $type) = @_;
@@ -1168,8 +1169,6 @@ sub db_sql {
 
 sub show_race_block {
   # Displays Race attributes in TotalHost
-  # The race file has a checksum value, so writing out changes will 
-  # fail.
   my ($RaceFile, $Player) = @_;
   use File::Basename;  # Used to get filename components
   

@@ -152,11 +152,8 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
 	print "<td>"; 
 	&update_game($in{'GameFile'}); 
 	# send the user back to the right page, either new game or otherwise
-#	if ($in{'GameStatus'} ne 7 && $in{'GameStatus'} ne 6) { &show_game($in{'GameFile'});}
-#	else { &show_game($in{'GameFile'}); }
   &display_warning;
-	if ($in{'GameStatus'} eq '7' || $in{'GameStatus'} eq '6') { &show_game($in{'GameFile'});}
-	else { &show_game($in{'GameFile'}); }
+  &show_game($in{'GameFile'});
 	print "</td>";
 } elsif ($in{'cp'} eq 'Join Game') {
 	print "<td>"; 
@@ -176,9 +173,8 @@ if ($in{'cp'} eq 'add_game_friend') { &add_game_friend;
 	print "</td>";
 } elsif ($in{'cp'} eq 'Create Game') { 
 	print "<td>"; 
-#1800312	$GameFile = &update_game($in{'GameFile'}); 
 	$GameFile = &update_game(); # Modified to always create a random game file
-	unless ($GameFile eq "CREATE FAILED") { 
+	unless ($GameFile eq 'CREATE FAILED') { 
     &create_game_size($GameFile, $in{'GameName'}); # update_game either passes along GameFile, or creates a hash to use as the GameFile
   }
 	print "</td>";
@@ -805,11 +801,9 @@ sub show_game {
     
     # Display the Game Status Data
     if ($in{'status'}) { 
-      my $full_warning = $in{'status'};
-      &display_warning($full_warning); 
+      &display_warning($in{'status'}); 
       # Display the warning if the error still exists
-      if ($full_warning =~ /bug/ && $full_warning !~ /Fixed/) { print qq|<P>You can resubmit a corrected .x file to remove alert.</P>|; }
-      
+      if ($in{'status'} =~ /bug/ && $in{'status'} !~ /Fixed/) { print qq|<P>You can resubmit a corrected .x file to remove alert.</P>|; }
     }
     print "<table width=100%>\n";
     # Print Game Name (and Year if applicable)
@@ -835,7 +829,6 @@ sub show_game {
       unless ($GameValues{'GameStatus'} eq 9) { print qq|<td align="center"><A HREF=\"$WWW_Scripts/download.pl?file=$GameFile.xy\">$GameFile.xy</A></td>\n|; }
     }
 		print "</tr>\n";
-    #########
     
     # Display associated game-related images 
     # There should be no movie file unless the game is ended. 
@@ -1632,7 +1625,6 @@ sub show_race {
 	if ($c) {
 		# Get $ver
     my $racepath = $DirRaces . '\\' . $RaceValues{'User_File'};
-#		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &ValidateFile($RaceValues{'RaceFile'},$DirRaces);
 		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &ValidateFile($RaceValues{'RaceFile'},$racepath);
 		print <<eof;
 <table>
@@ -1643,8 +1635,7 @@ sub show_race {
 </table>
 eof
 
-my $racefile =  $racepath . '\\' . $RaceValues{'RaceFile'};
-&show_race_block($racefile);
+&show_race_block("$racepath\\$RaceValues{'RaceFile'}");
 
 print <<eof;
 <form name="login" method=$FormMethod action="$WWW_Scripts/page.pl">
@@ -2204,21 +2195,15 @@ sub update_game {
     	&Email_Turns($GameFile, \%GameValues, 0);
     } else { print "Update failed\n"; &LogOut(0,"$in{'GameName'} update $sql failed for $userlogin", $ErrorLog); }
 	} elsif ($in{'type'} eq 'create') {
-#180312		$CleanGameFile = &clean_filename($GameFile);
-#180312		&LogOut(200,"update_game GF $GameFile CGF $CleanGameFile",$LogFile);
-#180312		# If the file name isn't ok, create a random one.
-#180312		unless ($CleanGameFile) {
-			# Need to create a random gamefile name
-			use Digest::SHA1  qw(sha1_hex);
-			$CleanGameFile = substr(sha1_hex(time()), 5, 8); # Should be random enough
-			&LogOut(50,"Creating random GameFile $CleanGameFile for $in{'GameName'}",$LogFile);
-#180312		}
+		# Need to create a random gamefile name
+		use Digest::SHA1  qw(sha1_hex);
+		$CleanGameFile = substr(sha1_hex(time()), 5, 8); # Should be random enough
+		&LogOut(50,"Creating random GameFile $CleanGameFile for $in{'GameName'}",$LogFile);
 		my $sql = qq|INSERT INTO Games (GameFile,HostName,GameName,GameDescrip,DailyTime,HourlyTime,GameType,GameStatus,AsAvailable,OnlyIfAvailable,DayFreq,HourFreq,ForceGen,ForceGenTurns,ForceGenTimes,HostMod,HostForce,NoDuplicates,GameRestore,AnonPlayer,GamePause,GameDelay,NumDelay,MinDelay,ObserveHoliday,NewsPaper,SharedM,HostAccess,Notes,MaxPlayers) VALUES ('$CleanGameFile','$userlogin','$in{'GameName'}','$in{'GameDescrip'}',$in{'DailyTime'},'$in{'HourlyTime'}',$in{'GameType'},6,'$AsAvailable','$OnlyIfAvailable','$DayFreq','$HourFreq','$ForceGen',$ForceGenTurns,$ForceGenTimes,'$HostMod','$HostForceGen','$NoDuplicates','$GameRestore','$AnonPlayer','$GamePause','$GameDelay',$NumDelay, $MinDelay,'$ObserveHoliday','$NewsPaper','$SharedM','$HostAccess','$in{'Notes'}',$MaxPlayers);|;
 		if (&DB_Call($db,$sql)) { } 
 		else { 
       print "Create failed\n"; 
       &LogOut(0,"$in{'GameFile'} create failed with $sql for $userlogin", $ErrorLog);
-#      $CleanGameFile = "Game Creation Failed. Please Try Again.";
       $CleanGameFile = "CREATE FAILED";
     }
 	}
