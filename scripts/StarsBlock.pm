@@ -802,8 +802,6 @@ sub displayBlockRace {
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
-        if ($debug > 3) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-        if ($debug > 3) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
         my $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
         my $shipDesigns = $decryptedData[1] & 0xFF;  # Always 0
         my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); # Always 0
@@ -837,7 +835,7 @@ sub displayBlockRace {
           # BUG: the references say this is two bytes, but I don't think it is.
           # That means I don't know what byte 11 is tho. 
           #my $rank = &read16(\@decryptedData, 10);
-          my $rank = $decryptedData[10]; # Always 0;
+          my $rank = $decryptedData[10]; # Always 0 in race file. Not in game file. BUG: This is likely 2 bytes for 16 player games
           # Bytes 12..15 are the password;
           my $centreGravity = $decryptedData[16]; # (base 65), 255 if immune 
           my $centreTemperature = $decryptedData[17]; #(base 35), 255 if immune  
@@ -1082,7 +1080,7 @@ sub showLRT {
   if (&bitTest($lrts, 13)) { push @string, 'RegeneratingShields';     }
   if (&bitTest($lrts, 14)) { push @string, 'Unused';     }
   if (&bitTest($lrts, 15)) { push @string, 'Unused';     }
-  if (@string) { return join (',', @string);  }
+  if (@string) { return join (', ', @string);  }
   else { $string[0] = 'None'; return @string; }
 }
 
@@ -1357,7 +1355,7 @@ sub showRace {
     #$decryptedData[77]; unknown , always 0?
     my $LRT =  $decryptedData[78]  + ($decryptedData[79] * 0x100); 
     my @LRTs = &showLRT($LRT);
-    $raceData .= "LRTs: " . join(',',@LRTs) . "\n";
+    $raceData .= "LRTs: " . join(', ',@LRTs) . "\n";
     my $checkBoxes = $decryptedData[81]; 
       #Unknown bits="5" 
       my $expensiveTechStartsAt3 = &bitTest($checkBoxes, 5);

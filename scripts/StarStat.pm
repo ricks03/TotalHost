@@ -76,7 +76,7 @@ sub starstat {
 # know why, and then it didn't line up with statstat.pl	
 # The change is A2 to S (string) and h8 to L (which is probably a long)
 #  $unpack = "A2A4h8SSSS";
-	$unpack = "SA4LSSsS";
+	$unpack = 'SA4LSSsS';
 	#$Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts
 	@FileValues = unpack($unpack,$FileValues);
 	($Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts) = @FileValues;
@@ -100,7 +100,6 @@ sub starstat {
 	
 	# dts
 	# Convert DTS to binary so we can pull the values back out
-	print "\n";
 	$dts = dec2bin($dts);
 	# File Type
 	$dt = substr($dts, 8,15);
