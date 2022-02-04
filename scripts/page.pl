@@ -2017,10 +2017,16 @@ sub edit_game {
 	#print qq|<TD><INPUT type="checkbox" name="EmailSubmit" | . &button_help("EmailSubmit") . qq| $Checked[$GameValues{'EmailSubmit'}]>Submit Via Email</TD>\n|;
 	print qq|<TD><INPUT type="checkbox" name="SharedM" | . &button_help("SharedM") . qq| $Checked[$GameValues{'SharedM'}]>Shared M Files	</TD>\n|;
 	print qq|<TD><INPUT type="checkbox" name="HostAccess" | . &button_help("HostAccess") . qq| $Checked[$GameValues{'HostAccess'}]>Host Access    </TD>\n|;
+	print qq|</TR><TR>\n|;
+  if (-e  "$DirGames\\$GameValues{'GameFile'}\\fix")   { $GameValues{'Exploit'} = 1; }
+  if (-e  "$DirGames\\$GameValues{'GameFile'}\\clean") { $GameValues{'Sanitize'} = 1; }
+  print qq|<TD><INPUT type="checkbox" name="Exploit" | . &button_help("Exploit") . qq| $Checked[$GameValues{'Exploit'}]>Exploit Detection</TD>\n|;
+  print qq|<TD><INPUT type="checkbox" name="Sanitize" | . &button_help("Sanitize") . qq| $Checked[$GameValues{'Sanitize'}]>Sanitize Player Files</TD>\n|;
 	print qq|</TR></TABLE>\n|;
 	print qq|<P>Notes: <TEXTAREA name=Notes  rows=4 cols=80 | . &button_help("GameNotes") . qq| type=Text value="$GameValues{'Notes'}">$GameValues{'Notes'}</TEXTAREA>|;
 	print qq|<input type=hidden name="lp" value="profile_game">\n|;
 	print qq|<input type=hidden name="rp" value="my_games">\n|;
+
 
 	if ($type eq 'edit') {	
 			print qq|<input type=hidden name="type" value="edit">\n|;
@@ -2144,6 +2150,12 @@ sub update_game {
 	my $NewsPaper = &checkboxnull($in{'Newspaper'});
 	my $SharedM = &checkboxnull($in{'SharedM'});
 	my $HostAccess = &checkboxnull($in{'HostAccess'});
+	my $Exploit = &checkboxnull($in{'Exploit'}); # Not a DB entry
+	my $Sanitize = &checkboxnull($in{'Sanitize'}); # Not a DB entry
+   if (!($Exploit)) { unlink qq|$DirGames\\$in{'GameFile'}\\fix|; }
+   else {open (EXPLOIT, ">$DirGames\\$in{'GameFile'}\\fix"); print EXPLOIT time() . ": $in{'GameFile'}"; close EXPLOIT; }
+   if (!($Sanitize)) { unlink "$DirGames\\$in{'GameFile'}\\clean"; }
+   else {open (SANITIZE, ">$DirGames\\$in{'GameFile'}\\clean"); print SANITIZE time(). ": $in{'GameFile'}"; close SANITIZE; }
 	$in{'Notes'} = &clean($in{'Notes'});
 
  	$db = &DB_Open($dsn);
@@ -2528,6 +2540,14 @@ sub read_game {
 	if ($GameValues{'HostAccess'}) { push (@Values, "Host Access"); }
 	if ($GameValues{'AutoIdle'}) { push (@Values, "AutoIdle after $GameValues{'AutoIdle'} turns missed"); }
 	if ($GameValues{'MaxPlayers'}) { push (@Values, "Max $GameValues{'MaxPlayers'} players allowed to join"); }
+  if (-e "$DirGames\\$GameValues{'GameFile'}\\fix" ) {
+    if ($fixFiles < 2) { push (@Values, "Exploit Detection configured"); }
+    if ($fixFiles == 2) { push (@Values, "Exploit Detection enabled"); }
+  }
+  if (-e "$DirGames\\$GameValues{'GameFile'}\\clean") {
+    if ($cleanFiles < 2) { push (@Values, "Player File Sanitization configured"); }
+    if ($cleanFiles == 2) { push (@Values, "Player File Sanitization enabled"); }
+  }  
 	my $c = 0;
 	my $col=3;
 	print "<P><B>TotalHost Settings:</B>\n";
@@ -2538,6 +2558,7 @@ sub read_game {
 		if ($c/$col == int($c/$col)) { print qq|</tr><tr>|; }
 	}
 	print qq|</tr></table>\n|;
+  
 # 	211028 return @Values;
   return ''; # Return blank to avoid getting values
 }
