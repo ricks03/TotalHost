@@ -2551,7 +2551,6 @@ sub checkSerials {
 
   # Loop through the .x files for comparison
   $file1 = $inFile;
-#  foreach my $file1 ( sort keys %block9 ) {
 #    # Check it against all the files in the array
     foreach my $file2 ( sort keys %block9 ) {
       if ($file1 eq $file2) { next; } # if it's the same file then skip it
@@ -2571,9 +2570,7 @@ sub checkSerials {
         #OK     : Different serials in the two files.  
       } 
     } 
-#  } 
   # If any results were reported, return them.
-  #if ($err) { $err .= "DISCARDING FILE"; }
   return $err;
 }
 
