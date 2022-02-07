@@ -65,7 +65,7 @@
 
 use strict;
 use warnings;   
-use warnings::unused;   
+#use warnings::unused;   
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
 my $debug = 0;

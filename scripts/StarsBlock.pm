@@ -5,7 +5,8 @@
 # Version History
 # 180815  Version 1.0
 # 191123 Added subs for other block data
-#
+# 220202 Rewritten for stateful .x processing
+
 #     Copyright (C) 2019 Rick Steeves
 # 
 #     This file is part of TotalHost, a Stars! hosting utility.
@@ -109,12 +110,12 @@ our @EXPORT = qw(
   showResearchCost showExpensiveTechStartsAt3
   showPlayerRelations
   showResearchPriority
-  PRT showPRT LRT showLRT
+  PRT LRT 
   showFactoriesCost1LessGerm
   showMTItems
   decodeBytesForStarsString
   getPlayers resetPlayers
-  resetRace showRace
+  resetRace 
   StarsClean decryptClean
   StarsFix StarsList decryptFix
   StarsAI decryptAI
@@ -126,7 +127,7 @@ our @EXPORT = qw(
   raceCheckSum checkRaceCorrupt
   checkSerials decryptSerials
   readList writeList printList
-  adjustFleetCargo tallyFleet
+  adjustFleetCargo tallyFleet 
 );  
 
 my $debug = 1;
@@ -369,9 +370,6 @@ sub decryptBytes {
   @byteArray = @ {$byteArray };
   my $paddedSize = $size + $padding;
   # Now decrypt, processing 4 bytes at a time
-  #BUG: I don't think I need this extra flush of the array
-  #but this would break everythign and I don't want to test it right now.
-  @decryptedBytes = ();
   for (my $i = 0; $i <  $paddedSize; $i+=4) {
     # Swap bytes using indexes in this order:  4 3 2 1
     $chunk =  (
@@ -437,39 +435,6 @@ sub encryptBytes {
   @encryptedBytes = &stripPadding(\@encryptedBytes, $padding);
   return \@encryptedBytes, $seedX, $seedY;
 } 
-  
-# sub parseBlock {
-#   # This returns the 3 relevant parts of a block: typeId, size, raw block data
-#   my ($fileBytes, $offset) = @_;
-#   my @fileBytes = @{ $fileBytes };
-#   my @blockdata;
-#   my ($blocktype, $blocksize) = &read16(\@fileBytes, $offset);
-#   for (my $i = $offset+2; $i < $offset+$blocksize+2; $i++) {   #skipping over the TypeID
-#     push @blockdata, $fileBytes[$i];
-#   }
-#   return ($blocktype, $blocksize, \@blockdata);
-# } 
-
-# sub parseBlock {
-#   # This returns the 3 relevant parts of a block: typeId, size, raw block data
-#   my ($fileBytes, $offset) = @_;
-#   my @fileBytes = @{ $fileBytes };
-#   my @blockdata;
-#   my ($FileValues, @FileValues, $Header);
-#   my ($binHeader, $blocktype, $blocksize);
-#   $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
-#   @FileValues = unpack("S",$FileValues);
-#   ($Header) =  @FileValues;
-#   $binHeader = dec2bin($Header);
-#   $blocktype = (substr($binHeader, 8,6));
-#   $blocktype = bin2dec($blocktype);
-#   $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
-#   $blocksize = bin2dec($blocksize);
-#   for (my $i = $offset+2; $i < $offset+$blocksize+2; $i++) {   #skipping over the typeId
-#     push @blockdata, $fileBytes[$i];
-#   }
-#   return ($blocktype, $blocksize, \@blockdata);
-# } 
 
 # Restructured to not pass the entire file each time
 sub parseBlock {
@@ -603,7 +568,7 @@ sub decryptPWD {
         # We need the race name info for calculating the race checksum if we reset a race password
         $playerId = $decryptedData[0] & 0xFF; 
 # So apparently there are player blocks from other players in the .M file, and
-# If you reset the password in those you corrupt at the very least the player race name 
+# ff you reset the password in those you corrupt at the very least the player race name 
 #        if (($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) {
         # BUG: Fixing for only PlayerID = Player blocks will break for .HST
         if ((($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) && ($playerId == $Player)){
@@ -731,15 +696,15 @@ sub isWormhole {
 sub getWormholeType {
   # I can figure out that the values here are a range, much like
   # something adds (or subtracts) a random number to it to make it change
-  # unpredictably. But I can't ge the math to work out. 
+  # unpredictably. But I can't get the math to work out. 
    
-# 0 = Rock Solid
-# 1 = Mostly Stable 
-# Mostly Stable
-# Average
-# Slightly Volatile
-# Volatile
-# Extremely Volatile
+  # 0 = Rock Solid
+  # 1 = Mostly Stable 
+  # Mostly Stable
+  # Average
+  # Slightly Volatile
+  # Volatile
+  # Extremely Volatile
 }
 
 sub isMT {
@@ -766,7 +731,7 @@ sub getMTPartName {
  	return '';
 }
 
-sub displayBlockRace {
+sub displayBlockRace { # mostly a duplicate of decryptBlockRace
   my (@fileBytes) = @_;
   my @block;
   my @data;
@@ -775,9 +740,10 @@ sub displayBlockRace {
   my @encryptedBlock;
   my @outBytes;
   my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
-  my ( $random, $seedA, $seedB, $seedX, $seedY);
+  my ( $seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
+  my ($checkSum1, $checkSum2);
   while ($offset < @fileBytes) {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
@@ -785,8 +751,7 @@ sub displayBlockRace {
     @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
-    # FileHeaderBlock, never encrypted
-    if ($typeId == 8) {
+    if ($typeId == 8) { # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
@@ -802,128 +767,163 @@ sub displayBlockRace {
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
-        my $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
-        my $shipDesigns = $decryptedData[1] & 0xFF;  # Always 0
-        my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); # Always 0
-        my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);  # Always 0
-        my $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); # always 0
-        my $logo = (($decryptedData[6] & 0xFF) >> 3); 
-        my $fullDataFlag = ($decryptedData[6] & 0x04); # Always true
+        my $playerId; 
+        my ($shipDesigns, $planets, $fleets, $starbaseDesigns, $logo);
+        my ($aiEnabled, $aiRace, $aiSkill);
+        my $fullDataFlag;
+        my ($playerRelations, $playerRelationsLength);
+        my ($singularNameLength, $singularMessageEnd, $pluralNameLength, $singularRaceName, $pluralRaceName);
+        my $homeWorld; 
+        my $rank;
+        my ($centreGravity, $centreTemperature, $centreRadiation);
+        my ($lowGravity, $lowTemperature, $lowRadiation);
+        my ($highGravity, $highTemperature, $highRadiation);
+        my $growthRate;
+        my ($energyLevel, $weaponsLevel, $propulsionLevel, $constructionLevel, $electronicsLevel, $biotechLevel);
+        my ($energyLevelPointsSincePrevLevel, $weaponsLevelPointsSincePrevLevel, $propulsionLevelPointsSincePrevLevel);
+        my ($constructionLevelPointsSincePrevLevel, $electronicsLevelPointsSincePrevLevel, $biologyLevelPointsSincePrevLevel);
+        my ($researchPercentage, $currentResourcePriority, $nextResourcePriority, $researchPointsPreviousYear);
+        my ($resourcePerColonist, $producePerFactory, $toBuildFactory, $operateFactory, $producePerMine, $toBuildMine, $operateMine);
+        my $spendLeftoverPoints;
+        my ($researchEnergy, $researchWeapons, $researchProp, $researchConstruction, $researchElectronics, $researchBiotech);
+        my ($PRT,$LRT);
+        my $checkBoxes; 
+        my ($expensiveTechStartsAt3, $factoriesCost1LessGerm);
+        my $MTItems;
+
+        $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
+        $shipDesigns = $decryptedData[1] & 0xFF;  # Always 0 in race file
+        $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); # Always 0 in race file
+        $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);  # Always 0 in race file
+        $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); # Always 0 in race file
+        $logo = (($decryptedData[6] & 0xFF) >> 3); 
+        $fullDataFlag = ($decryptedData[6] & 0x04); # Always true in race file
+        # Byte 7 as 76543210
+        #   Bit 0 is always 1, Bit 1 defines whether an AI is enabled :  0:off ,  1:on
+        #   The 2s bit is 0 for Player, 1 for Human(inactive)
+        #   bits 6,7,8 also flip changed to human(inactive)  but don't flip back
+        $aiEnabled = ($decryptedData[7] >> 1) & 0x01;
+        if ($aiEnabled) {
+          # bits 23 defines how good the AI will be:
+           $aiSkill = ($decryptedData[7] >> 2) & 0x03; #00 - Easy, 01 - Standard, 10 - Harder, 11 - Expert 
+          
+          # Bit 4 is always 0
+          # bits 765 define which PRT AI to use: 
+          # 000 - HE - Robotoids, 001 - SS - Turindromes, 010 - IS - Automitrons
+          # 011 - CA - Rototills, 100 - PP - Cybertrons, 101 - AR - Macinti, 111 - Human inactive / Expansion player
+          # When human is set back to active from Inactive, bit 1 flips but bits 765 aren't reset to 0
+          # So the values for Byte 7 for human are 1 (active) or 225 (active again) and 227 (inactive/expansion player)
+          $aiRace =  ($decryptedData[7] >> 5) & 0x07;  
+        } 
         # We figure out names here, because they're here at 8 when not fullDataFlag 
         my $index = 8; 
-        my $playerRelations;
         if ($fullDataFlag) { 
           # The player names are at the end and are not a fixed length,
           # The number of player relations bytes change where the names start   
           # That also changes whether it's a fullData set or not. 
+          # PlayerRelationsLength is also number of players
+          #   except when it's not. If PR has never been changed, PRL will be 0.
           $index = 112;
-          my $playerRelationsLength = $decryptedData[112]; 
+          $playerRelationsLength = $decryptedData[112]; 
           $index = $index + $playerRelationsLength + 1;
         }  
-        my $singularNameLength = $decryptedData[$index] & 0xFF;
-        my $singularMessageEnd = $index + $singularNameLength;
-        # changed this 210516
+        $singularNameLength = $decryptedData[$index] & 0xFF;
+        $singularMessageEnd = $index + $singularNameLength;
+        # updated 210516
         #my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
-        my $pluralNameLength = $decryptedData[$index+$singularNameLength+1] & 0xFF;
+        $pluralNameLength = $decryptedData[$index+$singularNameLength+1] & 0xFF;
         if ($pluralNameLength == 0) { $pluralNameLength = 1; } # Because there's a 0 byte after it
-        my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
-        my $pluralRaceName = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
+        $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+        $pluralRaceName = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
         
         if ($fullDataFlag) { 
-          my $homeWorld = &read16(\@decryptedData, 8); # no homeworld in race file
-#          print "Homeworld: $homeWorld\n";
+          $homeWorld = &read16(\@decryptedData, 8); # no homeworld in race file
           # BUG: the references say this is two bytes, but I don't think it is.
           # That means I don't know what byte 11 is tho. 
-          #my $rank = &read16(\@decryptedData, 10);
-          my $rank = $decryptedData[10]; # Always 0 in race file. Not in game file. BUG: This is likely 2 bytes for 16 player games
+          # Maybe in universes with more planets?
+          $rank = &read16(\@decryptedData, 10); # Always 0 in race file. Not in game file. BUG: This is likely 2 bytes for 16 player games
           # Bytes 12..15 are the password;
-          my $centreGravity = $decryptedData[16]; # (base 65), 255 if immune 
-          my $centreTemperature = $decryptedData[17]; #(base 35), 255 if immune  
-          my $centreRadiation = $decryptedData[18]; # , 255 if immune 
-          my $lowGravity      = $decryptedData[19];
-          my $lowTemperature  = $decryptedData[20];
-          my $lowRadiation    = $decryptedData[21];
-          my $highGravity     = $decryptedData[22];
-          my $highTemperature = $decryptedData[23];
-          my $highRadiation   = $decryptedData[24];
-          my $growthRate      = $decryptedData[25];
-          my $energyLevel           = $decryptedData[26]; #Always 0 in race file
-          my $weaponsLevel          = $decryptedData[27]; #Always 0 in race file
-          my $propulsionLevel       = $decryptedData[28]; #Always 0 in race file
-          my $constructionLevel     = $decryptedData[29]; #Always 0 in race file
-          my $electronicsLevel      = $decryptedData[30]; #Always 0 in race file
-          my $biotechLevel          = $decryptedData[31]; #Always 0 in race file
-          # print "Tech Level: $energyLevel, $weaponsLevel, $propulsionLevel, $constructionLevel, $electronicsLevel, $biotechLevel\n";    
-          my $energyLevelPointsSincePrevLevel         = $decryptedData[32]; # (4 bytes) #Always 0 in race file
-          my $weaponsLevelPointsSincePrevLevel        = $decryptedData[36]; # (4 bytes) #Always 0 in race file
-          my $propulsionLevelPointsSincePrevLevel     = $decryptedData[42]; # (4 bytes) #Always 0 in race file
-          my $constructionLevelPointsSincePrevLevel   = $decryptedData[46]; # (4 bytes) #Always 0 in race file
-          my $electronicsLevelPointsSincePrevLevel     = $decryptedData[50]; # (4 bytes) #Always 0 in race file
-          my $biologyLevelPointsSincePrevLevel         = $decryptedData[54]; # (4 bytes) #Always 0 in race file
-#          print "Tech Points: $energyLevelPointsSincePrevLevel, $weaponsLevelPointsSincePrevLevel, $propulsionLevelPointsSincePrevLevel, $constructionLevelPointsSincePrevLevel, $electronicsLevelPointsSincePrevLevel, $biologyLevelPointsSincePrevLevel \n";
-          my $researchPercentage    = $decryptedData[56]; # defaults to 15
-#          print "Research Percentage: $researchPercentage\n"; 
-          my $currentResourcePriority = $decryptedData[57] >> 4; # (right 4 bits) [same, energy ..., lowest]  #Always 0 in race file
-#          print "Research Priority: " . &showResearchPriority($currentResourcePriority) . "\n";
-          my $nextResourcePriority  = $decryptedData[57] & 0x04; # (left 4 bits) #Always 0 in race file
-#          print "Next Priority: " . &showResearchPriority($nextResourcePriority) . "\n";
-          my $researchPointsPreviousYear = $decryptedData[58]; # (4 bytes) #Always 0 in race file
-#          print "researchPointsPreviousYear: $researchPointsPreviousYear\n";
-          my $resourcePerColonist = $decryptedData[62]; # ? 55? 
-          my $producePerFactory = $decryptedData[63];
-          my $toBuildFactory = $decryptedData[64];
-          my $operateFactory = $decryptedData[65];
-          my $producePerMine = $decryptedData[66];
-          my $toBuildMine = $decryptedData[67];
-          my $operateMine = $decryptedData[68];
-          my $spendLeftoverPoints = $decryptedData[69]; # ?  (3:factories)  
-          my $researchEnergy        = $decryptedData[70]; # (0:+75%, 1: 0%, 2:-50%) 
-          my $researchWeapons       = $decryptedData[71]; # (0:+75%, 1: 0%, 2:-50%)
-          my $researchProp          = $decryptedData[72]; # (0:+75%, 1: 0%, 2:-50%)
-          my $researchConstruction  = $decryptedData[73]; # (0:+75%, 1: 0%, 2:-50%)
-          my $researchElectronics   = $decryptedData[74]; # (0:+75%, 1: 0%, 2:-50%)
-          my $researchBiotech       = $decryptedData[75]; # (0:+75%, 1: 0%, 2:-50%)
-          my $PRT = $decryptedData[76]; # HE SS WM CA IS SD PP IT AR JOAT  
-          #$decryptedData[77]; unknown , always 0
-          my $LRT =  $decryptedData[78]  + ($decryptedData[79] * 0x100); 
-          my @LRTs = &showLRT($LRT);
-          my $checkBoxes = $decryptedData[81]; 
-            #<Unknown bits="5"/> 
-            my $expensiveTechStartsAt3 = &bitTest($checkBoxes, 5);
-            # Unknown bit 6
-            my $factoriesCost1LessGerm = &bitTest($checkBoxes, 7);
-          my $MTItems =  $decryptedData[82] + ($decryptedData[83] * 0x100); #Always 0 in race file
-#          my @MTItems = &showMTItems($MTItems);
-#          print "MT Items: " . join(',',@MTItems) . "\n";
+          # The password inverts when the player is set to Human(inactive) mode (the bits are flipped).
+          # The ai password "viewai" is 238 171 77 9
+          # They change to 255 255 255 255 when in Human(inactive) mode.
+          $centreGravity = $decryptedData[16]; # (base 65), 255 if immune 
+          $centreTemperature = $decryptedData[17]; #(base 35), 255 if immune  
+          $centreRadiation = $decryptedData[18]; # , 255 if immune 
+          $lowGravity      = $decryptedData[19];
+          $lowTemperature  = $decryptedData[20];
+          $lowRadiation    = $decryptedData[21];
+          $highGravity     = $decryptedData[22];
+          $highTemperature = $decryptedData[23];
+          $highRadiation   = $decryptedData[24];
+          $growthRate      = $decryptedData[25];
+          # Worth noting all of these are +18 when in the fullDataFlag
+          $energyLevel           = $decryptedData[26]; #Always 0 in race file
+          $weaponsLevel          = $decryptedData[27]; #Always 0 in race file
+          $propulsionLevel       = $decryptedData[28]; #Always 0 in race file
+          $constructionLevel     = $decryptedData[29]; #Always 0 in race file
+          $electronicsLevel      = $decryptedData[30]; #Always 0 in race file
+          $biotechLevel          = $decryptedData[31]; #Always 0 in race file
+          $energyLevelPointsSincePrevLevel         = $decryptedData[32]; # (4 bytes) #Always 0 in race file
+          $weaponsLevelPointsSincePrevLevel        = $decryptedData[36]; # (4 bytes) #Always 0 in race file
+          $propulsionLevelPointsSincePrevLevel     = $decryptedData[42]; # (4 bytes) #Always 0 in race file
+          $constructionLevelPointsSincePrevLevel   = $decryptedData[46]; # (4 bytes) #Always 0 in race file
+          $electronicsLevelPointsSincePrevLevel     = $decryptedData[50]; # (4 bytes) #Always 0 in race file
+          $biologyLevelPointsSincePrevLevel         = $decryptedData[54]; # (4 bytes) #Always 0 in race file
+          $researchPercentage    = $decryptedData[56]; # defaults to 15
+          $currentResourcePriority = $decryptedData[57] >> 4; # (right 4 bits) [same, energy ..., lowest]  #Always 0 in race file
+          $nextResourcePriority  = $decryptedData[57] & 0x04; # (left 4 bits) #Always 0 in race file
+          $researchPointsPreviousYear = $decryptedData[58]; # (4 bytes) #Always 0 in race file
+          $resourcePerColonist = $decryptedData[62]; # ? 55? 
+          $producePerFactory = $decryptedData[63];
+          $toBuildFactory = $decryptedData[64];
+          $operateFactory = $decryptedData[65];
+          $producePerMine = $decryptedData[66];
+          $toBuildMine = $decryptedData[67];
+          $operateMine = $decryptedData[68];
+          $spendLeftoverPoints = $decryptedData[69]; # ?  (3:factories)  
+          $researchEnergy        = $decryptedData[70]; # (0:+75%, 1: 0%, 2:-50%) 
+          $researchWeapons       = $decryptedData[71]; # (0:+75%, 1: 0%, 2:-50%)
+          $researchProp          = $decryptedData[72]; # (0:+75%, 1: 0%, 2:-50%)
+          $researchConstruction  = $decryptedData[73]; # (0:+75%, 1: 0%, 2:-50%)
+          $researchElectronics   = $decryptedData[74]; # (0:+75%, 1: 0%, 2:-50%)
+          $researchBiotech       = $decryptedData[75]; # (0:+75%, 1: 0%, 2:-50%)
+          $PRT = $decryptedData[76]; # HE SS WM CA IS SD PP IT AR JOAT  
+          #$decryptedData[77]; unknown , always 0?  #Bug: 2nd half of PRT?
+          $LRT =  $decryptedData[78]  + ($decryptedData[79] * 0x100); 
+          $checkBoxes = $decryptedData[81]; 
+          #Unknown bit 5
+          $expensiveTechStartsAt3 = &bitTest($checkBoxes, 5);
+          # Unknown bit 6
+          $factoriesCost1LessGerm = &bitTest($checkBoxes, 7);
+          $MTItems =  $decryptedData[82] + ($decryptedData[83] * 0x100); #Always 0 in race file
           #$decryptedData[82-109]; unknown, but in pairs
           # Interestingly, if the player relations have never been set, the
           # player relations length will be 0, with no bytes after it
-          # For the player relations values
-          # So the result here CAN be 0.
-          my $playerRelationsLength = $decryptedData[112]; #Always 0 in race file
-#           if ( $playerRelationsLength ) { 
-#             for (my $i = 1; $i <= $playerRelationsLength; $i++) {
-#               my $id = $i-1;
-#               if ($id == $playerId) { next; } # Skip for self
-#               print "Player " . $id . ": " . &showPlayerRelations($decryptedData[$i+112]) . "\n";
-#             } 
-#           } else { print "Player Relations never set\n"; }
-          print "<img src=\"$WWW_Image" . "logo" . $logo . ".png\">\n";
+          # for the player relations values
+          # so the result here CAN be 0.
+
+          print "<img src=\"$WWW_Image" . 'logo' . $logo . ".png\">\n";
           print "<P><u>Race Name</u>: $singularRaceName : $pluralRaceName\n"; 
-          print "<P><u>Spend Leftover Points</u>: " . &showLeftoverPoints($spendLeftoverPoints) . "\n";
-          print "<P><u>PRT</u>: " . &showPRT($PRT) . "\n";
-          print "<P><u>LRTs</u>: " . join(', ',@LRTs) . "\n";
-          print "<P><u>Hab</u>: Grav: " . &showHab($lowGravity,$centreGravity,$highGravity, 0) . ", Temp: " . &showHab($lowTemperature,$centreTemperature,$highTemperature,1) . ", Rad: " . &showHab($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
-          print "<P><u>Productivity</u>: Colonist " . $resourcePerColonist*100 .", Factory: Produce $producePerFactory, Cost To Build $toBuildFactory, May Operate $operateFactory, Mine: Produce $producePerMine, Resources to Build $toBuildMine, May Operate $operateMine\n";
-          print "<P><u>FactoriesCost1LessGerm</u>: " . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
-          print "<P><u>Research Cost</u>:  Energy " . &showResearchCost($researchEnergy) . ", Weapons " . &showResearchCost($researchWeapons) . ", Propulsion " . &showResearchCost($researchProp). ", Construction " . &showResearchCost($researchConstruction) . ", Electronics " . &showResearchCost($researchElectronics) . ", Biotech " . &showResearchCost($researchBiotech) . "\n";
-          print "<P><u>Expensive Tech Starts at 3</u>: " . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n";
+          print '<P><u>Spend Leftover Points</u>: ' . &showLeftoverPoints($spendLeftoverPoints) . "\n";
+          print '<P><u>PRT</u>: ' . &PRT($PRT,1) . "\n";
+          print '<P><u>LRTs</u>: ' . join(', ',&LRT($LRT,1)) . "\n";
+          print '<P><u>Hab</u>: Grav: ' . &showHab($lowGravity,$centreGravity,$highGravity, 0) . ", Temp: " . &showHab($lowTemperature,$centreTemperature,$highTemperature,1) . ", Rad: " . &showHab($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
+          print '<P><u>Productivity</u>: Colonist ' . ($resourcePerColonist*100) . ", Factory: Produce $producePerFactory, Cost To Build $toBuildFactory, May Operate $operateFactory, Mine: Produce $producePerMine, Resources to Build $toBuildMine, May Operate $operateMine\n";
+          print '<P><u>FactoriesCost1LessGerm</u>: ' . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
+          print '<P><u>Research Cost</u>:  Energy ' . &showResearchCost($researchEnergy) . ", Weapons " . &showResearchCost($researchWeapons) . ", Propulsion " . &showResearchCost($researchProp). ", Construction " . &showResearchCost($researchConstruction) . ", Electronics " . &showResearchCost($researchElectronics) . ", Biotech " . &showResearchCost($researchBiotech) . "\n";
+          print '<P><u>Expensive Tech Starts at 3</u>: ' . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n";
         }
       }
-      # END OF MAGIC
+      # END OF MAGIC            
+      #reencrypt the data for output
+      ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
+      @encryptedBlock = @ { $encryptedBlock };
+      push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
   }
+  if ( $action ) { return \@outBytes; }
+  else { return 0; }
 } 
 
 sub parseInt {
@@ -962,27 +962,7 @@ sub showHab {
   my ($lowFixed, $centerFixed, $highFixed); 
   my @habBase = qw ( .12 -200 0) ; #The starting value for each hab range, max 8.0, 200, 100
   my @habIncrement = qw (.24 4 1 ) ; # The size of the hab increment
-  # BUG: Grav isn't right
-  # I don't know the formula, but I can brute force it: https://wiki.starsautohost.org/wikinew/craebild/habcalc.htm
-  # This might be the correct formula
-    #   function getClicksFromGrav(grav)
-    # {
-    #   grav *= 100;		//local copy (needs at least 2 bytes)
-    #   var result;		//unsigned char
-    #   var lowerHalf = 1;	//signed char
-    #   if (grav < 100) {
-    #     grav = Math.floor(10000/grav);	//integer truncation
-    #     lowerHalf = -1;
-    #   }
-    #   if (grav < 200) {
-    #     result = grav/4-25;
-    #   } else {
-    #     result = (grav + 400) / 24;
-    #   }
-    #   result = Math.floor(50.9+lowerHalf*result);
-    #   if (result < 1) result = 1;	//one less ambiguity
-    #   return result;
-    # }
+  # I don't know the GRAV formula, but I can brute force it: https://wiki.starsautohost.org/wikinew/craebild/habcalc.htm
   my @gravity_table = ( 0.12, 0.12, 0.13, 0.13, 0.14, 0.14, 0.15, 0.15, 0.16, 0.17, 0.17, 0.18, 0.19, 0.20, 0.21, 0.22, 0.24, 0.25, 0.27, 0.29, 0.31, 0.33, 0.36, 0.40, 0.44, 0.50, 0.51, 0.52, 0.53, 0.54, 0.55, 0.56, 0.58, 0.59, 0.60, 0.62, 0.64, 0.65, 0.67, 0.69, 0.71, 0.73, 0.75, 0.78, 0.80, 0.83, 0.86, 0.89, 0.92, 0.96, 1.00, 1.04, 1.08, 1.12, 1.16, 1.20, 1.24, 1.28, 1.32, 1.36, 1.40, 1.44, 1.48, 1.52, 1.56, 1.60, 1.64, 1.68, 1.72, 1.76, 1.80, 1.84, 1.88, 1.92, 1.96, 2.00, 2.24, 2.48, 2.72, 2.96, 3.20, 3.44, 3.68, 3.92, 4.16, 4.40, 4.64, 4.88, 5.12, 5.36, 5.60, 5.84, 6.08, 6.32, 6.56, 6.80, 7.04, 7.28, 7.52, 7.76, 8.00 );
   if ($center == 255) {return 'Immune'; } 
   elsif ($type != 0 ) { # Grav is different
@@ -1002,9 +982,9 @@ sub showLeftoverPoints {
 sub showResearchCost {
 #(0:+75%, 1: 0%, 2:-50%) 
    my ($value) = @_;
-   if    ($value eq '2') {     return '-50%';
+   if ($value eq '2')       {  return '-50%';
    } elsif  ($value eq '1') {  return 'Standard'; 
-   } else {                  return '+75%'; }
+   } else                   {  return '+75%'; }
 }
 
 sub showExpensiveTechStartsAt3 {
@@ -1028,66 +1008,47 @@ sub showResearchPriority {
 }
 
 sub PRT {
-  my ($prt) = @_;
-  my @prts = qw (HE SS WM CA IS SD PP IT AR JOAT );
-  return $prts[$prt]; 
-}
-
-sub showPRT {
-  my ($prt) = @_;
-  my @prts = ('HyperExpansion', 'Super Stealth', 'War Monger', 'Claim Adjustor', 'Inner Strength', 'Space Demolition', 'Packet Physics', 'Interstellar Traveller', 'Alternate Reality', 'Jack of all Trades' );
+  # return a string of the PRT, abbrev or full
+  my ($prt, $type) = @_;
+  my @prts;
+  if ($type) { @prts = ('HyperExpansion', 'Super Stealth', 'War Monger', 'Claim Adjustor', 'Inner Strength', 'Space Demolition', 'Packet Physics', 'Interstellar Traveller', 'Alternate Reality', 'Jack of all Trades' ); }
+  else { @prts = qw (HE SS WM CA IS SD PP IT AR JOAT ); } 
   return $prts[$prt]; 
 }
 
 sub LRT {
-  my ($lrts) = @_;
+  # return a string of all LRTs, abbrev or full
+  my ($lrts, $type) = @_;
+  my @lrts;
+  if ($type) {
+    @lrts = qw (ImprovedFuelEfficiency TotalTerraforming AdvancedRemoteMining ImprovedStarbases GeneralisedResearch UltimateRecycling MineralAlchemy NoRamScoopEngines CheapEngines OnlyBasicRemoteMining NoAdvancedScanners LowStartingPopulation BleedingedgeTechnology RegeneratingShields Unused Unused);
+  } else { @lrts = qw( IFE TT ARM ISB GR UR MA NRSE CE OBRM NAS LSP BET RS Unused Unused); }
   my @string = ();
-  if (&bitTest($lrts, 0)) { push @string, 'IFE';  }
-  if (&bitTest($lrts, 1)) { push @string, 'TT'; }
-  if (&bitTest($lrts, 2)) { push @string, 'ARM'; }
-  if (&bitTest($lrts, 3)) { push @string, 'ISB';  }
-  if (&bitTest($lrts, 4)) { push @string, 'GR';    }
-  if (&bitTest($lrts, 5)) { push @string, 'UR';    }
-  if (&bitTest($lrts, 6)) { push @string, 'MA'; }
-  if (&bitTest($lrts, 7)) { push @string, 'NRSE'; }
-  if (&bitTest($lrts, 8)) { push @string, 'CE';     }
-  if (&bitTest($lrts, 9)) { push @string, 'OBRM';   }
-  if (&bitTest($lrts, 10)) { push @string, 'NAS';  }
-  if (&bitTest($lrts, 11)) { push @string, 'LSP';     }
-  if (&bitTest($lrts, 12)) { push @string, 'BET';     }
-  if (&bitTest($lrts, 13)) { push @string, 'RS';     }
-  if (&bitTest($lrts, 14)) { push @string, 'Unused';     }
-  if (&bitTest($lrts, 15)) { push @string, 'Unused';     }
-  return @string;
-}
-
-sub showLRT {
-  my ($lrts) = @_;
-  my @string = ();
-  if (&bitTest($lrts, 0)) { push @string, 'ImprovedFuelEfficiency';  }
-  if (&bitTest($lrts, 1)) { push @string, 'TotalTerraforming'; }
-  if (&bitTest($lrts, 2)) { push @string, 'AdvancedRemoteMining'; }
-  if (&bitTest($lrts, 3)) { push @string, 'ImprovedStarbases';  }
-  if (&bitTest($lrts, 4)) { push @string, 'GeneralisedResearch';    }
-  if (&bitTest($lrts, 5)) { push @string, 'UltimateRecycling';    }
-  if (&bitTest($lrts, 6)) { push @string, 'MineralAlchemy'; }
-  if (&bitTest($lrts, 7)) { push @string, 'NoRamScoopEngines'; }
-  if (&bitTest($lrts, 8)) { push @string, 'CheapEngines';     }
-  if (&bitTest($lrts, 9)) { push @string, 'OnlyBasicRemoteMining';   }
-  if (&bitTest($lrts, 10)) { push @string, 'NoAdvancedScanners';  }
-  if (&bitTest($lrts, 11)) { push @string, 'LowStartingPopulation';     }
-  if (&bitTest($lrts, 12)) { push @string, 'BleedingedgeTechnology';     }
-  if (&bitTest($lrts, 13)) { push @string, 'RegeneratingShields';     }
-  if (&bitTest($lrts, 14)) { push @string, 'Unused';     }
-  if (&bitTest($lrts, 15)) { push @string, 'Unused';     }
+  if (&bitTest($lrts, 0)) { push @string, $lrts[0];  }
+  if (&bitTest($lrts, 1)) { push @string, $lrts[1]; }
+  if (&bitTest($lrts, 2)) { push @string, $lrts[2]; }
+  if (&bitTest($lrts, 3)) { push @string, $lrts[3];  }
+  if (&bitTest($lrts, 4)) { push @string, $lrts[4];    }
+  if (&bitTest($lrts, 5)) { push @string, $lrts[5];    }
+  if (&bitTest($lrts, 6)) { push @string, $lrts[6]; }
+  if (&bitTest($lrts, 7)) { push @string, $lrts[7]; }
+  if (&bitTest($lrts, 8)) { push @string, $lrts[8];     }
+  if (&bitTest($lrts, 9)) { push @string, $lrts[9];   }
+  if (&bitTest($lrts, 10)) { push @string, $lrts[10];  }
+  if (&bitTest($lrts, 11)) { push @string, $lrts[11];     }
+  if (&bitTest($lrts, 12)) { push @string, $lrts[12];     }
+  if (&bitTest($lrts, 13)) { push @string, $lrts[13];     }
+  if (&bitTest($lrts, 14)) { push @string, $lrts[14];     }
+  if (&bitTest($lrts, 15)) { push @string, $lrts[15];     }
+  
   if (@string) { return join (', ', @string);  }
   else { $string[0] = 'None'; return @string; }
 }
 
 sub showFactoriesCost1LessGerm {
  my ($value) = @_;
- if ($value == 128) {return "Checked"; }
- else {return "Not Checked"; }
+ if ($value == 128) {return 'Checked'; }
+ else {return 'Not Checked'; }
 }
 
 sub showMTItems {
@@ -1107,7 +1068,7 @@ sub showMTItems {
   if (&bitTest($itemBits, 3)) { push @string, 'Jump Gate';         }
   #     Unused bits="4"/>
   if (@string) { return @string; }
-  else { $string[0] = "None"; return @string }
+  else { $string[0] = 'None'; return @string }
 }
 
 sub decodeBytesForStarsString {
@@ -1250,7 +1211,6 @@ sub resetRace {
     # Reset all of the player relations to Neutral
     # Variable length based on number of players
     # If player relations have never been set, length is 0
-    if ($debug ) {print "Player Relations Length $playerRelationsLength\n"; }
     if ($playerRelationsLength) {
       for (my $i = 1; $i <= $playerRelationsLength; $i++) {
         $decryptedBytes[112+$i] = 0;
@@ -1258,130 +1218,6 @@ sub resetRace {
     }
   }
   return @decryptedBytes;
-}
-
-sub showRace {
-  my ($decryptedData, $size) = @_;
-  my @decryptedData = @{$decryptedData};
-  my $raceData = '';
-  my $playerId = $decryptedData[0] & 0xFF;
-  my $shipDesigns = $decryptedData[1] & 0xFF;
-  my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8);
-  my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);
-  my $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4);
-  my $logo = (($decryptedData[6] & 0xFF) >> 3);
-  my $fullDataFlag = ($decryptedData[6] & 0x04);
-  # Byte 7 unknown
-  #   The 2s bit is 0 for Player, 1 for Human(inactive)
-  #   bits 6,7,8 also flip changed to human(inactive)  but don't flip back
-  # We figure out names here, because they're here at 8 when not fullDataFlag 
-  my $index = 8; 
-  my $playerRelations;
-  if ($fullDataFlag) { 
-    # The player names are at the end and are not a fixed length,
-    # The number of player relations bytes change where the names start   
-    # That also changes whether it's a fullData set or not. 
-    # PlayerRelationsLength is also number of players
-    #   except when it's not. If PR has never been changed, PRL will be 0.
-    $index = 112;
-    my $playerRelationsLength = $decryptedData[112]; 
-    $index = $index + $playerRelationsLength + 1;
-  }  
-  my $singularNameLength = $decryptedData[$index] & 0xFF;
-  my $singularMessageEnd = $index + $singularNameLength;
-  # updated 210516
-  #my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
-  my $pluralNameLength = $decryptedData[$index+$singularNameLength+1] & 0xFF;
-  if ($pluralNameLength == 0) { $pluralNameLength = 1; }
-  $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
-  $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
-  $raceData .= "playerID: $playerId: $singularRaceName[$playerId]:$pluralRaceName[$playerId]\n";  
-  
-  if ($fullDataFlag) { 
-    my $homeWorld = &read16(\@decryptedData, 8);
-#    my $rank = &read16(\@decryptedData, 10);
-# BUG: the references say this is two bytes, but I don't think it is.
-# That means I don't know what byte 11 is tho. 
-    my $rank = $decryptedData[10];
-    # Bytes 12..15 are the password;
-    # They change to 255 255 255 255 when in Human(inactive) mode.
-    my $centreGravity = $decryptedData[16]; # (base 65), 255 if immune 
-    my $centreTemperature = $decryptedData[17]; #(base 35), 255 if immune  
-    my $centreRadiation = $decryptedData[18]; # , 255 if immune 
-    my $lowGravity      = $decryptedData[19];
-    my $lowTemperature  = $decryptedData[20];
-    my $lowRadiation    = $decryptedData[21];
-    my $highGravity     = $decryptedData[22];
-    my $highTemperature = $decryptedData[23];
-    my $highRadiation   = $decryptedData[24];
-    my $growthRate      = $decryptedData[25];
-    $raceData .=  'Grav:' . &showHab($lowGravity,$centreGravity,$highGravity,0) . ', Temp: ' . &showHab($lowTemperature,$centreTemperature,$highTemperature,1) . ', Rad: ' . &showHab($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
-      # Worth noting all of these are +18 when in the fullDataFlag
-    my $energyLevel           = $decryptedData[26];
-    my $weaponsLevel          = $decryptedData[27];
-    my $propulsionLevel       = $decryptedData[28];
-    my $constructionLevel     = $decryptedData[29];
-    my $electronicsLevel      = $decryptedData[30];
-    my $biotechLevel          = $decryptedData[31];
-    my $energyLevelPointsSincePrevLevel         = $decryptedData[32]; # (4 bytes) 
-    my $weaponsLevelPointsSincePrevLevel        = $decryptedData[36]; # (4 bytes) 
-    my $propulsionLevelPointsSincePrevLevel     = $decryptedData[42]; # (4 bytes) 
-    my $constructionLevelPointsSincePrevLevel   = $decryptedData[46]; # (4 bytes) 
-    my $electronicsLevelPointsSincePrevLevel     = $decryptedData[50]; # (4 bytes)
-    my $biologyLevelPointsSincePrevLevel         = $decryptedData[54]; # (4 bytes)
-    my $researchPercentage    = $decryptedData[56];
-    my $currentResourcePriority = $decryptedData[57] >> 4; # (right 4 bits) [same, energy ..., lowest]
-    my $nextResourcePriority  = $decryptedData[57] & 0x04; # (left 4 bits)
-    my $researchPointsPreviousYear = $decryptedData[58]; # (4 bytes)
-    my $resourcePerColonist = $decryptedData[62]; # ? 55? 
-    my $producePerFactory = $decryptedData[63];
-    my $toBuildFactory = $decryptedData[64];
-    my $operateFactory = $decryptedData[65];
-    my $producePerMine = $decryptedData[66];
-    my $toBuildMine = $decryptedData[67];
-    my $operateMine = $decryptedData[68];
-    $raceData .=  "Productivity: Colonist: $resourcePerColonist, Factory: $producePerFactory, $toBuildFactory, $operateFactory, Mine: $producePerMine, $toBuildMine, $operateMine\n";
-    my $spendLeftoverPoints = $decryptedData[69]; # ?  (3:factories)  
-    $raceData .= "Spend Leftover Points On: " . &showLeftoverPoints($spendLeftoverPoints) . "\n"; 
-    my $researchEnergy        = $decryptedData[70]; # (0:+75%, 1: 0%, 2:-50%) 
-    my $researchWeapons       = $decryptedData[71]; # (0:+75%, 1: 0%, 2:-50%)
-    my $researchProp          = $decryptedData[72]; # (0:+75%, 1: 0%, 2:-50%)
-    my $researchConstruction  = $decryptedData[73]; # (0:+75%, 1: 0%, 2:-50%)
-    my $researchElectronics   = $decryptedData[74]; # (0:+75%, 1: 0%, 2:-50%)
-    my $researchBiotech       = $decryptedData[75]; # (0:+75%, 1: 0%, 2:-50%)
-    $raceData .= "Research Cost:  " . &showResearchCost($researchEnergy) . ", " . &showResearchCost($researchWeapons) . ", " . &showResearchCost($researchProp). ", " . &showResearchCost($researchConstruction) . ", " . &showResearchCost($researchElectronics) . ", " . &showResearchCost($researchBiotech) . "\n";
-    my $PRT = $decryptedData[76]; # HE SS WM CA IS SD PP IT AR JOAT  
-    $raceData .= "PRT: " . &showPRT($PRT) . "\n";
-    #$decryptedData[77]; unknown , always 0?
-    my $LRT =  $decryptedData[78]  + ($decryptedData[79] * 0x100); 
-    my @LRTs = &showLRT($LRT);
-    $raceData .= "LRTs: " . join(', ',@LRTs) . "\n";
-    my $checkBoxes = $decryptedData[81]; 
-      #Unknown bits="5" 
-      my $expensiveTechStartsAt3 = &bitTest($checkBoxes, 5);
-      # Unknown bit 6
-      my $factoriesCost1LessGerm = &bitTest($checkBoxes, 7);
-    $raceData .= "Expensive Tech Starts at 3: " . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n";
-    $raceData .= "FactoriesCost1LessGerm: " . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
-    my $MTItems =  $decryptedData[82] + ($decryptedData[83] * 0x100);
-    my @MTItems = &showMTItems($MTItems);
-    $raceData .= "MT Items: " . join(',',@MTItems) . "\n";
-    #$decryptedData[82-109]; unknown, but in pairs  
-    # Interestingly, if the player relations have never been set, the
-    #  player relations length will be 0, with no bytes after it
-    #  for the player relations values
-    #  so the result here CAN be 0.
-    my $playerRelationsLength = $decryptedData[112];
-    if ( $playerRelationsLength ) { 
-      for (my $i = 1; $i <= $playerRelationsLength; $i++) {
-        my $id = $i -1;
-        if ($id == $playerId) { next; } # Skip for self
-        $raceData .= "Player " . $id . ": " . &showPlayerRelations($decryptedData[$i+112]) . "\n";
-      } 
-    } else { $raceData .= "Player Relations never set\n"; }
-  }
-  $raceData .= "\n";
-  return $raceData;
 }
 
 sub StarsClean {
@@ -1459,7 +1295,7 @@ sub decryptClean {
   my @encryptedBlock;
   my @outBytes;
   my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
-  my ($random, $seedA, $seedB, $seedX, $seedY );
+  my ($seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
   my $needsCleaning = 0;
     # For Object Block 43 
@@ -1511,7 +1347,6 @@ sub decryptClean {
         my $PRT = $decryptedData[76];
         if ($PRT == 3) { # Reset the info the CA player can see
           $needsCleaning = 1;
-          #print &showRace(\@decryptedData,$size);
           if ($cleanFiles) {   
             @decryptedData = &resetRace(\@decryptedData,$Player);
           }
@@ -1804,15 +1639,6 @@ sub StarsFix {
   }  
 }
 
-#Deprecated ever since I learned about adding in parenthesis 
-# sub plusone {
-# # Increment the value of a number as one for display to end users
-# # (who problably don't count from 0)
-#   my ($val) = @_;
-#   $val++;
-#   return $val;
-# } 
-
 sub StarsAI {
   # Change player status in the HST file
   # Read in the binary Stars! file, byte by byte
@@ -1820,7 +1646,7 @@ sub StarsAI {
   use File::Copy;
   my $FileValues;
   my @fileBytes;
-  my $filename = $DirGames . "\\" . $GameFile . "\\" . $GameFile . '.HST';
+  my $filename = "$DirGames\\$GameFile\\$GameFile.HST";
   my $backupfile = $filename . '.ai';
   
   #Validate the HST file exists 
@@ -1865,7 +1691,7 @@ sub decryptAI {
   my @encryptedBlock;
   my @outBytes;
   my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti );
-  my ( $random, $seedA, $seedB, $seedX, $seedY );
+  my ( $seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   my $action = 0; # Was any action taken
@@ -1885,6 +1711,7 @@ sub decryptAI {
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
       push @outBytes, @block;
+# BUG? Does the file footer / race hash have to be updated when we change this? 
 #    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
 #      push @outBytes, @block;
     } else {
@@ -1893,7 +1720,7 @@ sub decryptAI {
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
-      my $playerId = $decryptedData[0] & 0xFF; 
+      my $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
         if ($PlayerAI == $playerId) {
           if (($NewStatus eq 'Active' || $NewStatus eq 'Idle')  && $decryptedData[7] == 227 ) {
             $action = 1;
@@ -1921,7 +1748,7 @@ sub decryptAI {
             &PLogOut(200," StarsAI: Flipped playerId:$playerId to Inactive/AI", $LogFile);
           } else { &PLogOut(200," StarsAI: No Status Change for playerId:$playerId", $LogFile); }
         } 
-      } # End of typeID 6
+      } 
       # END OF MAGIC
       #reencrypt the data for output    
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
@@ -1947,9 +1774,7 @@ sub splitWarnId {
   # I probably should make this another hash of hashes, but it would mean redesigning the warnId... again.
 	my ($warnId)  = @_;
 	my ($player, $warningType, $id) = split ('-',$warnId);
-#  my $planetId, $designId = split('\+', $id);
 	$player = $player *1; # deZerofy
-#	return ($player, $warningType, $planetId, $designId);
 	return ($player, $warningType, $id);
 }
 
@@ -1965,35 +1790,20 @@ sub showCategory {
   my ($category, $item) = @_;
   my @category;
   my %item;
-#             Empty = 0,
-#             Engine = 1,
-#             Scanners = 2,
-#             Shields = 4,
-#             Armor = 8,
-#             BeamWeapon = 0x10,
-#             Torpedo = 0x20
-#             Bomb = 0x40,
-#             MiningRobot = 0x80,
-#             MineLayer = 0x100,
-#             Orbital = 0x200,
-#             Planetary = 0x400,
-#             Electrical = 0x800,
-#             Mechanical = 0x1000,
-
-  $category[0] = 'Empty';     
-  $category[1] = 'Engine';       #0000000x
-  $category[2] = 'Scanners';     #000000x0
-  $category[4] = 'Shields';      #00000x00
-  $category[8] = 'Armor';        #0000x000
-  $category[16] = 'BeamWeapon';  #000x0000
-  $category[32] = 'Torpedo';     #00x00000
-  $category[64] = 'Bomb';        #0x000000
-  $category[128] = 'MiningRobot';#x0000000
-  $category[256] = 'MineLayer';
-  $category[512] = 'Orbital';
-  $category[1024] = 'Planetary'; # Assumed since it appears to be the only missing one
-  $category[2048] = 'Electrical';
-  $category[4096] = 'Mechanical';
+  $category[0] = 'Empty';        #00000000  0
+  $category[1] = 'Engine';       #0000000x  1
+  $category[2] = 'Scanners';     #000000x0  2
+  $category[4] = 'Shields';      #00000x00  4
+  $category[8] = 'Armor';        #0000x000  8
+  $category[16] = 'BeamWeapon';  #000x0000  0x10
+  $category[32] = 'Torpedo';     #00x00000  0x20
+  $category[64] = 'Bomb';        #0x000000  0x40
+  $category[128] = 'MiningRobot';#x0000000  0x80
+  $category[256] = 'MineLayer';  #          0x100
+  $category[512] = 'Orbital';    #          0x200
+  $category[1024] = 'Planetary'; #          0x400 Assumed since it appears to be the only missing one
+  $category[2048] = 'Electrical';#          0x800
+  $category[4096] = 'Mechanical';#          0x1000
   $category[6144] = 'Orbital Or Electrical';
 
   $item{'0'} =  [ qw ( empty ) ]; 
@@ -2061,208 +1871,208 @@ sub readItemDetail {
   # Position 10 is mass
   # Position 18 is fuel
   my %itemDetail;
-  $itemDetail{"1|1"}  = [  14,1,"Settler\'s Delight",1,0,0,0,0,0,0,2,2,1,0,1,8,1,0,0,0,0,0,0,0,140,275,480,576,0 ];
-  $itemDetail{"1|2"}  = [  14,2,"Quick Jump 5",2,0,0,0,0,0,0,4,3,3,0,1,0,0,0,0,25,100,100,100,180,500,800,900,1080,0 ];
-  $itemDetail{"1|3"}  = [  14,3,"Fuel Mizer",3,0,0,2,0,0,0,6,11,8,0,0,9,3,0,0,0,0,0,35,120,175,235,360,420,0 ];
-  $itemDetail{"1|4"}  = [  14,4,"Long Hump 6",4,0,0,3,0,0,0,9,6,5,0,1,1,0,0,0,20,60,100,100,105,450,750,900,1080,0 ];
-  $itemDetail{"1|5"}  = [  14,5,"Daddy Long Legs 7",5,0,0,5,0,0,0,13,12,11,0,3,2,0,0,0,20,60,70,100,100,110,600,750,900,0 ];
-  $itemDetail{"1|6"}  = [  14,6,"Alpha Drive 8",6,0,0,7,0,0,0,17,28,16,0,3,3,0,0,0,15,50,60,70,100,100,115,700,840,0 ];
-  $itemDetail{"1|7"}  = [  14,7,"Trans-Galactic Drive",7,0,0,9,0,0,0,25,50,20,20,9,4,0,0,0,15,35,45,55,70,80,90,100,120,0 ];
-  $itemDetail{"1|8"}  = [  14,8,"Interspace-10",8,0,0,11,0,0,0,25,60,18,25,10,12,5,0,0,10,30,40,50,60,70,80,90,100,0 ];
-  $itemDetail{"1|9"}  = [  14,9,"Enigma Pulsar",9,7,0,13,5,9,0,20,40,12,15,11,109,6,0,0,0,0,0,0,65,75,85,95,105,0 ];
-  $itemDetail{"1|10"}  = [  14,10,"Trans-Star 10",10,0,0,23,0,0,0,5,10,3,0,3,117,0,0,0,5,15,20,25,30,35,40,45,50,0 ];
-  $itemDetail{"1|11"}  = [  14,11,"Radiating Hydro-Ram Scoop",11,2,0,6,0,0,0,10,8,3,2,9,7,2,0,0,0,0,0,0,0,165,375,600,720,0 ];
-  $itemDetail{"1|12"}  = [  14,12,"Sub-Galactic Fuel Scoop",12,2,0,8,0,0,0,20,12,4,4,7,5,0,0,0,0,0,0,0,85,105,210,380,456,0 ];
-  $itemDetail{"1|13"}  = [  14,13,"Trans-Galactic Fuel Scoop",13,3,0,9,0,0,0,19,18,5,4,12,6,0,0,0,0,0,0,0,0,88,100,145,174,0 ];
-  $itemDetail{"1|14"}  = [  14,14,"Trans-Galactic Super Scoop",14,4,0,12,0,0,0,18,24,6,4,16,10,0,0,0,0,0,0,0,0,0,65,90,108,0 ];
-  $itemDetail{"1|15"}  = [  14,15,"Trans-Galactic Mizer Scoop",15,4,0,16,0,0,0,11,20,5,2,13,11,0,0,0,0,0,0,0,0,0,0,70,84,0 ];
-  $itemDetail{"1|16"}  = [  14,16,"Galaxy Scoop",16,5,0,20,0,0,0,8,12,4,2,9,191,4,0,0,0,0,0,0,0,0,0,0,60,0 ];
-  $itemDetail{"2|1"}  = [  12,1,"Bat Scanner",1,0,0,0,0,0,0,2,1,1,0,1,59,0,0,,,,,,,,,,, ];
-  $itemDetail{"2|2"}  = [  12,2,"Rhino Scanner",2,0,0,0,0,1,0,5,3,3,0,2,48,50,0,,,,,,,,,,, ];
-  $itemDetail{"2|3"}  = [  12,3,"Mole Scanner",3,0,0,0,0,4,0,2,9,2,0,2,49,100,0,,,,,,,,,,, ];
-  $itemDetail{"2|4"}  = [  12,4,"DNA Scanner",4,0,0,3,0,0,6,2,5,1,1,1,52,125,0,,,,,,,,,,, ];
-  $itemDetail{"2|5"}  = [  12,5,"Possum Scanner",5,0,0,0,0,5,0,3,18,3,0,3,61,150,0,,,,,,,,,,, ];
-  $itemDetail{"2|6"}  = [  12,6,"Pick Pocket Scanner",6,4,0,0,0,4,4,15,35,8,10,6,56,80,4,,,,,,,,,,, ];
-  $itemDetail{"2|7"}  = [  12,7,"Chameleon Scanner",7,3,0,0,0,6,0,6,25,4,6,4,63,160,4,,,,,,,,,,, ];
-  $itemDetail{"2|8"}  = [  12,8,"Ferret Scanner",8,3,0,0,0,7,2,2,36,2,0,8,53,185,1,,,,,,,,,,, ];
-  $itemDetail{"2|9"}  = [  12,9,"Dolphin Scanner",9,5,0,0,0,10,4,4,40,5,5,10,54,220,2,,,,,,,,,,, ];
-  $itemDetail{"2|10"}  = [  12,10,"Gazelle Scanner",10,4,0,0,0,8,0,5,24,4,0,5,50,225,0,,,,,,,,,,, ];
-  $itemDetail{"2|11"}  = [  12,11,"RNA Scanner",11,0,0,5,0,0,10,2,20,1,1,2,60,230,0,,,,,,,,,,, ];
-  $itemDetail{"2|12"}  = [  12,12,"Cheetah Scanner",12,5,0,0,0,11,0,4,50,3,1,13,62,275,0,,,,,,,,,,, ];
-  $itemDetail{"2|13"}  = [  12,13,"Elephant Scanner",13,6,0,0,0,16,7,6,70,8,5,14,55,300,3,,,,,,,,,,, ];
-  $itemDetail{"2|14"}  = [  12,14,"Eagle Eye Scanner",14,6,0,0,0,14,0,3,64,3,2,21,51,335,0,,,,,,,,,,, ];
-  $itemDetail{"2|15"}  = [  12,15,"Robber Baron Scanner",15,10,0,0,0,15,10,20,90,10,10,10,57,220,4,,,,,,,,,,, ];
-  $itemDetail{"2|16"}  = [  12,16,"Peerless Scanner",16,7,0,0,0,24,0,4,90,3,2,30,58,500,0,,,,,,,,,,, ];
-  $itemDetail{"4|1"}  = [  11,1,"Mole-skin Shield",1,0,0,0,0,0,0,1,4,1,0,1,42,25,,,,,,,,,,,, ];
-  $itemDetail{"4|2"}  = [  11,2,"Cow-hide Shield",2,3,0,0,0,0,0,1,5,2,0,2,43,40,,,,,,,,,,,, ];
-  $itemDetail{"4|3"}  = [  11,3,"Wolverine Diffuse Shield",3,6,0,0,0,0,0,1,6,3,0,3,44,60,,,,,,,,,,,, ];
-  $itemDetail{"4|4"}  = [  11,4,"Croby Sharmor",4,7,0,0,4,0,0,10,15,7,0,4,40,60,,,,,,,,,,,, ];
-  $itemDetail{"4|5"}  = [  11,5,"Shadow Shield",5,7,0,0,0,3,0,2,7,3,0,3,41,75,,,,,,,,,,,, ];
-  $itemDetail{"4|6"}  = [  11,6,"Bear Neutrino Barrier",6,10,0,0,0,0,0,1,8,4,0,4,45,100,,,,,,,,,,,, ];
-  $itemDetail{"4|7"}  = [  11,7,"Langston Shell",7,12,0,9,0,9,0,10,20,10,2,6,183,125,,,,,,,,,,,, ];
-  $itemDetail{"4|8"}  = [  11,8,"Gorilla Delagator",8,14,0,0,0,0,0,1,11,5,0,6,46,175,,,,,,,,,,,, ];
-  $itemDetail{"4|9"}  = [  11,9,"Elephant Hide Fortress",9,18,0,0,0,0,0,1,15,8,0,10,47,300,,,,,,,,,,,, ];
-  $itemDetail{"4|10"}  = [  11,10,"Complete Phase Shield",10,22,0,0,0,0,0,1,20,12,0,15,119,500,,,,,,,,,,,, ];
-  $itemDetail{"8|1"}  = [  13,1,"Tritanium",1,0,0,0,0,0,0,60,10,5,0,0,64,50,,,,,,,,,,,, ];
-  $itemDetail{"8|2"}  = [  13,2,"Crobmnium",2,0,0,0,3,0,0,56,13,6,0,0,65,75,,,,,,,,,,,, ];
-  $itemDetail{"8|3"}  = [  13,3,"Carbonic Armor",3,0,0,0,0,0,4,25,15,0,0,5,70,100,,,,,,,,,,,, ];
-  $itemDetail{"8|4"}  = [  13,4,"Strobnium",4,0,0,0,6,0,0,54,18,8,0,0,68,120,,,,,,,,,,,, ];
-  $itemDetail{"8|5"}  = [  13,5,"Organic Armor",5,0,0,0,0,0,7,15,20,0,0,6,71,175,,,,,,,,,,,, ];
-  $itemDetail{"8|6"}  = [  13,6,"Kelarium",6,0,0,0,9,0,0,50,25,9,1,0,67,180,,,,,,,,,,,, ];
-  $itemDetail{"8|7"}  = [  13,7,"Fielded Kelarium",7,4,0,0,10,0,0,50,28,10,0,2,78,175,,,,,,,,,,,, ];
-  $itemDetail{"8|8"}  = [  13,8,"Depleted Neutronium",8,0,0,0,10,3,0,50,28,10,0,2,79,200,,,,,,,,,,,, ];
-  $itemDetail{"8|9"}  = [  13,9,"Neutronium",9,0,0,0,12,0,0,45,30,11,2,1,69,275,,,,,,,,,,,, ];
-  $itemDetail{"8|10"}  = [  13,10,"Mega Poly Shell",10,14,0,0,14,14,6,20,65,18,6,6,110,400,,,,,,,,,,,, ];
-  $itemDetail{"8|11"}  = [  13,11,"Valanium",11,0,0,0,16,0,0,40,50,15,0,0,66,500,,,,,,,,,,,, ];
-  $itemDetail{"8|12"}  = [  13,12,"Superlatanium",12,0,0,0,24,0,0,30,100,25,0,0,77,1500,,,,,,,,,,,, ];
-  $itemDetail{"16|1"}  = [  2,1,"Laser",1,0,0,0,0,0,0,1,5,0,6,0,28,1,10,9,0,,,,,,,,, ];
-  $itemDetail{"16|2"}  = [  2,2,"X-Ray Laser",2,0,3,0,0,0,0,1,6,0,6,0,29,1,16,9,0,,,,,,,,, ];
-  $itemDetail{"16|3"}  = [  2,3,"Mini Gun",3,0,5,0,0,0,0,3,10,0,16,0,20,2,13,12,2,,,,,,,,, ];
-  $itemDetail{"16|4"}  = [  2,4,"Yakimora Light Phaser",4,0,6,0,0,0,0,1,7,0,8,0,19,1,26,9,0,,,,,,,,, ];
-  $itemDetail{"16|5"}  = [  2,5,"Blackjack",5,0,7,0,0,0,0,10,7,0,16,0,14,0,90,10,0,,,,,,,,, ];
-  $itemDetail{"16|6"}  = [  2,6,"Phaser Bazooka",6,0,8,0,0,0,0,2,11,0,8,0,21,2,26,7,0,,,,,,,,, ];
-  $itemDetail{"16|7"}  = [  2,7,"Pulsed Sapper",7,5,9,0,0,0,0,1,12,0,0,4,17,3,82,14,1,,,,,,,,, ];
-  $itemDetail{"16|8"}  = [  2,8,"Colloidal Phaser",8,0,10,0,0,0,0,2,18,0,14,0,192,3,26,5,0,,,,,,,,, ];
-  $itemDetail{"16|9"}  = [  2,9,"Gatling Gun",9,0,11,0,0,0,0,3,13,0,20,0,26,2,31,12,2,,,,,,,,, ];
-  $itemDetail{"16|10"}  = [  2,10,"Mini Blaster",10,0,12,0,0,0,0,1,9,0,10,0,24,1,66,9,0,,,,,,,,, ];
-  $itemDetail{"16|11"}  = [  2,11,"Bludgeon",11,0,13,0,0,0,0,10,9,0,22,0,15,0,231,10,0,,,,,,,,, ];
-  $itemDetail{"16|12"}  = [  2,12,"Mark IV Blaster",12,0,14,0,0,0,0,2,15,0,12,0,25,2,66,7,0,,,,,,,,, ];
-  $itemDetail{"16|13"}  = [  2,13,"Phased Sapper",13,8,15,0,0,0,0,1,16,0,0,6,18,3,211,14,1,,,,,,,,, ];
-  $itemDetail{"16|14"}  = [  2,14,"Heavy Blaster",14,0,16,0,0,0,0,2,25,0,20,0,193,3,66,5,0,,,,,,,,, ];
-  $itemDetail{"16|15"}  = [  2,15,"Gatling Neutrino Cannon",15,0,17,0,0,0,0,3,17,0,28,0,30,2,80,13,2,,,,,,,,, ];
-  $itemDetail{"16|16"}  = [  2,16,"Myopic Disruptor",16,0,18,0,0,0,0,1,12,0,14,0,194,1,169,9,0,,,,,,,,, ];
-  $itemDetail{"16|17"}  = [  2,17,"Blunderbuss",17,0,19,0,0,0,0,10,13,0,30,0,13,0,592,11,0,,,,,,,,, ];
-  $itemDetail{"16|18"}  = [  2,18,"Disruptor",18,0,20,0,0,0,0,2,20,0,16,0,27,2,169,8,0,,,,,,,,, ];
-  $itemDetail{"16|19"}  = [  2,19,"Multi Contained Munition",19,21,21,0,0,16,12,8,40,6,40,6,111,3,140,6,0,,,,,,,,, ];
-  $itemDetail{"16|20"}  = [  2,20,"Syncro Sapper",20,11,21,0,0,0,0,1,21,0,0,8,16,3,541,14,1,,,,,,,,, ];
-  $itemDetail{"16|21"}  = [  2,21,"Mega Disruptor",21,0,22,0,0,0,0,2,33,0,30,0,195,3,169,6,0,,,,,,,,, ];
-  $itemDetail{"16|22"}  = [  2,22,"Big Mutha Cannon",22,0,23,0,0,0,0,3,23,0,36,0,31,2,204,13,2,,,,,,,,, ];
-  $itemDetail{"16|23"}  = [  2,23,"Streaming Pulverizer",23,0,24,0,0,0,0,1,16,0,20,0,22,1,433,9,0,,,,,,,,, ];
-  $itemDetail{"16|24"}  = [  2,24,"Anti-Matter Pulverizer",24,0,26,0,0,0,0,2,27,0,22,0,23,2,433,8,0,,,,,,,,, ];
-  $itemDetail{"32|1"}  = [  3,1,"Alpha Torpedo",1,0,0,0,0,0,0,25,5,9,3,3,87,4,5,0,35,,,,,,,,, ];
-  $itemDetail{"32|2"}  = [  3,2,"Beta Torpedo",2,0,5,1,0,0,0,25,6,18,6,4,88,4,12,1,45,,,,,,,,, ];
-  $itemDetail{"32|3"}  = [  3,3,"Delta Torpedo",3,0,10,2,0,0,0,25,8,22,8,5,89,4,26,1,60,,,,,,,,, ];
-  $itemDetail{"32|4"}  = [  3,4,"Epsilon Torpedo",4,0,14,3,0,0,0,25,10,30,10,6,92,5,48,2,65,,,,,,,,, ];
-  $itemDetail{"32|5"}  = [  3,5,"Rho Torpedo",5,0,18,4,0,0,0,25,12,34,12,8,93,5,90,2,75,,,,,,,,, ];
-  $itemDetail{"32|6"}  = [  3,6,"Upsilon Torpedo",6,0,22,5,0,0,0,25,15,40,14,9,94,5,169,3,75,,,,,,,,, ];
-  $itemDetail{"32|7"}  = [  3,7,"Omega Torpedo",7,0,26,6,0,0,0,25,18,52,18,12,95,5,316,4,80,,,,,,,,, ];
-  $itemDetail{"32|8"}  = [  3,8,"Anti Matter Torpedo",8,0,11,12,0,0,21,8,50,3,8,1,108,6,60,0,85,,,,,,,,, ];
-  $itemDetail{"32|9"}  = [  3,9,"Jihad Missile",9,0,12,6,0,0,0,35,13,37,13,9,200,5,85,0,20,,,,,,,,, ];
-  $itemDetail{"32|10"}  = [  3,10,"Juggernaut Missile",10,0,16,8,0,0,0,35,16,48,16,11,201,5,150,1,20,,,,,,,,, ];
-  $itemDetail{"32|11"}  = [  3,11,"Doomsday Missile",11,0,20,10,0,0,0,35,20,60,20,13,202,6,280,2,25,,,,,,,,, ];
-  $itemDetail{"32|12"}  = [  3,12,"Armageddon Missile",12,0,24,10,0,0,0,35,24,67,23,16,203,6,525,3,30,,,,,,,,, ];
-  $itemDetail{"64|1"}  = [  4,1,"Lady Finger Bomb",1,0,2,0,0,0,0,40,5,1,20,0,35,1,6,2,,,,,,,,,, ];
-  $itemDetail{"64|2"}  = [  4,2,"Black Cat Bomb",2,0,5,0,0,0,0,45,7,1,22,0,36,1,9,4,,,,,,,,,, ];
-  $itemDetail{"64|3"}  = [  4,3,"M-70 Bomb",3,0,8,0,0,0,0,50,9,1,24,0,37,1,12,6,,,,,,,,,, ];
-  $itemDetail{"64|4"}  = [  4,4,"M-80 Bomb",4,0,11,0,0,0,0,55,12,1,25,0,38,1,17,7,,,,,,,,,, ];
-  $itemDetail{"64|5"}  = [  4,5,"Cherry Bomb",5,0,14,0,0,0,0,52,11,1,25,0,39,1,25,10,,,,,,,,,, ];
-  $itemDetail{"64|6"}  = [  4,6,"LBU-17 Bomb",6,0,5,0,0,8,0,30,7,1,15,15,32,1,2,16,,,,,,,,,, ];
-  $itemDetail{"64|7"}  = [  4,7,"LBU-32 Bomb",7,0,10,0,0,10,0,35,10,1,24,15,33,1,3,28,,,,,,,,,, ];
-  $itemDetail{"64|8"}  = [  4,8,"LBU-74 Bomb",8,0,15,0,0,12,0,45,14,1,33,12,34,1,4,45,,,,,,,,,, ];
-  $itemDetail{"64|9"}  = [  4,9,"Hush-a-Boom",9,0,12,0,0,12,12,5,5,1,5,0,182,1,30,2,,,,,,,,,, ];
-  $itemDetail{"64|10"}  = [  4,10,"Retro Bomb",10,0,10,0,0,0,12,45,50,15,15,10,174,1,0,0,,,,,,,,,, ];
-  $itemDetail{"64|11"}  = [  4,11,"Smart Bomb",11,0,5,0,0,0,7,50,27,1,22,0,112,1,13,0,,,,,,,,,, ];
-  $itemDetail{"64|12"}  = [  4,12,"Neutron Bomb",12,0,10,0,0,0,10,57,30,1,30,0,113,1,22,0,,,,,,,,,, ];
-  $itemDetail{"64|13"}  = [  4,13,"Enriched Neutron Bomb",13,0,15,0,0,0,12,64,25,1,36,0,114,1,35,0,,,,,,,,,, ];
-  $itemDetail{"64|14"}  = [  4,14,"Peerless Bomb",14,0,22,0,0,0,15,55,32,1,33,0,115,1,50,0,,,,,,,,,, ];
-  $itemDetail{"64|15"}  = [  4,15,"Annihilator Bomb",15,0,26,0,0,0,17,50,28,1,30,0,116,1,70,0,,,,,,,,,, ];
-  $itemDetail{"128|1"}  = [  7,1,"Robo-Midget Miner",1,0,0,0,0,0,0,80,50,14,0,4,138,5,,,,,,,,,,,, ];
-  $itemDetail{"128|2"}  = [  7,2,"Robo-Mini-Miner",2,0,0,0,2,1,0,240,100,30,0,7,139,4,,,,,,,,,,,, ];
-  $itemDetail{"128|3"}  = [  7,3,"Robo-Miner",3,0,0,0,4,2,0,240,100,30,0,7,140,12,,,,,,,,,,,, ];
-  $itemDetail{"128|4"}  = [  7,4,"Robo-Maxi-Miner",4,0,0,0,7,4,0,240,100,30,0,7,141,18,,,,,,,,,,,, ];
-  $itemDetail{"128|5"}  = [  7,5,"Robo-Super-Miner",5,0,0,0,12,6,0,240,100,30,0,7,142,27,,,,,,,,,,,, ];
-  $itemDetail{"128|6"}  = [  7,6,"Robo-Ultra-Miner",6,0,0,0,15,8,0,80,50,14,0,4,143,25,,,,,,,,,,,, ];
-  $itemDetail{"128|7"}  = [  7,7,"Alien Miner",7,5,0,0,10,5,5,20,20,8,0,2,181,10,,,,,,,,,,,, ];
-  $itemDetail{"128|8"}  = [  7,8,"Orbital Adjuster",8,0,0,0,0,0,6,80,50,25,25,25,173,0,,,,,,,,,,,, ];
-  $itemDetail{"256|1"}  = [  8,1,"Mine Dispenser 40",1,0,0,0,0,0,0,25,45,2,10,8,128,4,,,,,,,,,,,, ];
-  $itemDetail{"256|2"}  = [  8,2,"Mine Dispenser 50",2,2,0,0,0,0,4,30,55,2,12,10,129,5,,,,,,,,,,,, ];
-  $itemDetail{"256|3"}  = [  8,3,"Mine Dispenser 80",3,3,0,0,0,0,7,30,65,2,14,10,130,8,,,,,,,,,,,, ];
-  $itemDetail{"256|4"}  = [  8,4,"Mine Dispenser 130",4,6,0,0,0,0,12,30,80,2,18,10,131,13,,,,,,,,,,,, ];
-  $itemDetail{"256|5"}  = [  8,5,"Heavy Dispenser 50",5,5,0,0,0,0,3,10,50,2,20,5,135,5,,,,,,,,,,,, ];
-  $itemDetail{"256|6"}  = [  8,6,"Heavy Dispenser 110",6,9,0,0,0,0,5,15,70,2,30,5,136,11,,,,,,,,,,,, ];
-  $itemDetail{"256|7"}  = [  8,7,"Heavy Dispenser 200",7,14,0,0,0,0,7,20,90,2,45,5,137,20,,,,,,,,,,,, ];
-  $itemDetail{"256|8"}  = [  8,8,"Speed Trap 20",8,0,0,2,0,0,2,100,60,30,0,12,132,2,,,,,,,,,,,, ];
-  $itemDetail{"256|9"}  = [  8,9,"Speed Trap 30",9,0,0,3,0,0,6,135,72,32,0,14,133,3,,,,,,,,,,,, ];
-  $itemDetail{"256|10"}  = [  8,10,"Speed Trap 50",10,0,0,5,0,0,11,140,80,40,0,15,134,5,,,,,,,,,,,, ];
-  $itemDetail{"512|1"}  = [  1,1,"Stargate 100/250",1,0,0,5,5,0,0,0,400,100,40,40,144,100,250,,,,,,,,,,, ];
-  $itemDetail{"512|2"}  = [  1,2,"Stargate any/300",2,0,0,6,10,0,0,0,500,100,40,40,145,-1,300,,,,,,,,,,, ];
-  $itemDetail{"512|3"}  = [  1,3,"Stargate 150/600",3,0,0,11,7,0,0,0,1000,100,40,40,146,150,600,,,,,,,,,,, ];
-  $itemDetail{"512|4"}  = [  1,4,"Stargate 300/500",4,0,0,9,13,0,0,0,1200,100,40,40,147,300,500,,,,,,,,,,, ];
-  $itemDetail{"512|5"}  = [  1,5,"Stargate 100/any",5,0,0,16,12,0,0,0,1400,100,40,40,148,100,-1,,,,,,,,,,, ];
-  $itemDetail{"512|6"}  = [  1,6,"Stargate any/800",6,0,0,12,18,0,0,0,1400,100,40,40,149,-1,800,,,,,,,,,,, ];
-  $itemDetail{"512|7"}  = [  1,7,"Stargate any/any",7,0,0,19,24,0,0,0,1600,100,40,40,150,-1,-1,,,,,,,,,,, ];
-  $itemDetail{"512|8"}  = [  1,8,"Mass Driver 5",8,4,0,0,0,0,0,0,140,48,40,40,151,5,0,,,,,,,,,,, ];
-  $itemDetail{"512|9"}  = [  1,9,"Mass Driver 6",9,7,0,0,0,0,0,0,288,48,40,40,152,6,0,,,,,,,,,,, ];
-  $itemDetail{"512|10"}  = [  1,10,"Mass Driver 7",10,9,0,0,0,0,0,0,1024,200,200,200,153,7,0,,,,,,,,,,, ];
-  $itemDetail{"512|11"}  = [  1,11,"Super Driver 8",11,11,0,0,0,0,0,0,512,48,40,40,154,8,0,,,,,,,,,,, ];
-  $itemDetail{"512|12"}  = [  1,12,"Super Driver 9",12,13,0,0,0,0,0,0,648,48,40,40,155,9,0,,,,,,,,,,, ];
-  $itemDetail{"512|13"}  = [  1,13,"Ultra Driver 10",13,15,0,0,0,0,0,0,1936,200,200,200,156,10,0,,,,,,,,,,, ];
-  $itemDetail{"512|14"}  = [  1,14,"Ultra Driver 11",14,17,0,0,0,0,0,0,968,48,40,40,157,11,0,,,,,,,,,,, ];
-  $itemDetail{"512|15"}  = [  1,15,"Ultra Driver 12",15,20,0,0,0,0,0,0,1152,48,40,40,158,12,0,,,,,,,,,,, ];
-  $itemDetail{"512|16"}  = [  1,16,"Ultra Driver 13",16,24,0,0,0,0,0,0,1352,48,40,40,159,13,0,,,,,,,,,,, ];
-#   $itemDetail{"5|1"}  = [  5,1,"Total Terraform 3",1,0,0,0,0,0,0,0,70,0,0,0,184,3,,,,,,,,,,,, ];
-#   $itemDetail{"5|2"}  = [  5,2,"Total Terraform 5",2,0,0,0,0,0,3,0,70,0,0,0,185,5,,,,,,,,,,,, ];
-#   $itemDetail{"5|3"}  = [  5,3,"Total Terraform 7",3,0,0,0,0,0,6,0,70,0,0,0,186,7,,,,,,,,,,,, ];
-#   $itemDetail{"5|4"}  = [  5,4,"Total Terraform 10",4,0,0,0,0,0,9,0,70,0,0,0,187,10,,,,,,,,,,,, ];
-#   $itemDetail{"5|5"}  = [  5,5,"Total Terraform 15",5,0,0,0,0,0,13,0,70,0,0,0,188,15,,,,,,,,,,,, ];
-#   $itemDetail{"5|6"}  = [  5,6,"Total Terraform 20",6,0,0,0,0,0,17,0,70,0,0,0,180,20,,,,,,,,,,,, ];
-#   $itemDetail{"5|7"}  = [  5,7,"Total Terraform 25",7,0,0,0,0,0,22,0,70,0,0,0,172,25,,,,,,,,,,,, ];
-#   $itemDetail{"5|8"}  = [  5,8,"Total Terraform 30",8,0,0,0,0,0,25,0,70,0,0,0,164,30,,,,,,,,,,,, ];
-#   $itemDetail{"5|9"}  = [  5,9,"Gravity Terraform 3",9,0,0,1,0,0,1,0,100,0,0,0,160,3,,,,,,,,,,,, ];
-#   $itemDetail{"5|10"}  = [  5,10,"Gravity Terraform 7",10,0,0,5,0,0,2,0,100,0,0,0,161,7,,,,,,,,,,,, ];
-#   $itemDetail{"5|11"}  = [  5,11,"Gravity Terraform 11",11,0,0,10,0,0,3,0,100,0,0,0,162,11,,,,,,,,,,,, ];
-#   $itemDetail{"5|12"}  = [  5,12,"Gravity Terraform 15",12,0,0,16,0,0,4,0,100,0,0,0,163,15,,,,,,,,,,,, ];
-#   $itemDetail{"5|13"}  = [  5,13,"Temp Terraform 3",13,1,0,0,0,0,1,0,100,0,0,0,168,3,,,,,,,,,,,, ];
-#   $itemDetail{"5|14"}  = [  5,14,"Temp Terraform 7",14,5,0,0,0,0,2,0,100,0,0,0,169,7,,,,,,,,,,,, ];
-#   $itemDetail{"5|15"}  = [  5,15,"Temp Terraform 11",15,10,0,0,0,0,3,0,100,0,0,0,170,11,,,,,,,,,,,, ];
-#   $itemDetail{"5|16"}  = [  5,16,"Temp Terraform 15",16,16,0,0,0,0,4,0,100,0,0,0,171,15,,,,,,,,,,,, ];
-#   $itemDetail{"5|17"}  = [  5,17,"Radiation Terraform 3",17,0,1,0,0,0,1,0,100,0,0,0,176,3,,,,,,,,,,,, ];
-#   $itemDetail{"5|18"}  = [  5,18,"Radiation Terraform 7",18,0,5,0,0,0,2,0,100,0,0,0,177,7,,,,,,,,,,,, ];
-#   $itemDetail{"5|19"}  = [  5,19,"Radiation Terraform 11",19,0,10,0,0,0,3,0,100,0,0,0,178,11,,,,,,,,,,,, ];
-#   $itemDetail{"5|20"}  = [  5,20,"Radiation Terraform 15",20,0,16,0,0,0,4,0,100,0,0,0,179,15,,,,,,,,,,,, ];
-  $itemDetail{"1024|1"}  = [  6,1,"Viewer 50",1,0,0,0,0,0,0,0,100,10,10,70,80,50,,,,,,,,,,,, ];
-  $itemDetail{"1024|2"}  = [  6,2,"Viewer 90",2,0,0,0,0,1,0,0,100,10,10,70,81,90,,,,,,,,,,,, ];
-  $itemDetail{"1024|3"}  = [  6,3,"Scoper 150",3,0,0,0,0,3,0,0,100,10,10,70,82,150,,,,,,,,,,,, ];
-  $itemDetail{"1024|4"}  = [  6,4,"Scoper 220",4,0,0,0,0,6,0,0,100,10,10,70,83,220,,,,,,,,,,,, ];
-  $itemDetail{"1024|5"}  = [  6,5,"Scoper 280",5,0,0,0,0,8,0,0,100,10,10,70,90,280,,,,,,,,,,,, ];
-  $itemDetail{"1024|6"}  = [  6,6,"Snooper 320",6,3,0,0,0,10,3,0,100,10,10,70,84,-320,,,,,,,,,,,, ];
-  $itemDetail{"1024|7"}  = [  6,7,"Snooper 400",7,4,0,0,0,13,6,0,100,10,10,70,85,-400,,,,,,,,,,,, ];
-  $itemDetail{"1024|8"}  = [  6,8,"Snooper 500",8,5,0,0,0,16,7,0,100,10,10,70,86,-500,,,,,,,,,,,, ];
-  $itemDetail{"1024|9"}  = [  6,9,"Snooper 620",9,7,0,0,0,23,9,0,100,10,10,70,91,-620,,,,,,,,,,,, ];
-  $itemDetail{"1024|10"}  = [  6,10,"SDI",10,0,0,0,0,0,0,0,15,5,5,5,72,10,,,,,,,,,,,, ];
-  $itemDetail{"1024|11"}  = [  6,11,"Missile Battery",11,5,0,0,0,0,0,0,15,5,5,5,73,20,,,,,,,,,,,, ];
-  $itemDetail{"1024|12"}  = [  6,12,"Laser Battery",12,10,0,0,0,0,0,0,15,5,5,5,74,24,,,,,,,,,,,, ];
-  $itemDetail{"1024|13"}  = [  6,13,"Planetary Shield",13,16,0,0,0,0,0,0,15,5,5,5,75,30,,,,,,,,,,,, ];
-  $itemDetail{"1024|14"}  = [  6,14,"Neutron Shield",14,23,0,0,0,0,0,0,15,5,5,5,76,38,,,,,,,,,,,, ];
-  $itemDetail{"1024|15"}  = [  6,15,"Genesis Device",15,20,10,10,20,10,20,0,5000,0,0,0,175,0,,,,,,,,,,,, ];
-  $itemDetail{"2048|1"}  = [  10,1,"Transport Cloaking",1,0,0,0,0,0,0,1,3,2,0,2,98,300,,,,,,,,,,,, ];
-  $itemDetail{"2048|2"}  = [  10,2,"Stealth Cloak",2,2,0,0,0,5,0,2,5,2,0,2,99,70,,,,,,,,,,,, ];
-  $itemDetail{"2048|3"}  = [  10,3,"Super-Stealth Cloak",3,4,0,0,0,10,0,3,15,8,0,8,100,140,,,,,,,,,,,, ];
-  $itemDetail{"2048|4"}  = [  10,4,"Ultra-Stealth Cloak",4,10,0,0,0,12,0,5,25,10,0,10,101,540,,,,,,,,,,,, ];
-  $itemDetail{"2048|5"}  = [  10,5,"Multi Function Pod",5,11,0,11,0,11,0,2,15,5,0,5,189,60,,,,,,,,,,,, ];
-  $itemDetail{"2048|6"}  = [  10,6,"Battle Computer",6,0,0,0,0,0,0,1,6,0,0,15,165,20,,,,,,,,,,,, ];
-  $itemDetail{"2048|7"}  = [  10,7,"Battle Super Computer",7,5,0,0,0,11,0,1,14,0,0,25,166,30,,,,,,,,,,,, ];
-  $itemDetail{"2048|8"}  = [  10,8,"Battle Nexus",8,10,0,0,0,19,0,1,15,0,0,30,167,50,,,,,,,,,,,, ];
-  $itemDetail{"2048|9"}  = [  10,9,"Jammer 10",9,2,0,0,0,6,0,1,6,0,0,2,120,10,,,,,,,,,,,, ];
-  $itemDetail{"2048|10"}  = [  10,10,"Jammer 20",10,4,0,0,0,10,0,1,20,1,0,5,121,20,,,,,,,,,,,, ];
-  $itemDetail{"2048|11"}  = [  10,11,"Jammer 30",11,8,0,0,0,16,0,1,20,1,0,6,122,30,,,,,,,,,,,, ];
-  $itemDetail{"2048|12"}  = [  10,12,"Jammer 50",12,16,0,0,0,22,0,1,20,2,0,7,123,50,,,,,,,,,,,, ];
-  $itemDetail{"2048|13"}  = [  10,13,"Energy Capacitor",13,7,0,0,0,4,0,1,5,0,0,8,127,10,,,,,,,,,,,, ];
-  $itemDetail{"2048|14"}  = [  10,14,"Flux Capacitor",14,14,0,0,0,8,0,1,5,0,0,8,190,20,,,,,,,,,,,, ];
-  $itemDetail{"2048|15"}  = [  10,15,"Energy Dampener",15,14,0,8,0,0,0,2,50,5,10,0,124,1,,,,,,,,,,,, ];
-  $itemDetail{"2048|16"}  = [  10,16,"Tachyon Detector",16,8,0,0,0,14,0,1,70,1,5,0,125,2,,,,,,,,,,,, ];
-  $itemDetail{"2048|17"}  = [  10,17,"Anti-matter Generator",17,0,12,0,0,0,7,10,10,8,3,3,126,3,,,,,,,,,,,, ];
-  $itemDetail{"4096|1"}  = [  9,1,"Colonization Module",1,0,0,0,0,0,0,32,10,12,10,10,106,1,,,,,,,,,,,, ];
-  $itemDetail{"4096|2"}  = [  9,2,"Orbital Construction Module",2,0,0,0,0,0,0,50,20,20,15,15,107,1,,,,,,,,,,,, ];
-  $itemDetail{"4096|3"}  = [  9,3,"Cargo Pod",3,0,0,0,3,0,0,5,10,5,0,2,96,2,,,,,,,,,,,, ];
-  $itemDetail{"4096|4"}  = [  9,4,"Super Cargo Pod",4,3,0,0,9,0,0,7,15,8,0,2,97,2,,,,,,,,,,,, ];
-  $itemDetail{"4096|5"}  = [  9,5,"Multi Cargo Pod",5,5,0,0,11,5,0,9,25,12,0,3,118,2,,,,,,,,,,,, ];
-  $itemDetail{"4096|6"}  = [  9,6,"Fuel Tank",6,0,0,0,0,0,0,3,4,6,0,0,104,4,,,,,,,,,,,, ];
-  $itemDetail{"4096|7"}  = [  9,7,"Super Fuel Tank",7,6,0,4,14,0,0,8,8,8,0,0,105,4,,,,,,,,,,,, ];
-  $itemDetail{"4096|8"}  = [  9,8,"Maneuvering Jet",8,2,0,3,0,0,0,5,10,5,0,5,102,1,,,,,,,,,,,, ];
-  $itemDetail{"4096|9"}  = [  9,9,"Overthruster",9,5,0,12,0,0,0,5,20,10,0,8,103,2,,,,,,,,,,,, ];
-  $itemDetail{"4096|10"}  = [  9,10,"Jump Gate",10,16,0,20,20,16,0,10,40,0,0,50,208,0,,,,,,,,,,,, ];
-  $itemDetail{"4096|11"}  = [  9,11,"Beam Deflector",11,6,6,0,6,6,0,1,8,0,0,10,209,10,,,,,,,,,,,, ];
+  $itemDetail{'1|1'}  = [  14,1,'Settler\'s Delight',1,0,0,0,0,0,0,2,2,1,0,1,8,1,0,0,0,0,0,0,0,140,275,480,576,0 ];
+  $itemDetail{'1|2'}  = [  14,2,'Quick Jump 5',2,0,0,0,0,0,0,4,3,3,0,1,0,0,0,0,25,100,100,100,180,500,800,900,1080,0 ];
+  $itemDetail{'1|3'}  = [  14,3,'Fuel Mizer',3,0,0,2,0,0,0,6,11,8,0,0,9,3,0,0,0,0,0,35,120,175,235,360,420,0 ];
+  $itemDetail{'1|4'}  = [  14,4,'Long Hump 6',4,0,0,3,0,0,0,9,6,5,0,1,1,0,0,0,20,60,100,100,105,450,750,900,1080,0 ];
+  $itemDetail{'1|5'}  = [  14,5,'Daddy Long Legs 7',5,0,0,5,0,0,0,13,12,11,0,3,2,0,0,0,20,60,70,100,100,110,600,750,900,0 ];
+  $itemDetail{'1|6'}  = [  14,6,'Alpha Drive 8',6,0,0,7,0,0,0,17,28,16,0,3,3,0,0,0,15,50,60,70,100,100,115,700,840,0 ];
+  $itemDetail{'1|7'}  = [  14,7,'Trans-Galactic Drive',7,0,0,9,0,0,0,25,50,20,20,9,4,0,0,0,15,35,45,55,70,80,90,100,120,0 ];
+  $itemDetail{'1|8'}  = [  14,8,'Interspace-10',8,0,0,11,0,0,0,25,60,18,25,10,12,5,0,0,10,30,40,50,60,70,80,90,100,0 ];
+  $itemDetail{'1|9'}  = [  14,9,'Enigma Pulsar',9,7,0,13,5,9,0,20,40,12,15,11,109,6,0,0,0,0,0,0,65,75,85,95,105,0 ];
+  $itemDetail{'1|10'}  = [  14,10,'Trans-Star 10',10,0,0,23,0,0,0,5,10,3,0,3,117,0,0,0,5,15,20,25,30,35,40,45,50,0 ];
+  $itemDetail{'1|11'}  = [  14,11,'Radiating Hydro-Ram Scoop',11,2,0,6,0,0,0,10,8,3,2,9,7,2,0,0,0,0,0,0,0,165,375,600,720,0 ];
+  $itemDetail{'1|12'}  = [  14,12,'Sub-Galactic Fuel Scoop',12,2,0,8,0,0,0,20,12,4,4,7,5,0,0,0,0,0,0,0,85,105,210,380,456,0 ];
+  $itemDetail{'1|13'}  = [  14,13,'Trans-Galactic Fuel Scoop',13,3,0,9,0,0,0,19,18,5,4,12,6,0,0,0,0,0,0,0,0,88,100,145,174,0 ];
+  $itemDetail{'1|14'}  = [  14,14,'Trans-Galactic Super Scoop',14,4,0,12,0,0,0,18,24,6,4,16,10,0,0,0,0,0,0,0,0,0,65,90,108,0 ];
+  $itemDetail{'1|15'}  = [  14,15,'Trans-Galactic Mizer Scoop',15,4,0,16,0,0,0,11,20,5,2,13,11,0,0,0,0,0,0,0,0,0,0,70,84,0 ];
+  $itemDetail{'1|16'}  = [  14,16,'Galaxy Scoop',16,5,0,20,0,0,0,8,12,4,2,9,191,4,0,0,0,0,0,0,0,0,0,0,60,0 ];
+  $itemDetail{'2|1'}  = [  12,1,'Bat Scanner',1,0,0,0,0,0,0,2,1,1,0,1,59,0,0,,,,,,,,,,, ];
+  $itemDetail{'2|2'}  = [  12,2,'Rhino Scanner',2,0,0,0,0,1,0,5,3,3,0,2,48,50,0,,,,,,,,,,, ];
+  $itemDetail{'2|3'}  = [  12,3,'Mole Scanner',3,0,0,0,0,4,0,2,9,2,0,2,49,100,0,,,,,,,,,,, ];
+  $itemDetail{'2|4'}  = [  12,4,'DNA Scanner',4,0,0,3,0,0,6,2,5,1,1,1,52,125,0,,,,,,,,,,, ];
+  $itemDetail{'2|5'}  = [  12,5,'Possum Scanner',5,0,0,0,0,5,0,3,18,3,0,3,61,150,0,,,,,,,,,,, ];
+  $itemDetail{'2|6'}  = [  12,6,'Pick Pocket Scanner',6,4,0,0,0,4,4,15,35,8,10,6,56,80,4,,,,,,,,,,, ];
+  $itemDetail{'2|7'}  = [  12,7,'Chameleon Scanner',7,3,0,0,0,6,0,6,25,4,6,4,63,160,4,,,,,,,,,,, ];
+  $itemDetail{'2|8'}  = [  12,8,'Ferret Scanner',8,3,0,0,0,7,2,2,36,2,0,8,53,185,1,,,,,,,,,,, ];
+  $itemDetail{'2|9'}  = [  12,9,'Dolphin Scanner',9,5,0,0,0,10,4,4,40,5,5,10,54,220,2,,,,,,,,,,, ];
+  $itemDetail{'2|10'}  = [  12,10,'Gazelle Scanner',10,4,0,0,0,8,0,5,24,4,0,5,50,225,0,,,,,,,,,,, ];
+  $itemDetail{'2|11'}  = [  12,11,'RNA Scanner',11,0,0,5,0,0,10,2,20,1,1,2,60,230,0,,,,,,,,,,, ];
+  $itemDetail{'2|12'}  = [  12,12,'Cheetah Scanner',12,5,0,0,0,11,0,4,50,3,1,13,62,275,0,,,,,,,,,,, ];
+  $itemDetail{'2|13'}  = [  12,13,'Elephant Scanner',13,6,0,0,0,16,7,6,70,8,5,14,55,300,3,,,,,,,,,,, ];
+  $itemDetail{'2|14'}  = [  12,14,'Eagle Eye Scanner',14,6,0,0,0,14,0,3,64,3,2,21,51,335,0,,,,,,,,,,, ];
+  $itemDetail{'2|15'}  = [  12,15,'Robber Baron Scanner',15,10,0,0,0,15,10,20,90,10,10,10,57,220,4,,,,,,,,,,, ];
+  $itemDetail{'2|16'}  = [  12,16,'Peerless Scanner',16,7,0,0,0,24,0,4,90,3,2,30,58,500,0,,,,,,,,,,, ];
+  $itemDetail{'4|1'}  = [  11,1,'Mole-skin Shield',1,0,0,0,0,0,0,1,4,1,0,1,42,25,,,,,,,,,,,, ];
+  $itemDetail{'4|2'}  = [  11,2,'Cow-hide Shield',2,3,0,0,0,0,0,1,5,2,0,2,43,40,,,,,,,,,,,, ];
+  $itemDetail{'4|3'}  = [  11,3,'Wolverine Diffuse Shield',3,6,0,0,0,0,0,1,6,3,0,3,44,60,,,,,,,,,,,, ];
+  $itemDetail{'4|4'}  = [  11,4,'Croby Sharmor',4,7,0,0,4,0,0,10,15,7,0,4,40,60,,,,,,,,,,,, ];
+  $itemDetail{'4|5'}  = [  11,5,'Shadow Shield',5,7,0,0,0,3,0,2,7,3,0,3,41,75,,,,,,,,,,,, ];
+  $itemDetail{'4|6'}  = [  11,6,'Bear Neutrino Barrier',6,10,0,0,0,0,0,1,8,4,0,4,45,100,,,,,,,,,,,, ];
+  $itemDetail{'4|7'}  = [  11,7,'Langston Shell',7,12,0,9,0,9,0,10,20,10,2,6,183,125,,,,,,,,,,,, ];
+  $itemDetail{'4|8'}  = [  11,8,'Gorilla Delagator',8,14,0,0,0,0,0,1,11,5,0,6,46,175,,,,,,,,,,,, ];
+  $itemDetail{'4|9'}  = [  11,9,'Elephant Hide Fortress',9,18,0,0,0,0,0,1,15,8,0,10,47,300,,,,,,,,,,,, ];
+  $itemDetail{'4|10'}  = [  11,10,'Complete Phase Shield',10,22,0,0,0,0,0,1,20,12,0,15,119,500,,,,,,,,,,,, ];
+  $itemDetail{'8|1'}  = [  13,1,'Tritanium',1,0,0,0,0,0,0,60,10,5,0,0,64,50,,,,,,,,,,,, ];
+  $itemDetail{'8|2'}  = [  13,2,'Crobmnium',2,0,0,0,3,0,0,56,13,6,0,0,65,75,,,,,,,,,,,, ];
+  $itemDetail{'8|3'}  = [  13,3,'Carbonic Armor',3,0,0,0,0,0,4,25,15,0,0,5,70,100,,,,,,,,,,,, ];
+  $itemDetail{'8|4'}  = [  13,4,'Strobnium',4,0,0,0,6,0,0,54,18,8,0,0,68,120,,,,,,,,,,,, ];
+  $itemDetail{'8|5'}  = [  13,5,'Organic Armor',5,0,0,0,0,0,7,15,20,0,0,6,71,175,,,,,,,,,,,, ];
+  $itemDetail{'8|6'}  = [  13,6,'Kelarium',6,0,0,0,9,0,0,50,25,9,1,0,67,180,,,,,,,,,,,, ];
+  $itemDetail{'8|7'}  = [  13,7,'Fielded Kelarium',7,4,0,0,10,0,0,50,28,10,0,2,78,175,,,,,,,,,,,, ];
+  $itemDetail{'8|8'}  = [  13,8,'Depleted Neutronium',8,0,0,0,10,3,0,50,28,10,0,2,79,200,,,,,,,,,,,, ];
+  $itemDetail{'8|9'}  = [  13,9,'Neutronium',9,0,0,0,12,0,0,45,30,11,2,1,69,275,,,,,,,,,,,, ];
+  $itemDetail{'8|10'}  = [  13,10,'Mega Poly Shell',10,14,0,0,14,14,6,20,65,18,6,6,110,400,,,,,,,,,,,, ];
+  $itemDetail{'8|11'}  = [  13,11,'Valanium',11,0,0,0,16,0,0,40,50,15,0,0,66,500,,,,,,,,,,,, ];
+  $itemDetail{'8|12'}  = [  13,12,'Superlatanium',12,0,0,0,24,0,0,30,100,25,0,0,77,1500,,,,,,,,,,,, ];
+  $itemDetail{'16|1'}  = [  2,1,'Laser',1,0,0,0,0,0,0,1,5,0,6,0,28,1,10,9,0,,,,,,,,, ];
+  $itemDetail{'16|2'}  = [  2,2,'X-Ray Laser',2,0,3,0,0,0,0,1,6,0,6,0,29,1,16,9,0,,,,,,,,, ];
+  $itemDetail{'16|3'}  = [  2,3,'Mini Gun',3,0,5,0,0,0,0,3,10,0,16,0,20,2,13,12,2,,,,,,,,, ];
+  $itemDetail{'16|4'}  = [  2,4,'Yakimora Light Phaser',4,0,6,0,0,0,0,1,7,0,8,0,19,1,26,9,0,,,,,,,,, ];
+  $itemDetail{'16|5'}  = [  2,5,'Blackjack',5,0,7,0,0,0,0,10,7,0,16,0,14,0,90,10,0,,,,,,,,, ];
+  $itemDetail{'16|6'}  = [  2,6,'Phaser Bazooka',6,0,8,0,0,0,0,2,11,0,8,0,21,2,26,7,0,,,,,,,,, ];
+  $itemDetail{'16|7'}  = [  2,7,'Pulsed Sapper',7,5,9,0,0,0,0,1,12,0,0,4,17,3,82,14,1,,,,,,,,, ];
+  $itemDetail{'16|8'}  = [  2,8,'Colloidal Phaser',8,0,10,0,0,0,0,2,18,0,14,0,192,3,26,5,0,,,,,,,,, ];
+  $itemDetail{'16|9'}  = [  2,9,'Gatling Gun',9,0,11,0,0,0,0,3,13,0,20,0,26,2,31,12,2,,,,,,,,, ];
+  $itemDetail{'16|10'}  = [  2,10,'Mini Blaster',10,0,12,0,0,0,0,1,9,0,10,0,24,1,66,9,0,,,,,,,,, ];
+  $itemDetail{'16|11'}  = [  2,11,'Bludgeon',11,0,13,0,0,0,0,10,9,0,22,0,15,0,231,10,0,,,,,,,,, ];
+  $itemDetail{'16|12'}  = [  2,12,'Mark IV Blaster',12,0,14,0,0,0,0,2,15,0,12,0,25,2,66,7,0,,,,,,,,, ];
+  $itemDetail{'16|13'}  = [  2,13,'Phased Sapper',13,8,15,0,0,0,0,1,16,0,0,6,18,3,211,14,1,,,,,,,,, ];
+  $itemDetail{'16|14'}  = [  2,14,'Heavy Blaster',14,0,16,0,0,0,0,2,25,0,20,0,193,3,66,5,0,,,,,,,,, ];
+  $itemDetail{'16|15'}  = [  2,15,'Gatling Neutrino Cannon',15,0,17,0,0,0,0,3,17,0,28,0,30,2,80,13,2,,,,,,,,, ];
+  $itemDetail{'16|16'}  = [  2,16,'Myopic Disruptor',16,0,18,0,0,0,0,1,12,0,14,0,194,1,169,9,0,,,,,,,,, ];
+  $itemDetail{'16|17'}  = [  2,17,'Blunderbuss',17,0,19,0,0,0,0,10,13,0,30,0,13,0,592,11,0,,,,,,,,, ];
+  $itemDetail{'16|18'}  = [  2,18,'Disruptor',18,0,20,0,0,0,0,2,20,0,16,0,27,2,169,8,0,,,,,,,,, ];
+  $itemDetail{'16|19'}  = [  2,19,'Multi Contained Munition',19,21,21,0,0,16,12,8,40,6,40,6,111,3,140,6,0,,,,,,,,, ];
+  $itemDetail{'16|20'}  = [  2,20,'Syncro Sapper',20,11,21,0,0,0,0,1,21,0,0,8,16,3,541,14,1,,,,,,,,, ];
+  $itemDetail{'16|21'}  = [  2,21,'Mega Disruptor',21,0,22,0,0,0,0,2,33,0,30,0,195,3,169,6,0,,,,,,,,, ];
+  $itemDetail{'16|22'}  = [  2,22,'Big Mutha Cannon',22,0,23,0,0,0,0,3,23,0,36,0,31,2,204,13,2,,,,,,,,, ];
+  $itemDetail{'16|23'}  = [  2,23,'Streaming Pulverizer',23,0,24,0,0,0,0,1,16,0,20,0,22,1,433,9,0,,,,,,,,, ];
+  $itemDetail{'16|24'}  = [  2,24,'Anti-Matter Pulverizer',24,0,26,0,0,0,0,2,27,0,22,0,23,2,433,8,0,,,,,,,,, ];
+  $itemDetail{'32|1'}  = [  3,1,'Alpha Torpedo',1,0,0,0,0,0,0,25,5,9,3,3,87,4,5,0,35,,,,,,,,, ];
+  $itemDetail{'32|2'}  = [  3,2,'Beta Torpedo',2,0,5,1,0,0,0,25,6,18,6,4,88,4,12,1,45,,,,,,,,, ];
+  $itemDetail{'32|3'}  = [  3,3,'Delta Torpedo',3,0,10,2,0,0,0,25,8,22,8,5,89,4,26,1,60,,,,,,,,, ];
+  $itemDetail{'32|4'}  = [  3,4,'Epsilon Torpedo',4,0,14,3,0,0,0,25,10,30,10,6,92,5,48,2,65,,,,,,,,, ];
+  $itemDetail{'32|5'}  = [  3,5,'Rho Torpedo',5,0,18,4,0,0,0,25,12,34,12,8,93,5,90,2,75,,,,,,,,, ];
+  $itemDetail{'32|6'}  = [  3,6,'Upsilon Torpedo',6,0,22,5,0,0,0,25,15,40,14,9,94,5,169,3,75,,,,,,,,, ];
+  $itemDetail{'32|7'}  = [  3,7,'Omega Torpedo',7,0,26,6,0,0,0,25,18,52,18,12,95,5,316,4,80,,,,,,,,, ];
+  $itemDetail{'32|8'}  = [  3,8,'Anti Matter Torpedo',8,0,11,12,0,0,21,8,50,3,8,1,108,6,60,0,85,,,,,,,,, ];
+  $itemDetail{'32|9'}  = [  3,9,'Jihad Missile',9,0,12,6,0,0,0,35,13,37,13,9,200,5,85,0,20,,,,,,,,, ];
+  $itemDetail{'32|10'}  = [  3,10,'Juggernaut Missile',10,0,16,8,0,0,0,35,16,48,16,11,201,5,150,1,20,,,,,,,,, ];
+  $itemDetail{'32|11'}  = [  3,11,'Doomsday Missile',11,0,20,10,0,0,0,35,20,60,20,13,202,6,280,2,25,,,,,,,,, ];
+  $itemDetail{'32|12'}  = [  3,12,'Armageddon Missile',12,0,24,10,0,0,0,35,24,67,23,16,203,6,525,3,30,,,,,,,,, ];
+  $itemDetail{'64|1'}  = [  4,1,'Lady Finger Bomb',1,0,2,0,0,0,0,40,5,1,20,0,35,1,6,2,,,,,,,,,, ];
+  $itemDetail{'64|2'}  = [  4,2,'Black Cat Bomb',2,0,5,0,0,0,0,45,7,1,22,0,36,1,9,4,,,,,,,,,, ];
+  $itemDetail{'64|3'}  = [  4,3,'M-70 Bomb',3,0,8,0,0,0,0,50,9,1,24,0,37,1,12,6,,,,,,,,,, ];
+  $itemDetail{'64|4'}  = [  4,4,'M-80 Bomb',4,0,11,0,0,0,0,55,12,1,25,0,38,1,17,7,,,,,,,,,, ];
+  $itemDetail{'64|5'}  = [  4,5,'Cherry Bomb',5,0,14,0,0,0,0,52,11,1,25,0,39,1,25,10,,,,,,,,,, ];
+  $itemDetail{'64|6'}  = [  4,6,'LBU-17 Bomb',6,0,5,0,0,8,0,30,7,1,15,15,32,1,2,16,,,,,,,,,, ];
+  $itemDetail{'64|7'}  = [  4,7,'LBU-32 Bomb',7,0,10,0,0,10,0,35,10,1,24,15,33,1,3,28,,,,,,,,,, ];
+  $itemDetail{'64|8'}  = [  4,8,'LBU-74 Bomb',8,0,15,0,0,12,0,45,14,1,33,12,34,1,4,45,,,,,,,,,, ];
+  $itemDetail{'64|9'}  = [  4,9,'Hush-a-Boom',9,0,12,0,0,12,12,5,5,1,5,0,182,1,30,2,,,,,,,,,, ];
+  $itemDetail{'64|10'}  = [  4,10,'Retro Bomb',10,0,10,0,0,0,12,45,50,15,15,10,174,1,0,0,,,,,,,,,, ];
+  $itemDetail{'64|11'}  = [  4,11,'Smart Bomb',11,0,5,0,0,0,7,50,27,1,22,0,112,1,13,0,,,,,,,,,, ];
+  $itemDetail{'64|12'}  = [  4,12,'Neutron Bomb',12,0,10,0,0,0,10,57,30,1,30,0,113,1,22,0,,,,,,,,,, ];
+  $itemDetail{'64|13'}  = [  4,13,'Enriched Neutron Bomb',13,0,15,0,0,0,12,64,25,1,36,0,114,1,35,0,,,,,,,,,, ];
+  $itemDetail{'64|14'}  = [  4,14,'Peerless Bomb',14,0,22,0,0,0,15,55,32,1,33,0,115,1,50,0,,,,,,,,,, ];
+  $itemDetail{'64|15'}  = [  4,15,'Annihilator Bomb',15,0,26,0,0,0,17,50,28,1,30,0,116,1,70,0,,,,,,,,,, ];
+  $itemDetail{'128|1'}  = [  7,1,'Robo-Midget Miner',1,0,0,0,0,0,0,80,50,14,0,4,138,5,,,,,,,,,,,, ];
+  $itemDetail{'128|2'}  = [  7,2,'Robo-Mini-Miner',2,0,0,0,2,1,0,240,100,30,0,7,139,4,,,,,,,,,,,, ];
+  $itemDetail{'128|3'}  = [  7,3,'Robo-Miner',3,0,0,0,4,2,0,240,100,30,0,7,140,12,,,,,,,,,,,, ];
+  $itemDetail{'128|4'}  = [  7,4,'Robo-Maxi-Miner',4,0,0,0,7,4,0,240,100,30,0,7,141,18,,,,,,,,,,,, ];
+  $itemDetail{'128|5'}  = [  7,5,'Robo-Super-Miner',5,0,0,0,12,6,0,240,100,30,0,7,142,27,,,,,,,,,,,, ];
+  $itemDetail{'128|6'}  = [  7,6,'Robo-Ultra-Miner',6,0,0,0,15,8,0,80,50,14,0,4,143,25,,,,,,,,,,,, ];
+  $itemDetail{'128|7'}  = [  7,7,'Alien Miner',7,5,0,0,10,5,5,20,20,8,0,2,181,10,,,,,,,,,,,, ];
+  $itemDetail{'128|8'}  = [  7,8,'Orbital Adjuster',8,0,0,0,0,0,6,80,50,25,25,25,173,0,,,,,,,,,,,, ];
+  $itemDetail{'256|1'}  = [  8,1,'Mine Dispenser 40',1,0,0,0,0,0,0,25,45,2,10,8,128,4,,,,,,,,,,,, ];
+  $itemDetail{'256|2'}  = [  8,2,'Mine Dispenser 50',2,2,0,0,0,0,4,30,55,2,12,10,129,5,,,,,,,,,,,, ];
+  $itemDetail{'256|3'}  = [  8,3,'Mine Dispenser 80',3,3,0,0,0,0,7,30,65,2,14,10,130,8,,,,,,,,,,,, ];
+  $itemDetail{'256|4'}  = [  8,4,'Mine Dispenser 130',4,6,0,0,0,0,12,30,80,2,18,10,131,13,,,,,,,,,,,, ];
+  $itemDetail{'256|5'}  = [  8,5,'Heavy Dispenser 50',5,5,0,0,0,0,3,10,50,2,20,5,135,5,,,,,,,,,,,, ];
+  $itemDetail{'256|6'}  = [  8,6,'Heavy Dispenser 110',6,9,0,0,0,0,5,15,70,2,30,5,136,11,,,,,,,,,,,, ];
+  $itemDetail{'256|7'}  = [  8,7,'Heavy Dispenser 200',7,14,0,0,0,0,7,20,90,2,45,5,137,20,,,,,,,,,,,, ];
+  $itemDetail{'256|8'}  = [  8,8,'Speed Trap 20',8,0,0,2,0,0,2,100,60,30,0,12,132,2,,,,,,,,,,,, ];
+  $itemDetail{'256|9'}  = [  8,9,'Speed Trap 30',9,0,0,3,0,0,6,135,72,32,0,14,133,3,,,,,,,,,,,, ];
+  $itemDetail{'256|10'}  = [  8,10,'Speed Trap 50',10,0,0,5,0,0,11,140,80,40,0,15,134,5,,,,,,,,,,,, ];
+  $itemDetail{'512|1'}  = [  1,1,'Stargate 100/250',1,0,0,5,5,0,0,0,400,100,40,40,144,100,250,,,,,,,,,,, ];
+  $itemDetail{'512|2'}  = [  1,2,'Stargate any/300',2,0,0,6,10,0,0,0,500,100,40,40,145,-1,300,,,,,,,,,,, ];
+  $itemDetail{'512|3'}  = [  1,3,'Stargate 150/600',3,0,0,11,7,0,0,0,1000,100,40,40,146,150,600,,,,,,,,,,, ];
+  $itemDetail{'512|4'}  = [  1,4,'Stargate 300/500',4,0,0,9,13,0,0,0,1200,100,40,40,147,300,500,,,,,,,,,,, ];
+  $itemDetail{'512|5'}  = [  1,5,'Stargate 100/any',5,0,0,16,12,0,0,0,1400,100,40,40,148,100,-1,,,,,,,,,,, ];
+  $itemDetail{'512|6'}  = [  1,6,'Stargate any/800',6,0,0,12,18,0,0,0,1400,100,40,40,149,-1,800,,,,,,,,,,, ];
+  $itemDetail{'512|7'}  = [  1,7,'Stargate any/any',7,0,0,19,24,0,0,0,1600,100,40,40,150,-1,-1,,,,,,,,,,, ];
+  $itemDetail{'512|8'}  = [  1,8,'Mass Driver 5',8,4,0,0,0,0,0,0,140,48,40,40,151,5,0,,,,,,,,,,, ];
+  $itemDetail{'512|9'}  = [  1,9,'Mass Driver 6',9,7,0,0,0,0,0,0,288,48,40,40,152,6,0,,,,,,,,,,, ];
+  $itemDetail{'512|10'}  = [  1,10,'Mass Driver 7',10,9,0,0,0,0,0,0,1024,200,200,200,153,7,0,,,,,,,,,,, ];
+  $itemDetail{'512|11'}  = [  1,11,'Super Driver 8',11,11,0,0,0,0,0,0,512,48,40,40,154,8,0,,,,,,,,,,, ];
+  $itemDetail{'512|12'}  = [  1,12,'Super Driver 9',12,13,0,0,0,0,0,0,648,48,40,40,155,9,0,,,,,,,,,,, ];
+  $itemDetail{'512|13'}  = [  1,13,'Ultra Driver 10',13,15,0,0,0,0,0,0,1936,200,200,200,156,10,0,,,,,,,,,,, ];
+  $itemDetail{'512|14'}  = [  1,14,'Ultra Driver 11',14,17,0,0,0,0,0,0,968,48,40,40,157,11,0,,,,,,,,,,, ];
+  $itemDetail{'512|15'}  = [  1,15,'Ultra Driver 12',15,20,0,0,0,0,0,0,1152,48,40,40,158,12,0,,,,,,,,,,, ];
+  $itemDetail{'512|16'}  = [  1,16,'Ultra Driver 13',16,24,0,0,0,0,0,0,1352,48,40,40,159,13,0,,,,,,,,,,, ];
+#   $itemDetail{'5|1'}  = [  5,1,'Total Terraform 3',1,0,0,0,0,0,0,0,70,0,0,0,184,3,,,,,,,,,,,, ];
+#   $itemDetail{'5|2'}  = [  5,2,'Total Terraform 5',2,0,0,0,0,0,3,0,70,0,0,0,185,5,,,,,,,,,,,, ];
+#   $itemDetail{'5|3'}  = [  5,3,'Total Terraform 7',3,0,0,0,0,0,6,0,70,0,0,0,186,7,,,,,,,,,,,, ];
+#   $itemDetail{'5|4'}  = [  5,4,'Total Terraform 10',4,0,0,0,0,0,9,0,70,0,0,0,187,10,,,,,,,,,,,, ];
+#   $itemDetail{'5|5'}  = [  5,5,'Total Terraform 15',5,0,0,0,0,0,13,0,70,0,0,0,188,15,,,,,,,,,,,, ];
+#   $itemDetail{'5|6'}  = [  5,6,'Total Terraform 20',6,0,0,0,0,0,17,0,70,0,0,0,180,20,,,,,,,,,,,, ];
+#   $itemDetail{'5|7'}  = [  5,7,'Total Terraform 25',7,0,0,0,0,0,22,0,70,0,0,0,172,25,,,,,,,,,,,, ];
+#   $itemDetail{'5|8'}  = [  5,8,'Total Terraform 30',8,0,0,0,0,0,25,0,70,0,0,0,164,30,,,,,,,,,,,, ];
+#   $itemDetail{'5|9'}  = [  5,9,'Gravity Terraform 3',9,0,0,1,0,0,1,0,100,0,0,0,160,3,,,,,,,,,,,, ];
+#   $itemDetail{'5|10'}  = [  5,10,'Gravity Terraform 7',10,0,0,5,0,0,2,0,100,0,0,0,161,7,,,,,,,,,,,, ];
+#   $itemDetail{'5|11'}  = [  5,11,'Gravity Terraform 11',11,0,0,10,0,0,3,0,100,0,0,0,162,11,,,,,,,,,,,, ];
+#   $itemDetail{'5|12'}  = [  5,12,'Gravity Terraform 15',12,0,0,16,0,0,4,0,100,0,0,0,163,15,,,,,,,,,,,, ];
+#   $itemDetail{'5|13'}  = [  5,13,'Temp Terraform 3',13,1,0,0,0,0,1,0,100,0,0,0,168,3,,,,,,,,,,,, ];
+#   $itemDetail{'5|14'}  = [  5,14,'Temp Terraform 7',14,5,0,0,0,0,2,0,100,0,0,0,169,7,,,,,,,,,,,, ];
+#   $itemDetail{'5|15'}  = [  5,15,'Temp Terraform 11',15,10,0,0,0,0,3,0,100,0,0,0,170,11,,,,,,,,,,,, ];
+#   $itemDetail{'5|16'}  = [  5,16,'Temp Terraform 15',16,16,0,0,0,0,4,0,100,0,0,0,171,15,,,,,,,,,,,, ];
+#   $itemDetail{'5|17'}  = [  5,17,'Radiation Terraform 3',17,0,1,0,0,0,1,0,100,0,0,0,176,3,,,,,,,,,,,, ];
+#   $itemDetail{'5|18'}  = [  5,18,'Radiation Terraform 7',18,0,5,0,0,0,2,0,100,0,0,0,177,7,,,,,,,,,,,, ];
+#   $itemDetail{'5|19'}  = [  5,19,'Radiation Terraform 11',19,0,10,0,0,0,3,0,100,0,0,0,178,11,,,,,,,,,,,, ];
+#   $itemDetail{'5|20'}  = [  5,20,'Radiation Terraform 15',20,0,16,0,0,0,4,0,100,0,0,0,179,15,,,,,,,,,,,, ];
+  $itemDetail{'1024|1'}  = [  6,1,'Viewer 50',1,0,0,0,0,0,0,0,100,10,10,70,80,50,,,,,,,,,,,, ];
+  $itemDetail{'1024|2'}  = [  6,2,'Viewer 90',2,0,0,0,0,1,0,0,100,10,10,70,81,90,,,,,,,,,,,, ];
+  $itemDetail{'1024|3'}  = [  6,3,'Scoper 150',3,0,0,0,0,3,0,0,100,10,10,70,82,150,,,,,,,,,,,, ];
+  $itemDetail{'1024|4'}  = [  6,4,'Scoper 220',4,0,0,0,0,6,0,0,100,10,10,70,83,220,,,,,,,,,,,, ];
+  $itemDetail{'1024|5'}  = [  6,5,'Scoper 280',5,0,0,0,0,8,0,0,100,10,10,70,90,280,,,,,,,,,,,, ];
+  $itemDetail{'1024|6'}  = [  6,6,'Snooper 320',6,3,0,0,0,10,3,0,100,10,10,70,84,-320,,,,,,,,,,,, ];
+  $itemDetail{'1024|7'}  = [  6,7,'Snooper 400',7,4,0,0,0,13,6,0,100,10,10,70,85,-400,,,,,,,,,,,, ];
+  $itemDetail{'1024|8'}  = [  6,8,'Snooper 500',8,5,0,0,0,16,7,0,100,10,10,70,86,-500,,,,,,,,,,,, ];
+  $itemDetail{'1024|9'}  = [  6,9,'Snooper 620',9,7,0,0,0,23,9,0,100,10,10,70,91,-620,,,,,,,,,,,, ];
+  $itemDetail{'1024|10'}  = [  6,10,'SDI',10,0,0,0,0,0,0,0,15,5,5,5,72,10,,,,,,,,,,,, ];
+  $itemDetail{'1024|11'}  = [  6,11,'Missile Battery',11,5,0,0,0,0,0,0,15,5,5,5,73,20,,,,,,,,,,,, ];
+  $itemDetail{'1024|12'}  = [  6,12,'Laser Battery',12,10,0,0,0,0,0,0,15,5,5,5,74,24,,,,,,,,,,,, ];
+  $itemDetail{'1024|13'}  = [  6,13,'Planetary Shield',13,16,0,0,0,0,0,0,15,5,5,5,75,30,,,,,,,,,,,, ];
+  $itemDetail{'1024|14'}  = [  6,14,'Neutron Shield',14,23,0,0,0,0,0,0,15,5,5,5,76,38,,,,,,,,,,,, ];
+  $itemDetail{'1024|15'}  = [  6,15,'Genesis Device',15,20,10,10,20,10,20,0,5000,0,0,0,175,0,,,,,,,,,,,, ];
+  $itemDetail{'2048|1'}  = [  10,1,'Transport Cloaking',1,0,0,0,0,0,0,1,3,2,0,2,98,300,,,,,,,,,,,, ];
+  $itemDetail{'2048|2'}  = [  10,2,'Stealth Cloak',2,2,0,0,0,5,0,2,5,2,0,2,99,70,,,,,,,,,,,, ];
+  $itemDetail{'2048|3'}  = [  10,3,'Super-Stealth Cloak',3,4,0,0,0,10,0,3,15,8,0,8,100,140,,,,,,,,,,,, ];
+  $itemDetail{'2048|4'}  = [  10,4,'Ultra-Stealth Cloak',4,10,0,0,0,12,0,5,25,10,0,10,101,540,,,,,,,,,,,, ];
+  $itemDetail{'2048|5'}  = [  10,5,'Multi Function Pod',5,11,0,11,0,11,0,2,15,5,0,5,189,60,,,,,,,,,,,, ];
+  $itemDetail{'2048|6'}  = [  10,6,'Battle Computer',6,0,0,0,0,0,0,1,6,0,0,15,165,20,,,,,,,,,,,, ];
+  $itemDetail{'2048|7'}  = [  10,7,'Battle Super Computer',7,5,0,0,0,11,0,1,14,0,0,25,166,30,,,,,,,,,,,, ];
+  $itemDetail{'2048|8'}  = [  10,8,'Battle Nexus',8,10,0,0,0,19,0,1,15,0,0,30,167,50,,,,,,,,,,,, ];
+  $itemDetail{'2048|9'}  = [  10,9,'Jammer 10',9,2,0,0,0,6,0,1,6,0,0,2,120,10,,,,,,,,,,,, ];
+  $itemDetail{'2048|10'}  = [  10,10,'Jammer 20',10,4,0,0,0,10,0,1,20,1,0,5,121,20,,,,,,,,,,,, ];
+  $itemDetail{'2048|11'}  = [  10,11,'Jammer 30',11,8,0,0,0,16,0,1,20,1,0,6,122,30,,,,,,,,,,,, ];
+  $itemDetail{'2048|12'}  = [  10,12,'Jammer 50',12,16,0,0,0,22,0,1,20,2,0,7,123,50,,,,,,,,,,,, ];
+  $itemDetail{'2048|13'}  = [  10,13,'Energy Capacitor',13,7,0,0,0,4,0,1,5,0,0,8,127,10,,,,,,,,,,,, ];
+  $itemDetail{'2048|14'}  = [  10,14,'Flux Capacitor',14,14,0,0,0,8,0,1,5,0,0,8,190,20,,,,,,,,,,,, ];
+  $itemDetail{'2048|15'}  = [  10,15,'Energy Dampener',15,14,0,8,0,0,0,2,50,5,10,0,124,1,,,,,,,,,,,, ];
+  $itemDetail{'2048|16'}  = [  10,16,'Tachyon Detector',16,8,0,0,0,14,0,1,70,1,5,0,125,2,,,,,,,,,,,, ];
+  $itemDetail{'2048|17'}  = [  10,17,'Anti-matter Generator',17,0,12,0,0,0,7,10,10,8,3,3,126,3,,,,,,,,,,,, ];
+  $itemDetail{'4096|1'}  = [  9,1,'Colonization Module',1,0,0,0,0,0,0,32,10,12,10,10,106,1,,,,,,,,,,,, ];
+  $itemDetail{'4096|2'}  = [  9,2,'Orbital Construction Module',2,0,0,0,0,0,0,50,20,20,15,15,107,1,,,,,,,,,,,, ];
+  $itemDetail{'4096|3'}  = [  9,3,'Cargo Pod',3,0,0,0,3,0,0,5,10,5,0,2,96,2,,,,,,,,,,,, ];
+  $itemDetail{'4096|4'}  = [  9,4,'Super Cargo Pod',4,3,0,0,9,0,0,7,15,8,0,2,97,2,,,,,,,,,,,, ];
+  $itemDetail{'4096|5'}  = [  9,5,'Multi Cargo Pod',5,5,0,0,11,5,0,9,25,12,0,3,118,2,,,,,,,,,,,, ];
+  $itemDetail{'4096|6'}  = [  9,6,'Fuel Tank',6,0,0,0,0,0,0,3,4,6,0,0,104,4,,,,,,,,,,,, ];
+  $itemDetail{'4096|7'}  = [  9,7,'Super Fuel Tank',7,6,0,4,14,0,0,8,8,8,0,0,105,4,,,,,,,,,,,, ];
+  $itemDetail{'4096|8'}  = [  9,8,'Maneuvering Jet',8,2,0,3,0,0,0,5,10,5,0,5,102,1,,,,,,,,,,,, ];
+  $itemDetail{'4096|9'}  = [  9,9,'Overthruster',9,5,0,12,0,0,0,5,20,10,0,8,103,2,,,,,,,,,,,, ];
+  $itemDetail{'4096|10'}  = [  9,10,'Jump Gate',10,16,0,20,20,16,0,10,40,0,0,50,208,0,,,,,,,,,,,, ];
+  $itemDetail{'4096|11'}  = [  9,11,'Beam Deflector',11,6,6,0,6,6,0,1,8,0,0,10,209,10,,,,,,,,,,,, ];
   return %itemDetail;
 }
 
@@ -2291,7 +2101,6 @@ sub PLogOut {
 
   my $LogFileDate = $LogFile . '.' . $Year . '.' . $Month . '.' . $WeekofMonth; 
 	if ($Logging <= $logging) { 
-#		print $PrintString . "\n";
     if ($LogFile) {
   		$PrintString = localtime(time()) . " : " . $Logging . " : " . $PrintString;
   		open (LOGFILE, ">>$LogFileDate");
@@ -2422,7 +2231,6 @@ sub raceCheckSum {  # calculate a race checksum
 
 sub checkRaceCorrupt {
   my ($filename) = @_;
-
   my $FileValues;
   my @fileBytes;
   open(StarFile, "<$filename");
@@ -2472,7 +2280,7 @@ sub checkRaceCorrupt {
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
-        $playerId = $decryptedData[0] & 0xFF; # A Race file should have a player ID of 255
+        $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
         my $fullDataFlag = ($decryptedData[6] & 0x04); 
         # We figure out names here, because they're here at 8 when not fullDataFlag 
         my $index = 8; 
@@ -2509,7 +2317,7 @@ sub checkSerials {
   $inFile = basename($inFile);  # The uploaded file name sans path (IE6 fix). 
   ($file_prefix, $file_player, $file_type, $file_ext) = &FileData ($inFile); # The filename as component parts  
   my $uploadFile = $Dir_Upload . '/' . $inFile; # The uploaded .x file w/ path
-  my $inDir = $DirGames . '\\' . $file_prefix; # The game directory
+  my $inDir = "$DirGames\\$file_prefix"; # The game directory
   my %block9;
   my @block9data; # block 9 data from of a single .x file
   my $err;  
@@ -2558,16 +2366,13 @@ sub checkSerials {
       if (@{$block9{$file1}}[0] eq @{$block9{$file2}}[0]) {
         # If the serial numbers are the same, the hardware hashes must be the same
         if (@{$block9{$file1}}[1] eq @{$block9{$file2}}[1]) {
-          # BUG: This should really be added as a warning, but permit a file upload. 
           # If the serial and hardware hash are the same, it's ok, but the two players 
           # are on the same PC. 
           #$err .= "<P>Info   : " . uc($file1) . " same serial/hardware hash as " . uc($file2). ",";
         } else {
           # Different computer, same serial. Problem. 
-          $err .= uc($file1) . " same serial as " . uc($file2) . " but different hardware hash,"; 
+          $err .= uc($file1) . ' same serial as ' . uc($file2) . ' but different hardware hash,'; 
         }
-      } else { 
-        #OK     : Different serials in the two files.  
       } 
     } 
   # If any results were reported, return them.
@@ -2634,14 +2439,7 @@ sub readList {
     # Auto assign keys from the header line
     foreach my $key ( @keys ) {
       my $value = shift @values;
-#       # If it's a stored array, store it as an array.
-#       if ($value =~ /[\x1F]/) {
-#         #my @tempval = split (chr(31), $value); # chr(31) = 0x1F
-#         @{$list{$key}} = split (chr(31), $value); # chr(31) = 0x1F
-#       } else {
-        $list{$key} = $value;
-#       }
-      #print "LISTKEY: $key: $list{$key}\n";
+      $list{$key} = $value;
     }
     $List{$list{playerId}}{$list{id}} =  { %list };
   }
@@ -2682,27 +2480,26 @@ sub printList {
     foreach my $j (sort keys %{$List{$i}}) {  
       foreach my $k (sort keys %{$List{$i}{$j}}) {
         if ($i == 15) {  
-        printf("%-40s", "Player $i, id $j, $k: ");
-        if ($List{$i}{$j}{$k} =~ /[\x1F]/) {  # chr(31)
-          my @s = split (chr(31), $List{$i}{$j}{$k});
-          my $string='';
-          $string = join (',', @s); 
-          print "$string";
-        } 
-        else {
-          print "$List{$i}{$j}{$k}";
+          printf("%-40s", "Player $i, id $j, $k: ");
+          if ($List{$i}{$j}{$k} =~ /[\x1F]/) {  # chr(31)
+            my @s = split (chr(31), $List{$i}{$j}{$k});
+            my $string='';
+            $string = join (',', @s); 
+            print "$string";
+          } 
+          else {
+            print "$List{$i}{$j}{$k}";
+          }
+          print "\n";
         }
-        print "\n";
-      }
       }
       print "\n";
     }
-#    print "\n";
   }
 }
 
-#recalculate the capacities of a fleet after composition changes
 sub tallyFleet {
+  #recalculate the capacities of a fleet after composition changes
   my ($ownerId, $shipCount, $shipDesigns) = @_; # Expects $shipDesigns in decimal
   my $cargoCapacity = 0; 
   my $fuelCapacity = 0; 
@@ -2720,8 +2517,8 @@ sub tallyFleet {
   return $cargoCapacity, $fuelCapacity, $robberBaron, $mass;
 }
 
-#adjust fleet cargo when two fleets merge
 sub adjustFleetCargo { # 
+  #adjust fleet cargo when two fleets merge
   my ($ownerId, $id, $cargoLoad, $GameDirection) = @_;
   my @cargoLoad = split(chr(31), $cargoLoad);
   my @cargo = split(chr(31), $fleetList{$ownerId}{$id}{cargo});
@@ -2815,7 +2612,6 @@ sub decryptFix {
 #          $offset = $offset + (2 + $size); 
 #          next;
 #       }
-      #print "Turn: " . ($turn + 2400) . "\n";
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
       push @outBytes, @block;
