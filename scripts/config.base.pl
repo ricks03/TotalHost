@@ -54,11 +54,13 @@ $DirUpload = 'd:\TH\Uploads';
 $DirRaces = 'd:\TH\Races';
 $Dir_Games = 'd:/TH/Games'; # Location of the actual game files used for turn gen
 $DirGames = 'd:\TH\Games'; # Location of the actual game files used for turn gen
-$Dir_Download = 'd:/TH/Download'; #Location where turns & .xy are downloaded
-$DirDownload = 'd:\TH\Download'; #Location where turns & .xy are downloaded
+$Dir_Download = 'd:/TH/Download'; #Location where zip files are downloaded
+$DirDownload = 'd:\TH\Download'; #Location where zip files are downloaded
 $DirGraphs = 'd:\TH\Downloads'; #Location of movies & Graphs
 $File_Serials = 'd:/TH/serialC.txt'; # Text file of serial numbers
 $Dir_WWWRoot = 'd:/TH/html';
+$Dir_Scripts = 'd:/TH/scripts';
+$DirScripts = 'd:\TH\scripts';
 
 $WWW_Image = '/images/';
 $WWW_Notes = '/Notes/';
@@ -71,9 +73,6 @@ $mail_server = '';
 #$mail_password = '';
 $mail_from = '';
 $mail_prefix = '[TH]: ';
-#$pop3_server = '';
-#$pop3_user = '';
-#$pop3_password = '';
 
 $min_players = 2; # The minimum number of players to create/launch a game
 # Sessions

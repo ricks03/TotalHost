@@ -56,10 +56,11 @@ $userlogin = $session->param("userlogin");
 # If there was an uploaded file
 if ($File) {
   $valid_file = &ValidateFileUpload($File);
-   my $newPage = qq|$WWW_HomePage$WWW_Scripts/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err|;
-   # Redirect to newPage, which solves for reloading the page retaking the action.
-   # Nothing can print before this or it breaks.
-   print "Location: $newPage\n\n";
+  my $newPage = qq|$WWW_HomePage$WWW_Scripts/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err|;
+  # Redirect to newPage, which solves for reloading the page retaking the action.
+  # Nothing can print before this or it breaks.
+  #  print $cgi->redirect($newPage);  # Doesn't work
+  print "Location: $newPage\n\n";
 } else { 
   print $cgi->header(); # Create the HTML page header
   print qq|<meta HTTP-EQUIV="REFRESH" content="2; url=| . $WWW_HomePage . $WWW_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
@@ -69,19 +70,6 @@ if ($File) {
   print $err; 
   print $cgi->end_html;
 }
-
-# if ($valid_file) { 
-# ##########	print qq|<meta HTTP-EQUIV="REFRESH" content="0; url=| . $WWW_HomePage . $WWW_Scripts . qq|/page.pl?GameFile=$GameFile&lp=profile_game&cp=show_game&rp=show_news">|;
-# # 	print qq|<meta HTTP-EQUIV="REFRESH" content="0; url=| . $WWW_HomePage . $WWW_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
-# #  print $cgi->redirect($newPage);
-# } else { 
-# ######## 191222 No longer any real need for a delay here, as we pass the error message to the main display
-# ########	print qq|<meta HTTP-EQUIV="REFRESH" content="5; url=| . $WWW_HomePage . $WWW_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
-# # 	print qq|<meta HTTP-EQUIV="REFRESH" content="0; url=| . $WWW_HomePage . $WWW_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
-# }
-
-#print end_html;
-#print $cgi->end_html;
 
 ###########################################################
 sub ValidateFileUpload {
@@ -98,9 +86,8 @@ sub ValidateFileUpload {
 	# If it's not the right type of file at all, who cares about anything else; toss it but give the user a vague hint
 	unless (&Check_FileType($file_type)) { 
     # Don't give users the file location
-    $err .= "Invalid File Type for $File by $userlogin"; 
-    $invalid = "Invalid File Type for $File, $File_Loc by $userlogin: $file_type $file_ext"; 
-    &LogOut(0, "$invalid", $ErrorLog); 
+    $err .= "Invalid File Type for $File_Loc by $userlogin"; 
+    &LogOut(0, "Invalid File Type for $File_Loc by $userlogin: $file_type $file_ext", $ErrorLog); 
     return 0;
   }   
   
@@ -115,8 +102,7 @@ sub ValidateFileUpload {
       &DB_Close($db);
       if ($RaceValues{'RaceName'}) {
   				$err .= 'Race Name $RaceName already exists in your profile.'; 
-  				&LogOut (0,"ValidateFileUpload: Race Name $RaceName already exists in profile for UserLogin: $err", $ErrorLog);
-          &LogOut (0,"ValidateFileUpload: Invalid Race DB Entry: Deleted $File_Loc",$ErrorLog);
+  				&LogOut (0,"ValidateFileUpload: Race Name $RaceName already exists in profile for $userlogin: $err $File_Loc", $ErrorLog);
           unlink $File_Loc; #user-input cleaned as much as I can. 
           return 0;    
       }
@@ -125,7 +111,6 @@ sub ValidateFileUpload {
       if (&checkRaceCorrupt($File_Loc)) {
         $err .= 'This race file is corrupt!!!';
         &LogOut (0, "ValidateFileUpload: Race file $File_Loc corrupt for $userlogin",$ErrorLog);
-        &LogOut (0, "ValidateFileUpload: Currupt Race file: Deleted $File_Loc",$ErrorLog);
         unlink $File_Loc; #user-input cleaned as much as I can. 
         return 0;
       }   
@@ -145,14 +130,13 @@ sub ValidateFileUpload {
           &DB_Close($db);
   	      &LogOut(200,"$sql",$SQLLog); 
   
-          my $racefiledir = $DirRaces . '\\' . $UserValues{'User_File'};  
+          my $racefiledir = "$DirRaces\\$UserValues{'User_File'}";  
           # If the User Race folder doesn't exist, create it. 
           if (not(-e($racefiledir))) {
             unless (mkdir $racefiledir) { &LogOut(0,"ValidateFileUpload: Failed to create Race Directory $racefiledir",$ErrorLog); }
           }
           #write out the race name to where it is supposed to go.
-   		    my $Race_Destination = $racefiledir . '\\' . $File;  
-          
+   		    my $Race_Destination = "$racefiledir\\$File";  
    				if (not(-e $Race_Destination)) { #if the file does not already exist
   					# Add the new race to the database
   					$db=&DB_Open($dsn);
@@ -166,38 +150,32 @@ sub ValidateFileUpload {
   								return 1; 
   							} else { 
   								$err .= "RaceFile $File failed to move/upload\n"; 
-  								&LogOut(0,"ValidateFileUpload: $File $File_Loc failed to move to $Race_Destination for $userlogin: $err", $ErrorLog);
-                  &LogOut(0,"ValidateFileUpload: Race File Failed to Move: Deleted $File_Loc",$ErrorLog);
+  								&LogOut(0,"ValidateFileUpload: Race file $File_Loc failed to move to $Race_Destination for $userlogin: $err", $ErrorLog);
                   return 0;
   							}
   					} else {
   						$err .= "File $File failed to insert into database. Had you entered a race name?";
   						&LogOut(0,"ValidateFileUpload: Failed to insert $File into database for $userlogin: $err", $ErrorLog);
-              # Danger deleting a user defined file. 
-              unlink $File_Loc;
+              unlink $File_Loc; #user-input cleaned as much as I can. 
   						return 0;
   					}
   					&DB_Close($db);
   				} else {
-  					$err .= "<b>ERROR: Race File: $File already exists. Delete that Race (or rename your file) and try again!</b>";
-            # Delete the temp file
-            unlink ($File_Loc);
+  					$err .= "<b>ERROR: Race File: $File already exists. Delete that Race (or rename your file) and try again! $Race_Destination</b>";
+            unlink ($File_Loc); # Delete the temp file
   					&LogOut(0, "ValidateFileUpload: Race File: $File $File_Loc already exists at $Race_Destination: $err", $ErrorLog); 
   					return 0; 
   				}
   			} else { 
   				$err .= uc($File) . " not a valid Race ( .r1 ) file."; 
-  				&LogOut (0,"ValidateFileUpload: Invalid race file $File in $File_Loc for $userlogin: $err", $ErrorLog);
-          &LogOut (0, "ValidateFileUpload: Invalid Race (.r1) File: Deleted $File_Loc",$ErrorLog);
-          # Danger deleting user defined files. 
-          unlink $File_Loc;
+          &LogOut (0, "ValidateFileUpload: Invalid Race (.r1) File: Deleted $File_Loc for $userlogin",$ErrorLog);
+          unlink $File_Loc; #user-input cleaned as much as I can. 
   				return 0; 
   			}
   		} else {
   			$err .= "Invalid Race File upload of $File by $userlogin";
-  			&LogOut(0, "ValidateFileUpload: Invalid race file upload of $File to $File_Loc by $userlogin. CheckMagic: $checkmagic, CheckVersion: $checkversion: $err", $ErrorLog);
+  			&LogOut(0, "ValidateFileUpload: Invalid race file upload of $File_Loc by $userlogin. CheckMagic: $checkmagic, CheckVersion: $checkversion: $err", $ErrorLog);
         unlink ($File_Loc); #user-input cleaned as much as I can. 
-        &LogOut (0, "Invalid Race File: Deleted $File_Loc",$ErrorLog);
   			return 0;
   		}
     } else {
@@ -205,38 +183,28 @@ sub ValidateFileUpload {
        &LogOut (0, "Upload: No race name entered for $userlogin",$ErrorLog);
     }
 	} elsif ($file_type eq 'x') { # A turn file
- 		($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
+ 		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
 		&LogOut(200,"ValidateFileUpload: DTS2: $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware", $LogFile);
     # Validate the .x file
 	  # DT: 'Universe Definition (.xy) File', 'Player Log (.x) File', 'Host (.h) File', 'Player Turn (.m) File', 'Player History (.h) File', 'Race Definition (.r) File', 'Unknown (??) File'
     # $err results will display at the top of the game page when it refreshes, comma-delimited
-    if (!($dt == 1))                                { $err .= 'Not a Stars! .x file,'; &LogOut(0,"ValidateFileUpload: Invalid .x file dt = $dt, $File_Loc for $userlogin",$ErrorLog); }
-    elsif (!(&Check_Magic($Magic, $File_Loc)))      { $err .= "Invalid Magic $Magic,"; &LogOut(0,"ValidateFileUpload: Invalid Magic $Magic, $File_Loc for $userlogin",$ErrorLog); }
-    elsif (!(&Check_Version($ver, $File_Loc)))      { $err .= "Invalid Version $ver,"; &LogOut(0,"ValidateFileUpload: Invalid version $ver, $File_Loc for $userlogin",$ErrorLog); }
-    elsif (!(&Check_GameFile($file_prefix)))          { $err .= "Invalid Game File $file_prefix,"; &LogOut(0,"ValidateFileUpload: Invalid game file $file_prefix for $userlogin",$ErrorLog); }
+    if (!($dt == 1))                                { $err .= 'Not a Stars! .x file'; &LogOut(0,"ValidateFileUpload: Invalid .x file dt = $dt, $File_Loc for $userlogin",$ErrorLog); }
+    elsif (!(&Check_Magic($Magic, $File_Loc)))      { $err .= "Invalid Magic $Magic"; &LogOut(0,"ValidateFileUpload: Invalid Magic $Magic, $File_Loc for $userlogin",$ErrorLog); }
+    elsif (!(&Check_Version($ver, $File_Loc)))      { $err .= "Invalid Version $ver"; &LogOut(0,"ValidateFileUpload: Invalid version $ver, $File_Loc for $userlogin",$ErrorLog); }
+    elsif (!(&Check_GameFile($file_prefix)))          { $err .= "Invalid Game File $file_prefix"; &LogOut(0,"ValidateFileUpload: Invalid game file $file_prefix for $userlogin",$ErrorLog); }
     # Check_Player checks the extension of the file against the starstat value of the player
-  	elsif (!(&Check_Player($file_player,$iPlayer))) { $err .= 'Invalid Player ID,'; &LogOut(0,"ValidateFileUpload: Invalid Player ID Turn file $File $File_Loc for $userlogin",$ErrorLog); }
+  	elsif (!(&Check_Player($file_player,$iPlayer))) { $err .= 'Invalid Player ID'; &LogOut(0,"ValidateFileUpload: Invalid Player ID Turn file $File $File_Loc for $userlogin",$ErrorLog); }
     # Check_Turn validates that this file is fo rthe correct turn.
-		elsif (!(&Check_Turn($file_prefix, $turn)))       { $err .= "Wrong Year! ($turn),"; &LogOut(0,"ValidateFileUpload: Invalid Year Turn file $File $File_Loc for $userlogin",$ErrorLog);}
+		elsif (!(&Check_Turn($file_prefix, $turn)))       { $err .= "Wrong Year! ($turn)"; &LogOut(0,"ValidateFileUpload: Invalid Year Turn file $File $File_Loc for $userlogin",$ErrorLog);}
     # Check_GameID validates that the file is the correct file ID fo rthis game
-		elsif (!(&Check_GameID($file_prefix, $lidGame)))  { $err .= 'Wrong Game! '; &LogOut(0,"ValidateFileUpload: Invalid Game ID $file_prefix, $lidGame $File_Loc $File for $userlogin",$ErrorLog); }
+		elsif (!(&Check_GameID($file_prefix, $lidGame)))  { $err .= 'Wrong Game ID!'; &LogOut(0,"ValidateFileUpload: Invalid Game ID $file_prefix, $lidGame $File_Loc $File for $userlogin",$ErrorLog); }
     # Check_User validates that this user is the correct user for this turn
-		elsif (!(&Check_User($file_prefix, $userlogin, $iPlayer)))  { $err .= "Wrong User!,"; &LogOut(0,"ValidateFileUpload: Invalid User $file_prefix, $file_player,$iPlayer $File_Loc $File for $userlogin",$ErrorLog); }
+		elsif (!(&Check_User($file_prefix, $userlogin, $iPlayer)))  { $err .= "Wrong User!"; &LogOut(0,"ValidateFileUpload: Invalid User $file_prefix, $file_player,$iPlayer $File_Loc $File for $userlogin",$ErrorLog); }
     # Check that the turn won't trigger a serial/hardware conflict
 		elsif (my $errSerial = &checkSerials($File_Loc))  { $err .= "$errSerial"; &LogOut(0,"ValidateFileUpload: Serial/hardware error $err $File_Loc for $userlogin",$ErrorLog); }
 
-#     # Check that the turn won't trigger a serial/hardware conflict
-#     my $errSerial;
-#     $errSerial = &checkSerials($File_Loc);
-#     &LogOut(300,"ValidateFileUpload: Serial check $File_Loc for $userlogin $errSerial",$LogFile);
-#     if ($errSerial) { 
-#       &LogOut(0,"ValidateFileUpload: Serial/hardware error $err $File_Loc for $userlogin",$ErrorLog);
-#     } 
-   
-    # If any critical errors have been reported, error and delete the file
-    #   The file will not upload. 
-#    if ($err || $errSerial) { 
-     if ($err) { 
+    # If any critical errors have been reported, error. Delete the file
+    if ($err) { 
       &LogOut(0, "ValidateFileUpload: Error $err $errSerial", $ErrorLog); 
       # Pass the results to $err for display
       $err = 	uc($File) . " not a valid ( .x[n] ): $err $errSerial."; 
@@ -244,7 +212,7 @@ sub ValidateFileUpload {
 
       unlink $File_Loc; # #user-input cleaned as much as I can. 
       return 0; 
-    } else {&LogOut(300, 'ValidateFileUpload: No errors', $LogFile); }
+    } else {&LogOut(300, "ValidateFileUpload: No errors for $in{'GameFile'}", $LogFile); }
     
     # Unless there was an error, move the file to the game folder
     unless ($err) { 
@@ -259,24 +227,6 @@ sub ValidateFileUpload {
 				} else {
 					&LogOut(200, "ValidateFileUpload: Last Submitted update FAILED $File, $File_Loc, in $file_prefix for $userlogin", $ErrorLog); 
 				}
-#         # BUG: Need to determine if the game is AsAvailable, to generate as turns are uploaded.
-#   			$sql = "SELECT * FROM Games WHERE GameFile = \'$file_prefix\';";
-#   			if (&DB_Call($db,$sql)) {
-#   				# Load all game values into the array
-#       			while ($db->FetchRow()) {
-#   					%GameValues = $db->DataHash();
-#   #						while ( my ($key, $value) = each(%GameValues) ) { print "$key => $value\n"; }
-#   				}
-#   			}
-#          if ($GameValues{'AsAvailable'} == 1 ) {
-#            # If the game is AsAvailable, check to see if all Turns are in and whether we should generate. 
-#            # The easiest way is to run TurnMake for the game
-#            my $MakeTurn = "TurnMake.pl $GameValues{'GameFile'}";
-#            &LogOut(100, "Upload As Vailable: $MakeTurn", $LogFile);
-#            &system($MakeTurn);
-#          }
-# 				&DB_Close($db);
-#         &Make_CHK($file_prefix);   # BUG: - should really pull value from database, not user-input
         
         # Now that the file is legit, fix anything else wrong with it.
         # Check (and potentially fix) the .x file for known Stars! exploits
@@ -285,7 +235,6 @@ sub ValidateFileUpload {
         my $fixFile = "$DirGames\\$GameFile\\fix";
         my $warning; 
         if ($fixFiles && -e $fixFile) { 
-          #print "<P>Reviewing uploaded file ... \n";
           &LogOut(200, "ValidateFileUpload: fixfile: $fixFile fixFiles: $fixFiles, $File_Loc", $LogFile); 
           my $gameDir = "$DirGames\\$file_prefix";
           $warning = &StarsFix($gameDir, "$gameDir\\$file_prefix.$file_ext", $turn);
@@ -302,23 +251,21 @@ sub ValidateFileUpload {
         # If the game is AsAvailable, check to see if all Turns are in and whether we should generate. 
    			$sql = "SELECT * FROM Games WHERE GameFile = \'$file_prefix\';";
  				# Load game values into the array
-        if (&DB_Call($db,$sql)) { $db->FetchRow(); %GameValues = $db->DataHash(); }
-        if ($GameValues{'AsAvailable'} == 1 ) {
-        # Don't immediately generate if the file generated warnings
-         if ($warning) {
+        if (&DB_Call($db,$sql)) { $db->FetchRow(); %GameValues = $db->DataHash(); } # Shoul dreturn only one value
+        if ($GameValues{'AsAvailable'} == 1 ) { # Don't immediately generate As Available if the file generated warnings
+          if ($warning) {
             $err .= "Not immediately generating As Available game $file_prefix due to Warnings. Will generate on next turn check however.\n";
-            &LogOut(100, "Upload: AsAvailable $err", $LogFile);
+            &LogOut(100, "Upload: AsAvailable $err for $GameFile $userlogin", $LogFile);
           } else {
             # Run TurnMake for the game since TurnMake is currently not a function
             # TurnMake will handle for emails, CHK file, etc.
             my $MakeTurn = "perl -I $DirScripts $DirScripts\\TurnMake.pl $GameFile >nul";
-            &LogOut(100, "Upload: AsAvailable $MakeTurn ", $LogFile);
+            &LogOut(100, "Upload: AsAvailable $MakeTurn", $LogFile);
             system($MakeTurn); # Starting system with 1 makes it launch asynchronously, in case Stars! hangs
           }
         }
 				&DB_Close($db);
         &Make_CHK($file_prefix);   # User-input cleaned as best we can.
-        
 				return 1; 
 			} else { 
         # If the file failed to move, report and remove. 
@@ -386,7 +333,6 @@ sub Save_File {
 sub Check_User {
   # Confirm the user submitting the file is actually in the game and the correct player
   my ($file_prefix, $user_login, $playerId) = @_;
-    
   my $sql = qq|SELECT * from GameUsers WHERE User_Login =\'$user_login\' AND GameFile = \'$file_prefix\' AND PlayerID = $playerId;|;
   $db=&DB_Open($dsn);
   if (&DB_Call($db,$sql)) { $db->FetchRow(); %GameValues = $db->DataHash(); }

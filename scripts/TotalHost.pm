@@ -327,8 +327,6 @@ sub validate {
 	if ( $session->param("logged-in") ) {
     	return 1;  # if logged in, don't bother going further
 	} else {
-	#print $cgi->redirect( -URL => $rdurl);
-# added 120219 I hope it's right
 	print $cgi->header();
 
 print <<eof;
