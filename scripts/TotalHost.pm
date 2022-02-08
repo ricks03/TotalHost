@@ -144,8 +144,9 @@ sub Mail_Close  {
 
 sub MailAttach { 
 # Sends mail to the listed user, with the associated values (to:, Subject, Message)
-	my ($MailTo, $MailFrom, $Subject, $Message, $Path) = @_;
-	&LogOut(200,"MailAttach: $MailTo, $MailFrom, $Subject, $Message, $Path",$LogFile);
+	my ($MailTo, $MailFrom, $Subject, $Message, $GameFile, $PlayerID, $Turn) = @_;
+  my $Path;
+	&LogOut(200,"MailAttach: $MailTo, $MailFrom, $GameFile, $PlayerID, $Turn",$LogFile);
 	use MIME::Lite;
 	### Create the multipart container
 	my $msg = MIME::Lite->new (
@@ -155,19 +156,30 @@ sub MailAttach {
 	  Type =>'multipart/mixed'
 	) or &LogOut(0,"MailAttach: Error creating multipart container: $!",$ErrorLog);
 	
+  $Message .= "Service process - Do not reply to this message. \n\n ";
 	### Add the text message part
 	$msg->attach (
 	  Type => 'TEXT',
 	  Data => $Message
 	) or &LogOut(0,"MailAttach: Error adding the text message part: $!",$ErrorLog);
 		
-	### Add the file
+	### Add the .M file
+  $Path = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.m' . $PlayerID;
 	$msg->attach (
 	   Type => 'binary',
 	   Path => $Path,
 	   Disposition => 'attachment'
 	) or &LogOut(0,"MailAttach: Error adding $attachment: $!",$ErrorLog);
-	
+
+	### Add the .xy file for the first turn
+  if ($Turn eq '2400') { 
+    $Path = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.xy';
+  	$msg->attach (
+  	   Type => 'binary',
+  	   Path => $Path,
+  	   Disposition => 'attachment'
+  	) or &LogOut(0,"MailAttach: Error adding $attachment: $!",$ErrorLog);
+	}
 	### Send the Message
 	MIME::Lite->send('smtp', $mail_server, Timeout=>60);
 	$msg->send;
@@ -175,10 +187,9 @@ sub MailAttach {
 
 sub Email_Turns { #email turns out to the appropropriate players
 	my ($GameFile, $GameVs, $Attach) = @_;
-	my %GameVals;
+	my %GameVals = %$GameVs;
 	my $Message;
 	my $sql;
-	%GameVals = %$GameVs;
 #	while ( my ($key, $value) = each(%GameVals) ) { print "<P>$key => $value\n"; }
 	if ($Attach) {
 		# If you're emailing attachments, only do so to people who have requested it
@@ -211,18 +222,18 @@ sub Email_Turns { #email turns out to the appropropriate players
 			$Message .= "Next scheduled turn generation on or after " . localtime($GameVals{'NextTurn'});
 			$Message .= ".\n\n";
 		}
-    if (&checkbox($GameVals{'AsAvailable'}) == 1 ) { $Message .= "Turns will generate again when all turns are in.\n\n"; }
+#    if (&checkbox($GameVals{'AsAvailable'}) == 1 ) { $Message .= "Turns will generate when all turns are in.\n\n"; }
 
 		if ($GameVals{'ForceGen'} == 1  && $GameVals{'GameStatus'} != 4 ) { 
 			$Message .= qq|Automated generation will force $GameVals{'ForceGenTurns'} years at a time for the next $GameVals{'ForceGenTimes'} turns|;
-			if ($HST_Turn eq '2400' || $HST_Turn eq '2401' ) { $Message .= " not including years 2400 and 2401, which will generate only one year"; }
+			if ($GameVals{'HST_Turn'} eq '2400' || $GameVals{'HST_Turn'} eq '2401' ) { $Message .= " not including years 2400 and 2401, which will generate only one year"; }
 			$Message .= ".\n";
 		}
 		&LogOut(200, "Email_Turns: Message: $Message", $LogFile);
 		if ($Attach) {
-			my $Path = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.m' . $PlayerID[$i];
-			&LogOut(200,"Email_Turns: Emailing turn: $Email[$i], $mail_from, $Subject, $Message, $Path",$LogFile);
-			&MailAttach($Email[$i], $mail_from, $Subject, $Message, $Path);
+			#my $Path = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.m' . $PlayerID[$i];
+			&LogOut(200,"Email_Turns: Emailing player w attach: T: $Email[$i], F: $mail_from, S: $Subject, M: $Message, G: $GameVals{'GameFile'}, P: $PlayerID[$i], T: $GameVals{'HST_Turn'}",$LogFile);
+			&MailAttach($Email[$i], $mail_from, $Subject, $Message, $GameFile, $PlayerID[$i], $GameVals{'HST_Turn'});
 		} else {
 			&LogOut(201, "Email_Turns: Opening mail",$LogFile); 
 			$smtp = &Mail_Open;

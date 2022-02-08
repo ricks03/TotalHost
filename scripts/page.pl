@@ -186,7 +186,7 @@ if ($in{'cp'} eq 'edit_profile') {
 } elsif ($in{'cp'} eq 'Lock Game') { 
 	# Option won't present with no players 
 	print "<td>"; 	
-	&process_game_status($in{'GameFile'}, 'Lock'); 
+	&process_game_status($in{'GameFile'}, 'Locked'); 
 	&show_game($in{'GameFile'}); 
 	print "</td>";
 } elsif ($in{'cp'} eq 'Unlock Game') { 
@@ -677,12 +677,13 @@ sub process_game_leave {
 }
 
 sub process_game_remove {
-  # Remove a player frmom a game that has not yet started (much like process_game_leave)
+  # Remove a player from a game that has not yet started (much like process_game_leave)
 	my ($GameFile, $PlayerID) = @_;
-	my $sql = qq|DELETE User_Login, GameFile, PlayerID FROM GameUsers WHERE User_Login='$userlogin' AND GameFile='$GameFile' AND PlayerID=$PlayerID;|;
+	#my $sql = qq|DELETE User_Login, GameFile, PlayerID FROM GameUsers WHERE GameFile='$GameFile' AND PlayerID=$PlayerID;|;
+  my $sql = qq|DELETE GameUsers.* FROM Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE (((Games.HostName)='$userlogin') AND ((GameUsers.GameFile)='$GameFile') AND ((GameUsers.PlayerID)=$PlayerID));|;
 	my $db = &DB_Open($dsn);
 	if (&DB_Call($db,$sql)) { 
-    &LogOut(100,"$userlogin, $playerID removed from game $GameFile", $LogFile);
+    &LogOut(100,"$userlogin removed $playerID removed from game $GameFile $sql" , $LogFile);
   }
 	&DB_Close($db);
 }
@@ -1226,9 +1227,12 @@ sub create_news { # create a news file
 sub process_game_launch {
 	($GameFile) = @_;
 	my $counter = 0;
+  
+  #Get Game User Values
 	# Determine how many players there are, and get all the race information
 	# Reorder them based on the random player ID generated when they joined the game
 	my $sql = qq|SELECT * FROM GameUsers WHERE GameFile = '$GameFile' ORDER BY PlayerID;|;
+  #my $sql = qq|SELECT User.User_Email, User.EmailTurn, * FROM [User] INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login WHERE (((GameUsers.GameFile)='$GameFile')) ORDER BY GameUsers.PlayerID;|;
 	my $db = &DB_Open($dsn);
 	if (&DB_Call($db,$sql)) {
 		while ($db->FetchRow()) { 
@@ -1236,6 +1240,15 @@ sub process_game_launch {
 #			while ( my ($key, $value) = each(%GameUserValues) ) { print "<br>$key => $value\n"; }
 			$counter++;
 			@GameUserData[$counter] = { %GameUserValues };
+		}
+	}
+  
+  # Get Game Values
+	my $sql = qq|SELECT * FROM Games WHERE GameFile = '$GameFile';|;
+	if (&DB_Call($db,$sql)) {
+		while ($db->FetchRow()) { 
+			%GameValues = $db->DataHash(); 
+#			while ( my ($key, $value) = each(%GameUserValues) ) { print "<br>$key => $value\n"; }
 		}
 	}
 
@@ -1259,7 +1272,7 @@ sub process_game_launch {
 
 			# Rewrite the outbound data with the race information
 			# Change the outbound def file so if there's an error we still have the original
-			my $def_file_races = "$DirGames\\$GameFile\\$GameFile.df2";
+			$def_file_races = "$DirGames\\$GameFile\\$GameFile.df2";
 			open (OUT_FILE, ">$def_file_races");
 			print OUT_FILE "$def_data[0]\n"; # Game Name
 			print OUT_FILE "$def_data[1]\n"; # Universe Values
@@ -1285,26 +1298,25 @@ sub process_game_launch {
 			}
 			close OUT_FILE; 
 		} else { 
-			print "Game Definition File $def_file not found!\n"; 
+			print "Game Definition File for $GameFile not found!\n"; 
 			&LogOut(0,"Game Definition File $def_file not found at launch",$ErrorLog);
 			return 0;
 		}
  
 		# Create the game from the command line
-  	my($CreateGame) = $executable . ' -a ' . $def_file_races;
-		&LogOut(50, "Creating Game $CreateGame", $LogFile);
 		#exec causes perl.exe to crash
 		#exec($x);
-		# Starting system with "1" makes it launch asyncronously
-		# important if for some reasons stars hangs (like a corrupt race file).
+		# Starting system with "1" makes Stars! launch asyncronously
+		# important if for some reasons Stars! hangs (like a corrupt race file).
+    # If this just won't work, try rebooting the PC because Stars! is hung up somewhere (at least, fixed it once)
+  	my ($CreateGame) = $executable . ' -a ' . $def_file_races;
+		&LogOut(50, "Creating Game $CreateGame", $LogFile);
 		system(1,$CreateGame);
 		sleep 4; # Give Stars! time to create all the files
 
 		my $new_hst_file = "$DirGames\\$GameFile\\$GameFile.hst";
 		if (-e $new_hst_file) { 
 		  &LogOut(50, "Game $CreateGame Created", $LogFile);
-			# set the game status to paused. 
-			&process_game_status($GameFile, 'Launched'); 
 			# set the "last submitted date for players to "now". 
 			$sql = qq|UPDATE GameUsers SET LastSubmitted = | . time() . qq| WHERE GameFile = \'$in{'GameFile'}\';|;
 			if (&DB_Call($db,$sql)) {
@@ -1317,7 +1329,7 @@ sub process_game_launch {
       # it doesn't just start generating
       # (Note it should be paused anyway)
 		  my ($Second, $Minute, $Hour, $DayofMonth, $Month, $Year, $WeekDay, $WeekofMonth, $DayofYear, $IsDST, $CurrentDateSecs) = &GetTime; 
-		  if ($GameValues{'GameType'} == 1 ) {
+		  if ($GameValues{'GameType'} == 1 ) {   # BUG: Where are we getting GameValues
 			  # Determine when the next possible time is that turns are due
 			  ($DaysToAdd1, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'},$WeekDay);
 			  # now advance one interval from that, so you have a full interval
@@ -1325,9 +1337,8 @@ sub process_game_launch {
 			  # Set the time for the next turn on the right day
 			  $NewTurn = $CurrentDateSecs + $DaysToAdd1*86400 + $DaysToAdd2*86400 +($GameValues{'DailyTime'} *60*60); 
 			  $sql = qq|UPDATE Games SET NextTurn = $NewTurn WHERE GameFile = \'$GameFile'\' AND HostName=\'$userlogin\';|;
+        # BUG WHERE IS THE DB CALL TO EXECUTE THIS?
       }
-      
-			&DB_Close($db);
       
       # Create the initial List file(s)
       if ($fixFiles && -e "$DirGames\\$GameFile\\fix") { 
@@ -1342,10 +1353,24 @@ sub process_game_launch {
 # 		    &LogOut(50, "Cleaned .m Files for $new_hst_file", $LogFile);
 #       }
 
+## No longer necessary as we'lre using process_game_status 220207
+      # Email players that the game has started
+      # Attach the files if they so requested
+#      &LogOut (0,"Emailing for start of game $GameFile by $userlogin", $LogFile);
+#      $GameValues{'HST_Turn'} = '2400'; # Faster than checking the new file for the turn data
+#      &Email_Turns($GameFile, \%GameValues, 1); # attach games files.
+
+
+
+      # set the game status to paused and send email 
+			&process_game_status($GameFile, 'Launched'); 
+
+			&DB_Close($db);
 			return 1;
 		} else {
-			print "<P>Game $GameFile Failed to Launch (probably due to a corrupt race file)!";
+			print "<P>Game $GameFile Failed to Launch! (probably due to a corrupt race file)";
 			&LogOut (0,"Game $GameFile Failed to Launch (probably due to a corrupt race file). $CreateGame", $ErrorLog);
+			&LogOut (0,"Game $GameFile Failed to Launch (probably due to a corrupt race file). $CreateGame", $LogFile);
 			&DB_Close($db);
 			return 0;
 		}
@@ -2125,7 +2150,7 @@ eof
 #	print qq|<input type=hidden name="rp" value="my_games">\n|;
 	print qq|<input type=hidden name="GameFile" value="$GameFile">\n|; 
   #Notify Email List
-	print qq|<P><INPUT type="Checkbox" name="NotifyList" | . &button_help("NotifyList") . qq|CHECKED>Notify Email List for New Game Notification\n|;
+	print qq|<P><INPUT type="Checkbox" name="NotifyList" | . &button_help("NotifyList") . qq|>Notify Email List for New Game Notification\n|;
   #
 	print qq|<P><BUTTON $host_style type="submit" name="cp" value="Create DEF File">Create DEF File</BUTTON>\n|; 
 	print qq|</FORM>\n|;
@@ -2134,7 +2159,7 @@ eof
 sub create_game_def {
 	my ($GameFile) = @_;
 	my $GameDEF = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.def';
-	my $GameXY = $DirGames . '\\' . $GameFile . '\\' . $GameFile . '.xy';
+	my $GameXY = "$DirGames\\$GameFile\\$GameFile.xy";
 	my $GameDEFCreate = ">" . $GameDEF;
 
 	# Write To file
@@ -2466,31 +2491,26 @@ sub process_restore {
 sub process_game_status {
 	# Change the current game state and report such.
 	my ($GameFile, $state) = @_;
-	my $success =0; 
-	$db = &DB_Open($dsn);
+	my $success = 0;
+  my %GameValues; 
+	my $db = &DB_Open($dsn);
   # Get the information about the game in question
   # Since this can be reached by players (Pause) needs to not filter for $userlogin
   $sql_local = qq|SELECT * FROM Games WHERE GameFile = \'$GameFile\';|;
 	if (&DB_Call($db,$sql_local)) { $db->FetchRow(); %GameValues = $db->DataHash(); }
   my $state_set = 0;
 	if ($state eq 'Pause') {
-    if ($GameValues{'GamePause'}) {
-      # If players are allowed to pause the game
+    if ($GameValues{'GamePause'}) {       # If players are allowed to pause the game
       $sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET Games.GameStatus = 4 WHERE Games.GameFile = \'$in{'GameFile'}\' AND GameUsers.User_Login=\'$userlogin\' AND Games.GamePause=1;|;
-      $GameValues{'GameStatus'} = 4; # When used later
-      $state_set = 1;
-    } else {
-      # Only the host can update the game
+    } else { # Only the host can update the game
       $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
-      $GameValues{'GameStatus'} = 4; # When used later
-      $state_set = 1;
     }
+    $GameValues{'GameStatus'} = 4; # When used later
+    $state_set = 1;
     # Rebuild the .CHK file in case there's a problem
-    # This was slow.
-    #&Make_CHK($GameValues{'GameFile'});
+    &Make_CHK($GameValues{'GameFile'});
   } elsif ($state eq 'UnPause') {
-    # Try to figure out when the next turn is due and update the date so
-    # it doesn't just start generating
+    # Try to figure out when the next turn is due and update the date so it doesn't just start generating
 		($Second, $Minute, $Hour, $DayofMonth, $Month, $Year, $WeekDay, $WeekofMonth, $DayofYear, $IsDST, $CurrentDateSecs) = &GetTime; 
 		if ($GameValues{'GameType'} == 1 ) { # Daily game    
 			# Determine when the next possible time is that turns are due
@@ -2502,8 +2522,6 @@ sub process_game_status {
       #if (!$isDST) { $NewTurn = $NewTurn + (60*60); }
       $GameValues{'GameStatus'} = 2; # So the value is changed if used later before a query.
 			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
-      $GameValues{'GameStatus'} = 2; # When used later
-      $state_set = 1;
 		} elsif ($GameValues{'GameType'} == 2) { # Hourly game
 			# Determine when the next possible time is that turns are due
       # Generate the next turn now + number of hours (sliding)
@@ -2512,39 +2530,33 @@ sub process_game_status {
       while (&ValidTurnTime($NewTurn,'Day',$GameValues{'DayFreq'}, $GameValues{'HourFreq'}) ne 'True') { $NewTurn = $NewTurn + ($GameValues{'HourlyTime'} *60*60); }
       # Make sure we're generating on a valid hour
       while (&ValidTurnTime($NewTurn,'Hour',$GameValues{'DayFreq'}, $GameValues{'HourFreq'}) ne 'True') { $NewTurn = $NewTurn + 3600; } 
-
 			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
-      $GameValues{'GameStatus'} = 2; # When used later
-      $state_set = 1;
 		} else {
       $NewTurn = time()+86400;  # There really is no time the next turn will be due. Add a day so there's a buffer.
 			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
-      $GameValues{'GameStatus'} = 2; # When used later
-      $state_set = 1;
     }
-    # Rebuild the .CHK file in case there's a problem
-    &Make_CHK($GameValues{'GameFile'});
-  } elsif ($state eq 'Lock') {
+    $GameValues{'GameStatus'} = 2; # When used later
+    $state_set = 1;
+    &Make_CHK($GameValues{'GameFile'}); # Rebuild the .CHK file in case there's a problem
+  } elsif ($state eq 'Locked') {
    	$sql = qq|UPDATE Games SET GameStatus = 0 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
     $GameValues{'GameStatus'} = 0; # When used later
+    $state_set = 1;
+  } elsif ($state eq 'Unlocked') {
+    $sql = qq|UPDATE Games SET GameStatus = 7 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+    $GameValues{'GameStatus'} = 7; # When used later
     $state_set = 1;
   } elsif ($state eq 'Launched') {
     $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
     $GameValues{'GameStatus'} = 4; # When used later
     $state_set = 1;
-    # Rebuild the .CHK file in case there's a problem
-    &Make_CHK($GameValues{'GameFile'});
-  } elsif ($state eq 'Unlocked') {
-    $sql = qq|UPDATE Games SET GameStatus = 7 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
-    $GameValues{'GameStatus'} = 7; # When used later
-    $state_set = 1;
+    &Make_CHK($GameValues{'GameFile'}); # Rebuild the .CHK file in case there's a problem
   } elsif ($state eq 'Ended') {
     $sql = qq|UPDATE Games SET GameStatus = 9 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
     $GameValues{'GameStatus'} = 9; # When used later
     $state_set = 1;
     # Back up the last turn. Useful for how movie making works, as it reads the backed up turns
-    my $turn;
-	  if ($turn = &Game_Backup($GameValues{'GameFile'})) { &LogOut(200,"Ended: Gamefile $GameValues{'GameFile'} Backed up for Turn: $turn",$LogFile); }
+	  if (my $turn = &Game_Backup($GameValues{'GameFile'})) { &LogOut(200,"Ended: Gamefile $GameValues{'GameFile'} Backed up for Turn: $turn",$LogFile); }
   } elsif ($state eq 'Restart') {
     $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\' AND GameStatus = 9;|;
     $GameValues{'GameStatus'} = 4; # When used later
@@ -2559,7 +2571,7 @@ sub process_game_status {
   		$success = 1;
   	} else { 
   		print "<P>Game $GameFile failed to $state\n"; 
-  		&LogOut(0, "Game $GameFile failed to $state for $userlogin for $sql", $ErrorLog); 
+  		&LogOut(0, "process_game_status: Game $GameFile failed to $state for $userlogin for $sql", $ErrorLog); 
   	}
 	  &DB_Close($db);
   }
@@ -2567,13 +2579,22 @@ sub process_game_status {
 	if ($success) {
 	# Notify all players who want to be notified that the game status has changed. 
 		$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Status updated to $state|;
-		$GameValues{'Message'} = "The Game Status for $GameValues{'GameName'} has been updated to $state.\n";
-#     if ($state eq 'UnPause') { 
-#       $GameValues{'Message'} .= "The next turn will generate ";
-#       $GameValues{'Message'} .= localtime ($NextTurn);
-#       $GameValues{'Message'} .= "\n"; 
-#     }
-		&Email_Turns($GameFile, \%GameValues, 0);
+		$GameValues{'Message'} = "Game status for $GameValues{'GameName'} has been updated to $state.\n";
+    # Customize the message depending on the status change.
+    if ($state eq 'Locked') { $GameValues{'Message'} .= "No new players can join the game.\n"; 
+    } elsif ($state eq 'Unlocked') { $GameValues{'Message'} .= "Players can again join the game.\n"; 
+    } elsif ($state eq 'Pause') { $GameValues{'Message'} .= "Turn generation is suspended.\n"; 
+    # This code is in Email_Turns by default
+#     } elsif ($state eq 'UnPause') { 
+#       $GameValues{'Message'} .= "$GameValues{'AsAvailable'} The next turn will generate " . localtime($NewTurn); }
+#       if ($GameValues{'AsAvailable'} == 1) { $GameValues{'Message'} .= ' or when all turns are in'; }
+#       $GameValues{'Message'} .= ".\n";
+    } 
+    if ($state eq 'Launched') { # First turn 
+      $GameValues{'Message'} .= "Games default to Paused on game start, to provide time to check everything before turn generation begins. Time to take your first turn! \n";
+      $GameValues{'HST_Turn'} = '2400'; # Faster than checking the new file for the turn data
+      &Email_Turns($GameFile, \%GameValues, 1); # Attach files to initial turn
+    } else { &Email_Turns($GameFile, \%GameValues, 0); }
 	} else {
   	&LogOut(0, "Game $GameFile failed success to $state for $userlogin for $sql", $ErrorLog); 
   }

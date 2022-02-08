@@ -183,8 +183,6 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         my $checkBoxes; 
         my ($expensiveTechStartsAt3, $factoriesCost1LessGerm);
         my $MTItems;
-        my @PRT=();
-        my @LRT=(); 
         my @MTItems=();
         
         $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
@@ -349,19 +347,19 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         ($checkSum1, $checkSum2) = &raceCheckSum(\@decryptedData, $singularRaceName, $pluralRaceName, $singularNameLength, $pluralNameLength);
         print "Calculated Race Checksum: $checkSum1  \t$checkSum2\n";
         
+        print "############################\n";
         # https://sourceforge.net/p/stars-nova/svn/HEAD/tree/trunk/Common/RaceDefinition/RaceAdvantagePointCalculator.cs#l22
         # https://sourceforge.net/p/freestars/code/HEAD/tree/trunk/Server/Race.cpp#l141
         # BUG: Not done integrating yet.
         my $points = 1650; 
         my @scienceCost = ( 150, 330, 540, 780, 1050, 1380 );
+        my @LRT=&LRT($LRT,0); 
         my @prtCost     = (40,95,45,10,-100,-150,120,180,90,66); # HE,SS,WM,CA,IS,SD,PP,IT,AR,JOAT
         my @lrtCost     = (-235,-25,-159,-201,40,-240,-155,160,240,255,325,180,70,30); #IFE,TT,ARM,ISB,GR,UR,MA,NRSE,CE,OBRM,NAS,LSP,BET,RS
         my $tmpPoints=0;
         
         # Hab
-        my $hab;
-        $hab = 0;
-        $tmpPoints=0;    
+        my $hab = 0;
         my $desireFactor;
         my $v13E;
         my $v136;
@@ -371,9 +369,8 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         my $planetDesir;
         my @testPlanetHab;
         my $advantagePoints = 0;
-        my $isTotalTerraforming;
-        if (&LRT($LRT,0) eq 'TT') {  $isTotalTerraforming = 1;} else { $isTotalTerraforming = 0; }  # BUG: returns string of all LRTs
-
+        my $isTotalTerraforming = 0;
+        foreach my $i (@LRT) { if ($i eq 'TT') { $isTotalTerraforming = 1;} }
         my @habCenter = ($centreGravity, $centreTemperature, $centreRadiation);
         my @habWidth = ($highGravity-$lowGravity, $highTemperature-$lowTemperature, $highRadiation-$lowRadiation);
         my @habLow = ($lowGravity, $lowTemperature, $lowRadiation);
@@ -384,257 +381,287 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         my @terraformFactor = ( -1, -1, -1 ); 
         my @iterNum;
         my $tmpHab=0;
-        for (my $h=0; $h<3; $h++) { # Where $h is Grav/Temp/Rad
-          if ($h == 0 )    { $ttCorrFactor = 0; }
-          elsif ($h == 1 ) { if (&LRT($LRT,0) eq 'TT') { $ttCorrFactor = 8; } else { $ttCorrFactor = 5; } }  # BUG: returns string of all LRTs
-          elsif ($h == 2 ) { if (&LRT($LRT,0) eq 'TT') { $ttCorrFactor = 17; } else { $ttCorrFactor = 15; } } # BUG: returns string of all LRTs
-          for (my $i=0; $i<3; $i++) { 
-            if ($habCenter[$i] == 255) { # immune
-            	$testHabStart[$i] = 50;
-      				$testHabWidth[$i] = 11;
-      				$iterNum[$i] = 1;
-            } else {
-      				$testHabStart[$i] = $habLow[$i] - $ttCorrFactor;
-      				if ($testHabStart[$i] < 0) { $testHabStart[$i] = 0; }
-      				$tmpHab = $habHigh[$i] + $ttCorrFactor;
-      				if ($tmpHab > 100) { $tmpHab = 100; }
-      				$testHabWidth[$i] = $tmpHab - $testHabStart[$i];
-      				$iterNum[$i] = 11;
-            }
-          }
-          # /* loc_92AAC */
-          $v13E = 0.0;
-          for (my $i=0; $i<$iterNum[0]; $i++) {
-            if ( $i==0 || $iterNum[0]<=1 ) { $tmpHab = $testHabStart[0]; }
-            else { $tmpHab = ($testHabWidth[0]*$i) / ($iterNum[0]-1) + $testHabStart[0]; }
-            if ( $h!=0 && $habCenter[0] != 255) { # Grav immune
-               $v100 = $habCenter[0] - $tmpHab;
-               if (abs($v100)<= $ttCorrFactor) { $v100 = 0; }
-               elsif ($v100 < 0) { $v100 += $ttCorrFactor; }
-               else { $v100 -= $ttCorrFactor; }
-               $v108[0] = $v100;
-               $tmpHab = $habCenter[0] - $v100;
-            }
-            $testPlanetHab[0] = $tmpHab;
-            $v136 = 0.0;
-            for (my $j=0; $j<$iterNum[1]; $j++) {
-              if ($j==0 || $iterNum[1]<=1) { $tmpHab = $testHabStart[1]; }
-              else { $tmpHab = ($testHabWidth[1]*$j) / ($iterNum[1]-1) + $testHabStart[1]; }
-              if ($h != 0 && $habCenter[1] != 255) { # Temp imune
-                $v100 = $habCenter[1] - $tmpHab;
-                if (abs($v100) <= $ttCorrFactor) { $v100=0; }
-                elsif ($v100<0) { $v100+= $ttCorrFactor; }
-                else { $v100 -= $ttCorrFactor; }
-                $v108[1] = $v100;
-                $tmpHab = $habCenter[1] - $v100;
-              }
-              $testPlanetHab[1] = $tmpHab;
-              $v12E = 0;
-
-              for (my $k=0;$k<$iterNum[2];$k++) {
-                if ( $k==0 || $iterNum[2] <= 1) { $tmpHab = $testHabStart[2]; }
-                else { $tmpHab = ($testHabWidth[2]*$k) / ($iterNum[2]-1) + $testHabStart[2]; }
-                if ($h != 0 && $habCenter[2] != 255) { 
-                  $v100 = $habCenter[2] - $tmpHab; 
-                  if ( abs( $v100 ) <= $ttCorrFactor ) { $v100 = 0; }
-                  elsif ($v100 < 0) { $v100+=$ttCorrFactor; }
-                  else { $v100 -= $ttCorrFactor; }
-                  $v108[2] = $v100;
-                  $tmpHab = $habCenter[2] - $v100;
-                }
-                $testPlanetHab[2] = $tmpHab;
-                #$planetDesir = &planetValueCalc($race, $testPlanetHab);
-                $planetDesir = 100;
-
-                $v100 = $v108[0]+$v108[1]+$v108[2];
-                if ($v100 > $ttCorrFactor) { 
-                  $planetDesir -= $v100-$ttCorrFactor; 
-                  if ($planetDesir < 0) { $planetDesir=0; }
-                }
-                $planetDesir *= $planetDesir;
-                if ($h == 0) { $planetDesir *=7; }
-                elsif ($h == 1) { $planetDesir *=5 } 
-                elsif ($h == 2) { $planetDesir *= 6; }
-                $v12E += $planetDesir;
-              }   
-              #/* loc_92D34 */
-              if ($habCenter[2] != 255) { $v12E = ($v12E*$testHabWidth[2])/100; }
-              else { $v12E *= 11; }
-              $v136 += $v12E;
-            }
-            if ($habCenter[1] != 255) { $v136 = ($v136 * $testHabWidth[1]) / 100; }
-            else { $v136 *= 11; }
-            $v13E += $v136;
-          }
-          if ($habCenter[0] != 255) { $v13E = ($v13E * $testHabWidth[0]) / 100; }
-          else { $v13E *= 11; }
-          $advantagePoints += $v13E;
-        }
-        $points = 1650;
-        $advantagePoints = $advantagePoints / 2000;
-        $points += int($advantagePoints/10.0+.5);
-        print "POINTS Hab: $points\n";
-         
-        # Growth
-        my $grRateFactor = ($growthRate * 100 + .5); #use raw growth rate, otherwise HEs pay for GR at 2x
-        my $grRate = $grRateFactor;
-        if ($grRateFactor <= 5) { $points += (6 - $grRateFactor) * 4200; }
-        elsif ($grRateFactor <= 13) {
-          if ($grRateFactor == 6 )  { $points += 3600 }
-          elsif ($grRateFactor == 7) { $points += 2250 }
-          elsif ($grRateFactor == 8) { $points +=  600; }
-          elsif ($grRateFactor == 9) { $points +=  225; }
-          $grRateFactor = $grRateFactor * 2 - 5;
-        } elsif ( $grRateFactor < 20) { $grRateFactor = ($grRateFactor - 6) * 3; }
-        else { $grRateFactor = 45; }
-        $points -= ($hab * $grRateFactor) / 24;         
-        print "POINTS Growth: $points\n";
-       
-        # Immunities
-        my $immunities = 0;
-        if ( $centreGravity == 255)     { $immunities++; } #(base 65), 255 if immune 
-        else { $points += abs($centreGravity - 50) * 4; } # bonus points for off center habs
-        if ( $centreTemperature == 255) { $immunities++; } #(base 35), 255 if immune  
-        else { $points += abs($centreTemperature - 50) * 4; } # bonus points for off center habs
-        if ( $centreRadiation == 255)   { $immunities++; } # , 255 if immune 
-        else { $points += abs($centreRadiation - 50) * 4; } # bonus points for off center habs
-        if ($immunities > 1) { $points -= 150; } # if more then one immunity
-        print "POINTS Immunities: $points \n";
-   
-        # Production
-        my $j = $resourcePerColonist; # popEfficiency
-        if ($j > 25)      { $j = 25; }
-        if ($j <= 7)      { $points -= 2400; }
-        elsif ($j == 8)   { $points -=1260; }
-        elsif ($j == 9)   { $points -= 600; }
-        elsif ($j > 10)   { $points += ($j - 10) * 120; }
-  
-        print "POINTS Production: $points \n";
-
-        # factories
-        $tmpPoints=0;    
-      	if (&PRT($PRT,0) eq 'AR') {
-       	  $points += 210; #AR
-        } else {
-        	my $prodPoints = $producePerFactory - 10; #FactoryRate() - 10;
-        	my $costPoints = $toBuildFactory - 10; #FactoryCost().GetResources() - 10;
-        	my $operPoints = $operateFactory - 10; #FactoriesRun() - 10;
-        	if ($prodPoints < 0) { $tmpPoints -= $prodPoints * 100; }
-          else { $tmpPoints -= $prodPoints * 121; }
-        
-        	if ($costPoints < 0) { $tmpPoints += $costPoints * $costPoints * -60; }
-        	else { $tmpPoints += $costPoints * 55; }
-        
-        	if ($operPoints < 0) { $tmpPoints -= $operPoints * 40; }
-        	else { $tmpPoints -= $operPoints * 35; }
-      
-        	my $llfp = 700; #Rules::GetConstant("LimitLowFactoryPoints", 700);
-            
-        	if ($tmpPoints > $llfp) { $tmpPoints = ($tmpPoints - $llfp) / 3 + $llfp; }
-        
-        	if ($operPoints > 14) { $tmpPoints -= 360; }
-        	elsif ($operPoints > 11) { $tmpPoints -= ($operPoints - 7) * 45; }
-        	elsif ($operPoints >= 7) { $tmpPoints -= ($operPoints - 6) * 30; }
-        
-        	if ($prodPoints >= 3) { $tmpPoints -= ($prodPoints - 2) * 60; }
-        }
-        $points += $tmpPoints;
-        if ($toBuildFactory == 3) { $points -= 175; } # factory cost
-        print "POINTS Factory: $points\n";
-    
-      	# mines
-      	$tmpPoints = 0;
-      	my $prodPoints = 10 - $producePerMine; # mineRate
-      	my $costPoints = 3 - $producePerMine; # MineCost().GetResources();
-      	my $operPoints = 10 - $operateMine; # MinesRun();
-      	if ($prodPoints > 0) { $tmpPoints = $prodPoints * 100; }
-      	else{ $tmpPoints = $prodPoints * 169; }
-      	if ($costPoints > 0) { $tmpPoints -= 360; }
-      	else { $tmpPoints += 80 - $costPoints * 65; }
-      	if ($operPoints > 0) { $tmpPoints += $operPoints * 40; }
-      	else { $tmpPoints += $operPoints * 35; }
-      	$points += $tmpPoints;
-        print "POINTS Mine: $points\n";
-        
-        # Traits
+#         for (my $h=0; $h<3; $h++) { # Where $h is Grav/Temp/Rad
+#           if ($h == 0 )    { $ttCorrFactor = 0; }
+#           elsif ($h == 1 ) { if ($isTotalTerraforming) { $ttCorrFactor = 8; } else { $ttCorrFactor = 5; } }  
+#           elsif ($h == 2 ) { if ($isTotalTerraforming) { $ttCorrFactor = 17; } else { $ttCorrFactor = 15; } } 
+#           for (my $i=0; $i<3; $i++) { 
+#             if ($habCenter[$i] == 255) { # immune
+#             	$testHabStart[$i] = 50;
+#       				$testHabWidth[$i] = 11;
+#       				$iterNum[$i] = 1;
+#             } else {
+#       				$testHabStart[$i] = $habLow[$i] - $ttCorrFactor;
+#       				if ($testHabStart[$i] < 0) { $testHabStart[$i] = 0; }
+#       				$tmpHab = $habHigh[$i] + $ttCorrFactor;
+#       				if ($tmpHab > 100) { $tmpHab = 100; }
+#       				$testHabWidth[$i] = $tmpHab - $testHabStart[$i];
+#       				$iterNum[$i] = 11;
+#             }
+#           } # end i
+#           # /* loc_92AAC */
+#           $v13E = 0.0;
+#           for (my $i=0; $i<$iterNum[0]; $i++) {
+#             if ( $i==0 || $iterNum[0]<=1 ) { $tmpHab = $testHabStart[0]; }
+#             else { $tmpHab = ($testHabWidth[0]*$i) / ($iterNum[0]-1) + $testHabStart[0]; }
+#             if ( $h!=0 && $habCenter[0] != 255) { # Grav immune
+#                $v100 = $habCenter[0] - $tmpHab;
+#                if (abs($v100)<= $ttCorrFactor) { $v100 = 0; }
+#                elsif ($v100 < 0) { $v100 += $ttCorrFactor; }
+#                else { $v100 -= $ttCorrFactor; }
+#                $v108[0] = $v100;
+#                $tmpHab = $habCenter[0] - $v100;
+#             }
+#             $testPlanetHab[0] = $tmpHab;
+#             $v136 = 0.0;
+#             for (my $j=0; $j<$iterNum[1]; $j++) {
+#               if ($j==0 || $iterNum[1]<=1) { $tmpHab = $testHabStart[1]; }
+#               else { $tmpHab = ($testHabWidth[1]*$j) / ($iterNum[1]-1) + $testHabStart[1]; }
+#               if ($h != 0 && $habCenter[1] != 255) { # Temp imune
+#                 $v100 = $habCenter[1] - $tmpHab;
+#                 if (abs($v100) <= $ttCorrFactor) { $v100=0; }
+#                 elsif ($v100<0) { $v100+= $ttCorrFactor; }
+#                 else { $v100 -= $ttCorrFactor; }
+#                 $v108[1] = $v100;
+#                 $tmpHab = $habCenter[1] - $v100;
+#               }
+#               $testPlanetHab[1] = $tmpHab;
+#               $v12E = 0;
+# 
+#               for (my $k=0;$k<$iterNum[2];$k++) {
+#                 if ( $k==0 || $iterNum[2] <= 1) { $tmpHab = $testHabStart[2]; }
+#                 else { $tmpHab = ($testHabWidth[2]*$k) / ($iterNum[2]-1) + $testHabStart[2]; }
+#                 if ($h != 0 && $habCenter[2] != 255) { 
+#                   $v100 = $habCenter[2] - $tmpHab; 
+#                   if ( abs( $v100 ) <= $ttCorrFactor ) { $v100 = 0; }
+#                   elsif ($v100 < 0) { $v100+=$ttCorrFactor; }
+#                   else { $v100 -= $ttCorrFactor; }
+#                   $v108[2] = $v100;
+#                   $tmpHab = $habCenter[2] - $v100;
+#                 }
+#                 $testPlanetHab[2] = $tmpHab;
+#                 #$planetDesir = &planetValueCalc($race, $testPlanetHab);
+#                 $planetDesir = 100;
+# 
+#                 $v100 = $v108[0]+$v108[1]+$v108[2];
+#                 if ($v100 > $ttCorrFactor) { 
+#                   $planetDesir -= $v100-$ttCorrFactor; 
+#                   if ($planetDesir < 0) { $planetDesir=0; }
+#                 }
+#                 $planetDesir *= $planetDesir;
+#                 if ($h == 0) { $planetDesir *=7; }
+#                 elsif ($h == 1) { $planetDesir *=5 } 
+#                 elsif ($h == 2) { $planetDesir *= 6; }
+#                 $v12E += $planetDesir;
+#               } # end k  
+#               #/* loc_92D34 */
+#               if ($habCenter[2] != 255) { $v12E = ($v12E*$testHabWidth[2])/100; }
+#               else { $v12E *= 11; }
+#               $v136 += $v12E;
+#             }
+#             if ($habCenter[1] != 255) { $v136 = ($v136 * $testHabWidth[1]) / 100; }
+#             else { $v136 *= 11; }
+#             $v13E += $v136;
+#           } # end i
+#           if ($habCenter[0] != 255) { $v13E = ($v13E * $testHabWidth[0]) / 100; }
+#           else { $v13E *= 11; }
+#           $advantagePoints += $v13E;
+#         } # end h
+#         $advantagePoints = $advantagePoints / 2000;
+#         $points += int($advantagePoints/10.0+.5);
+#         print "POINTS Hab: $points\n";
+#          
+#         # Growth
+#         my $grRateFactor = ($growthRate * 100 + .5); #use raw growth rate, otherwise HEs pay for GR at 2x
+#         my $grRate = $grRateFactor;
+#         if ($grRateFactor <= 5) { $points += (6 - $grRateFactor) * 4200; 
+#         } elsif ($grRateFactor <= 13) {
+#           if ($grRateFactor == 6 )  { $points += 3600 }
+#           elsif ($grRateFactor == 7) { $points += 2250 }
+#           elsif ($grRateFactor == 8) { $points +=  600; }
+#           elsif ($grRateFactor == 9) { $points +=  225; }
+#           $grRateFactor = $grRateFactor * 2 - 5;
+#         } elsif ( $grRateFactor < 20) { $grRateFactor = ($grRateFactor - 6) * 3; 
+#         } else { $grRateFactor = 45; }
+#         $points -= ($hab * $grRateFactor) / 24;         
+#         print "POINTS Growth: $points\n";
+#        
+#         # Immunities
+#         my $immunities = 0;
+#         if ( $centreGravity == 255)     { $immunities++; } #(base 65), 255 if immune 
+#         else { $points += abs($centreGravity - 50) * 4; } # bonus points for off center habs
+#         if ( $centreTemperature == 255) { $immunities++; } #(base 35), 255 if immune  
+#         else { $points += abs($centreTemperature - 50) * 4; } # bonus points for off center habs
+#         if ( $centreRadiation == 255)   { $immunities++; } # , 255 if immune 
+#         else { $points += abs($centreRadiation - 50) * 4; } # bonus points for off center habs
+#         if ($immunities > 1) { $points -= 150; } # if more then one immunity
+#         print "POINTS Immunities: $points \n";
+#    
+#         # Production
+#         my $j = $resourcePerColonist; # popEfficiency
+#         if ($j > 25)      { $j = 25; }
+#         if ($j <= 7)      { $points -= 2400; }
+#         elsif ($j == 8)   { $points -=1260; }
+#         elsif ($j == 9)   { $points -= 600; }
+#         elsif ($j > 10)   { $points += ($j - 10) * 120; }
+#         print "POINTS Production: $points \n";
+# 
+#         # factories
+#         $tmpPoints=0;    
+#       	if (&PRT($PRT,0) eq 'AR') {
+#        	  $points += 210; #AR
+#         } else {
+#         	my $prodPoints = $producePerFactory - 10; #FactoryRate() - 10;
+#         	my $costPoints = $toBuildFactory - 10; #FactoryCost().GetResources() - 10;
+#         	my $operPoints = $operateFactory - 10; #FactoriesRun() - 10;
+#         	if ($prodPoints < 0) { $tmpPoints -= $prodPoints * 100; }
+#           else { $tmpPoints -= $prodPoints * 121; }
+#         
+#         	if ($costPoints < 0) { $tmpPoints += $costPoints * $costPoints * -60; }
+#         	else { $tmpPoints += $costPoints * 55; }
+#         
+#         	if ($operPoints < 0) { $tmpPoints -= $operPoints * 40; }
+#         	else { $tmpPoints -= $operPoints * 35; }
+#       
+#         	my $llfp = 700; #Rules::GetConstant("LimitLowFactoryPoints", 700);
+#             
+#         	if ($tmpPoints > $llfp) { $tmpPoints = ($tmpPoints - $llfp) / 3 + $llfp; }
+#         
+#         	if ($operPoints > 14) { $tmpPoints -= 360; }
+#         	elsif ($operPoints > 11) { $tmpPoints -= ($operPoints - 7) * 45; }
+#         	elsif ($operPoints >= 7) { $tmpPoints -= ($operPoints - 6) * 30; }
+#         
+#         	if ($prodPoints >= 3) { $tmpPoints -= ($prodPoints - 2) * 60; }
+#         }
+#         $points += $tmpPoints;
+#         if ($toBuildFactory == 3) { $points -= 175; } # factory cost
+#         print "POINTS Factory: $points\n";
+#     
+#       	# mines
+#       	$tmpPoints = 0;
+#       	my $prodPoints = 10 - $producePerMine; # mineRate
+#       	my $costPoints = 3 - $producePerMine; # MineCost().GetResources();
+#       	my $operPoints = 10 - $operateMine; # MinesRun();
+#       	if ($prodPoints > 0) { $tmpPoints = $prodPoints * 100; }
+#       	else{ $tmpPoints = $prodPoints * 169; }
+#       	if ($costPoints > 0) { $tmpPoints -= 360; }
+#       	else { $tmpPoints += 80 - $costPoints * 65; }
+#       	if ($operPoints > 0) { $tmpPoints += $operPoints * 40; }
+#       	else { $tmpPoints += $operPoints * 35; }
+#       	$points += $tmpPoints;
+#         print "POINTS Mine: $points\n";
+#         
         # PRTs
         my %prtCost;
         my %lrtCost;
-        $prtCost{HE} =40;
-        $prtCost{SS} =95;
-        $prtCost{WM} =45;
-        $prtCost{CA} =10;
-        $prtCost{IS} =-100;
-        $prtCost{SD} =-150;
-        $prtCost{PP} =120;
-        $prtCost{IT} =180;
-        $prtCost{AR} =90;
-        $prtCost{JOAT} =-66;
+#         $prtCost{HE} =40;  # from the github code
+#         $prtCost{SS} =95;
+#         $prtCost{WM} =45;
+#         $prtCost{CA} =10;
+#         $prtCost{IS} =-100;
+#         $prtCost{SD} =-150;
+#         $prtCost{PP} =120;
+#         $prtCost{IT} =180;
+#         $prtCost{AR} =90;
+#         $prtCost{JOAT} =-66;
+
+        # from the race wizard
+        # + likely some norming factor of 70 points? 
+        $prtCost{SD}   =0;
+        $prtCost{IS}   =16;
+        $prtCost{JOAT} =28;
+        $prtCost{CA}   =53;
+        $prtCost{WM}   =65;
+        $prtCost{SS}   =81;
+        $prtCost{PP}   =90;
+        $prtCost{IT}   =110;
+        $prtCost{AR}   =999; # Special
+        $prtCost{HE}   =999;# Special
   
-        # BUG: Shouldnot this be positive?   
-        $points += $prtCost{&PRT($PRT,0)};  # Modify points for PRTs
-        print "POINTS PRT: $points\n";
-        
-        # LRTs
-        $lrtCost{IFE} =-235;
-        $lrtCost{TT}  =-25;
-        $lrtCost{ARM} =-159;
-        $lrtCost{ISB} =-201;
-        $lrtCost{GR}  =40;
-        $lrtCost{UR}  =-240;
-        $lrtCost{MA}  =-155;
-        $lrtCost{NRSE} =160; # NRSE
-        $lrtCost{CE}  =240;
-        $lrtCost{OBRM} =255;
-        $lrtCost{NAS} =325;
-        $lrtCost{LSP} =180;
-        $lrtCost{BET} =70;
-        $lrtCost{RS}  =30;
+        $points -= $prtCost{&PRT($PRT,0)};  # Modify points for PRTs
+        print "POINTS PRT: $PRT " . (&PRT($PRT,0)) . " " . ($prtCost{&PRT($PRT,0)}) . ": $points\n";
+#         
+#         # LRTs
+#         $lrtCost{IFE} =-235;
+#         $lrtCost{TT}  =-25;
+#         $lrtCost{ARM} =-159;
+#         $lrtCost{ISB} =-201;
+#         $lrtCost{GR}  =40;
+#         $lrtCost{UR}  =-240;
+#         $lrtCost{MA}  =-155;
+#         $lrtCost{NRSE} =160; # NRSE
+#         $lrtCost{CE}  =240;
+#         $lrtCost{OBRM} =255;
+#         $lrtCost{NAS} =325;
+#         $lrtCost{LSP} =180;
+#         $lrtCost{BET} =70;
+#         $lrtCost{RS}  =30;
+
+# From the Race wizard
+        $lrtCost{IFE}  =79;
+        $lrtCost{TT}   =175; # Also tied to hab range
+        $lrtCost{ARM}  =53;
+        $lrtCost{ISB}  =67;
+        $lrtCost{GR}   =-12;
+        $lrtCost{UR}   =80;
+        $lrtCost{MA}   =52;
+        $lrtCost{NRSE} =-52; 
+        $lrtCost{CE}   =-79;
+        $lrtCost{OBRM} =-84;
+        $lrtCost{NAS}  =-94; # Also tied to hab range
+        $lrtCost{LSP}  =-59;
+        $lrtCost{BET}  =-22;
+        $lrtCost{RS}  	=-9;
+
         my $i = 0;
         my $k = 0;
-      	foreach my $j (@LRT) {
-  	      if    ($lrtCost{$j} < 0) { $i++; }
-  	      elsif ($lrtCost{$j} > 0) { $k++; }
+        my $LRTs = &LRT($LRT,0); 
+        @LRT = split(', ',$LRTs);
+        foreach my $j (@LRT) {
+   	      if    ($lrtCost{$j} < 0) { $i++; }
+   	      elsif ($lrtCost{$j} > 0) { $k++; }
         }
-        if (($i + $k) > 4) { $points -= ($i + $k) * ($i + $k - 4) * 10; }
-        if (($i - $k) > 3) { $points -= ($i - $k - 3) * 60; }
-        if (($k - $i) > 3) { $points -= ($k - $i - $3) * 40; }
+        if (($i + $k) > 4)  { $points -= ($i + $k) * ($i + $k - 4) * 10; }
+        if (($i - $k) > 3)  { $points -= ($i - $k - 3) * 60; }
+        if (($k - $i) > 3)  { $points -= ($k - $i - 3) * 40; }
+        if (($i + $k) == 3 ) { $points -= 2 }; # Rick added this
         
         foreach my $j (@LRT) { # Point changes for NAS
-          $points += $lrtCost{$j};
+          $points -= $lrtCost{$j};
           if ($j eq 'NAS') {
-            if (&PRT($PRT,0) eq 'PP') { $points -=280; }
-            elsif (&PRT($PRT,0) eq 'SS') { $points -=200; }
-            elsif (&PRT($PRT,0) eq 'JOAT') { $points -= 40; }
+#             if (&PRT($PRT,0) eq 'PP') { $points -=280; }
+#             elsif (&PRT($PRT,0) eq 'SS') { $points -=200; }
+#             elsif (&PRT($PRT,0) eq 'JOAT') { $points -= 40; }
+            if (&PRT($PRT,0) eq 'PP') { $points -= 79; }
+            elsif (&PRT($PRT,0) eq 'SS') { $points -= 52; }
+            elsif (&PRT($PRT,0) eq 'JOAT') { $points -= -1; }
           }
-        }
-  
-        print "POINTS LRT: $points\n";
-         
-        # Research
-        my @researchCost =  ($researchEnergy,$researchWeapons,$researchProp,$researchConstruction,$researchElectronics,$researchBiotech); # (0:+75%, 1: 0%, 2:-50%)
-        my $techCost = 0;
-        foreach my $i ( @researchCost ) {
-          if    ($i == 2) { $techCost++; } # -50%
-          elsif ($i == 0) {$techCost--; } # +75%
-          # $i == 1 is 0
-          else { print 'error'; die; }
-        }
-        if ($techCost > 0) {
-          $points -= $techCost * $techCost * 130;
-          if ($techCost >= 6) { $points += 1430; }
-          elsif ($techCost == 5) { $points +=520; } 
-        } elsif ($techCost < 0 ) {
-          $techCost -= $techCost;
-          $points += $techCost * ($techCost + 9) * 15;
-          if ($techCost >= 6) { $points += 30 };
-          if ($techCost < 4 && $resourcePerColonist < 10) { $points -= 190; }#  Pop efficiency \ 100
-        }
-        if ($expensiveTechStartsAt3) { $points -= 180; }
-        if (&PRT($PRT,0) eq 'AR' && $researchCost[0] == 2) { $points -= 100; }  #Energy @ 50%
-        
-        print "POINTS research: $points\n";
-
+         }
+         print "POINTS LRT: $points\n";
+#          
+#         # Research
+#         my @researchCost =  ($researchEnergy,$researchWeapons,$researchProp,$researchConstruction,$researchElectronics,$researchBiotech); # (0:+75%, 1: 0%, 2:-50%)
+#         my $techCost = 0;
+#         foreach my $i ( @researchCost ) {
+#           if    ($i == 2) { $techCost++; } # -50%
+#           elsif ($i == 0) {$techCost--; } # +75%
+#           elsif ($i == 1) {} # $i == 1 is 0
+#         }
+#         if ($techCost > 0) {
+#           $points -= $techCost * $techCost * 130;
+#           if ($techCost >= 6) { $points += 1430; }
+#           elsif ($techCost == 5) { $points +=520; } 
+#         } elsif ($techCost < 0 ) {
+#           $techCost -= $techCost;
+#           $points += $techCost * ($techCost + 9) * 15;
+#           if ($techCost >= 6) { $points += 30 };
+#           if ($techCost < 4 && $resourcePerColonist < 10) { $points -= 190; }#  Pop efficiency \ 100
+#         }
+#         if ($expensiveTechStartsAt3) { $points -= 180; }
+#         if (&PRT($PRT,0) eq 'AR' && $researchCost[0] == 2) { $points -= 100; }  #Energy @ 50%
+#         
+#         print "POINTS research: $points\n";
+# 
       } 
       # END OF MAGIC
       #reencrypt the data for output
@@ -646,5 +673,5 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
   } 
   if ( $action ) { return \@outBytes; }
   else { return 0; }
-}
+} # end sub
 

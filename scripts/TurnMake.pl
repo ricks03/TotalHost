@@ -348,7 +348,7 @@ sub CheckandUpdate {
 				# Since we've updated last turn, we need to use the original
 				$GameValues{'NextTurn'} = &FixNextTurnDST($GameValues{'NextTurn'}, $GameData[$LoopPosition]{'LastTurn'},1);
         
-				&Email_Turns($GameData[$LoopPosition]{'GameFile'}, \%GameValues, 1);
+				&Email_Turns($GameData[$LoopPosition]{'GameFile'}, \%GameValues, 1); 
 			}
 			#Print when the next turn will be generated.
 			if ($NewTurn) { print "\t1:Next turn for $GameData[$LoopPosition]{'GameFile'} gen on/after $NewTurn: " . localtime($NewTurn); }
