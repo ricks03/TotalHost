@@ -109,7 +109,7 @@ sub ValidateFileUpload {
       
       # Check to see if the race file is corrupt
       if (&checkRaceCorrupt($File_Loc)) {
-        $err .= 'This race file is corrupt!!!';
+        $err .= 'This race file is corrupt! Caused by making the plural name too short. Rereate the race or fix it with StarsRace.exe !!';
         &LogOut (0, "ValidateFileUpload: Race file $File_Loc corrupt for $userlogin",$ErrorLog);
         unlink $File_Loc; #user-input cleaned as much as I can. 
         return 0;
@@ -207,9 +207,7 @@ sub ValidateFileUpload {
     if ($err) { 
       &LogOut(0, "ValidateFileUpload: Error $err $errSerial", $ErrorLog); 
       # Pass the results to $err for display
-      $err = 	uc($File) . " not a valid ( .x[n] ): $err $errSerial."; 
-      $err .= 'DISCARDING FILE';
-
+      $err = 	uc($File) . " not a valid .X[n] file: $err $errSerial. DISCARDING FILE"; 
       unlink $File_Loc; # #user-input cleaned as much as I can. 
       return 0; 
     } else {&LogOut(300, "ValidateFileUpload: No errors for $in{'GameFile'}", $LogFile); }
@@ -236,7 +234,7 @@ sub ValidateFileUpload {
         my $warning; 
         if ($fixFiles && -e $fixFile) { 
           &LogOut(200, "ValidateFileUpload: fixfile: $fixFile fixFiles: $fixFiles, $File_Loc", $LogFile); 
-          my $gameDir = "$DirGames\\$file_prefix";
+          my $gameDir = "$DirGames\\$GameFile";
           $warning = &StarsFix($gameDir, "$gameDir\\$file_prefix.$file_ext", $turn);
           &LogOut(200, "ValidateFileUpload: $gameDir, $warning", $LogFile); 
           if ($warning) {
@@ -251,7 +249,7 @@ sub ValidateFileUpload {
         # If the game is AsAvailable, check to see if all Turns are in and whether we should generate. 
    			$sql = "SELECT * FROM Games WHERE GameFile = \'$file_prefix\';";
  				# Load game values into the array
-        if (&DB_Call($db,$sql)) { $db->FetchRow(); %GameValues = $db->DataHash(); } # Shoul dreturn only one value
+        if (&DB_Call($db,$sql)) { $db->FetchRow(); %GameValues = $db->DataHash(); } # Should return only one value
         if ($GameValues{'AsAvailable'} == 1 ) { # Don't immediately generate As Available if the file generated warnings
           if ($warning) {
             $err .= "Not immediately generating As Available game $file_prefix due to Warnings. Will generate on next turn check however.\n";
