@@ -113,7 +113,7 @@ sub Mail_Send { # Sends mail to the listed user, with the associated values (to:
 		$smtp->datasend("\n");
 		#Send message
 		$smtp->datasend("$Message\n");
-		$smtp->datasend("Service process - Do not reply to this message. \n\n");
+		$smtp->datasend("Service process - Do not reply to this message.\n\n");
 		$smtp->datasend("\n");
 		# End message
 		$smtp->dataend();
@@ -156,7 +156,7 @@ sub MailAttach {
 	  Type =>'multipart/mixed'
 	) or &LogOut(0,"MailAttach: Error creating multipart container: $!",$ErrorLog);
 	
-  $Message .= "Service process - Do not reply to this message. \n\n ";
+  $Message .= "Service process - Do not reply to this message. \n";
 	### Add the text message part
 	$msg->attach (
 	  Type => 'TEXT',
@@ -191,20 +191,21 @@ sub Email_Turns { #email turns out to the appropropriate players
 	my $Message;
 	my $sql;
 #	while ( my ($key, $value) = each(%GameVals) ) { print "<P>$key => $value\n"; }
-	if ($Attach) {
-		# If you're emailing attachments, only do so to people who have requested it
-		$sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') AND ((User.EmailTurn)=-1) AND ((GameUsers.PlayerStatus)=1));|;
-	} else {
+# Really we're going to email everyone. Just not with attachments
+# 	if ($Attach) {
+# 		# If you're emailing attachments, only do so to people who have requested it
+# 		$sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') AND ((User.EmailTurn)=-1) AND ((GameUsers.PlayerStatus)=1));|;
+# 	} else {
 		# Otherwise mail the active people. 
 		$sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerStatus)=1));|;
-	}
-	my ($User_Login, $Email, $PlayerID) = &Load_EmailAddresses($GameFile, $sql);
+# 	}
+	my ($User_Login, $Email, $PlayerID, $EmailTurn) = &Load_EmailAddresses($GameFile, $sql);
 	my @User_Login = @$User_Login;
 	my @Email = @$Email; 
 	my @PlayerID = @$PlayerID;
+	my @EmailTurn = @$EmailTurn;
   my $user_count =  @User_Login;
 	&LogOut(201, "Email_Turns: User Count $user_count for $GameFile", $LogFile); 
-#	for (my $i = 0; $i <= $#User_Login; $i++) {
   # User count is number of players, but the values are in an array
   # So we need to adjust user count to make the range 0 to end of array
 	for (my $i = 0; $i <= ($user_count-1); $i++) {
@@ -226,11 +227,11 @@ sub Email_Turns { #email turns out to the appropropriate players
 
 		if ($GameVals{'ForceGen'} == 1  && $GameVals{'GameStatus'} != 4 ) { 
 			$Message .= qq|Automated generation will force $GameVals{'ForceGenTurns'} years at a time for the next $GameVals{'ForceGenTimes'} turns|;
-			if ($GameVals{'HST_Turn'} eq '2400' || $GameVals{'HST_Turn'} eq '2401' ) { $Message .= " not including years 2400 and 2401, which will generate only one year"; }
+			if ($GameVals{'HST_Turn'} eq '2400' || $GameVals{'HST_Turn'} eq '2401' ) { $Message .= ' not including years 2400 and 2401, which will generate only one year'; }
 			$Message .= ".\n";
 		}
 		&LogOut(200, "Email_Turns: Message: $Message", $LogFile);
-		if ($Attach) {
+		if ($Attach && $EmailTurn[$i]) {
 			#my $Path = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.m' . $PlayerID[$i];
 			&LogOut(200,"Email_Turns: Emailing player w attach: T: $Email[$i], F: $mail_from, S: $Subject, M: $Message, G: $GameVals{'GameFile'}, P: $PlayerID[$i], T: $GameVals{'HST_Turn'}",$LogFile);
 			&MailAttach($Email[$i], $mail_from, $Subject, $Message, $GameFile, $PlayerID[$i], $GameVals{'HST_Turn'});
@@ -253,14 +254,14 @@ sub Load_EmailAddresses {
 	my $db = &DB_Open($dsn);
 	if (&DB_Call($db,$sql)) {
 		my $MailCounter = 0; # Game counter
-	    while ($db->FetchRow()) {
-				(@User_Login[$MailCounter], @Email[$MailCounter], @PlayerID[$MailCounter]) = $db->Data("User_Login", "User_Email", "PlayerID");
-				&LogOut(100,"      Load_EmailAddresses: Will mail for $GameFile to User Name: $User_Login[$MailCounter] PlayerID: $PlayerID[$MailCounter] Email: $Email[$MailCounter]",$LogFile);
-				$MailCounter++;
-			}
+    while ($db->FetchRow()) {
+			(@User_Login[$MailCounter], @Email[$MailCounter], @PlayerID[$MailCounter], @EmailTurn[$MailCounter]) = $db->Data("User_Login", "User_Email", "PlayerID", "EmailTurn");
+			&LogOut(100,"      Load_EmailAddresses: Will mail for $GameFile to User Name: $User_Login[$MailCounter] PlayerID: $PlayerID[$MailCounter] Email: $Email[$MailCounter]",$LogFile);
+			$MailCounter++;
+		}
 	}
 	&DB_Close($db);
-	return \@User_Login, \@Email, \@PlayerID;
+	return \@User_Login, \@Email, \@PlayerID, \@EmailTurn;
 }
 
 sub GetTime {
@@ -899,24 +900,9 @@ sub GenerateTurn { # Generate a turn and refresh files
 	system($GenTurn);
 	sleep 4;
 
-  # update List files for exploit detection
-  if ($fixFiles && -e "$DirGames\\$GameFile\\fix") { 
-    my $listPrefix = "$DirGames\\$GameFile\\$GameFile"; # Just to make things easier to read
-    # Create the List files for the HST file. Note a lot of data returned that I'm ignoring here
-    &StarsList("$DirGames\\$GameFile", "$listPrefix.HST", ($turn+1)); 
-    &LogOut(50, "Exploit List file(s) created for $new_hst_file and $fixFile", $LogFile);
-  }
-
-  # Clean the .M files
-  # Works on a folder-by-folder game-by-game basis. 
-  # Requires a file named 'clean' in the game folder
-  if ($cleanFiles && -e "$DirGames\\$GameFile\\clean") { 
-    &StarsClean($GameFile); 
-    &LogOut(50, "Cleaned .m Files for $GameFile", $LogFile);
-  }
-
-  # Update the CHK File
-  &Make_CHK($GameFile);
+#   &updateList($GameFile, 1); # update List files for exploit detection
+#   &cleanFiles($GameFile); # Clean the .M files of player information
+#   &Make_CHK($GameFile);
 
 # I can't find anywhere that actually uses this code anymore; everything is in the GameFile location
 # If for some reason this gets reimplemented, delete needs to be updated to remove files in the Download folder.   

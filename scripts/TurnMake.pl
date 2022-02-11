@@ -281,7 +281,10 @@ sub CheckandUpdate {
 					}
 				}
         
-				unless ($disableGenerate) { &GenerateTurn($NumberofTurns, $GameData[$LoopPosition]{'GameFile'}); } # incl. fix and clean 
+        &GenerateTurn($NumberofTurns, $GameData[$LoopPosition]{'GameFile'}); 
+        &updateList($GameData[$LoopPosition]{'GameFile'}, 1); # update List files for exploit detection
+        &cleanFiles($GameData[$LoopPosition]{'GameFile'}); # Clean the .M files of player information
+        &Make_CHK($GameData[$LoopPosition]{'GameFile'});
 
 				# get updated current turn so you can put it in the email, can vary based on force gen.
 				($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);

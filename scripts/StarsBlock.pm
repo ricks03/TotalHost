@@ -122,11 +122,12 @@ our @EXPORT = qw(
   zerofy splitWarnId attackWho
   showCategory readHullType readItemDetail
   getMask
-  PLogOut
+  BlockLogOut
   shiftBytes unshiftBytes
   raceCheckSum checkRaceCorrupt
   checkSerials decryptSerials
-  readList writeList printList
+  readList writeList printList updateList
+  cleanFiles
   adjustFleetCargo tallyFleet 
 );  
 
@@ -140,11 +141,11 @@ sub StarsPWD {
   #Stars random number generator class used for encryption
   
 #  my $MFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.m' . $Player;
-  &PLogOut(300, "Password Reset Started for : $File", $LogFile);
+  &BlockLogOut(300, "Password Reset Started for : $File", $LogFile);
 #   # Backup the current .m file
 # 	my $Backup_Destination_File   = $MFile . '.pwd';
 # 	copy($MFile, $Backup_Destination_File);
-# 	&PLogOut(100,"Copy $MFile to $Backup_Destination_File",$LogFile);
+# 	&BlockLogOut(100,"Copy $MFile to $Backup_Destination_File",$LogFile);
    
   # Read in the binary Stars! file, byte by byte
   my $FileValues = '';
@@ -558,7 +559,7 @@ sub decryptPWD {
       push @outBytes, @block;
     } elsif ($typeId == 7) { # Planet block (.xy file)
       # Note that planet's data requires something extra to decrypt. 
-       &PLogOut(0, "BLOCK 7 found. ERROR!", $ErrorLog); die;
+       &BlockLogOut(0, "BLOCK 7 found. ERROR!", $ErrorLog); die;
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
@@ -572,7 +573,7 @@ sub decryptPWD {
 #        if (($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) {
         # BUG: Fixing for only PlayerID = Player blocks will break for .HST
         if ((($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) && ($playerId == $Player)){
-          &PLogOut(200,"Block $offset password blanked for M File", $LogFile);
+          &BlockLogOut(200,"Block $offset password blanked for M File", $LogFile);
           print "Block $offset password blanked for M File\n";
           # Replace the password with blank
           $decryptedData[12] = 0;
@@ -591,7 +592,7 @@ sub decryptPWD {
       }
       if ($typeId == 36) { # .x file Change Password Block
         if (($decryptedData[0]  != 0) | ($decryptedData[1] != 0) | ($decryptedData[2] != 0) | ($decryptedData[3] != 0)) {
-          &PLogOut(200,"Block $offset password blanked for X File", $LogFile);
+          &BlockLogOut(200,"Block $offset password blanked for X File", $LogFile);
           # Replace the password with blank
           $decryptedData[0] = 0;
           $decryptedData[1] = 0;
@@ -604,7 +605,7 @@ sub decryptPWD {
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
       @encryptedBlock = @ { $encryptedBlock };
-      &PLogOut(400, "BLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), $LogFile); 
+      &BlockLogOut(400, "BLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), $LogFile); 
       push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
@@ -1229,12 +1230,12 @@ sub StarsClean {
   
   #Validate directory 
   unless (-d $inDir  ) { 
-    &PLogOut(0,"StarsClean: Failed to find $inDir for cleaning $GameFile", $ErrorLog);
+    &BlockLogOut(0,"StarsClean: Failed to find $inDir for cleaning $GameFile", $ErrorLog);
   }
   
   # Get all the file names in the directory
   # Reading the dir is easier than figuring out the number of players in the game
-  opendir(BIN, $inDir) or &PLogOut(0,"StarsClean: Failed to open $inDir for cleaning $GameFile", $ErrorLog);
+  opendir(BIN, $inDir) or &BlockLogOut(0,"StarsClean: Failed to open $inDir for cleaning $GameFile", $ErrorLog);
   my $file;
   my $fullName;
   while (defined ($file = readdir BIN)) {
@@ -1243,10 +1244,10 @@ sub StarsClean {
     $fullName = $inDir . '\\' . $file;
     push @mFiles, $fullName;
   }
-  if (@mFiles == 0) { &PLogOut(0,"StarsClean: Failed to find any files in $inDir for cleaning $GameFile", $ErrorLog); }
+  if (@mFiles == 0) { &BlockLogOut(0,"StarsClean: Failed to find any files in $inDir for cleaning $GameFile", $ErrorLog); }
 
   foreach my $mFile (@mFiles) {
-    &PLogOut(100,"StarsClean: cleaning $mFile in $GameFile", $LogFile);
+    &BlockLogOut(100,"StarsClean: cleaning $mFile in $GameFile", $LogFile);
     # Read in the binary Stars! file(s), byte by byte
     my $fileValues;
     my @fileBytes;
@@ -1261,7 +1262,7 @@ sub StarsClean {
     # Decrypt the data, block by block
     # and modify appropriately
     my ($outBytes, $needsCleaning) = &decryptClean(@fileBytes);
-    &PLogOut(300,"StarsClean: $mFile Needs Cleaning : $needsCleaning", $LogFile);
+    &BlockLogOut(300,"StarsClean: $mFile Needs Cleaning : $needsCleaning", $LogFile);
     my @outBytes = @{$outBytes};
     
     # Output the Stars! file with modified data
@@ -1271,17 +1272,17 @@ sub StarsClean {
       # Because otherwise we can't get back to where we were, as the actual
       # backup is pre-turn generation, so random event will change.
       my $mFilePreclean = $mFile . '.preclean';
-	    &PLogOut(300,"StarsClean Backup: $mFile > $mFilePreclean", $LogFile);
+	    &BlockLogOut(300,"StarsClean Backup: $mFile > $mFilePreclean", $LogFile);
  	    copy($mFile, $mFilePreclean);
-      &PLogOut(200," StarsClean: Pushing out $mFile post-cleaning for $GameFile", $LogFile);
+      &BlockLogOut(200," StarsClean: Pushing out $mFile post-cleaning for $GameFile", $LogFile);
       open ( CLEANFILE, '>:raw', "$mFile" );
       for (my $i = 0; $i < @outBytes; $i++) {
         print CLEANFILE $outBytes[$i];
       }
       close ( CLEANFILE );
-      &PLogOut(200," StarsClean: Cleaned $mFile for $GameFile", $LogFile);
+      &BlockLogOut(200," StarsClean: Cleaned $mFile for $GameFile", $LogFile);
     } else {
-      &PLogOut(200," StarsClean: $mFile did not need cleaning for $GameFile", $LogFile);
+      &BlockLogOut(200," StarsClean: $mFile did not need cleaning for $GameFile", $LogFile);
     }
   } 
 }
@@ -1483,13 +1484,13 @@ sub decryptClean {
 sub StarsList {
 # Generate List files used in exploit detection
 # Generally a clone of the (old) StarsFix.pl functionality
-  my ($gameDir, $filename, $turn) = @_;
+  my ($gameDir, $filename) = @_;
   
   # Get the pieces of file names
   my $basefile = basename($filename);    # mygamename.m1
   my ($gameName, $file_player, $file_type, $file_ext) = &FileData ($basefile); 
-  my $listPrefix = "$gameDir\\$gameName";
-  &PLogOut(100,"StarsList: fixing game: $listPrefix", $LogFile);
+  my $listPrefix = "$gameDir\\$gameName";   
+  &BlockLogOut(100,"StarsList: fixing game: $listPrefix", $LogFile);
   
   # Read in the .HST File
   open(STARFILE, "<$filename");
@@ -1533,8 +1534,8 @@ sub StarsList {
       print LISTFILE "$lastPlayer"; 
       close (LISTFILE);
     }
-    &PLogOut(100, "StarsList: Done writing out List files for $listPrefix", $LogFile)
-  } else { &PLogOut (0,"TurnMake: Directory $GameDir Missing for $listPrefix", $ErrorLog); }
+    &BlockLogOut(100, "StarsList: Done writing out List files for $listPrefix", $LogFile)
+  } else { &BlockLogOut (0,"TurnMake: Directory $GameDir Missing for $listPrefix", $ErrorLog); }
 }
 
 sub StarsFix {
@@ -1546,7 +1547,7 @@ sub StarsFix {
   my $basefile = basename($filename);    # mygamename.m1
   my ($gameName, $file_player, $file_type, $file_ext) = &FileData ($basefile); # The filename as component parts  
   my $listPrefix =  "$gameDir\\$gameName";
-  &PLogOut(100,"StarsFix: fixing game: $listPrefix", $LogFile);
+  &BlockLogOut(100,"StarsFix: fixing game: $listPrefix", $LogFile);
 
   # read Production queue data from export
   my %queueList;
@@ -1622,21 +1623,22 @@ sub StarsFix {
   # Since we don't need to rewrite the file if nothing needs fixing, let's not (safer)
   if ($needsFixing) {
     if ($fixFiles > 1) {  # Don't do unless in write mode
-  	  &PLogOut(300,"StarsFix Backup: $filename > $filename.preFix", $LogFile);
+  	  &BlockLogOut(300,"StarsFix Backup: $filename > $filename.preFix", $LogFile);
    	  copy($filename, "$filename.preFix");
-      &PLogOut(200," StarsFix: Pushing out $filename post-fixing", $LogFile);
+      &BlockLogOut(200," StarsFix: Pushing out $filename post-fixing", $LogFile);
       open ( OUTFILE, '>:raw', "$xFile" );
       for (my $i = 0; $i < @outBytes; $i++) {
         print OUTFILE $outBytes[$i];
       }
       close ( OUTFILE );
-      &PLogOut(200," StarsFix: Fixed $filename", $LogFile);
-    } else { &PLogOut(300," StarsFix: Not in Fix mode for $filename", $LogFile); }
+      &BlockLogOut(200," StarsFix: Fixed $filename", $LogFile);
+    } else { &BlockLogOut(300," StarsFix: Not in Fix mode for $filename", $LogFile); }
     return $warning;
   } else { 
-  	&PLogOut(300,"StarsFix: $filename does not need fixing", $LogFile);
+  	&BlockLogOut(300,"StarsFix: $filename does not need fixing", $LogFile);
     return $warning; 
   }  
+
 }
 
 sub StarsAI {
@@ -1651,7 +1653,7 @@ sub StarsAI {
   
   #Validate the HST file exists 
   unless (-e $filename  ) { 
-    &PLogOut(0,"StarsAI: Failed to find $filename for $GameFile", $ErrorLog);
+    &BlockLogOut(0,"StarsAI: Failed to find $filename for $GameFile", $ErrorLog);
     return 0;
   }
 
@@ -1675,9 +1677,9 @@ sub StarsAI {
       print OUTFILE $outBytes[$i];
     }
     close (OUTFILE);
-    &PLogOut(200," StarsAI: Updated $filename for playerId:$playerAI to $NewStatus ", $LogFile);
+    &BlockLogOut(200," StarsAI: Updated $filename for playerId:$playerAI to $NewStatus ", $LogFile);
   } else { 
-    &PLogOut(200," StarsAI: Did not update $filename for playerId:$playerAI to $NewStatus ", $LogFile); 
+    &BlockLogOut(200," StarsAI: Did not update $filename for playerId:$playerAI to $NewStatus ", $LogFile); 
   }
 }
 
@@ -1733,7 +1735,7 @@ sub decryptAI {
             $decryptedData[13] = &read8(~$decryptedData[13]);
             $decryptedData[14] = &read8(~$decryptedData[14]);
             $decryptedData[15] = &read8(~$decryptedData[15]);
-            &PLogOut(200," StarsAI: Flipped playerId:$playerId to Active", $LogFile);
+            &BlockLogOut(200," StarsAI: Flipped playerId:$playerId to Active", $LogFile);
           } elsif ($NewStatus eq 'Inactive'  && ($decryptedData[7] == 225  || $decryptedData[7] == 1)) {
             $action = 1;
             #Changing from Human to Human(Inactive) AI
@@ -1745,8 +1747,8 @@ sub decryptAI {
             $decryptedData[13] = &read8(~$decryptedData[13]);
             $decryptedData[14] = &read8(~$decryptedData[14]);
             $decryptedData[15] = &read8(~$decryptedData[15]);
-            &PLogOut(200," StarsAI: Flipped playerId:$playerId to Inactive/AI", $LogFile);
-          } else { &PLogOut(200," StarsAI: No Status Change for playerId:$playerId", $LogFile); }
+            &BlockLogOut(200," StarsAI: Flipped playerId:$playerId to Inactive/AI", $LogFile);
+          } else { &BlockLogOut(200," StarsAI: No Status Change for playerId:$playerId", $LogFile); }
         } 
       } 
       # END OF MAGIC
@@ -1760,7 +1762,7 @@ sub decryptAI {
   # If the password / AI was not reset, no need to write the file back out
   # Faster, less risk of corruption   
   if ($action) { return \@outBytes; 
-  } else { &PLogOut(200," StarsAI: Did not make changes to $filename for playerID:$PlayerAI to $NewStatus", $LogFile); return 0; }
+  } else { &BlockLogOut(200," StarsAI: Did not make changes to $filename for playerID:$PlayerAI to $NewStatus", $LogFile); return 0; }
 }
 
 sub zerofy {
@@ -2086,7 +2088,7 @@ sub getMask {
   return ($check); 
 } 
 
-sub PLogOut {
+sub BlockLogOut {
 	my($Logging, $PrintString, $LogFile) = (@_);
   # Get Date information to set up logs to roll over weekly
   my $CurrentEpoch = time();
@@ -2425,7 +2427,7 @@ sub readList {
   my %List;
   # Read in the file data
   my @File;
-  open (LISTFILE,$File) || &PLogOut(0," readFleetList: cannot open $File", $ErrorLog);
+  open (LISTFILE,$File) || &BlockLogOut(0," readFleetList: cannot open $File", $ErrorLog);
   @File = <LISTFILE>;
   close LISTFILE;
   # Turn the file into a usable array
@@ -2495,6 +2497,37 @@ sub printList {
       }
       print "\n";
     }
+  }
+}
+
+sub updateList { # Update the list data for a game
+  my ($GameFile, $enable) = @_;
+  # Enable/disable List functionality for Fix
+  # Remove the old List files, as they may be out of date
+  unlink qq|$DirGames\\$GameFile\\$GameFile.warnings|; 
+  my @extensions = qw ( design queue fleet waypoint last ); 
+  if (!($enable)) { # Remove the fix file
+    unlink qq|$DirGames\\$GameFile\\fix|; 
+  # StarsList cleans up the files otherwise
+    foreach my $extension (@extensions) {
+      unlink qq|$DirGames\\$GameFile\\$GameFile.HST.$extension|; 
+    }
+  } 
+  else { # We need to create both the fix file, and the List files
+    if ($fixFiles && -e "$DirGames\\$GameFile\\fix") { 
+      &StarsList("$DirGames\\$GameFile", "$DirGames\\$GameFile\\$GameFile.HST"); 
+    }
+  }
+}
+
+sub cleanFiles {
+  my ($GameFile) = @_;
+  # Clean the .M files
+  # Works on a folder-by-folder game-by-game basis. 
+  # Requires a file named 'clean' in the game folder
+  if ($cleanFiles && -e "$DirGames\\$GameFile\\clean") {
+    &StarsClean($GameFile); 
+    &BlockLogOut(50, "Cleaned .m Files for $GameFile", $LogFile);
   }
 }
 
@@ -2620,7 +2653,7 @@ sub decryptFix {
     } else {       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
-      # WHERE THE MAGIC HAPPENS
+#       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block. .m files can contain multiple pleyers. Only enough info for Fix. More elsewhere.
         my $playerId = $decryptedData[0] & 0xFF; # typically >> 1
         my $shipDesigns = $decryptedData[1] & 0xFF;  
@@ -3094,7 +3127,7 @@ sub decryptFix {
           }
           $ownerId = $designOwner;
         } elsif ($typeId == 27) { $ownerId = $Player; }  
-
+ 
         my $err = ''; # reset error for each time we check a hull, because it could be fixed in a later change.
         $keepDesign = $decryptedData[0] % 16; # right-most 4 bits
         # The Delete block type 27
@@ -3135,7 +3168,9 @@ sub decryptFix {
                   my $cargoRatio;
                   if ( $fleetList{$i}{$j}{cargoCapacity} > 0) {  $cargoRatio = $cargoCapacity / $fleetList{$i}{$j}{cargoCapacity}; }
                   else { $cargoRatio = 0; } 
-                  my $fuelRatio  = $fuelCapacity / $fleetList{$i}{$j}{fuelCapacity};
+                  my $fuelRatio;
+                  if ( $fleetList{$i}{$j}{fuelCapacity} > 0) { $fuelRatio = $fuelCapacity / $fleetList{$i}{$j}{fuelCapacity}; }
+                  else { $fuelRatio = 0; }
                   # Adjust the cargo for the deleted design
                   # BUG: The calculation for the cargo and fuel post design deletion will be +- 1 occasionally. 
                   # BUG: Should also be for split fleets, duplicate code.
@@ -3367,7 +3402,7 @@ sub decryptFix {
                   } else { $err = ''; }
                 }
               }
-            } else { print "Missing .fleet file $listPrefix.HST.fleet. Cannot detect Cheap Starbase.\n"; }
+            } else { $err .= "Missing .fleet file $listPrefix.HST.fleet. Cannot detect Cheap Starbase.\n"; }
           }
         } 
 
@@ -3479,7 +3514,7 @@ sub decryptFix {
               }
             } else { $err = ''; }
           }
-        } else { print "Missing .fleet $listPrefix.HST.fleet. Cannot calculate Mineral Upload.\n"; }
+        } else { $err .= "Missing .fleet $listPrefix.HST.fleet. Cannot calculate Mineral Upload.\n"; }
          
         # clear the warning if it's been fixed and total is low enough again
         if ( $totalUpload{$toId} <  $fleetList{$toOwnerId}{$toId}{cargoCapacity} ) {
