@@ -1341,7 +1341,7 @@ sub process_game_launch {
       # it doesn't just start generating
       # (Note it should be paused anyway)
 		  my ($Second, $Minute, $Hour, $DayofMonth, $Month, $Year, $WeekDay, $WeekofMonth, $DayofYear, $IsDST, $CurrentDateSecs) = &GetTime; 
-		  if ($GameValues{'GameType'} == 1 ) {   # BUG: Where are we getting GameValues
+		  if ($GameValues{'GameType'} == 1 ) {   
 			  # Determine when the next possible time is that turns are due
 			  ($DaysToAdd1, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'},$WeekDay);
 			  # now advance one interval from that, so you have a full interval
@@ -1349,7 +1349,11 @@ sub process_game_launch {
 			  # Set the time for the next turn on the right day
 			  $NewTurn = $CurrentDateSecs + $DaysToAdd1*86400 + $DaysToAdd2*86400 +($GameValues{'DailyTime'} *60*60); 
 			  $sql = qq|UPDATE Games SET NextTurn = $NewTurn WHERE GameFile = \'$GameFile'\' AND HostName=\'$userlogin\';|;
-        # BUG WHERE IS THE DB CALL TO EXECUTE THIS?
+  			if (&DB_Call($db,$sql)) {
+  				&LogOut(100, "NextTurn set to $NextTurn for $GameFile and $userlogin", $LogFile);
+  			} else {
+  				&LogOut(0, "Failed to update NextTurn for $Gamefile and $userLogin, $sql", $ErrorLog);
+  			}
       }
       
       # Create the initial List file(s)
@@ -2528,8 +2532,6 @@ sub process_game_status {
     }
     $GameValues{'GameStatus'} = 4; # When used later
     $state_set = 1;
-    # Rebuild the .CHK file in case there's a problem
-    &Make_CHK($GameValues{'GameFile'});
   } elsif ($state eq 'UnPause') {
     # Try to figure out when the next turn is due and update the date so it doesn't just start generating
 		($Second, $Minute, $Hour, $DayofMonth, $Month, $Year, $WeekDay, $WeekofMonth, $DayofYear, $IsDST, $CurrentDateSecs) = &GetTime; 
@@ -2605,12 +2607,8 @@ sub process_game_status {
     # Customize the message depending on the status change.
     if ($state eq 'Locked') { $GameValues{'Message'} .= "No new players can join the game.\n"; 
     } elsif ($state eq 'Unlocked') { $GameValues{'Message'} .= "Players can again join the game.\n"; 
-    } elsif ($state eq 'Pause') { $GameValues{'Message'} .= "Turn generation is suspended.\n"; 
-    # This code is in Email_Turns by default
-#     } elsif ($state eq 'UnPause') { 
-#       $GameValues{'Message'} .= "$GameValues{'AsAvailable'} The next turn will generate " . localtime($NewTurn); }
-#       if ($GameValues{'AsAvailable'} == 1) { $GameValues{'Message'} .= ' or when all turns are in'; }
-#       $GameValues{'Message'} .= ".\n";
+    } elsif ($state eq 'Pause') { $GameValues{'Message'} .= "Automated turn generation is suspended.\n"; 
+    } elsif ($state eq 'UnPause' && ($GameValues{'GameType'} == 1 || $GameValues{'GameType'} == 2) ) { $GameValues{'Message'} .= "Automated turn generation will renew.\n"; 
     } 
     if ($state eq 'Launched') { # First turn 
       $GameValues{'Message'} .= "Games default to Paused on game start, to provide time to check everything before turn generation begins. Time to take your first turn! \n";

@@ -232,10 +232,7 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         
         if ($fullDataFlag) { 
           $homeWorld = &read16(\@decryptedData, 8); # no homeworld in race file
-          # BUG: the references say this is two bytes, but I don't think it is.
-          # That means I don't know what byte 11 is tho. 
-          # Maybe in universes with more planets?
-          $rank = &read16(\@decryptedData, 10); # Always 0 in race file. Not in game file. BUG: This is likely 2 bytes for 16 player games
+          $rank = &read16(\@decryptedData, 10); # Always 0 in race file. Not in game file.
           # Bytes 12..15 are the password;
           # The password inverts when the player is set to Human(inactive) mode (the bits are flipped).
           # The ai password "viewai" is 238 171 77 9
@@ -348,6 +345,8 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         print "Calculated Race Checksum: $checkSum1  \t$checkSum2\n";
         
         print "############################\n";
+        
+        if ($fullDataFlag) {
         # https://sourceforge.net/p/stars-nova/svn/HEAD/tree/trunk/Common/RaceDefinition/RaceAdvantagePointCalculator.cs#l22
         # https://sourceforge.net/p/freestars/code/HEAD/tree/trunk/Server/Race.cpp#l141
         # BUG: Not done integrating yet.
@@ -662,6 +661,7 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
 #         
 #         print "POINTS research: $points\n";
 # 
+      }
       } 
       # END OF MAGIC
       #reencrypt the data for output
