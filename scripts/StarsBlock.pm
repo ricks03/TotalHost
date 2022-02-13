@@ -1405,7 +1405,7 @@ sub decryptClean {
             }
             $mineDetonate = &getMineDetonate(\@mineStatus); # bit 7 is detonating  status
             $mineType = &getMineType(\@mineStatus); # bit 14+15 = mine type
-            $unk4 = &read16(\@decryptedData, 14);  # BUG: What is this, not player ID
+            $unk4 = &read16(\@decryptedData, 14);  
             $turnNo = &read16(\@decryptedData, 16);
             $turnNoDisplay =  $turnNo + 2401;
             if ($cleanFiles) {

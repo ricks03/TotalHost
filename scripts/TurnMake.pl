@@ -442,7 +442,7 @@ sub inactive_game {
 
 # In th.pm sorta
 # sub ValidTurnTime { #Determine whether submitted time is valid to generate a turn
-#   # BUG: (remarked out functon): $loopposition is used to determine array location 
+#   # BXG: (remarked out function): $loopposition is used to determine array location 
 #   # That's the real difference between this and the &ValidTurnTime in TurnMake
 #   # Better to just pass the relevant array values and merge the two functions
 # 	my($ValidTurnTimeTest, $WhentoTestFor, $LoopPosition) = @_;	

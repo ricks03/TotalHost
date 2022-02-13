@@ -51,10 +51,10 @@ if (!($filename)) {
 
 # Name of the Game (the prefix for the .xy file)
 my $GameFile = $filename;  
-my $sourcedir = $DirGames . '\\' . $GameFile;
+my $sourcedir = "$DirGames\\$GameFile";
 unless (-d $sourcedir) { die "Directory $sourcedir does not exist!\n"; }
 # Where final image will live
-my $graphPath = $DirGraphs . '\\graphs' . '\\' . $filename . '.png';
+my $graphPath = "$DirGraphs\\graphs\\$filename.png";
 
 # Get all of the years from the backup subdirectories
 # Expectation is folder structure is turn/year
@@ -78,7 +78,7 @@ foreach $dirname (@AllDirs) {
   unless (-d $isdir) { next; } # Skip if the directory is a file
   print "Year: $dirname\n";
   push @turns, $dirname;
-  opendir (DIR, "$sourcedir\\$dirname") or die "can't open directory $sourcedir\\$dirname\n";
+  opendir (DIR, "$sourcedir\\$dirname") or die "can\'t open directory $sourcedir\\$dirname\n";
   while (defined($filename = readdir (DIR))) {
     next if $filename =~ /^\.\.?$/; # skip . and ..
     # Grab the race names from the first .HST file
@@ -105,22 +105,18 @@ foreach $dirname (@AllDirs) {
   }
   closedir(DIR);
 }
-$highscore = $highscore+1000; # Just makes it graph better. BUG: Should probably also round it to the nearest 10000
+$highscore = $highscore+1000; # Just makes it graph better. 
 
 # Determine the race names 
 # Race names must be the Singular
 #@numbers = (1.. scalar @singularRaceNames);
 
-#print "TURNS: @turns\n";
 push @data, \@turns; # put turns into data array
 
 foreach my $playerId (sort keys %score) {
   my @pscore;
   print "Player: $playerId\t";
   foreach my $turn (sort {$score{$playerId}{$a} <=> $score{$playerId}{$b}} keys %{ $score{$playerId} }) {
-#    print "turn: $turn\t";
-#    print "$score{$playerId}{$turn}\t";
-#    print "\n";
     push @pscore,$score{$playerId}{$turn};
   }
   print "score: @pscore";

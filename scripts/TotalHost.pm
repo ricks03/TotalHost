@@ -103,8 +103,9 @@ sub Mail_Send { # Sends mail to the listed user, with the associated values (to:
 	&LogOut(10,"sending mail: $smtp, $MailTo, $MailFrom, $Subject, $Message", $LogFile);
 	if ($mail_present) {
 		$smtp->mail( "$MailFrom" ); 
-    	$smtp->to( "$MailTo" ); 
-    	#Prepare for sending data
+  	$smtp->to( "$MailTo" ); 
+    #$smtp->recipient($recipi);    
+  	#Prepare for sending data
 		$smtp->data();
 		# Set headers
 		$smtp->datasend("To: $MailTo\n");
@@ -113,10 +114,10 @@ sub Mail_Send { # Sends mail to the listed user, with the associated values (to:
 		$smtp->datasend("\n");
 		#Send message
 		$smtp->datasend("$Message\n");
-		$smtp->datasend("Service process - Do not reply to this message.\n\n");
+		$smtp->datasend("Service process - Do not reply to this message.\n");
 		$smtp->datasend("\n");
 		# End message
-		$smtp->dataend();
+		$smtp->dataend();  # Bug the last person's email will have a . in it. 
 	} else {
     &LogOut(0,"Mail not present: Would send mail: $smtp, $MailTo, $MailFrom, $Subject, $Message", $ErrorLog);
   }
@@ -126,7 +127,7 @@ sub Mail_Open {
 	if ($mail_present) {
 		$smtp = Net::SMTP->new($mail_server, Timeout => 60);
 		if (!($smtp)) { 
-			&LogOut(0, "Mail_Open: ERROR: Failed to Connect to SMTP", $ErrorLog); 
+			&LogOut(0, "Mail_Open: ERROR: Failed to Connect to SMTP for $mail_server", $ErrorLog); 
 		} else {
 			&LogOut(201, "Mail_Open: SMTP $mail_server open", $LogFile); 
 		}
@@ -137,7 +138,7 @@ sub Mail_Open {
 sub Mail_Close  {
 	($smtp) = @_;
 	if ($mail_present) {
-		$smtp->quit;	
+		#$smtp->quit;	
 		&LogOut(201, "Mail_Close: Closing mail", $LogFile); 
 	}
 }
@@ -189,16 +190,10 @@ sub Email_Turns { #email turns out to the appropropriate players
 	my ($GameFile, $GameVs, $Attach) = @_;
 	my %GameVals = %$GameVs;
 	my $Message;
-	my $sql;
 #	while ( my ($key, $value) = each(%GameVals) ) { print "<P>$key => $value\n"; }
-# Really we're going to email everyone. Just not with attachments
-# 	if ($Attach) {
-# 		# If you're emailing attachments, only do so to people who have requested it
-# 		$sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') AND ((User.EmailTurn)=-1) AND ((GameUsers.PlayerStatus)=1));|;
-# 	} else {
-		# Otherwise mail the active people. 
-		$sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerStatus)=1));|;
-# 	}
+	# If you're emailing attachments, only do so to people who have requested it
+	# Otherwise mail the active people. 
+	my $sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerStatus)=1)) ORDER BY GameUsers.PlayerID;|;
 	my ($User_Login, $Email, $PlayerID, $EmailTurn) = &Load_EmailAddresses($GameFile, $sql);
 	my @User_Login = @$User_Login;
 	my @Email = @$Email; 
@@ -209,7 +204,7 @@ sub Email_Turns { #email turns out to the appropropriate players
   # User count is number of players, but the values are in an array
   # So we need to adjust user count to make the range 0 to end of array
 	for (my $i = 0; $i <= ($user_count-1); $i++) {
-		&LogOut(201, "Email_Turns: Starting Loop to email for $GameFile", $LogFile); 
+		&LogOut(201, "Email_Turns: Starting Loop to email $Email[$i] for $GameFile", $LogFile); 
 		$Message = '';
 		# This subject line is here because it has the player information that 
 		# isn't available until you get to here. 
@@ -232,11 +227,9 @@ sub Email_Turns { #email turns out to the appropropriate players
 		}
 		&LogOut(200, "Email_Turns: Message: $Message", $LogFile);
 		if ($Attach && $EmailTurn[$i]) {
-			#my $Path = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.m' . $PlayerID[$i];
-			&LogOut(200,"Email_Turns: Emailing player w attach: T: $Email[$i], F: $mail_from, S: $Subject, M: $Message, G: $GameVals{'GameFile'}, P: $PlayerID[$i], T: $GameVals{'HST_Turn'}",$LogFile);
+			&LogOut(200,"Email_Turns: Emailing player w attach: T: $Email[$i], F: $mail_from, G: $GameVals{'GameFile'}, P: $PlayerID[$i], T: $GameVals{'HST_Turn'}",$LogFile);
 			&MailAttach($Email[$i], $mail_from, $Subject, $Message, $GameFile, $PlayerID[$i], $GameVals{'HST_Turn'});
 		} else {
-			&LogOut(201, "Email_Turns: Opening mail",$LogFile); 
 			$smtp = &Mail_Open;
 			&LogOut(200,"Email_Turns: Emailing player: $Email[$i], $mail_from, $Subject, $Message",$LogFile);
 			&Mail_Send($smtp, $Email[$i], $mail_from, $Subject, $Message);
@@ -907,17 +900,17 @@ sub GenerateTurn { # Generate a turn and refresh files
 # I can't find anywhere that actually uses this code anymore; everything is in the GameFile location
 # If for some reason this gets reimplemented, delete needs to be updated to remove files in the Download folder.   
 # 	# Copy files to the correct (safe) location for download
-#   # BUG: Why do we do this? 
+#   # BXG: Why do we do this? 
 # 	my $turn_dir = $Dir_Games . '/' .  $GameFile . '/';
 # 	opendir(DIR, $turn_dir) or &LogOut(0,"GenerateTurn: Can\'t opendir $turn_dir for $GameFile",$ErrorLog); 
 # 	while (defined($file = readdir(DIR))) {
 # 		next unless (-f "$turn_dir/$file");
 # 		# Backup the log files, the turn files, the news file, and the CHK file
 #     # Except this backup is done earlier in the Game_backup sub?
-#     # BUG: 191204 Why exactly are we copying the files over to the download folder?
+#     # BXG: 191204 Why exactly are we copying the files over to the download folder?
 #     # Some old design point I've forgotten about? 
 #     # Turns are currently downloaded from their native location.
-#     # BUG: The delete game function likely doesn't look in the download folder for cleanup.
+#     # BXG: The delete game function likely doesn't look in the download folder for cleanup.
 #     #  Download.pl looks in the actual game folder.
 #     #
 #     # Create the directory if it does not exist
