@@ -1860,8 +1860,6 @@ sub edit_game {
 	print qq|<TD><INPUT type="checkbox" name="ObserveHoliday" | . &button_help("ObserveHoliday") . qq| $Checked[$GameValues{'ObserveHoliday'}]>Observe Holidays</TD>\n|;
 	print qq|</TR><TR>\n|;
 	print qq|<TD><INPUT type="checkbox" name="Newspaper" | . &button_help("NewsPaper") . qq| $Checked[$GameValues{'NewsPaper'}]>Galactic News	</TD>\n|;
-	# BUG: Email submit isn't implemented
-	#print qq|<TD><INPUT type="checkbox" name="EmailSubmit" | . &button_help("EmailSubmit") . qq| $Checked[$GameValues{'EmailSubmit'}]>Submit Via Email</TD>\n|;
 	print qq|<TD><INPUT type="checkbox" name="SharedM" | . &button_help("SharedM") . qq| $Checked[$GameValues{'SharedM'}]>Shared M Files	</TD>\n|;
 	print qq|<TD><INPUT type="checkbox" name="HostAccess" | . &button_help("HostAccess") . qq| $Checked[$GameValues{'HostAccess'}]>Host Access    </TD>\n|;
 	print qq|</TR><TR>\n|;
