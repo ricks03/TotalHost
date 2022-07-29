@@ -1274,15 +1274,15 @@ sub StarsClean {
       my $mFilePreclean = $mFile . '.preclean';
 	    &BlockLogOut(300,"StarsClean Backup: $mFile > $mFilePreclean", $LogFile);
  	    copy($mFile, $mFilePreclean);
-      &BlockLogOut(200," StarsClean: Pushing out $mFile post-cleaning for $GameFile", $LogFile);
+      &BlockLogOut(200,"StarsClean: Pushing out $mFile post-cleaning for $GameFile", $LogFile);
       open ( CLEANFILE, '>:raw', "$mFile" );
       for (my $i = 0; $i < @outBytes; $i++) {
         print CLEANFILE $outBytes[$i];
       }
       close ( CLEANFILE );
-      &BlockLogOut(200," StarsClean: Cleaned $mFile for $GameFile", $LogFile);
+      &BlockLogOut(200,"StarsClean: Cleaned $mFile for $GameFile", $LogFile);
     } else {
-      &BlockLogOut(200," StarsClean: $mFile did not need cleaning for $GameFile", $LogFile);
+      &BlockLogOut(200,"StarsClean: $mFile did not need cleaning for $GameFile", $LogFile);
     }
   } 
 }
@@ -3898,7 +3898,12 @@ sub decryptFix {
         # Calculate cargo & effect on mass
         my @cargoL = split(chr(31), $fleetList{$playerIdL}{$fleetIdL}{cargo}); # Before the split
         my @cargoR = split(chr(31), $fleetList{$playerIdR}{$fleetIdR}{cargo}); # Before the split
-        my $fuelRatioR =  $fleetList{$playerIdL}{$fleetIdR}{fuelCapacity} / ($fleetList{$playerIdL}{$fleetIdL}{fuelCapacity} + $fleetList{$playerIdR}{$fleetIdR}{fuelCapacity});
+        my $fuelRatioR;
+        if (($fleetList{$playerIdL}{$fleetIdL}{fuelCapacity} + $fleetList{$playerIdR}{$fleetIdR}{fuelCapacity}) > 0) { # capture div 0
+           $fuelRatioR =  $fleetList{$playerIdR}{$fleetIdR}{fuelCapacity} / ($fleetList{$playerIdL}{$fleetIdL}{fuelCapacity} + $fleetList{$playerIdR}{$fleetIdR}{fuelCapacity});
+        } else {        
+          $fuelRatioR = 0;
+        }
         my $totalCargoCapacity =  $fleetList{$playerIdL}{$fleetIdL}{cargoCapacity} + $fleetList{$playerIdR}{$fleetIdR}{cargoCapacity};
         my $totalCargo;
         my $totalFuel = $cargoR[4] + $cargoL[4];
@@ -3911,7 +3916,7 @@ sub decryptFix {
             $massL += $cargoL[$k];
           }
         } #Otherwise there's no cargo.
-        $cargoR[4] = int(.5 + ($totalFuel *  $fuelRatioR));     # fuelCapacity is never 0
+        $cargoR[4] = int(.5 + ($totalFuel *  $fuelRatioR));     # fuelCapacity is never 0. BUG: Had that happen.
         $cargoL[4] = $totalFuel - $cargoR[4];
 
         $fleetList{$playerIdL}{$fleetIdL}{cargo} = join (chr(31), @cargoL);
