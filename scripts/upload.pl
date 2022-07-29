@@ -66,7 +66,7 @@ if ($File) {
   print qq|<meta HTTP-EQUIV="REFRESH" content="2; url=| . $WWW_HomePage . $WWW_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
   print $cgi->start_html;
   $err .= "$userlogin: File Name must be provided for upload to $GameName." ;
-  &LogOut(10,$err,$ErrorLog);
+  &LogOut(300,$err,$ErrorLog);
   print $err; 
   print $cgi->end_html;
 }
@@ -184,7 +184,7 @@ sub ValidateFileUpload {
     }
 	} elsif ($file_type eq 'x') { # A turn file
  		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
-		&LogOut(200,"ValidateFileUpload: DTS2: $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware", $LogFile);
+		&LogOut(300,"ValidateFileUpload: DTS2: $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware", $LogFile);
     # Validate the .x file
 	  # DT: 'Universe Definition (.xy) File', 'Player Log (.x) File', 'Host (.h) File', 'Player Turn (.m) File', 'Player History (.h) File', 'Race Definition (.r) File', 'Unknown (??) File'
     # $err results will display at the top of the game page when it refreshes, comma-delimited
@@ -215,7 +215,7 @@ sub ValidateFileUpload {
     # Unless there was an error, move the file to the game folder
     unless ($err) { 
 			# Do whatever you would do with a valid change (.x) file
-		  &LogOut(100,"ValidateFileUpload: Valid Turn file $File_Loc, moving it tp $GameFile", $LogFile);      
+		  &LogOut(100,"ValidateFileUpload: Valid Turn file $File_Loc, moving it to $DirGames  $GameFile", $LogFile);      
 			if (&Move_Turn($File, $file_prefix)) {
 				$db = &DB_Open($dsn);
 				# update the Last Submitted Field
@@ -233,7 +233,7 @@ sub ValidateFileUpload {
         my $fixFile = "$DirGames\\$GameFile\\fix";
         my $warning; 
         if ($fixFiles && -e $fixFile) { 
-          &LogOut(200, "ValidateFileUpload: fixfile: $fixFile fixFiles: $fixFiles, $File_Loc", $LogFile); 
+          &LogOut(300, "ValidateFileUpload: fixfile: $fixFile fixFiles: $fixFiles, $File_Loc", $LogFile); 
           my $gameDir = "$DirGames\\$GameFile";
           $warning = &StarsFix($gameDir, "$gameDir\\$file_prefix.$file_ext", $turn);
           &LogOut(200, "ValidateFileUpload: $gameDir, $warning", $LogFile); 
@@ -252,7 +252,7 @@ sub ValidateFileUpload {
         if (&DB_Call($db,$sql)) { $db->FetchRow(); %GameValues = $db->DataHash(); } # Should return only one value
         if ($GameValues{'AsAvailable'} == 1 ) { # Don't immediately generate As Available if the file generated warnings
           if ($warning) {
-            $err .= "Not immediately generating As Available game $file_prefix due to Warnings. Will generate on next turn check however.\n";
+            $err .= "Not immediately generating As Available game $file_prefix due to Warnings. Will generate on next turn check interval however.\n";
             &LogOut(100, "Upload: AsAvailable $err for $GameFile $userlogin", $LogFile);
           } else {
             # Run TurnMake for the game since TurnMake is currently not a function

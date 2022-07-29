@@ -100,7 +100,7 @@ sub DB_Call {
 
 sub Mail_Send { # Sends mail to the listed user, with the associated values (to:, Subject, Message)
 	my ($smtp, $MailTo, $MailFrom, $Subject, $Message) = @_;
-	&LogOut(10,"sending mail: $smtp, $MailTo, $MailFrom, $Subject, $Message", $LogFile);
+	&LogOut(10,"sending mail: $MailTo, $MailFrom, $Subject, $Message", $LogFile);
 	if ($mail_present) {
 		$smtp->mail( "$MailFrom" ); 
   	$smtp->to( "$MailTo" ); 
@@ -317,9 +317,10 @@ sub LogOut {
 
   my $LogFileDate = $LogFile . '.' . $Year . '.' . $Month . '.' . $WeekofMonth; 
 	if ($Logging <= $logging) { 
-#		print $PrintString . "\n";
     if ($LogFile) {
-  		$PrintString = localtime(time()) . " : " . $Logging . " : " . $PrintString;
+      if (($Logging) <= 9) { $Logging = ' ' . $Logging; } # Fix for log file format
+      if (($Logging) <= 99) { $Logging = ' ' . $Logging; } # Fix for log file format
+  		$PrintString = localtime(time()) . ' : ' . $Logging . ' : ' . $PrintString;
   		open (LOGFILE, ">>$LogFileDate");
   		print LOGFILE "$PrintString\n\n";
   		close LOGFILE;
@@ -976,7 +977,7 @@ sub clean {
 sub DaysToAdd {  
 	# Check to see how many days should be added to a turn  Needs $DayFreq and $WeekDay
 	# If $Dailytime and $SecOfDay are blank they have no effect
-	my($DayFreq, $DayOfWeekToday,$DailyTime,$SecOfDay) = @_;
+	my($DayFreq, $DayOfWeekToday, $DailyTime, $SecOfDay) = @_;
 	my($NextDayOfWeek) = $DayOfWeekToday + 1;
 	my($DaysToAdd) = 1;
 

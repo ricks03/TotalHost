@@ -65,9 +65,7 @@ if ($id ) {
 				"3Order of Events"	=> "$WWW_Scripts/index.pl?lp=home&cp=orderofevents",
 				"3Game Defaults"	=> "$WWW_Scripts/index.pl?lp=home&cp=gamedefaults",
 				"3Game Policies"	=> "$WWW_Scripts/index.pl?lp=home&cp=policies",
-				"4Downloads"		=> "$WWW_Scripts/index.pl?lp=home&cp=downloads",
-				"5Strategy Guide"	=> "$WWW_HomePage/Strategy/SSG.HTM",
-				"6Library"	=> "$WWW_Scripts/index.pl?lp=home&cp=library",
+				"6Strategy Library"	=> "$WWW_Scripts/index.pl?lp=home&cp=library",
 				"8Other Sites"	=> "$WWW_Scripts/index.pl?lp=home&cp=othersites",
 				"9Recent Changes"	=> "$WWW_Scripts/index.pl?lp=home&cp=recentchanges"
 				);
@@ -77,8 +75,7 @@ if ($id ) {
  				"1Features" 			=> "$WWW_Scripts/index.pl?cp=features",
 				"2FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
 				"3Order of Events"	=> "$WWW_Scripts/index.pl?lp=home&cp=orderofevents",
-				"3Strategy Guide"	=> "$WWW_HomePage/Strategy/SSG.HTM",
-				"4Downloads"		=> "$WWW_Scripts/index.pl?lp=home&cp=downloads",
+				"6Strategy Library"	=> "$WWW_Scripts/index.pl?lp=home&cp=library",
 				"9Other Sites"	=> "$WWW_Scripts/index.pl?lp=home&cp=othersites",
  				"9Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
  				"9Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create"
@@ -103,6 +100,7 @@ if ($in{'cp'} eq 'login_page') { &login_page;
 } elsif ($in{'cp'} eq 'orderofevents') { &show_html("$Dir_WWWRoot/THOrder.htm"); 
 } elsif ($in{'cp'} eq 'tips') { &show_html("$Dir_WWWRoot/THTips.htm"); 
 } elsif ($in{'cp'} eq 'faq') { &show_html("$Dir_WWWRoot/THFAQ.htm"); 
+} elsif ($in{'cp'} eq 'hfile') { &show_html("$Dir_WWWRoot/THHFile.htm"); 
 } elsif ($in{'cp'} eq 'holidays') { 
 		&show_html("$Dir_WWWRoot/THHolidays.htm"); 
 		print "<td width=$rp_width>";

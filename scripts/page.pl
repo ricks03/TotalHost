@@ -239,7 +239,9 @@ if ($in{'cp'} eq 'edit_profile') {
 } elsif ($in{'cp'} eq 'upload_race') { &upload_race; 
 } elsif ($in{'cp'} eq 'show_race') { 
 	print "<td>"; 	
-	my $sql = qq|SELECT * FROM Races WHERE RaceID = $in{'RaceID'} AND User_Login = \'| . $session->param("userlogin") . qq|\';|;
+  if ($in{'RaceID'}) {
+	  $sql = qq|SELECT * FROM Races WHERE RaceID = $in{'RaceID'} AND User_Login = \'| . $session->param("userlogin") . qq|\';|;
+  } else { $sql = ''; }
 	&show_race($sql); 
 	print "</td>"; 
 } elsif ($in{'cp'} eq 'show_first_race') {
@@ -251,8 +253,11 @@ if ($in{'cp'} eq 'edit_profile') {
 	if (&DB_Call($db,$sql)) { $db->FetchRow(); %First = $db->DataHash(); }	
 	else { &LogOut(10,"ERROR: Finding show_first_race $sql",$ErrorLog); }
 	&DB_Close($db);
-	$sql = qq|SELECT * FROM Races WHERE RaceID = $First{'RaceID'} AND User_Login = \'| . $session->param("userlogin") . qq|\';|;
-	&show_race($sql); 
+  
+  if ($First{'RaceID'}) { 
+  	$sql = qq|SELECT * FROM Races WHERE RaceID = $First{'RaceID'} AND User_Login = \'| . $session->param("userlogin") . qq|\';|;
+  } else { $sql =''; }
+  &show_race($sql); 
 	print "</td>"; 
 } elsif ($in{'cp'} eq 'process_race') { 
 	print "<td>";
@@ -1490,7 +1495,7 @@ sub show_news {
 	my ($GameFile) = @_;
 	my @news;
 	my ($id, $secs, $turn, $story, $l_time);
-	my $newsfile = "$Dir_Games\\$GameFile\\$GameFile.news";
+	my $newsfile = "$DirGames\\$GameFile\\$GameFile.news";
 	# Check to see if there is a news file
 	if (!(-e $newsfile)) { # Create the new file
 		&create_news($newsfile);
@@ -1581,12 +1586,14 @@ sub show_race {
 	my ($sql) = @_;
   use StarsBlock;
 	my %RaceValues;
-	$db = &DB_Open($dsn);
 	my $c=0; 
-	if (&DB_Call($db,$sql)) {
-	    while ($db->FetchRow()) { %RaceValues = $db->DataHash(); $c++; }
-	} else { &LogOut(10,"ERROR: Finding show_race $sql",$ErrorLog); }
-	&DB_Close($db);
+  if ($sql) {
+  	$db = &DB_Open($dsn);
+  	if (&DB_Call($db,$sql)) {
+  	    while ($db->FetchRow()) { %RaceValues = $db->DataHash(); $c++; }
+  	} else { &LogOut(10,"ERROR: Finding show_race $sql", $ErrorLog); }
+  	&DB_Close($db);
+  }
 	if ($c) {
 		# Get $ver
     my $racepath = $DirRaces . '\\' . $RaceValues{'User_File'};
