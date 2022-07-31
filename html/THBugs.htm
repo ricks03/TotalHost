@@ -59,5 +59,6 @@ JRC4 Fix caveat: Mineral transfers must be done by hand, not as a waypoint task.
 <P><u>FIXED IN JRC4? [freepop] Hack:</u> Using a memory editing utility it is possible to create colonists out of thin air, limited only by a player's freighter capacity, with the help of a memory editor. This abuses a lack of a viability check for loading colonist from an uninhabited planet, usually you cannot load more colonists than you drop down in a turn, but a memory editor can be used to trick the user interface into believing that you had dropped down millions of colonists, and the host doesn't double check these figures. Use of this in a multiplayer game would be considered by most players to be a totally inexcusable cheating offence.
 
 <P><u>Minefield overflow:</u> If the current size of a minefield + the total added to the minefield will be greater than 2022095 - 2022101 (somewhere in that range, I couldn't get my minefield to be closer than that) the minefield will disappear. Given the rarity of this bug, and the difficulty in creating it (I was using 143 Nubians with 36 SD Minelayer 130ss), I note it here for posterity, but don't plan to detect for it. Don't do it! 
+<P><u>Peerless overflow:</u> A nubian wih 36x Peerless scanners with NAS will overflow (specifics uncertain, but likely no scanning)
 </body>
 </html>
