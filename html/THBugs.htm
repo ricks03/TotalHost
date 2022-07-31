@@ -6,6 +6,8 @@
 
 Generally from <a href="http://wiki.starsautohost.org/wiki/Known_Bugs">http://wiki.starsautohost.org/wiki/Known_Bugs</a> and  <a href="http://www.starsfaq.com/rgcsfaq.htm">The Stars! FAQ</a>
 
+<P><u>201kt Space Dock bug</u>: Editing a < 200 kt ship design that is in the production queue for a space dock to > 200 kt will warn that it will be deleted (and appear removed from the queue), but it will still be built. Saving and re-opening teh game will show it in the UI.  Editing the queue will cause it to be actually removed. 
+
 <P><u>FIXED in TOTALHOST: Colonization Bug:</u> If you edit an existing colonizer design and remove the Colonization module, the copy can still colonize a planet. However the slot where the Colonization module was must remain empty. This also works for a copy of any ship design that had a Colonization module. 
 
 <P><u>FIXED in TOTALHOST: Space Dock Armor slot Buffer Overflow</u> If your race has ISB and RS, building a Space Dock with more than 21 SuperLat in the Armor slot will result in some sort of error. 21 SuperLat gives a Space Dock 16,000 armor, 22 SuperLat gives it 49,518 Armor. For a full 24 SuperLat stack, you get a whopping 51,018 armor. In comparison, a Death Star for an RS AR tops out at 31,500 armor (not including M.T. toys). 
@@ -56,5 +58,6 @@ JRC4 Fix caveat: Mineral transfers must be done by hand, not as a waypoint task.
 
 <P><u>FIXED IN JRC4? [freepop] Hack:</u> Using a memory editing utility it is possible to create colonists out of thin air, limited only by a player's freighter capacity, with the help of a memory editor. This abuses a lack of a viability check for loading colonist from an uninhabited planet, usually you cannot load more colonists than you drop down in a turn, but a memory editor can be used to trick the user interface into believing that you had dropped down millions of colonists, and the host doesn't double check these figures. Use of this in a multiplayer game would be considered by most players to be a totally inexcusable cheating offence.
 
+<P><u>Minefield overflow:</u> If the current size of a minefield + the total added to the minefield will be greater than 2022095 - 2022101 (somewhere in that range, I couldn't get my minefield to be closer than that) the minefield will disappear. Given the rarity of this bug, and the difficulty in creating it (I was using 143 Nubians with 36 SD Minelayer 130ss), I note it here for posterity, but don't plan to detect for it. Don't do it! 
 </body>
 </html>
