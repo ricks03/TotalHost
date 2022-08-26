@@ -82,7 +82,8 @@
 # 46	SaveAndSubmitBlock
 
 package StarsBlock;
-use TotalHost; # eval'd at compile time
+# 220824 Don't think this is ever called from StarsBlock. Fix for required SSL from SMTP library for block applications
+#use TotalHost; # eval'd at compile time
 use StarStat;  # eval'd at compile time
 do 'config.pl';
 
@@ -93,7 +94,7 @@ our @ISA = qw(Exporter);
 our @EXPORT = qw( 
   StarsPWD
   nextRandom StarsRandom
-  initDecryption getFileHeaderBlock getFileFooterBlock   getFileFooter
+  initDecryption getFileHeaderBlock getFileFooterBlock getFileFooter
   encryptBytes decryptBytes
   read8 read16 read32 readN write16 parseBlock
   dec2bin bin2dec
@@ -129,6 +130,7 @@ our @EXPORT = qw(
   readList writeList printList updateList
   cleanFiles
   adjustFleetCargo tallyFleet 
+  decryptMessages
 );  
 
 my $debug = 1;
@@ -3955,6 +3957,101 @@ sub decryptFix {
   }
   return \@outBytes, $needsFixing, \%warning, \%fleetList, \%queueList, \%designList, \%waypointList, $lastPlayer;
 }
+
+sub decryptMessages {
+  my (@fileBytes) = @_;
+  my @block;
+  my @data;
+  my ($decryptedData, $encryptedBlock, $padding);
+  my @decryptedData;
+  my @encryptedBlock;
+  my @outBytes;
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ($random, $seedA, $seedB, $seedX, $seedY );
+  my ( $FileValues, $typeId, $size );
+  my $currentTurn;
+  my $offset = 0; #Start at the beginning of the file
+  my @messages;
+  while ($offset < @fileBytes) {
+    # Get block info and data
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
+    if ($typeId == 8 ) { # File Header Block, never encrypted
+      # We always have this data before getting to block 6, because block 8 is first
+      # If there are two (or more) block 8s, the seeds reset for each block 8
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+      if ($fMulti) { 
+        my @footer =  ( $fileBytes[-2], $fileBytes[-1] );
+        $currentTurn = &getFileFooterBlock(\@footer, 2) + 2400; 
+        push @messages, "Current Year: $currentTurn\n";
+      } 
+      ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+    } else {
+      # Everything else needs to be decrypted
+      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
+      @decryptedData = @{ $decryptedData };  
+      # WHERE THE MAGIC HAPPENS
+      # Display the messages in the file
+      my $message;
+      # We need the names to display
+      # Check the Player Block so we can get the race names
+      # although there are no names in .x files
+      if ($typeId == 6) { # Player Block
+        my $playerId = $decryptedData[0] & 0xFF;
+        my $fullDataFlag = ($decryptedData[6] & 0x04);
+        my $index = 8;
+        if ($fullDataFlag) { 
+          # The player names are at the end which is not a fixed length
+          $index = 112;
+          my $playerRelationsLength = $decryptedData[112]; 
+          $index = $index + $playerRelationsLength + 1;
+         } 
+        my $singularNameLength = $decryptedData[$index] & 0xFF;
+        my $singularMessageEnd = $index + $singularNameLength;
+        # changed this 210516
+        #my $pluralNameLength = $decryptedData[$index+2] & 0xFF;
+        my $pluralNameLength = $decryptedData[$index+$singularNameLength+1] & 0xFF;
+        if ($pluralNameLength == 0) { $pluralNameLength = 1; } # Because there's a 0 byte after it
+        $playerId++; # As 0 is "Everyone" need to use representative IDs
+        $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+        $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
+        $singularRaceName[0] = 'Everyone';
+      } elsif ($typeId == 40) { # check the Message block 
+        my $byte0 =  &read16(\@decryptedData, 0);  # unknown
+        my $byte2 =  &read16(\@decryptedData, 2);  # unknown
+        my $senderId = &read16(\@decryptedData, 4);
+        my $recipientId = &read16(\@decryptedData, 6);
+        my $byte8 =  &read16(\@decryptedData, 8); # unknown
+        my $messageBytes = &read16(\@decryptedData, 10);
+        my $messageLength = $size -1;
+        $message = &decodeBytesForStarsString(@decryptedData[11..$messageLength]);
+    #    print "From: $senderId, To: $recipientId, \"$message\"\n"; 
+        if ($message) {
+          my $recipient;
+          if ($ext =~ /[xX]/) { 
+            # Different for x files, as we don't have player names in it.
+            # Player ID #s are a bit weird, as 0 in this case is "everyone", not Player 1 (ID:0)
+            if ( $recipientId == 0 ) { $recipient = 'Everyone'; } else { $recipient = 'Player ' . $recipientId; }
+            push @messages, "Message Year:" . ($turn+2400) . ", From: Me, To: $recipient, \"$message\"\n";
+          } else { 
+            # We don't have player names for races undiscovered either
+#            push @messages, "\tMessage Year:" . ($turn+2400) . ", From: $singularRaceName[$senderId+1], To: $singularRaceName[$recipientId], \"$message\"\n";
+            push @messages, "Message Year:" . ($turn+2400) . ", From: $singularRaceName[$senderId+1], To: $singularRaceName[$recipientId], \"$message\"\n";
+          }
+        } 
+      } 
+      #return @decryptedData;
+      # END OF MAGIC
+    }
+    $offset = $offset + (2 + $size); 
+  }
+  return \@messages;
+}
+
 
 
 # CSV position 18 is fuel

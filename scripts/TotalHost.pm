@@ -22,7 +22,7 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-use Net::SMTP;
+use Net::SMTP; # requires libcrypto-1_1_.dll
 use CGI qw(:standard);
 use CGI::Session qw/-ip-match/;
 CGI::Session->name('TotalHost');
@@ -45,7 +45,7 @@ our @EXPORT = qw(
 	html_left html_right html_bottom
 	html_meta html_title html_menu html_footer
 	clean_old_sessions get_cookie print_cookie print_redirect 
-	checkbox  checknull checkboxnull checkboxes fixdate
+	checkbox checknull checkboxnull checkboxes fixdate
 	SubmitTime
 	UpdateLastTurn UpdateNextTurn FixNextTurnDST GenerateTurn clean_name
 	rp_list_games list_games LoadGamesInProgress
@@ -1093,68 +1093,72 @@ sub ShowHolidays {
 	print "</table>\n";
 }
 
-sub dbh_connect {
-	#Pull game information from the database.	$dsn = "TotalHost";
-	# If there's an error, say why
-	my $dsn_name = 'dbi:ODBC:' . $dsn;
-    my ($dbh);
-    $dbh = DBI->connect($dsn_name, $db_user, $db_pass, { PrintError => 0, AutoCommit => 1 });
-    if (! defined($dbh) ) {
-		print "dbh_connect: Error connecting to DSN '$dsn_name'\n";
-        print "Error was:\n";
-        print "$DBI::errstr\n";         # $DBI::errstr is the error received from the SQL server
-        return 0;
-    }
-    return $dbh;
-}
-
-sub db_sql {
-	my ($sql, $sth, $rc);
-    $sql = shift;
-    if (! ($sql) ) {
-		&LogOut(0, "db_sql: Must pass SQL statement to db_sql!",$ErrorLog);
-		return 0;
-	}
-	# Verify that we are connected to the database
-	if (! ($dbh) || ! ($sth = $dbh->prepare("GO") )) {
-		# Attempt to reconnect to the database
-		if (! dbh_connect() ) {
-			&LogOut(0, "db_sql: Unable to connect to database",$ErrorLog);
-			exit;   # Unable to reconnect, exit the script gracefully
-        }
-    } else {
-		$sth->execute;      # Execute the "GO" statement
-		$sth->finish;       # Tell the SQL server we are done
-	}
-	$sth = $dbh->prepare($sql);     # Prepare the SQL statement passed to db_sql
-	# Check that the statement prepared successfully
-	if(! defined($sth) || ! ($sth)) {
-		&LogOut(0, "db_sql: Failed to prepare SQL statement:$DBI::errstr",$ErrorLog);
-#		print "$DBI::errstr\n";
-		# Check for a connection error -- should not occur
-		if ($DBI::errstr =~ /Connection failure/i) {
-			if (! dbh_connect() ) { &LogOut(0, "db_sql: Unable to connect to database.", $ErrorLog); exit; }
-			else {
-				&LogOut(0, "db_sql: Database connection re-established, attempting to prepare again.",$ErrorLog);
-				$sth = $dbh->prepare($sql);
-			}
-		}
-		# Check to see if we recovered
- 		if ( ! defined( $sth ) || ! ($sth) ) {
-			&LogOut(0, "db_sql: Unable to prepare SQL statement: $sql", $ErrorLog);
-			return 0;
-		}
-	}
-	# Attempt to execute our prepared statement
-	$rc = $sth->execute;
-	if (! defined( $rc ) ) {
-		# We failed, print the error message for troubleshooting
-		&LogOut(0, "Unable to execute prepared SQL statement:$DBI::errstr $sql", $ErrorLog);
-		return 0;
-	}
-	# All is successful, return the statement handle
-	return $sth;
-}
+# 220824 BUG I don't see the db_sql function used anywhere, and the only place that 
+# calls dbh_connect is db_sql.
+# They aren't even in the export of Totalhost.pm
+#
+# sub dbh_connect {
+# 	#Pull game information from the database.	$dsn = "TotalHost";
+# 	# If there's an error, say why
+# 	my $dsn_name = 'dbi:ODBC:' . $dsn;
+#     my ($dbh);
+#     $dbh = DBI->connect($dsn_name, $db_user, $db_pass, { PrintError => 0, AutoCommit => 1 });
+#     if (! defined($dbh) ) {
+# 		print "dbh_connect: Error connecting to DSN '$dsn_name'\n";
+#         print "Error was:\n";
+#         print "$DBI::errstr\n";         # $DBI::errstr is the error received from the SQL server
+#         return 0;
+#     }
+#     return $dbh;
+# }
+# 
+# sub db_sql {
+# 	my ($sql, $sth, $rc);
+#     $sql = shift;
+#     if (! ($sql) ) {
+# 		&LogOut(0, "db_sql: Must pass SQL statement to db_sql!",$ErrorLog);
+# 		return 0;
+# 	}
+# 	# Verify that we are connected to the database
+# 	if (! ($dbh) || ! ($sth = $dbh->prepare("GO") )) {
+# 		# Attempt to reconnect to the database
+# 		if (! dbh_connect() ) {
+# 			&LogOut(0, "db_sql: Unable to connect to database",$ErrorLog);
+# 			exit;   # Unable to reconnect, exit the script gracefully
+#         }
+#     } else {
+# 		$sth->execute;      # Execute the "GO" statement
+# 		$sth->finish;       # Tell the SQL server we are done
+# 	}
+# 	$sth = $dbh->prepare($sql);     # Prepare the SQL statement passed to db_sql
+# 	# Check that the statement prepared successfully
+# 	if(! defined($sth) || ! ($sth)) {
+# 		&LogOut(0, "db_sql: Failed to prepare SQL statement:$DBI::errstr",$ErrorLog);
+# #		print "$DBI::errstr\n";
+# 		# Check for a connection error -- should not occur
+# 		if ($DBI::errstr =~ /Connection failure/i) {
+# 			if (! dbh_connect() ) { &LogOut(0, "db_sql: Unable to connect to database.", $ErrorLog); exit; }
+# 			else {
+# 				&LogOut(0, "db_sql: Database connection re-established, attempting to prepare again.",$ErrorLog);
+# 				$sth = $dbh->prepare($sql);
+# 			}
+# 		}
+# 		# Check to see if we recovered
+#  		if ( ! defined( $sth ) || ! ($sth) ) {
+# 			&LogOut(0, "db_sql: Unable to prepare SQL statement: $sql", $ErrorLog);
+# 			return 0;
+# 		}
+# 	}
+# 	# Attempt to execute our prepared statement
+# 	$rc = $sth->execute;
+# 	if (! defined( $rc ) ) {
+# 		# We failed, print the error message for troubleshooting
+# 		&LogOut(0, "Unable to execute prepared SQL statement:$DBI::errstr $sql", $ErrorLog);
+# 		return 0;
+# 	}
+# 	# All is successful, return the statement handle
+# 	return $sth;
+# }
 
 sub show_race_block {
   # Displays Race attributes in TotalHost

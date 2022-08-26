@@ -33,6 +33,7 @@ use CGI::Session qw/-ip-match/;
 CGI::Session->name('TotalHost');
 use Win32::ODBC;
 use TotalHost; 
+use StarsBlock; 
 use File::Find; # Used for zip/compression
 use Archive::Zip; # Used for zip/compression
 do 'config.pl';
@@ -168,7 +169,7 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
     		}
   	 }, @gamelocation;
    }
-  } else { &error("Failed to find Game $gamefile associated with for this User $userlogin"); }
+  } else { &error("ZIP: Failed to find Game $gamefile associated with for this User $userlogin"); }
 	&DB_Close($db);
 
 	#  create a new zip object
@@ -184,22 +185,96 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
 		# Add the file to the files to be zipped array
 		$obj->addFile($filelist_item, $path) or &error("Error adding file $filelist_item  $filename");   # add files
 	}
-	$outputzipfile = $DirDownload . '/' . $GameFile . ".$id.zip";
+	$outputzipfile = $DirDownload . '/' . "$GameFile.$id.zip";
+	$downloadzipfile = "$GameFile.$id.zip";
 	if ($obj->writeToFileNamed("$outputzipfile") != AZ_OK) {  # write to disk
 	    &error("$userlogin: Error in archive creation for $outputzipfile!"); $download_ok = 0;
 	} else {	$download_ok = 1; }
+  
+#######################################################
+# Message file download
+} elsif ($file =~ /^(\w+[\w.-]+\.msg)$/) { 
+	$filetype='msg'; 
+	$gamelocation = $Dir_Games . '/' . $gamefile; # Get the location for the current turns
+ 
+	# Determine the user's player ID, which is not the same as their user ID
+	#$sql =qq|SELECT PlayerID, GameFile FROM [User] INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login WHERE (((GameUsers.GameFile)='$gamefile') AND ((User.User_Login)='$userlogin'));|;
+  # updated to include host access (if host access is enabled, give all messages)
+  $sql = qq|SELECT GameUsers.PlayerID, GameUsers.GameFile, Games.HostAccess FROM Games INNER JOIN ([User] INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login) ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE (((GameUsers.GameFile)='$gamefile') AND ((User.User_Login)='$userlogin') OR ((GameUsers.GameFile='$gamefile') AND (Games.HostName)='$userlogin') AND ((Games.HostAccess)=True));|;  
+	$db = &DB_Open($dsn);
+	my %GameValues;
+  # read in the player values
+  my @messageFiles;
+  my $messageFile;
+  my $hostAccess;
+	if (&DB_Call($db,$sql)) { 
+    while ($db->FetchRow()) { 
+      %GameValues = $db->DataHash(); 
+      $id = $GameValues{'PlayerID'};
+      $GameFile = $GameValues{'GameFile'};
+      $hostAccess = $GameValues{'HostAccess'}; # Is Host Access set (0|1)
+#      push @messageFiles, $gamelocation . '/' . $GameFile . '.m' . $id; # Check for .m file
+#      push @messageFiles, $gamelocation . '/' . $GameFile . '.x' . $id; # Check for .x file
+      push @messageFiles, $GameFile . '.m' . $id; # Check for .m file
+      push @messageFiles,  $GameFile . '.x' . $id; # Check for .x file
+      # remove any previous out-of-date message file
+      $messageFile =  $gamelocation . '/' . $GameFile  . '.msg';
+      if (-e $messageFile && $hostAccess) { unlink $messageFile; }
+      unless ($hostAccess) { 
+        $messageFile .= $id;
+        if (-e $messageFile) { unlink $messageFile; }
+      }
+    }
+  } else { &error("Failed to find Game $gamefile associated with this User $userlogin"); }
+	&DB_Close($db);
+  # read in the player files  
+  foreach my $filename (@messageFiles) {
+    $fullFileName = $gamelocation . '/' . $filename;
+    # Read in the file data
+    my @fileBytes;
+    if (-e $fullFileName) {  # read in the file if it exists
+      open(StarFile, "<$fullFileName" );
+      binmode(StarFile);
+      while ( read(StarFile, $FileValues, 1)) {
+        push @fileBytes, $FileValues; 
+      }
+      close(StarFile);
+
+      my ($outBytes) = &decryptMessages(@fileBytes);  # get the message data
+      my @outBytes = @{ $outBytes };
+      open (MESSAGEFILE, ">>$messageFile"); # write out the messages to a file
+      unless (scalar (@outBytes)) { print MESSAGEFILE "No message(s) found.\n"; }
+      else {
+        foreach my $message (@outBytes) {
+          print MESSAGEFILE $filename . ','; # include the file name
+          # Output the message to a file
+          print MESSAGEFILE $message;
+        }
+      }
+      close MESSAGEFILE;
+    }
+  }
+  # Change the default name of the file to be player-specific
+  # BUG: How will this work with the same player in the game twice?
+  $file = $messageFile;
+	$downloadmsgfile = $GameFile . '.msg';
+  unless ($hostAccess) { $downloadmsgfile .= $id; }
+  $download_ok = 1;
+######################################################
+######################################################  
 
 # If the file type wasn't one of the predefined ones, error out.
 } else { &error("User $userlogin authorized. Invalid file type $file $filetype"); }
+
+
 
 if ($download_ok) { &download($file) or &error("User $userlogin authorized, but an unknown error has occured.");  }
 else { &error("User $userlogin Unauthorized.") }
 
 ##########################################
 sub download {
-#	my ($file) = @_;
-   my $file = $_[0] or return(0);
-   #open(my $DLFILE, '<', "$Dir_Games/$file") or die "Can't open file '$Dir_Games/$file' : $!";
+  #	my ($file) = @_;
+  my $file = $_[0] or return(0);
 	# For a race file, download from the race file location
 	if ($filetype eq 'r') {
     $outputracefile = $DirRaces . "\\" . $RaceValues{'User_File'} . "\\$file";
@@ -208,18 +283,26 @@ sub download {
 	  # so you get a progress bar in the dialog box that displays during file downloads. 
 	  print $cgi->header(-type            => 'application/x-download',
 	                    -attachment      => $file,
-#	                    -Content_length  => -s "$DirRaces\\$file",
 	                    -Content_length  => -s "$outputracefile",
 		);
 	# download the zipped up game from the zip location.
 	} elsif ($filetype eq 'zip') {
-		$downloadzipfile = $GameFile . "1.zip";
    	open(DLFILE, '<', "$outputzipfile") or return(0);
 	  # this prints the download headers with the file size included
 	  # so you get a progress bar in the dialog box that displays during file downloads. 
 	  print $cgi->header(-type            => 'application/x-download',
 	                    -attachment      => "$downloadzipfile",
 	                    -Content_length  => -s "$outputzipfile",
+		);
+	
+	# download the message file.
+	} elsif ($filetype eq 'msg') {
+   	open(DLFILE, '<', "$file") or return(0); 
+	  # this prints the download headers with the file size included
+	  # so you get a progress bar in the dialog box that displays during file downloads. 
+	  print $cgi->header(-type            => 'txt',
+	                    -attachment      => "$downloadmsgfile",
+	                    -Content_length  => -s "$file",
 		);
 	
 	} else {
@@ -231,16 +314,10 @@ sub download {
                     -Content_length  => -s "$Dir_Games/$gamefile/$file",
    	);
 	}
-   # this prints the download headers with the file size included
-   # so you get a progress bar in the dialog box that displays during file downloads. 
-#    print $cgi->header(-type            => 'application/x-download',
-#                     -attachment      => $file,
-#                     -Content_length  => -s "$Dir_Games/$gamefile/$file",
-#    );
-   binmode DLFILE;
-   print while <DLFILE>;
-   close (DLFILE);
-   return(1);
+  binmode DLFILE;
+  print while <DLFILE>;
+  close (DLFILE);
+  return(1);
 }
 
 sub error {
