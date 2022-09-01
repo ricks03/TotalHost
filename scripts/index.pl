@@ -101,6 +101,7 @@ if ($in{'cp'} eq 'login_page') { &login_page;
 } elsif ($in{'cp'} eq 'tips') { &show_html("$Dir_WWWRoot/THTips.htm"); 
 } elsif ($in{'cp'} eq 'faq') { &show_html("$Dir_WWWRoot/THFAQ.htm"); 
 } elsif ($in{'cp'} eq 'hfile') { &show_html("$Dir_WWWRoot/THHFile.htm"); 
+} elsif ($in{'cp'} eq 'score') { &show_html("$Dir_WWWRoot/THScore.htm"); 
 } elsif ($in{'cp'} eq 'holidays') { 
 		&show_html("$Dir_WWWRoot/THHolidays.htm"); 
 		print "<td width=$rp_width>";
