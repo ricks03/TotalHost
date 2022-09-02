@@ -243,7 +243,7 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
       my ($outBytes) = &decryptMessages(@fileBytes);  # get the message data
       my @outBytes = @{ $outBytes };
       open (MESSAGEFILE, ">>$messageFile"); # write out the messages to a file
-      unless (scalar (@outBytes)) { print MESSAGEFILE "No message(s) found.\n"; }
+      unless (scalar (@outBytes)) { print MESSAGEFILE $filename . ',' . "No message(s) found.\n"; }
       else {
         foreach my $message (@outBytes) {
           print MESSAGEFILE $filename . ','; # include the file name
