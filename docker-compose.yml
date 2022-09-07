@@ -1,0 +1,14 @@
+version: '3'
+services:
+  totalhost:
+    build: .
+  tests:
+    build:
+      context: .
+      dockerfile: acceptance/Dockerfile
+    command: ./run-tests.sh
+    volumes:
+      - ./acceptance:/acceptance
+    working_dir: /acceptance
+    depends_on:
+      - totalhost
