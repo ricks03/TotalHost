@@ -8,6 +8,7 @@ services:
       dockerfile: acceptance/Dockerfile
     command: ./run-tests.sh
     volumes:
+      - ./logs:/usr/local/apache2/logs
       - ./acceptance:/acceptance
     working_dir: /acceptance
     depends_on:
