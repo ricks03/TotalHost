@@ -3,8 +3,12 @@ FROM httpd:2.4
 RUN apt-get update
 RUN apt-get install -y dos2unix build-essential cpanminus
 
-# RUN cpan CGI CGI::Session CGI::Session::Auth MIME::Lite MIME-tools mail::pop3client \
-#         MIME::Parser Mail::POP3Client File::Copy::Recursive Email::Valid
+RUN cpan DBI CGI CGI::Session CGI::Session::Auth CGI::Session::Auth::DBI
+RUN cpan MIME::Lite MIME-tools MIME::Parser
+RUN cpan File::Copy::Recursive
+RUN cpan mail::pop3client Mail::POP3Client
+RUN cpan Email::Valid
+
 
 ENV TOTALHOST_DOC_ROOT=/usr/local/apache2/totalhost-htdocs
 
