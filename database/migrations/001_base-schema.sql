@@ -389,22 +389,15 @@ INSERT INTO "_version" ("version") VALUES
 
 -- +goose Down
 
-DROP TABLE "_gamestatus";
 
-DROP TABLE "_gametype";
-
-DROP TABLE "_holidays";
-
-DROP TABLE "_playerstatus";
-
-DROP TABLE "_userstatus";
-
-DROP TABLE "_version";
-
-DROP TABLE "games";
 
 DROP TABLE "gameusers";
-
 DROP TABLE "races";
-
+DROP TABLE "games";
 DROP TABLE "user";
+DROP TABLE "_gamestatus";
+DROP TABLE "_gametype";
+DROP TABLE "_holidays";
+DROP TABLE "_playerstatus";
+DROP TABLE "_userstatus";
+DROP TABLE "_version";
