@@ -58,4 +58,4 @@ ci-test: ## ci target - run tests to generate coverage data
 
 .PHONY: acceptance-test
 acceptance-test: build ## run acceptance tests
-	cd acceptance && docker-compose up --build --always-recreate-deps --force-recreate --exit-code-from tests
+	docker-compose up --build --always-recreate-deps --force-recreate --exit-code-from tests

@@ -2,14 +2,25 @@ version: '3'
 services:
   totalhost:
     build: .
+    # volumes:
+    #   - ./logs:/usr/local/apache2/logs
+    depends_on:
+      - db
   tests:
     build:
       context: .
       dockerfile: acceptance/Dockerfile
-    command: ./run-tests.sh
+    command: ./run-tests.sh /project/database/migrations
     volumes:
-      - ./logs:/usr/local/apache2/logs
-      - ./acceptance:/acceptance
-    working_dir: /acceptance
+      - ./:/project
+    working_dir: /project/acceptance
     depends_on:
       - totalhost
+      - db
+  db:
+    image: "postgres:13-alpine"
+    command: "-c log_statement=all"
+    environment:
+      POSTGRES_DB: totalhost
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}

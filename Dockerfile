@@ -9,7 +9,6 @@ RUN cpan File::Copy::Recursive
 RUN cpan mail::pop3client Mail::POP3Client
 RUN cpan Email::Valid
 
-
 ENV TOTALHOST_DOC_ROOT=/usr/local/apache2/totalhost-htdocs
 
 RUN mkdir -p ${TOTALHOST_DOC_ROOT}
