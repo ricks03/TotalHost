@@ -20,12 +20,20 @@
 # 
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+require StarsConfig;
+my $config = new StarsConfig();
 
 use CGI qw(:standard);
 use CGI::Session;
-use Win32::ODBC;
+
+if($config->isFeatureLive('database')) {
+	use Win32::ODBC;
+}
+
 CGI::Session->name('TotalHost');
+
 use TotalHost;
+
 do 'config.pl';
 
 #%in = &parse_input(*in);
@@ -60,29 +68,29 @@ print "<P>\n";
 if ($id ) {
 %menu_left = 	(
 				"0About Us"			=> "$WWW_Scripts/index.pl?lp=home&cp=aboutus",
- 				"1Features" 			=> "$WWW_Scripts/index.pl?cp=features",
+ 				"1Features" 		=> "$WWW_Scripts/index.pl?cp=features",
 				"2FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
 				"3Order of Events"	=> "$WWW_Scripts/index.pl?lp=home&cp=orderofevents",
 				"3Game Defaults"	=> "$WWW_Scripts/index.pl?lp=home&cp=gamedefaults",
 				"3Game Policies"	=> "$WWW_Scripts/index.pl?lp=home&cp=policies",
 				"6Strategy Library"	=> "$WWW_Scripts/index.pl?lp=home&cp=library",
-				"8Other Sites"	=> "$WWW_Scripts/index.pl?lp=home&cp=othersites",
+				"8Other Sites"		=> "$WWW_Scripts/index.pl?lp=home&cp=othersites",
 				"9Recent Changes"	=> "$WWW_Scripts/index.pl?lp=home&cp=recentchanges"
 				);
 } elsif ($in{'lp'} eq 'home') {
 %menu_left = 	(
 				"0About Us"			=> "$WWW_Scripts/index.pl?lp=home&cp=aboutus",
- 				"1Features" 			=> "$WWW_Scripts/index.pl?cp=features",
+ 				"1Features" 		=> "$WWW_Scripts/index.pl?cp=features",
 				"2FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
 				"3Order of Events"	=> "$WWW_Scripts/index.pl?lp=home&cp=orderofevents",
 				"6Strategy Library"	=> "$WWW_Scripts/index.pl?lp=home&cp=library",
-				"9Other Sites"	=> "$WWW_Scripts/index.pl?lp=home&cp=othersites",
+				"9Other Sites"		=> "$WWW_Scripts/index.pl?lp=home&cp=othersites",
  				"9Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
  				"9Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create"
 				);
 } else {
 %menu_left = 	(
- 				"0Features" 			=> "$WWW_Scripts/index.pl?cp=features",
+ 				"0Features" 		=> "$WWW_Scripts/index.pl?cp=features",
  				"1Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
  				"2Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create",
  				"3Reset Password" 	=> "$WWW_Scripts/index.pl?cp=reset_user",
@@ -135,7 +143,9 @@ if ($in{'cp'} eq 'login_page') { &login_page;
 if ($in{'rp'} eq 'something') {
 	$sql = 'SELECT * from Games WHERE GameStatus = 2;';
 	print qq|<td width="$rp_width">\n|;
-	&list_games($sql, 'Games in Progress');
+	if($config->isFeatureLive('database')) {
+		&list_games($sql, 'Games in Progress');
+	}
 	print "</td>\n";
 
 } elsif  (!($in{'rp'})) { print qq|<td width="$rp_width"></td>\n|;
@@ -180,23 +190,24 @@ eof
 }
 
 sub account_create {
-	# confirm that there's not too many users
-	$db = &DB_Open($dsn);
-	$sql = qq|SELECT Count(User.User_ID) AS CountOfUser_ID FROM [User];|;
-	&LogOut(100,$sql,$LogFile);
-	if (&DB_Call($db,$sql)) { 
-		while ($db->FetchRow()) {
-			($User_Count) = $db->Data("CountOfUser_ID");
-		}
-	} else { &LogOut(10,'ERROR: account_create confirming user account',$LogFile);}
-	&DB_Close($db);
-	if ($User_Count > $max_users ) {
-		#print $cgi->redirect( -URL => "$WWW_HomePage$WWW_Scripts/index.pl?cp=max");
-    &max_users;	
-		exit;
-	} 
+	if($config->isFeatureLive('database')) {
+		# confirm that there's not too many users
+		$db = &DB_Open($dsn);
+		$sql = qq|SELECT Count(User.User_ID) AS CountOfUser_ID FROM [User];|;
+		&LogOut(100,$sql,$LogFile);
+		if (&DB_Call($db,$sql)) { 
+			while ($db->FetchRow()) {
+				($User_Count) = $db->Data("CountOfUser_ID");
+			}
+		} else { &LogOut(10,'ERROR: account_create confirming user account',$LogFile);}
+		&DB_Close($db);
+		if ($User_Count > $max_users ) {
+			#print $cgi->redirect( -URL => "$WWW_HomePage$WWW_Scripts/index.pl?cp=max");
+		&max_users;	
+			exit;
+		} 
 
-print <<eof;
+	print <<eof;
 <td>
 <h2>Create Account</h2>
 <form name="login" method=POST action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">
@@ -213,6 +224,7 @@ print <<eof;
 </form>
 </td>
 eof
+	}
 }
 
 sub max_users {
