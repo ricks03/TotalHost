@@ -3,7 +3,6 @@
 set -e
 set -u
 set -o pipefail
-set -x
 
 wait-for tcp:db:5432
 
