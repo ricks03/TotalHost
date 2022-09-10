@@ -9,4 +9,4 @@ use HTTP::Tiny;
 my $response = HTTP::Tiny->new->get('http://totalhost:80/scripts/health.pl');
 
 is( $response->{status} => 200, 'Returns successful response');
-is( $response->{content} => '<p>healthy</p>', 'Returns correct body');
+ok( grep($response->{content}, '<p>healthy</p>'), 'Returns correct body');
