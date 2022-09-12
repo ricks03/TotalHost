@@ -20,15 +20,15 @@
 # 
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
-require StarsConfig;
+use StarsConfig;
 my $config = new StarsConfig();
 
 use CGI qw(:standard);
 use CGI::Session;
 
-if($config->isFeatureLive('database')) {
-	use Win32::ODBC;
-}
+my $dbEnabled = $config->isFeatureLive("database");
+my $scriptsRoot = $config->locationScriptsRoot();
+use if $dbEnabled, Win32::ODBC;
 
 CGI::Session->name('TotalHost');
 
@@ -55,7 +55,7 @@ $userlogin = $session->param('userlogin');
 # If the user happens to be logged in, redirect them to the first game page
 # &LogOut(0,"ID = $id, Login = $userlogin",$ErrorLog); 
 # if ($userlogin) {  
-# 	$redirect =  $WWW_HomePage . $WWW_Scripts . '/page.pl?lp=game&cp=show_first_game';
+# 	$redirect =  $WWW_HomePage . $scriptsRoot . '/page.pl?lp=game&cp=show_first_game';
 # 	print $cgi->redirect( -URL => "$redirect");
 # #	&print_redirect($cgi,$sessionid,$redirect);
 # 	&LogOut(0, "redirect: $redirect", $ErrorLog); 
@@ -67,36 +67,36 @@ print "<P>\n";
 
 if ($id ) {
 %menu_left = 	(
-				"0About Us"			=> "$WWW_Scripts/index.pl?lp=home&cp=aboutus",
- 				"1Features" 		=> "$WWW_Scripts/index.pl?cp=features",
-				"2FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
-				"3Order of Events"	=> "$WWW_Scripts/index.pl?lp=home&cp=orderofevents",
-				"3Game Defaults"	=> "$WWW_Scripts/index.pl?lp=home&cp=gamedefaults",
-				"3Game Policies"	=> "$WWW_Scripts/index.pl?lp=home&cp=policies",
-				"6Strategy Library"	=> "$WWW_Scripts/index.pl?lp=home&cp=library",
-				"8Other Sites"		=> "$WWW_Scripts/index.pl?lp=home&cp=othersites",
-				"9Recent Changes"	=> "$WWW_Scripts/index.pl?lp=home&cp=recentchanges"
+				"0About Us"			=> "$scriptsRoot/index.pl?lp=home&cp=aboutus",
+ 				"1Features" 		=> "$scriptsRoot/index.pl?cp=features",
+				"2FAQ"				=> "$scriptsRoot/index.pl?lp=home&cp=faq",
+				"3Order of Events"	=> "$scriptsRoot/index.pl?lp=home&cp=orderofevents",
+				"3Game Defaults"	=> "$scriptsRoot/index.pl?lp=home&cp=gamedefaults",
+				"3Game Policies"	=> "$scriptsRoot/index.pl?lp=home&cp=policies",
+				"6Strategy Library"	=> "$scriptsRoot/index.pl?lp=home&cp=library",
+				"8Other Sites"		=> "$scriptsRoot/index.pl?lp=home&cp=othersites",
+				"9Recent Changes"	=> "$scriptsRoot/index.pl?lp=home&cp=recentchanges"
 				);
 } elsif ($in{'lp'} eq 'home') {
 %menu_left = 	(
-				"0About Us"			=> "$WWW_Scripts/index.pl?lp=home&cp=aboutus",
- 				"1Features" 		=> "$WWW_Scripts/index.pl?cp=features",
-				"2FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
-				"3Order of Events"	=> "$WWW_Scripts/index.pl?lp=home&cp=orderofevents",
-				"6Strategy Library"	=> "$WWW_Scripts/index.pl?lp=home&cp=library",
-				"9Other Sites"		=> "$WWW_Scripts/index.pl?lp=home&cp=othersites",
- 				"9Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
- 				"9Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create"
+				"0About Us"			=> "$scriptsRoot/index.pl?lp=home&cp=aboutus",
+ 				"1Features" 		=> "$scriptsRoot/index.pl?cp=features",
+				"2FAQ"				=> "$scriptsRoot/index.pl?lp=home&cp=faq",
+				"3Order of Events"	=> "$scriptsRoot/index.pl?lp=home&cp=orderofevents",
+				"6Strategy Library"	=> "$scriptsRoot/index.pl?lp=home&cp=library",
+				"9Other Sites"		=> "$scriptsRoot/index.pl?lp=home&cp=othersites",
+ 				"9Log In" 			=> "$scriptsRoot/index.pl?cp=login_page",
+ 				"9Sign Up" 			=> "$scriptsRoot/index.pl?cp=create"
 				);
 } else {
 %menu_left = 	(
- 				"0Features" 		=> "$WWW_Scripts/index.pl?cp=features",
- 				"1Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
- 				"2Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create",
- 				"3Reset Password" 	=> "$WWW_Scripts/index.pl?cp=reset_user",
- 				"4Logout" 			=> "$WWW_Scripts/index.pl?cp=logout",
+ 				"0Features" 		=> "$scriptsRoot/index.pl?cp=features",
+ 				"1Log In" 			=> "$scriptsRoot/index.pl?cp=login_page",
+ 				"2Sign Up" 			=> "$scriptsRoot/index.pl?cp=create",
+ 				"3Reset Password" 	=> "$scriptsRoot/index.pl?cp=reset_user",
+ 				"4Logout" 			=> "$scriptsRoot/index.pl?cp=logout",
  				);
-# 				"5Erase" 			=> "$WWW_Scripts/index.pl?cp=logoutfull"
+# 				"5Erase" 			=> "$scriptsRoot/index.pl?cp=logoutfull"
 }
 
 &html_left(\%menu_left);
@@ -143,7 +143,7 @@ if ($in{'cp'} eq 'login_page') { &login_page;
 if ($in{'rp'} eq 'something') {
 	$sql = 'SELECT * from Games WHERE GameStatus = 2;';
 	print qq|<td width="$rp_width">\n|;
-	if($config->isFeatureLive('database')) {
+	if($dbEnabled) {
 		&list_games($sql, 'Games in Progress');
 	}
 	print "</td>\n";
@@ -162,7 +162,7 @@ sub login_page {
 #	$id = $session->param('userid');
 	print qq|<td>\n|;
 #	print qq|<h2>Log In</h2>\n|;
-	print qq|<form name="login" method=POST action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">\n|;
+	print qq|<form name="login" method=POST action="$scriptsRoot/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">\n|;
 	print qq|<input type=hidden name="action" value="login">\n|;
 	print qq|<table>\n|;
 	print qq|<tr><td>User ID: </td><td><input type=text name="User_Login" value="$id" size=10 maxlength=32></td></tr>\n|;
@@ -177,7 +177,7 @@ sub reset_user {
 print <<eof;
 <td>
 <h2>Reset Password</h2>
-<form method=POST action="$WWW_Scripts/account.pl">
+<form method=POST action="$scriptsRoot/account.pl">
 <input type=hidden name="action" value="reset_user">
 <table>
 <tr><td>User ID: </td><td><input type=text name="User_Login" value=""></td></tr>
@@ -190,7 +190,7 @@ eof
 }
 
 sub account_create {
-	if($config->isFeatureLive('database')) {
+	if($dbEnabled) {
 		# confirm that there's not too many users
 		$db = &DB_Open($dsn);
 		$sql = qq|SELECT Count(User.User_ID) AS CountOfUser_ID FROM [User];|;
@@ -202,7 +202,7 @@ sub account_create {
 		} else { &LogOut(10,'ERROR: account_create confirming user account',$LogFile);}
 		&DB_Close($db);
 		if ($User_Count > $max_users ) {
-			#print $cgi->redirect( -URL => "$WWW_HomePage$WWW_Scripts/index.pl?cp=max");
+			#print $cgi->redirect( -URL => "$WWW_HomePage$scriptsRoot/index.pl?cp=max");
 		&max_users;	
 			exit;
 		} 
@@ -210,7 +210,7 @@ sub account_create {
 	print <<eof;
 <td>
 <h2>Create Account</h2>
-<form name="login" method=POST action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">
+<form name="login" method=POST action="$scriptsRoot/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">
 <input type=hidden name="action" value="add_user">
 <table>
 <tr><td>First Name: </td><td><input type=text name="User_First" value="" size=32 maxlength=32></td></tr>

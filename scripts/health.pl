@@ -1,10 +1,15 @@
 #!/usr/bin/env perl
 
+use Data::Dumper;
+
 print "Content-Type: text/html\n\n";
 print "<p>healthy</p>\n";
 
 print "<p>checking local package import</p>\n";
 use StarsConfig;
+
+my $config = StarsConfig->new;
+print "<p>Database enabled: "+$config->isFeatureLive("database")+"</p>\n";
 
 print "<p>Platform: $^O</p>\n";
 
