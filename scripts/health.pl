@@ -8,10 +8,19 @@ print "<p>healthy</p>\n";
 print "<p>checking local package import</p>\n";
 use StarsConfig;
 
-my $config = StarsConfig->new;
+my $config = new StarsConfig();
 print "<p>Database enabled: "+$config->isFeatureLive("database")+"</p>\n";
 
 print "<p>Platform: $^O</p>\n";
+
+print <<eop;
+<p>Config values:</p>
+<table>
+  <tr><th>Key</th><th>Value</th></tr>
+  <tr><td>Is Windows</td><td>${\($config->isWindows())}</td></tr>
+  <tr><td>HTML Root</td><td>${\($config->htmlRoot())}</td></tr>
+</table>
+eop
 
 print "<p>Environment variables:</p>\n";
 print "<table>\n";

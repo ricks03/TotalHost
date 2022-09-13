@@ -16,12 +16,16 @@ sub new {
     return $self;
 }
 
+sub isWindows() {
+    return $self->{isWindows} || 0;
+}
+
 sub isFeatureLive {
     my $self = shift;
     my ($feature) = @_;
 
     if($feature == 'database') {
-        if($self->{isWindows}) {
+        if($self->isWindows()) {
             return 1;
         }
 
@@ -31,17 +35,17 @@ sub isFeatureLive {
     return 0;
 }
 
-sub locationHtmlRoot {
+sub htmlRoot {
     my $self = shift;
 
-    if($self->{isWindows}) {
+    if($self->isWindows()) {
         return "D:/TH/html";
     }
 
-    return $ENV->{DOCUMENT_ROOT};
+    return $ENV{DOCUMENT_ROOT};
 }
 
-sub locationScriptsRoot {
+sub scriptsRoot {
     my $self = shift;
 
     return "/scripts";
