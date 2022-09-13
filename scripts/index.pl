@@ -28,7 +28,7 @@ use CGI::Session;
 
 my $dbEnabled = $config->isFeatureLive("database");
 my $scriptsRoot = $config->scriptsRoot();
-my $htmlRoot = $config->scriptsRoot();
+my $htmlRoot = $config->htmlRoot();
 
 use if $dbEnabled, Win32::ODBC;
 
@@ -103,42 +103,42 @@ if ($id ) {
 
 &html_left(\%menu_left);
 
-if ($in{'cp'} eq 'login_page') { &login_page; 
-} elsif ($in{'cp'} eq 'reset_user') { &reset_user; 
-} elsif ($in{'cp'} eq 'create') { &account_create; 
-} elsif ($in{'cp'} eq 'max') { &max_users; 
-} elsif ($in{'cp'} eq 'orderofevents') { &show_html("$htmlRoot/THOrder.htm"); 
-} elsif ($in{'cp'} eq 'tips') { &show_html("$htmlRoot/THTips.htm"); 
-} elsif ($in{'cp'} eq 'faq') { &show_html("$htmlRoot/THFAQ.htm"); 
-} elsif ($in{'cp'} eq 'hfile') { &show_html("$htmlRoot/THHFile.htm"); 
-} elsif ($in{'cp'} eq 'score') { &show_html("$htmlRoot/THScore.htm"); 
+if ($in{'cp'} eq 'login_page')          { &login_page; 
+} elsif ($in{'cp'} eq 'reset_user')     { &reset_user; 
+} elsif ($in{'cp'} eq 'create')         { &account_create; 
+} elsif ($in{'cp'} eq 'max')            { &max_users; 
+} elsif ($in{'cp'} eq 'orderofevents')  { &show_html("$htmlRoot/THOrder.htm"); 
+} elsif ($in{'cp'} eq 'tips')           { &show_html("$htmlRoot/THTips.htm"); 
+} elsif ($in{'cp'} eq 'faq')            { &show_html("$htmlRoot/THFAQ.htm"); 
+} elsif ($in{'cp'} eq 'hfile')          { &show_html("$htmlRoot/THHFile.htm"); 
+} elsif ($in{'cp'} eq 'score')          { &show_html("$htmlRoot/THScore.htm"); 
 } elsif ($in{'cp'} eq 'holidays') { 
 		&show_html("$htmlRoot/THHolidays.htm"); 
 		print "<td width=$rp_width>";
 		&ShowHolidays; 
 		print "</td>";
-} elsif ($in{'cp'} eq 'policies') { &show_html("$htmlRoot/THPolicies.htm"); 
-} elsif ($in{'cp'} eq 'bugs') { &show_html("$htmlRoot/THBugs.htm"); 
-} elsif ($in{'cp'} eq 'features') { &show_html("$htmlRoot/THFeatures.htm"); 
-} elsif ($in{'cp'} eq 'hidden') { &show_html("$htmlRoot/THHidden.htm"); 
-} elsif ($in{'cp'} eq 'alliance') { &show_html("$htmlRoot/THAlliance.htm"); 
-} elsif ($in{'cp'} eq 'deception') { &show_html("$htmlRoot/THDeception.htm"); 
-} elsif ($in{'cp'} eq 'intel') { &show_html("$htmlRoot/THIntel.htm"); 
-} elsif ($in{'cp'} eq 'library') { &show_html("$htmlRoot/THLibrary.htm"); 
+} elsif ($in{'cp'} eq 'policies')       { &show_html("$htmlRoot/THPolicies.htm"); 
+} elsif ($in{'cp'} eq 'bugs')           { &show_html("$htmlRoot/THBugs.htm"); 
+} elsif ($in{'cp'} eq 'features')       { &show_html("$htmlRoot/THFeatures.htm"); 
+} elsif ($in{'cp'} eq 'hidden')         { &show_html("$htmlRoot/THHidden.htm"); 
+} elsif ($in{'cp'} eq 'alliance')       { &show_html("$htmlRoot/THAlliance.htm"); 
+} elsif ($in{'cp'} eq 'deception')      { &show_html("$htmlRoot/THDeception.htm"); 
+} elsif ($in{'cp'} eq 'intel')          { &show_html("$htmlRoot/THIntel.htm"); 
+} elsif ($in{'cp'} eq 'library')        { &show_html("$htmlRoot/THLibrary.htm"); 
 } elsif ($in{'cp'} eq 'turngeneration') { &show_html("$htmlRoot/THTurnGeneration.htm"); 
-} elsif ($in{'cp'} eq 'downloads') { &show_html("$htmlRoot/THDownloads.htm"); 
-} elsif ($in{'cp'} eq 'gamedefaults') { &show_html("$htmlRoot/THDefault.htm"); 
-} elsif ($in{'cp'} eq 'othersites') { &show_html("$htmlRoot/THOtherSites.htm"); 
-} elsif ($in{'cp'} eq 'recentchanges') { &show_html("$htmlRoot/THRecentChanges.htm"); 
-} elsif ($in{'cp'} eq 'aboutus') { &show_html("$htmlRoot/THAboutUs.htm"); 
-} elsif ($in{'cp'} eq 'privacypolicy') { &show_html("$htmlRoot/privacy_policy.html"); 
-} elsif ($in{'cp'} eq 'termsofuse') { &show_html("$htmlRoot/terms_of_use.html"); 
-} elsif ($in{'cp'} eq 'install') { &show_html("$htmlRoot/THInstall.htm"); 
-} elsif ($in{'cp'} eq 'started') { &show_html("$htmlRoot/THStarted.htm"); 
-} elsif ($in{'cp'} eq 'starsfiles') { &show_html("$htmlRoot/THStarsFiles.htm"); 
+} elsif ($in{'cp'} eq 'downloads')      { &show_html("$htmlRoot/THDownloads.htm"); 
+} elsif ($in{'cp'} eq 'gamedefaults')   { &show_html("$htmlRoot/THDefault.htm"); 
+} elsif ($in{'cp'} eq 'othersites')     { &show_html("$htmlRoot/THOtherSites.htm"); 
+} elsif ($in{'cp'} eq 'recentchanges')  { &show_html("$htmlRoot/THRecentChanges.htm"); 
+} elsif ($in{'cp'} eq 'aboutus')        { &show_html("$htmlRoot/THAboutUs.htm"); 
+} elsif ($in{'cp'} eq 'privacypolicy')  { &show_html("$htmlRoot/privacy_policy.html"); 
+} elsif ($in{'cp'} eq 'termsofuse')     { &show_html("$htmlRoot/terms_of_use.html"); 
+} elsif ($in{'cp'} eq 'install')        { &show_html("$htmlRoot/THInstall.htm"); 
+} elsif ($in{'cp'} eq 'started')        { &show_html("$htmlRoot/THStarted.htm"); 
+} elsif ($in{'cp'} eq 'starsfiles')     { &show_html("$htmlRoot/THStarsFiles.htm"); 
 #} elsif ($in{'cp'} eq 'ssg') { &show_html("$htmlRoot/SSG/SSG.HTM"); 
 } else { 
-	my $htmlRoot . '/' . 'welcome.htm';
+	my $welcome = $htmlRoot . '/' . 'welcome.htm';
 	&show_html($welcome);
 }
 
