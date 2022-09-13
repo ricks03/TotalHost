@@ -51,4 +51,10 @@ sub scriptsRoot {
     return "/scripts";
 }
 
+sub imagesRoot {
+    my $self = shift;
+
+    return "/images/";
+}
+
 1;

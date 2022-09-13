@@ -363,12 +363,12 @@ sub show_html {
 }
 
 sub html_top {
-	($cgi, $session) = @_;
+	($cgi, $session, $config) = @_;
 	print "<html>\n";
 	&html_head;
 	print "<body>\n";
-	&html_banner($cgi, $session);
-	&html_menu;
+	&html_banner($cgi, $session, $config);
+	&html_menu($cgi, $session, $config);
 }
 
 sub html_head {
@@ -461,13 +461,13 @@ eof
 }
 
 sub html_banner {
-	($cgi, $session) = @_;
+	($cgi, $session, $config) = @_;
 	$hello = 'User: ' . $session->param("userlogin");
 	$cookie = $cgi->cookie(TotalHost);
 	$id = $session->param("userid");
 	$login = $session->param("userlogin");
 	print qq|<table width=100%>\n|;
-	print qq|<tr height=50>\n<td width=20% align=left><a href="$WWW_HomePage"><img src=$WWW_Image| . qq|TotalHost.jpg alt="Total Host" border=0></a></td>\n|;
+	print qq|<tr height=50>\n<td width=20% align=left><a href="/"><img src=${\($config->imagesRoot())}TotalHost.jpg alt="Total Host" border=0></a></td>\n|;
 #	print qq|<td name=notes><iframe id ="ifr" src="$WWW_Notes| . qq|blank.htm" name="your_name" marginwidth=0 marginheight=0 width="400" height="25" frameborder="0" scrolling="auto"></iframe></td>|;
 	print qq|<td name="notes"></td>|;
 
@@ -537,36 +537,36 @@ sub html_menu {
 print qq|<div class="chromestyle" id="chromemenu">|;
 print qq|<ul>|;
 print qq|<li><table width=200><tr width=200><td width=200></td></tr></table></li>|;
-print qq|<li><a href="$WWW_Scripts/index.pl?lp=home">Home</a></li>|;
+print qq|<li><a href="${\($config->scriptsRoot())}/index.pl?lp=home">Home</a></li>|;
 if ($session->param("userid")) { print qq|<li><a href="$WWW_Scripts/page.pl?lp=profile&cp=show_profile" rel="dropmenu3">Profile</a></li>|; }
 if ($session->param("userid")) { print qq|<li><a href="$WWW_Scripts/page.pl?lp=game&cp=show_first_game&rp=games" rel="dropmenu4">Games</a></li>|; }
 #print qq|<li><a href="$WWW_Scripts/index.pl" rel="dropmenu4">Info</a></li>|;
 #print qq|<li><a href="#" rel="dropmenu5">Info</a></li>\n|;
-print qq|<li><a href="$WWW_Scripts/index.pl?lp=home" rel="dropmenu5">Quick Info</a></li>\n|;
+print qq|<li><a href="${\($config->scriptsRoot())}/index.pl?lp=home" rel="dropmenu5">Quick Info</a></li>\n|;
 print qq|</ul></div>|;
 
 print qq|<!--3rd drop down menu -->\n|;
 print qq|<div id="dropmenu3" class="dropmenudiv" style="width: 150px;">\n|;
-print qq|<a href="$WWW_Scripts/page.pl?lp=profile&cp=show_profile&rp=my_games">My Profile</a>\n|;
-print qq|<a href="$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game">My Games</a>\n|;
-print qq|<a href="$WWW_Scripts/page.pl?lp=profile_race&cp=show_first_race&rp=my_races">My Races</a>\n|;
-print qq|<a href="$WWW_Scripts/page.pl?lp=profile&cp=edit_password">Change Password</a>\n|;
+print qq|<a href="${\($config->scriptsRoot())}/page.pl?lp=profile&cp=show_profile&rp=my_games">My Profile</a>\n|;
+print qq|<a href="${\($config->scriptsRoot())}/page.pl?lp=profile_game&cp=show_first_game">My Games</a>\n|;
+print qq|<a href="${\($config->scriptsRoot())}/page.pl?lp=profile_race&cp=show_first_race&rp=my_races">My Races</a>\n|;
+print qq|<a href="${\($config->scriptsRoot())}/page.pl?lp=profile&cp=edit_password">Change Password</a>\n|;
 print qq|</div>\n|;
 
 
 print qq|<!--4th drop down menu -->\n|;
 print qq|<div id="dropmenu4" class="dropmenudiv" style="width: 150px;">\n|;
-print qq|<a href="$WWW_Scripts/page.pl?lp=game&cp=show_games&rp=">Games</a>\n|;
-print qq|<a href="$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=show_news">My Games</a>\n|;
-print qq|<a href="$WWW_Scripts/page.pl?lp=game&cp=show_new">New Games</a>\n|;
+print qq|<a href="${\($config->scriptsRoot())}/page.pl?lp=game&cp=show_games&rp=">Games</a>\n|;
+print qq|<a href="${\($config->scriptsRoot())}/page.pl?lp=profile_game&cp=show_first_game&rp=show_news">My Games</a>\n|;
+print qq|<a href="${\($config->scriptsRoot())}/page.pl?lp=game&cp=show_new">New Games</a>\n|;
 print qq|</div>\n|;
 
 print qq|<!--5th drop down menu --> \n|;
 print qq|<div id="dropmenu5" class="dropmenudiv" style="width: 150px;">\n|;
-print qq|<a href="$WWW_Scripts/index.pl?lp=home&cp=features">Features</a>\n|;
-print qq|<a href="$WWW_Scripts/index.pl?lp=home&cp=faq">FAQ</a>\n|;
-print qq|<a href="$WWW_Scripts/index.pl?lp=home&cp=orderofevents">Order of Events</a>\n|;
-print qq|<a href="$WWW_Scripts/index.pl?lp=home&cp=tips">Tips</a>\n|;
+print qq|<a href="${\($config->scriptsRoot())}/index.pl?lp=home&cp=features">Features</a>\n|;
+print qq|<a href="${\($config->scriptsRoot())}/index.pl?lp=home&cp=faq">FAQ</a>\n|;
+print qq|<a href="${\($config->scriptsRoot())}/index.pl?lp=home&cp=orderofevents">Order of Events</a>\n|;
+print qq|<a href="${\($config->scriptsRoot())}/index.pl?lp=home&cp=tips">Tips</a>\n|;
 print qq|</div>\n|;
 
 print <<eof;

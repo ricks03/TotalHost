@@ -64,7 +64,7 @@ $userlogin = $session->param('userlogin');
 # }
 
 print $cgi->header();
-&html_top($cgi, $session, $note);
+&html_top($cgi, $session, $config);
 print "<P>\n";
 
 if ($id ) {
