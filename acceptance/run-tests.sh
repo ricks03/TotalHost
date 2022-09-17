@@ -13,8 +13,4 @@ goose ${GOOSE_DRIVER} "${GOOSE_DBSTRING}" status
 goose -dir $1 ${GOOSE_DRIVER} "${GOOSE_DBSTRING}" reset
 goose -dir $1 ${GOOSE_DRIVER} "${GOOSE_DBSTRING}" up
 
-for t in *.t
-do
-    echo "# Running ${t}"
-    ./${t}
-done
+prove -v .

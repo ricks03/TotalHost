@@ -3,7 +3,7 @@
 use strict;
 use warnings 'all';
 
-use Test::More tests => 3;  # or use Test::More 'no_plan';
+use Test::More tests => 2;  # or use Test::More 'no_plan';
 use HTTP::Tiny;
 
 
