@@ -29,7 +29,7 @@ sub isFeatureLive {
             return 1;
         }
 
-        return 0;
+        return 1;
     }
 
     return 0;
@@ -55,6 +55,16 @@ sub imagesRoot {
     my $self = shift;
 
     return "/images/";
+}
+
+sub dbClient {
+    my $self = shift;
+
+    if($self->isWindows()) {
+        return new AccessDBClient('TotalHost');
+    }
+
+    return PostgresDBClient($ENV{POSTGRES_CONNECTION});
 }
 
 1;

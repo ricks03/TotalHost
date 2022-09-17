@@ -21,6 +21,8 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use StarsConfig;
+my $config = new StarsConfig();
 
 use Net::SMTP; # requires libcrypto-1_1_.dll
 use CGI qw(:standard);

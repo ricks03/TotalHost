@@ -50,7 +50,7 @@ lint: ## run linting
 
 .PHONY: test
 test: ## run unit tests
-	echo No tests to run
+	PERLLIB=$(shell pwd)/scripts prove -v
 
 .PHONY: ci-test
 ci-test: ## ci target - run tests to generate coverage data
