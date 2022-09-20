@@ -9,6 +9,9 @@ RUN cpan File::Copy::Recursive
 RUN cpan mail::pop3client Mail::POP3Client
 RUN cpan Email::Valid
 
+RUN apt-get install -y libpq-dev libdbd-pg-perl
+RUN cpan DBI YAML DBD::Pg
+
 ENV TOTALHOST_DOC_ROOT=/usr/local/apache2/totalhost-htdocs
 
 RUN mkdir -p ${TOTALHOST_DOC_ROOT}
