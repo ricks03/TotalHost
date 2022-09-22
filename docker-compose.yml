@@ -2,6 +2,14 @@ version: '3'
 services:
   totalhost:
     build: .
+    environment:
+      - PGHOST=db
+      - PGPORT=5432
+      - PGDATABASE=totalhost
+      - PGUSER=postgres
+      - PGPASSWORD=postgres
+      - PGSSLMODE=disable
+      - PGOPTIONS=
     # volumes:
     #   - ./logs:/usr/local/apache2/logs
     depends_on:
@@ -11,6 +19,14 @@ services:
       context: .
       dockerfile: acceptance/Dockerfile
     command: ./run-tests.sh /project/database/migrations
+    environment:
+      - PGHOST=db
+      - PGPORT=5432
+      - PGDATABASE=totalhost
+      - PGUSER=postgres
+      - PGPASSWORD=postgres
+      - PGSSLMODE=disable
+      - PGOPTIONS=
     volumes:
       - ./:/project
     working_dir: /project/acceptance

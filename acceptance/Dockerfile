@@ -8,3 +8,5 @@ RUN wget -O /tmp/wait-for.tar.gz https://github.com/dnnrly/wait-for/releases/dow
 
 RUN wget -O /usr/local/bin/goose https://github.com/pressly/goose/releases/download/v3.7.0/goose_linux_x86_64 \
     && chmod a+x /usr/local/bin/goose
+
+RUN cpan DBI YAML DBD::Pg

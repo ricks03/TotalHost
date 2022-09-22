@@ -25,10 +25,12 @@ my $config = new StarsConfig();
 
 use CGI qw(:standard);
 use CGI::Session;
+use Stars::Database::UserRepository;
 
 my $dbEnabled = $config->isFeatureLive("database");
 my $scriptsRoot = $config->scriptsRoot();
 my $htmlRoot = $config->htmlRoot();
+my $userRepo = new UserRepository();
 
 use if $dbEnabled, Win32::ODBC;
 
@@ -192,22 +194,12 @@ eof
 }
 
 sub account_create {
-	if($dbEnabled) {
-		# confirm that there's not too many users
-		$db = &DB_Open($dsn);
-		$sql = qq|SELECT Count(User.User_ID) AS CountOfUser_ID FROM [User];|;
-		&LogOut(100,$sql,$LogFile);
-		if (&DB_Call($db,$sql)) { 
-			while ($db->FetchRow()) {
-				($User_Count) = $db->Data("CountOfUser_ID");
-			}
-		} else { &LogOut(10,'ERROR: account_create confirming user account',$LogFile);}
-		&DB_Close($db);
-		if ($User_Count > $max_users ) {
-			#print $cgi->redirect( -URL => "$WWW_HomePage$scriptsRoot/index.pl?cp=max");
-		&max_users;	
-			exit;
-		} 
+	$userCount = $userRepo->CountUsers();
+	if ($userCount > $config->maxUsers() ) {
+		#print $cgi->redirect( -URL => "$WWW_HomePage$scriptsRoot/index.pl?cp=max");
+		&max_users;
+		exit;
+	} 
 
 	print <<eof;
 <td>
@@ -226,7 +218,6 @@ sub account_create {
 </form>
 </td>
 eof
-	}
 }
 
 sub max_users {
@@ -234,7 +225,7 @@ print <<eof;
 <td>
 <h2>Maxxed Users</h2>
 
-<P>Hard as it is to believe, the site has maxxed out on $max_users
+<P>Hard as it is to believe, the site has maxxed out on $\{$config->maxUsers()}
 which is the current configured maximum. Please contact $mail_from if you'd like there to be more!
 </td>
 eof

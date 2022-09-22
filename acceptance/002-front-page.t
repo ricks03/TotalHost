@@ -5,9 +5,9 @@ use warnings 'all';
 
 use Test::More tests => 4;  # or use Test::More 'no_plan';
 use HTTP::Tiny;
+use DBI;
 
-
-my $response = HTTP::Tiny->new->get('http://totalhost:80/scripts/index.pl');
+my $db = DBI->connect("dbi:Pg:", "", "", {AutoCommit => 1, RaiseError => 1});
 
 subtest "Index pages loads correctly" => sub {
     plan tests => 2;
@@ -39,7 +39,13 @@ subtest "Allows user creation below user limit" => sub {
 subtest "Disables user creation below above limit" => sub {
     plan tests => 1;
 
+    for(my $i = 0 ; $i < 100 ; $i++) {
+        $db->do("INSERT INTO \"user\" (user_email, user_login, creategame, emailturn, emaillist) VALUES ('user$i', 'login$i', FALSE, FALSE, FALSE);");
+    }
+
     my $response = HTTP::Tiny->new->get("http://totalhost:80/scripts/index.pl?cp=create");
 
-    like( $response->{content}, qr"<h2>Maxxed Users</h2>", 'Displays user creation form');
+    like( $response->{content}, qr"<h2>Maxxed Users</h2>", 'Displays max user error');
 };
+
+$db->disconnect();

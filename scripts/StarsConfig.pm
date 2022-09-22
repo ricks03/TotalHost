@@ -57,6 +57,12 @@ sub imagesRoot {
     return "/images/";
 }
 
+sub maxUsers {
+    my $self = shift;
+
+    return 40;
+}
+
 sub dbClient {
     my $self = shift;
 

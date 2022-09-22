@@ -11,7 +11,7 @@ sub new {
     my $config = shift;
 
     my $self = {
-        db => DBI->connect("dbi:Pg:", '', '', {AutoCommit => 0}),
+        config => $config
     };
 
     bless $self, $class;
@@ -22,7 +22,14 @@ sub new {
 sub CountUsers {
     my $self = shift;
 
-    return 0;
+    my $db = DBI->connect("dbi:Pg:", "", "", {AutoCommit => 1, RaiseError => 1});
+    my $sth = $db->prepare('SELECT COUNT(*) FROM "user"');
+    $sth->execute();
+    my $count = $sth->fetch()->[0];
+    $sth->finish();
+    $db->disconnect();
+
+    return $count;
 }
 
 1;
