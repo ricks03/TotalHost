@@ -14,11 +14,11 @@ services:
       - 8080:80
     depends_on:
       - db
-  tests:
+  reset:
     build:
       context: .
       dockerfile: acceptance/Dockerfile
-    command: ./run-tests.sh /project/database/migrations
+    command: ./db-reset.sh /project/database/migrations
     environment:
       - PGHOST=db
       - PGPORT=5432

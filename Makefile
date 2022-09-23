@@ -42,7 +42,8 @@ run-shell: ## run a shell in the docker container
 
 .PHONY: run-total-host
 run-total-host: ## run the TotalHost server in the docker container
-	docker run --rm -t -p $(HOST_PORT):80 total-host
+	# docker run --rm -t -p $(HOST_PORT):80 total-host
+	docker-compose -f docker-compose-run.yml up --build --always-recreate-deps --force-recreate
 
 .PHONY: lint
 lint: ## run linting
