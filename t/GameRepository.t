@@ -6,18 +6,18 @@ use warnings 'all';
 use Test::More tests => 1;
 use HTTP::Tiny;
 
-use Stars::Database::UserRepository;
+use Stars::Database::GameRepository;
 
 my @repoMethods = (
-    'CountUsers',
+    'FindGamesInProgress',
 );
 
 subtest "Check agnostic client matches interface" => sub {
     plan tests => scalar @repoMethods;
 
-    my $db = new UserRepository();
+    my $repo = new GameRepository();
 
     foreach(@repoMethods) {
-        ok( $db->can($_), "UserRepository has method $_");
+        ok( $repo->can($_), "Repository has method $_");
     }
 };

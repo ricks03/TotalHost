@@ -26,11 +26,14 @@ my $config = new StarsConfig();
 use CGI qw(:standard);
 use CGI::Session;
 use Stars::Database::UserRepository;
+use Stars::Database::GameRepository;
+use Stars::UI;
 
 my $dbEnabled = $config->isFeatureLive("database");
 my $scriptsRoot = $config->scriptsRoot();
 my $htmlRoot = $config->htmlRoot();
 my $userRepo = new UserRepository();
+my $gameRepo = new GameRepository();
 
 use if $dbEnabled, Win32::ODBC;
 
@@ -145,15 +148,15 @@ if ($in{'cp'} eq 'login_page')          { &login_page;
 }
 
 if ($in{'rp'} eq 'something') {
-	$sql = 'SELECT * from Games WHERE GameStatus = 2;';
 	print qq|<td width="$rp_width">\n|;
-	if($dbEnabled) {
-		&list_games($sql, 'Games in Progress');
-	}
+	my @games = $gameRepo->FindGamesInProgress();
+	print UI::display_games('Games in Progress', \@games);
 	print "</td>\n";
 
-} elsif  (!($in{'rp'})) { print qq|<td width="$rp_width"></td>\n|;
-} else { print qq|<td width="$rp_width"></td>\n|;
+} elsif  (!($in{'rp'})) {
+	print qq|<td width="$rp_width"></td>\n|;
+} else {
+	print qq|<td width="$rp_width"></td>\n|;
 }
 
 #&html_right;

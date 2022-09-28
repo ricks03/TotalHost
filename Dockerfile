@@ -8,6 +8,8 @@ RUN cpan MIME::Lite MIME-tools MIME::Parser
 RUN cpan File::Copy::Recursive
 RUN cpan mail::pop3client Mail::POP3Client
 RUN cpan Email::Valid
+RUN cpan CGI::Carp
+RUN cpan JSON
 
 RUN apt-get install -y libpq-dev libdbd-pg-perl
 RUN cpan DBI YAML DBD::Pg
