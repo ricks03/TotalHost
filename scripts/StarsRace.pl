@@ -1,3 +1,5 @@
+#! perl -w
+
 # StarsRace.pl
 #
 # Rick Steeves
@@ -40,6 +42,7 @@ use warnings;
 #use warnings::unused;   
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
+use Data::Dumper;
 my $debug = 0;
 
 my @singularRaceName;
@@ -614,11 +617,13 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
 
         my $i = 0;
         my $k = 0;
-        my $LRTs = &LRT($LRT,0); 
-        @LRT = split(', ',$LRTs);
-        foreach my $j (@LRT) {
-   	      if    ($lrtCost{$j} < 0) { $i++; }
-   	      elsif ($lrtCost{$j} > 0) { $k++; }
+        my $LRTs = &LRT($LRT,0);
+        if($LRTs !~ /1/) {
+          @LRT = split(', ',$LRTs);
+          foreach my $j (@LRT) {
+            if    ($lrtCost{$j} < 0) { $i++; }
+            elsif ($lrtCost{$j} > 0) { $k++; }
+          }
         }
         if (($i + $k) > 4)  { $points -= ($i + $k) * ($i + $k - 4) * 10; }
         if (($i - $k) > 3)  { $points -= ($i - $k - 3) * 60; }
@@ -626,7 +631,9 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         if (($i + $k) == 3 ) { $points -= 2 }; # Rick added this
         
         foreach my $j (@LRT) { # Point changes for NAS
-          $points -= $lrtCost{$j};
+          if($LRTs !~ /1/) {
+            $points -= $lrtCost{$j};
+          }
           if ($j eq 'NAS') {
 #             if (&PRT($PRT,0) eq 'PP') { $points -=280; }
 #             elsif (&PRT($PRT,0) eq 'SS') { $points -=200; }
