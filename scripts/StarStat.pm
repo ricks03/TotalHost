@@ -27,7 +27,7 @@ do 'config.pl';
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw( 
-	starstat bin2dec dec2bin
+	starstat
 	Check_Version
 	Check_FileType
 	Check_Player
@@ -52,19 +52,9 @@ our @EXPORT = qw(
 @fInUse = ('Host instance not using file','Host instance using file'); # No idea what this value is.
 %Version = ('1.2a' => '1.1a', '2.65' => '2.0a', '2.81j' => '2.6i', '2.83.0' => '2.6jrc4');
 
-sub dec2bin {
-	#my $str = unpack("B32", pack("N", shift));
-	#$str =~ s/^0+(?=\d)//;
-	# This doesn't match stuff online because I changed from 32- to 16-bit
-	my $str = unpack("B16", pack("n", shift));
-	return $str;
-}
-
-sub bin2dec { return unpack("N", pack("B32", substr("0" x 32 . shift, -32))); }
-
 sub starstat { 
-	my $filename, $FileValues, $Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts;
-	my $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware; 
+	my ($filename, $FileValues, $Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts);
+	my ($dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware); 
 
 	($filename) = @_; 
 	open(StarFile, "$filename");
@@ -208,8 +198,8 @@ sub Check_GameID {
 }
 
 sub Check_dt {
-	my ($dt) = @_; 
-	&SLogOut(400,"<P>DT: @dt_verbose[$dt]  @dt[$dt]",$LogFile);
+	my ($t) = @_; 
+	&SLogOut(400,"<P>DT: $dt_verbose[$dt]  $dt[$t]",$LogFile);
 	return 1; 
 }
 
