@@ -830,9 +830,10 @@ sub Eval_CHKLine {
 }
 
 sub UpdateNextTurn { #Update the database for the time that the next turn should generate.
-# Fix Next Turn for DST
 	my($db,$NextTurn, $GameFile, $LastTurn) = @_;
-	$NextTurn = &FixNextTurnDST($NextTurn, $LastTurn, 0); 
+  # Fix Next Turn for DST
+  # 221110 Time is alerady fixed for DST earlier, so don't fix it again!
+	#$NextTurn = &FixNextTurnDST($NextTurn, $LastTurn, 0); 
 	my $upd = "UpdateNextTnext Next turn for $GameFile updated to $NextTurn: " . localtime($NextTurn);
 	&LogOut(50,$upd,$LogFile);
 	$sql = qq|UPDATE Games SET NextTurn = $NextTurn WHERE GameFile = \'$GameFile\';|;
@@ -864,7 +865,6 @@ sub FixNextTurnDST {
 
 	if ($Display) {
 		# If displaying the next turn time
-		# If actually adjusting the next turn time
 		if ($LastTurnDST == $NextTurnDST) { return $NextTurn; }
 		elsif ($LastTurnDST > $NextTurnDST) { return $NextTurn + 3600; }
 		elsif ($LastTurnDST < $NextTurnDST) { return $NextTurn - 3600; }

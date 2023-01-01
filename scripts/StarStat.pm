@@ -63,8 +63,8 @@ sub dec2bin {
 sub bin2dec { return unpack("N", pack("B32", substr("0" x 32 . shift, -32))); }
 
 sub starstat { 
-	my $filename, $FileValues, $Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts;
-	my $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware; 
+	my ($filename, $FileValues, $Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts);
+	my ($dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware); 
 
 	($filename) = @_; 
 	open(StarFile, "$filename");
@@ -208,8 +208,8 @@ sub Check_GameID {
 }
 
 sub Check_dt {
-	my ($dt) = @_; 
-	&SLogOut(400,"<P>DT: @dt_verbose[$dt]  @dt[$dt]",$LogFile);
+	my ($t) = @_; 
+	&SLogOut(400,"<P>DT: $dt_verbose[$t]  $dt[$t]",$LogFile);
 	return 1; 
 }
 

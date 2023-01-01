@@ -1354,7 +1354,9 @@ sub process_game_launch {
 			  # now advance one interval from that, so you have a full interval
 #			  ($DaysToAdd2, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'},$NextDayOfWeek);
 			  # Set the time for the next turn on the right day
-			  $NewTurn = $CurrentDateSecs + $DaysToAdd1*86400 + $DaysToAdd2*86400 +($GameValues{'DailyTime'} *60*60); 
+			  $NewTurn = $CurrentDateSecs + $DaysToAdd1*86400 + $DaysToAdd2*86400 +($GameValues{'DailyTime'} *60*60);
+        # 221110 Fixing for DST 
+        $NewTurn = &FixNextTurnDST($NewTurn, time(),0);
 			  $sql = qq|UPDATE Games SET NextTurn = $NewTurn WHERE GameFile = \'$GameFile'\' AND HostName=\'$userlogin\';|;
   			if (&DB_Call($db,$sql)) {
   				&LogOut(100, "NextTurn set to $NextTurn for $GameFile and $userlogin", $LogFile);
@@ -2550,18 +2552,24 @@ sub process_game_status {
 			# Set the time for the next turn on the right day
 			$NewTurn = $CurrentDateSecs + $DaysToAdd1*86400 + $DaysToAdd2*86400 +($GameValues{'DailyTime'} *60*60); 
       #if (!$isDST) { $NewTurn = $NewTurn + (60*60); }
+      # 221110 Fixing for DST
+      $NewTurn = &FixNextTurnDST($NewTurn, time(), 0);
       $GameValues{'GameStatus'} = 2; # So the value is changed if used later before a query.
 			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
 		} elsif ($GameValues{'GameType'} == 2) { # Hourly game
 			# Determine when the next possible time is that turns are due
+      # BUG: This doesn't include the calculation from FixNextTimeDST
       # Generate the next turn now + number of hours (sliding)
       $NewTurn = time() + ($GameValues{'HourlyTime'} *60 *60); 
+      #221110 Fixing for DST
+      $NewTurn = &FixNextTurnDST($NewTurn, time(), 0);
       # Make sure we're generating on a valid day
       while (&ValidTurnTime($NewTurn,'Day',$GameValues{'DayFreq'}, $GameValues{'HourFreq'}) ne 'True') { $NewTurn = $NewTurn + ($GameValues{'HourlyTime'} *60*60); }
       # Make sure we're generating on a valid hour
       while (&ValidTurnTime($NewTurn,'Hour',$GameValues{'DayFreq'}, $GameValues{'HourFreq'}) ne 'True') { $NewTurn = $NewTurn + 3600; } 
 			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
 		} else {
+      # BUG: Is there an issue here for DST?
       $NewTurn = time()+86400;  # There really is no time the next turn will be due. Add a day so there's a buffer.
 			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
     }
@@ -3250,21 +3258,3 @@ sub process_switch_player {
   } else { &LogOut(50, qq|switch_player: $session->param("userlogin") attempted to swap $PlayerID to $ReplaceName|, $ErrorLog);}
   &DB_Close($db);
 }
-
-# sub GetTime {
-# 	# Figure out all time values for this iteration. Global Values
-# 	$CurrentEpoch = time();
-# 	($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $IsDST) = localtime($CurrentEpoch); 
-# 	$Month = $WrongMonth + 1; 
-# 	$Year = $WrongYear + 1900;
-# 	$SecOfDay = ($Minute * 60) + ($Hour*60*60) + $Second;
-# 	$CurrentDateSecs = $CurrentEpoch - $SecOfDay;
-# #	$Interval = 24 * 60 * 60;
-# 	if ($DayofMonth <=7) { $WeekofMonth = 1;}
-# 	elsif ($DayofMonth >7 && $DayofMonth <=14) { $WeekofMonth = 2;}
-# 	elsif ($DayofMonth >14 && $DayofMonth <=21) { $WeekofMonth = 3;}
-# 	elsif ($DayofMonth >22 && $DayofMonth <=28) { $WeekofMonth = 4;}
-# 	elsif ($DayofMonth >28 && $DayofMonth <=31) { $WeekofMonth = 5;}
-# 
-#   return  $Second, $Minute, $Hour, $DayofMonth, $Month, $Year, $WeekDay, $WeekofMonth, $DayofYear, $IsDST;
-# }
