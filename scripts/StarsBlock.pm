@@ -31,7 +31,7 @@
 # StarsMsg not implemented in TotalHost
 # StarsFix implemented (fox .x files exploits)
 
-# Here is a list of blocks and their types I found so far. I’ve never met several of them in any game file, which I can access to, but you can try to find them in your own game files using this small command line tool (there is no decryption code, since block headers are never encrypted), and please if you find them let me know:
+# Here is a list of blocks and their types I found so far. I've never met several of them in any game file, which I can access to, but you can try to find them in your own game files using this small command line tool (there is no decryption code, since block headers are never encrypted), and please if you find them let me know:
 # https://wiki.starsautohost.org/wiki/Technical_Information
 # 0	FileFooterBlock (Year: .M, .HST   Checksum XOR .R, null .X, .H) 
 # 1	ManualSmallLoadUnloadTaskBlock
@@ -969,9 +969,9 @@ sub showHab {
   my @gravity_table = ( 0.12, 0.12, 0.13, 0.13, 0.14, 0.14, 0.15, 0.15, 0.16, 0.17, 0.17, 0.18, 0.19, 0.20, 0.21, 0.22, 0.24, 0.25, 0.27, 0.29, 0.31, 0.33, 0.36, 0.40, 0.44, 0.50, 0.51, 0.52, 0.53, 0.54, 0.55, 0.56, 0.58, 0.59, 0.60, 0.62, 0.64, 0.65, 0.67, 0.69, 0.71, 0.73, 0.75, 0.78, 0.80, 0.83, 0.86, 0.89, 0.92, 0.96, 1.00, 1.04, 1.08, 1.12, 1.16, 1.20, 1.24, 1.28, 1.32, 1.36, 1.40, 1.44, 1.48, 1.52, 1.56, 1.60, 1.64, 1.68, 1.72, 1.76, 1.80, 1.84, 1.88, 1.92, 1.96, 2.00, 2.24, 2.48, 2.72, 2.96, 3.20, 3.44, 3.68, 3.92, 4.16, 4.40, 4.64, 4.88, 5.12, 5.36, 5.60, 5.84, 6.08, 6.32, 6.56, 6.80, 7.04, 7.28, 7.52, 7.76, 8.00 );
   if ($center == 255) {return 'Immune'; } 
   elsif ($type != 0 ) { # Grav is different
-    $lowFixed = ($low * @habIncrement[$type]) + $habBase[$type];
-    $centerFixed = ($center * @habIncrement[$type]) + $habBase[$type];
-    $highFixed = ($high * @habIncrement[$type]) + $habBase[$type]; # Radiation is simple
+    $lowFixed = ($low * $habIncrement[$type]) + $habBase[$type];
+    $centerFixed = ($center * $habIncrement[$type]) + $habBase[$type];
+    $highFixed = ($high * $habIncrement[$type]) + $habBase[$type]; # Radiation is simple
     return "$lowFixed/$centerFixed/$highFixed"; 
   } else {return "$gravity_table[$low]/$gravity_table[$center]/$gravity_table[$high]"; }  # Because gravity is weird. 
 }
@@ -1605,7 +1605,7 @@ sub StarsFix {
   close(STARFILE);
   
   # Decrypt the data, block by block, and process it
-  my ($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList);
+  my ($outBytes, $warning, $fleetList, $queueList, $designList, $waypointList);
   # Include the directory to handle the difference between TH and standalone 
   ($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer) = &decryptFix($gameDir, $filename, \@fileBytes, \%fleetList, \%queueList, \%designList, \%$waypointList, $lastPlayer);
   my @outBytes = @{$outBytes};
@@ -1616,7 +1616,7 @@ sub StarsFix {
   %waypointList = %$waypointList;  
   
   # Need to return a string since passing an array through a URL is unlikely to work
-  my $warning = '';
+  # 221112 my $warning = '';
   foreach my $key (keys %warning) {
     $warning .= $warning{$key} . ',';
   }
@@ -2203,7 +2203,7 @@ sub raceCheckSum {  # calculate a race checksum
   
   my ($decryptedData, $singularRaceName, $pluralRaceName, $singularNameLength, $pluralNameLength) = @_;
   my @decryptedData = @{ $decryptedData };
-  my ($checkSum1, $checkSum2);
+  my ($checkSum1, $checkSum2) = (0,0);
   my $datalength = scalar @decryptedData - (1 + $singularNameLength + 1 + $pluralNameLength + 1);
   my @dData = @decryptedData[0..$datalength];
   # get the ascii values of the Race names - singular
@@ -4036,11 +4036,11 @@ sub decryptMessages {
             # Different for x files, as we don't have player names in it.
             # Player ID #s are a bit weird, as 0 in this case is "everyone", not Player 1 (ID:0)
             if ( $recipientId == 0 ) { $recipient = 'Everyone'; } else { $recipient = 'Player ' . $recipientId; }
-            push @messages, "Message Year:" . ($turn+2400) . ", From: Me, To: $recipient, \"$message\"\n";
+            push @messages, "Message Year:" . ($turn+2400) . ", From: Me, To: $recipient (" . ($recipientId+1) . "), \"$message\"\n";
           } else { 
             # We don't have player names for races undiscovered either
 #            push @messages, "\tMessage Year:" . ($turn+2400) . ", From: $singularRaceName[$senderId+1], To: $singularRaceName[$recipientId], \"$message\"\n";
-            push @messages, "Message Year:" . ($turn+2400) . ", From: $singularRaceName[$senderId+1], To: $singularRaceName[$recipientId], \"$message\"\n";
+            push @messages, "Message Year:" . ($turn+2400) . ", From: $singularRaceName[$senderId+1] (" . ($senderId+1) . "), To: $singularRaceName[$recipientId] (" . ($recipientId) . "), \"$message\"\n";
           }
         } 
       } 
@@ -4122,26 +4122,26 @@ sub decryptMessages {
 # 4,13,"Enriched Neutron Bomb",13,0,15,0,0,0,12,64,25,1,36,0,114,1,35,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 # 4,14,"Peerless Bomb",14,0,22,0,0,0,15,55,32,1,33,0,115,1,50,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 # 4,15,"Annihilator Bomb",15,0,26,0,0,0,17,50,28,1,30,0,116,1,70,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,1,"Total Terraform ±3",1,0,0,0,0,0,0,0,70,0,0,0,184,3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,2,"Total Terraform ±5",2,0,0,0,0,0,3,0,70,0,0,0,185,5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,3,"Total Terraform ±7",3,0,0,0,0,0,6,0,70,0,0,0,186,7,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,4,"Total Terraform ±10",4,0,0,0,0,0,9,0,70,0,0,0,187,10,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,5,"Total Terraform ±15",5,0,0,0,0,0,13,0,70,0,0,0,188,15,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,6,"Total Terraform ±20",6,0,0,0,0,0,17,0,70,0,0,0,180,20,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,7,"Total Terraform ±25",7,0,0,0,0,0,22,0,70,0,0,0,172,25,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,8,"Total Terraform ±30",8,0,0,0,0,0,25,0,70,0,0,0,164,30,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,9,"Gravity Terraform ±3",9,0,0,1,0,0,1,0,100,0,0,0,160,3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,10,"Gravity Terraform ±7",10,0,0,5,0,0,2,0,100,0,0,0,161,7,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,11,"Gravity Terraform ±11",11,0,0,10,0,0,3,0,100,0,0,0,162,11,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,12,"Gravity Terraform ±15",12,0,0,16,0,0,4,0,100,0,0,0,163,15,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,13,"Temp Terraform ±3",13,1,0,0,0,0,1,0,100,0,0,0,168,3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,14,"Temp Terraform ±7",14,5,0,0,0,0,2,0,100,0,0,0,169,7,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,15,"Temp Terraform ±11",15,10,0,0,0,0,3,0,100,0,0,0,170,11,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,16,"Temp Terraform ±15",16,16,0,0,0,0,4,0,100,0,0,0,171,15,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,17,"Radiation Terraform ±3",17,0,1,0,0,0,1,0,100,0,0,0,176,3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,18,"Radiation Terraform ±7",18,0,5,0,0,0,2,0,100,0,0,0,177,7,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,19,"Radiation Terraform ±11",19,0,10,0,0,0,3,0,100,0,0,0,178,11,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-# 5,20,"Radiation Terraform ±15",20,0,16,0,0,0,4,0,100,0,0,0,179,15,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,1,"Total Terraform +/-3",1,0,0,0,0,0,0,0,70,0,0,0,184,3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,2,"Total Terraform +/-5",2,0,0,0,0,0,3,0,70,0,0,0,185,5,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,3,"Total Terraform +/-7",3,0,0,0,0,0,6,0,70,0,0,0,186,7,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,4,"Total Terraform +/-10",4,0,0,0,0,0,9,0,70,0,0,0,187,10,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,5,"Total Terraform +/-15",5,0,0,0,0,0,13,0,70,0,0,0,188,15,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,6,"Total Terraform +/-20",6,0,0,0,0,0,17,0,70,0,0,0,180,20,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,7,"Total Terraform +/-25",7,0,0,0,0,0,22,0,70,0,0,0,172,25,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,8,"Total Terraform +/-30",8,0,0,0,0,0,25,0,70,0,0,0,164,30,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,9,"Gravity Terraform +/-3",9,0,0,1,0,0,1,0,100,0,0,0,160,3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,10,"Gravity Terraform +/-7",10,0,0,5,0,0,2,0,100,0,0,0,161,7,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,11,"Gravity Terraform +/-11",11,0,0,10,0,0,3,0,100,0,0,0,162,11,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,12,"Gravity Terraform +/-15",12,0,0,16,0,0,4,0,100,0,0,0,163,15,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,13,"Temp Terraform +/-3",13,1,0,0,0,0,1,0,100,0,0,0,168,3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,14,"Temp Terraform +/-7",14,5,0,0,0,0,2,0,100,0,0,0,169,7,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,15,"Temp Terraform +/-11",15,10,0,0,0,0,3,0,100,0,0,0,170,11,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,16,"Temp Terraform +/-15",16,16,0,0,0,0,4,0,100,0,0,0,171,15,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,17,"Radiation Terraform +/-3",17,0,1,0,0,0,1,0,100,0,0,0,176,3,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,18,"Radiation Terraform +/-7",18,0,5,0,0,0,2,0,100,0,0,0,177,7,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,19,"Radiation Terraform +/-11",19,0,10,0,0,0,3,0,100,0,0,0,178,11,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+# 5,20,"Radiation Terraform +/-15",20,0,16,0,0,0,4,0,100,0,0,0,179,15,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 # 6,1,"Viewer 50",1,0,0,0,0,0,0,0,100,10,10,70,80,50,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 # 6,2,"Viewer 90",2,0,0,0,0,1,0,0,100,10,10,70,81,90,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 # 6,3,"Scoper 150",3,0,0,0,0,3,0,0,100,10,10,70,82,150,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

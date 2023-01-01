@@ -350,7 +350,7 @@ sub CheckandUpdate {
         # If any player(s) were set idle, add that to the email notification
         $GameValues{'Message'} .= $IdleMessage; 
 				$GameValues{'HST_Turn'} = $HST_Turn;
-				# Adjust the value of next turn in case there's DST
+				# Adjust the display value of next turn in case there's DST
 				# Since we've updated last turn, we need to use the original
 				$GameValues{'NextTurn'} = &FixNextTurnDST($GameValues{'NextTurn'}, $GameData[$LoopPosition]{'LastTurn'},1);
         
