@@ -1,7 +1,7 @@
 # TotalHost
 Stars! TotalHost Web-based Turn Management
 
-Stars! (https://en.wikipedia.org/wiki/Stars!) is a classic, turn-based, space-based 4X game, written for Windows, and originally designed to play hotseat or PBEM. 
+[Stars!](https://en.wikipedia.org/wiki/Stars!) is a classic, turn-based, space-based 4X game, written for Windows, and originally designed to play hotseat or PBEM.
 
 TotalHost (TH), much like AutoHost, is a web-based interface for Stars! game and turn-management. TH builds off the concept of AutoHost, 
 but adds a number of features such as: 
