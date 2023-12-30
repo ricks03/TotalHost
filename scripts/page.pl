@@ -1165,7 +1165,7 @@ sub show_game {
 		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[23459]$/)) 	{print qq|<BUTTON $host_style type="submit" name="cp" value="Replace Player" | . &button_help('ReplacePlayer') .  qq|>Replace Player</BUTTON>\n|; $button_count = &button_check($button_count);}
 		#Movies
     my $movieFile = $DirGraphs . "\\movies\\movie_$GameFile.gif";
-    # Don't provide button if there's alerady a movie. 
+    # Don't provide button if there's already a movie. 
     my $animateFile = "$DirGames\\$GameValues{'GameFile'}\\2400"; 
 		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[9]$/) && (not -e $movieFile) && (-d $animateFile) && (-e $imagemagick) && (-e $starmapper)) 	{print qq|<BUTTON $host_style type="submit" name="cp" value="Movie" | . &button_help('Animate') .  qq|>Animate</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Set the DEF File
@@ -1173,7 +1173,7 @@ sub show_game {
 		print qq|</FORM>\n|;
 		&DB_Close($db); 
     
-    # Display the Fixed information to the host
+    # Display the Fixed information 
     # don't display until the game is in progress. 
     my $fixfile = "$DirGames\\$GameFile\\fix";
 #    if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} =~ /^[2345]$/ && $HST_Turn != 2400 && -e $fixenabled) { 
@@ -1188,6 +1188,16 @@ sub show_game {
 		&read_game($GameFile);
 		# Display the Stars game parameters
 		&read_def($GameFile);
+
+    my $messagefile = "$DirGames\\$GameFile\\$GameFile.messages";
+    # Create the messages file if it's not there
+    if ($GameValues{'PublicMessages'} && (!(-e $messagefile))) { &publicMessages($GameFile)}; # create public .messages file
+    
+    # Display Player Messages
+    # don't display until the game is in progress. 
+    if ($GameValues{'GameStatus'} =~ /^[2345]$/ && -e $messagefile) { 
+      &show_messages($GameFile); 
+    }
     
 	# If there were no new games returned from the original query, display that.
   } else {
@@ -1404,7 +1414,6 @@ sub show_fix {
 	#Display the current fixes for a game
 	my ($GameFile) = @_;
 	my @fixes;
-	my ($secs, $turn, $story, $l_time);
 	my $warningfile = "$DirGames\\$GameFile\\$GameFile.warnings";
 	# Check to see if there is a warnings file
 	if (!(-e $warningfile)) { # Create the new file if it doesn't exist
@@ -1419,11 +1428,31 @@ sub show_fix {
     print qq|<hr>|; 
     print "<b>Results of the Bug/Exploit Detection</b><P>";
 		foreach my $key (@fixes) {
-	 		# ($id, $secs, $turn, $story) = split('\t', $key);
       print "$key<br>\n";
 		}
 #    } else { print "No fixes for bugs/cheats have been processed. Yeay!\n"; }
   } 
+}
+
+sub show_messages {
+	#Display the current messages for a game
+	my ($GameFile) = @_;
+	my @messages;
+	my $messagefile = "$DirGames\\$GameFile\\$GameFile.messages";
+	# Check to see if there is a messages file
+	if ((-e $messagefile)) { 
+    open (IN_FILE,$messagefile) || &LogOut(100, "show_messages: could not open $messagefile", $ErrorLog);
+  	@messages = <IN_FILE>;
+  	close(IN_FILE);
+    # Only print messages if there are messages
+    if (@messages) {  
+      print qq|<hr>|; 
+      print "<b>Player Messages:</b><P>";
+  		foreach my $key (@messages) {
+        print "$key<br>\n";
+  		}
+    } 
+  }
 }
 
 sub process_news {
@@ -1725,12 +1754,11 @@ sub edit_game {
 	print qq|<TABLE><TR>\n|;
 	print qq|		<TD>Game Name:</TD>\n|;
   if ($type eq 'create') {
-	 print qq|		<TD><INPUT name="GameName" maxlength="30" | . &button_help("GameName") . qq| value="$GameValues{'GameName'}"> </TD><TD>(Mandatory)</TD>\n|;
+	 print qq|		<TD><INPUT name="GameName" maxlength="30" | . &button_help("GameName") . qq| value="Change me"> </TD><TD>(Mandatory)</TD>\n|;
   } else { print qq|		<TD>$GameValues{'GameName'}</TD><TD></TD>\n|;}
 	print qq|	</TR><TR>\n|;
  	if ($type eq 'create') {
  		print qq|		<TD>Game File Name:</TD>\n|;
-#180312 		print qq|<TD><INPUT name="GameFile" maxlength="8" | . &button_help("GameFile") . qq| value="$GameFile{'GameFile'}"> </TD><TD>(Will be random if blank)</TD>\n|;
  		print qq|<TD>Will be randomly created</TD><TD></TD>\n|;
  		print qq|</TR></TR>\n|;
  	}
@@ -1786,8 +1814,7 @@ sub edit_game {
 	}
 	print qq|</SELECT></td></tr>|;
 
-	# print all the hourly options
-  
+	# print all the hourly options 
 	print qq|<tr><td align=left><INPUT name="GameType" type="radio" value=2 | . &button_help("Hourly") . qq| $Checked[$hourly]>Hourly</td>\n|;
 	print qq|<td><SELECT name="HourlyTime">\n|;
 	foreach my $key (@HourlyTime) { 
@@ -1878,6 +1905,7 @@ sub edit_game {
   if (-e  "$DirGames\\$GameValues{'GameFile'}\\clean") { $GameValues{'Sanitize'} = 1; }
   print qq|<TD><INPUT type="checkbox" name="Exploit" | . &button_help("Exploit") . qq| $Checked[$GameValues{'Exploit'}]>Exploit Detection</TD>\n|;
   print qq|<TD><INPUT type="checkbox" name="Sanitize" | . &button_help("Sanitize") . qq| $Checked[$GameValues{'Sanitize'}]>Sanitize Player Files</TD>\n|;
+  print qq|<TD><INPUT type="checkbox" name="PublicMessages" | . &button_help("PublicMessages") . qq| $Checked[$GameValues{'PublicMessages'}]>Public Messages</TD>\n|;
 	print qq|</TR></TABLE>\n|;
 	print qq|<P>Notes: <TEXTAREA name=Notes  rows=4 cols=80 | . &button_help("GameNotes") . qq| type=Text value="$GameValues{'Notes'}">$GameValues{'Notes'}</TEXTAREA>|;
 	print qq|<input type=hidden name="lp" value="profile_game">\n|;
@@ -2014,6 +2042,7 @@ sub update_game {
 	$in{'Notes'} = &clean($in{'Notes'});
 	my $Exploit = &checkboxnull($in{'Exploit'}); # Not a DB entry
 	my $Sanitize = &checkboxnull($in{'Sanitize'}); # Not a DB entry
+	my $PublicMessages = &checkboxnull($in{'PublicMessages'}); 
   # Enable/disable List functionality for Fix
   if (!($Exploit)) { &updateList($in{'GameFile'}, 0); 
   } else {
@@ -2022,13 +2051,17 @@ sub update_game {
     close EXPLOIT; 
     &updateList($in{'GameFile'}, 1);
   } 
+  # Update the clean file for whether enabled or disabled
   if (!($Sanitize)) { unlink "$DirGames\\$in{'GameFile'}\\clean"; 
   } else {open (SANITIZE, ">$DirGames\\$in{'GameFile'}\\clean"); print SANITIZE time(). ": $in{'GameFile'}"; close SANITIZE; }
+  # If messages have been disabled, delete the messages file
+  if (!($PublicMessages)) { unlink "$DirGames\\$in{'GameFile'}\\$in{'GameFile'}" . "\.messages"; }
 
  	my $db = &DB_Open($dsn);
 	if ($in{'type'} eq 'edit') {
     # AutoInactive is, deceptively, the AutoIdle feature
     # in order to avoid a DB update
+    my @Values;
    	my $sql = qq|Update Games  SET 
 								GameDescrip = '$in{'GameDescrip'}',
                 HostName = '$in{'HostName'}',
@@ -2056,10 +2089,29 @@ sub update_game {
 								NewsPaper = '$NewsPaper',
 								SharedM = '$SharedM',
 								HostAccess = '$HostAccess',
+								PublicMessages = '$PublicMessages',
 								Notes = '$in{'Notes'}', 
 								MaxPlayers = $MaxPlayers, 
 								AutoInactive = $AutoIdle
 								WHERE GameFile = '$in{'GameFile'}' AND HostName = '$userlogin';|;
+                
+    # Store new game conditions
+    if ($AsAvailable) { push @Values, "Generate if All Turns are In"};  
+		if ($OnlyIfAvailable) { push @Values, "Only Generate if All Turns are In"};
+    if ($HostMod) { push @Values, "Host can Modify Game"; }
+    if ($HostForce) { push @Values, "Host can Force Generate"; }
+    if ($NoDuplicates) { push @Values, "No Duplicate Players"; }
+    if ($GameRestore) { push @Values, "Host can Restore from Backup"; }
+    if ($AnonPlayer) { push @Values, "Anonymous Players"; }
+    if ($GamePause) { push @Values, "Players can Pause"; }
+    if ($GameDelay) { push @Values, "Players can Delay $NumDelay times (min $MinDelay)";  }
+    if ($NewsPaper) { push @Values, "Galactic News"; }
+    if ($SharedM) { push @Values, "Shared M Files"; }
+    if ($HostAccess) { push @Values, "Host Access"; }
+    if ($PublicMessages) { push @Values, "Public Messages"; }
+    if ($Sanitize) { push @Values, "File Sanitize"; }
+    if ($Exploit) { push @Values, "Exploit Detection"; }   
+    
     if (&DB_Call($db,$sql)) { 
       print "<P>Game Updated!\n"; 
 		  &LogOut(50,"Game updated for $sql",$LogFile);
@@ -2070,6 +2122,11 @@ sub update_game {
      	# Notify all players who want to be notified that the game status has changed. 
     	$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Game Parameters Edited|;
      	$GameValues{'Message'} = "Game Parameters have been edited for $GameValues{'GameName'} ($GameFile). Please review Game page for any changes.\n";
+      # Append the current state
+      $GameValues{'Message'} .= "\nCurrent Settings: \n";
+      foreach my $setting (@Values) { $GameValues{'Message'} .= "$setting" . ',';  }
+      chop $GameValues{'Message'}; # Get rid of the trailing comma
+      
      	&Email_Turns($GameFile, \%GameValues, 0);
     } else { 
        print "Game Update failed\n"; 
@@ -2080,10 +2137,10 @@ sub update_game {
 		use Digest::SHA1  qw(sha1_hex);
 		$CleanGameFile = substr(sha1_hex(time()), 5, 8); # Should be random enough
 		&LogOut(50,"Creating random GameFile $CleanGameFile for $in{'GameName'}",$LogFile);
-		my $sql = qq|INSERT INTO Games (GameFile,HostName,GameName,GameDescrip,DailyTime,HourlyTime,GameType,GameStatus,AsAvailable,OnlyIfAvailable,DayFreq,HourFreq,ForceGen,ForceGenTurns,ForceGenTimes,HostMod,HostForce,NoDuplicates,GameRestore,AnonPlayer,GamePause,GameDelay,NumDelay,MinDelay,ObserveHoliday,NewsPaper,SharedM,HostAccess,Notes,MaxPlayers) VALUES ('$CleanGameFile','$userlogin','$in{'GameName'}','$in{'GameDescrip'}',$in{'DailyTime'},'$in{'HourlyTime'}',$in{'GameType'},6,'$AsAvailable','$OnlyIfAvailable','$DayFreq','$HourFreq','$ForceGen',$ForceGenTurns,$ForceGenTimes,'$HostMod','$HostForceGen','$NoDuplicates','$GameRestore','$AnonPlayer','$GamePause','$GameDelay',$NumDelay, $MinDelay,'$ObserveHoliday','$NewsPaper','$SharedM','$HostAccess','$in{'Notes'}',$MaxPlayers);|;
+		my $sql = qq|INSERT INTO Games (GameFile,HostName,GameName,GameDescrip,DailyTime,HourlyTime,GameType,GameStatus,AsAvailable,OnlyIfAvailable,DayFreq,HourFreq,ForceGen,ForceGenTurns,ForceGenTimes,HostMod,HostForce,NoDuplicates,GameRestore,AnonPlayer,GamePause,GameDelay,NumDelay,MinDelay,ObserveHoliday,NewsPaper,SharedM,HostAccess,PublicMessages,Notes,MaxPlayers) VALUES ('$CleanGameFile','$userlogin','$in{'GameName'}','$in{'GameDescrip'}',$in{'DailyTime'},'$in{'HourlyTime'}',$in{'GameType'},6,'$AsAvailable','$OnlyIfAvailable','$DayFreq','$HourFreq','$ForceGen',$ForceGenTurns,$ForceGenTimes,'$HostMod','$HostForceGen','$NoDuplicates','$GameRestore','$AnonPlayer','$GamePause','$GameDelay',$NumDelay, $MinDelay,'$ObserveHoliday','$NewsPaper','$SharedM','$HostAccess','$PublicMessages','$in{'Notes'}',$MaxPlayers);|;
 		if (&DB_Call($db,$sql)) { } 
 		else { 
-      print "Create failed\n"; 
+      print "Create failed. Did you forget to provide a Game Name?\n"; 
       &LogOut(0,"$in{'GameFile'} create failed with $sql for $userlogin", $ErrorLog);
       $CleanGameFile = 'CREATE FAILED';
     }
@@ -2178,7 +2235,7 @@ eof
 	print qq|</SELECT>of the above criteria.<BR>\n|;
 	#X years must pass
 	print qq|At least <SELECT name=\"Years\">\n|;
-	&optionloop(30,500,10,50);
+	&optionloop(30,500,10,200);
 	print qq|</SELECT>years must pass before a winner is declared.<BR>\n|;
 	print qq|<input type=hidden name="lp" value="profile_game">\n|;
 #	print qq|<input type=hidden name="rp" value="my_games">\n|;
@@ -2392,7 +2449,7 @@ sub read_game {
 		push (@Values, "$str");
 	}
 	if ($GameValues{'HostMod'}) { push (@Values, "Host can Modify Game Settings"); }
-	if ($GameValues{'AsAvailable'}) { push (@Values, "Will Generate if All Turns are In"); }
+	if ($GameValues{'AsAvailable'}) { push (@Values, "Generate if All Turns are In"); }
 	if ($GameValues{'OnlyIfAvailable'}) { push (@Values, "Generate ONLY if All Turns Are In"); }
 	if ($GameValues{'HostForce'}) { push (@Values, "Host can Force Generate"); }
 	if ($GameValues{'NoDuplicates'}) { push (@Values, "No Duplicate Players"); }
@@ -2404,6 +2461,7 @@ sub read_game {
 	if ($GameValues{'NewsPaper'}) { push (@Values, "Galactic News"); }
 	if ($GameValues{'SharedM'}) { push (@Values, "Shared M Files"); }
 	if ($GameValues{'HostAccess'}) { push (@Values, "Host Access"); }
+	if ($GameValues{'PublicMessages'}) { push (@Values, "Public Messages"); }
 	if ($GameValues{'AutoIdle'}) { push (@Values, "AutoIdle after $GameValues{'AutoIdle'} turns missed"); }
 	if ($GameValues{'MaxPlayers'}) { push (@Values, "Max $GameValues{'MaxPlayers'} players allowed to join"); }
   if (-e "$DirGames\\$GameValues{'GameFile'}\\fix" ) {
@@ -2411,8 +2469,8 @@ sub read_game {
     if ($fixFiles == 2) { push (@Values, "Exploit Detection enabled"); }
   }
   if (-e "$DirGames\\$GameValues{'GameFile'}\\clean") {
-    if ($cleanFiles < 2) { push (@Values, "Player File Sanitization configured"); }
-    if ($cleanFiles == 2) { push (@Values, "Player File Sanitization enabled"); }
+    if ($cleanFiles < 2) { push (@Values, "File Sanitization configured"); }
+    if ($cleanFiles == 2) { push (@Values, "File Sanitization enabled"); }
   }  
 	my $c = 0;
 	my $col=4;

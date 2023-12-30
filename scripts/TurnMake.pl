@@ -287,6 +287,7 @@ sub CheckandUpdate {
         &GenerateTurn($NumberofTurns, $GameData[$LoopPosition]{'GameFile'}); 
         &updateList($GameData[$LoopPosition]{'GameFile'}, 1); # update List files for exploit detection
         &cleanFiles($GameData[$LoopPosition]{'GameFile'}); # Clean the .M files of player information
+        if ($GameData[$LoopPosition]{'PublicMessages'}) { &publicMessages($GameData[$LoopPosition]{'GameFile'})}; # create public .messages file
         &Make_CHK($GameData[$LoopPosition]{'GameFile'});
 
 				# get updated current turn so you can put it in the email, can vary based on force gen.
