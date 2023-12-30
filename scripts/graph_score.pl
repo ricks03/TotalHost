@@ -98,7 +98,7 @@ foreach $dirname (@AllDirs) {
       my $MFile = "$sourcedir\\$dirname\\$filename";
       my ($singularRaceNames, $score, $turn, $player) = &getScores($MFile);
       if ($dirname eq '2400') { $score = 0; }
-      print "\tPlayer: $player\tScore: $score\tFile: $MFile\\$dirname\t\n";
+      #print "\tPlayer: $player\tScore: $score\tFile: $MFile \n";
       $score{$player}{$turn} = $score;
       if ($score > $highscore) { $highscore = $score; }
     }
@@ -218,53 +218,40 @@ sub decryptScores {
   my (@fileBytes) = @_;
   my @block;
   my @data;
-  my ($decryptedData, $padding);
+  my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
+  my @encryptedBlock;
   my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
   my ($random, $seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
-#   my ($lastTurn);
-#   my $skipTurns = 0;
   my $offset = 0; #Start at the beginning of the file
   my @singularRaceNames;
+  my $score;
+  my $resources;
   while ($offset < @fileBytes) {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
+    if ($debug > 1) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
     if ($debug > 1) { print 'BLOCK RAW: Size ' . @block . ":\n" . join ("", @block), "\n"; }
     
-    # Skip over the duplicate information in a turn file which include multiple turns
-    # Testing suggests this really doesn't save any time
-#     if ( $skipTurns && $typeId != 8 ) {
-#       $offset = $offset + (2 + $size); 
-#       print "SKIP: TypeId: $typeId\n";
-#       next;
-#    } elsif ($typeId == 8 ) { # FileHeaderBlock, never encrypted
      if ($typeId == 8 ) { # FileHeaderBlock, never encrypted
-#       if ( $skipTurns ) { $skipTurns--; }
-#       if ( $skipTurns ) { next; }
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
       ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+      $seedX = $seedA; # Used to reverse the decryption
+      $seedY = $seedB; # Used to reverse the decryption
+      #push @outBytes, @block;
       
-      # This turn has multiple turns, so let's skip forward and decrypt only the last turn
-#       if ( $fMulti ) {  # fMulti is set only on the first Block 8 
-#          $lastTurn = &getFileFooter(@fileBytes);
-#          $skipTurns = $lastTurn - $turn;
-#          print "TURN: $turn, LAST: $lastTurn, SKIP: $skipTurns\n";
-#          #sleep 1;
-#          $offset = $offset + (2 + $size); 
-#          next;
-#       }
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
     } else {
       # Everything else needs to be decrypted
       @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
-      #@decryptedData = @{ $decryptedData };  
+      @decryptedData = @{ $decryptedData };  
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6 ) {  #PlayerBlock
         my $playerId = $decryptedData[0] & 0xFF;
@@ -281,9 +268,12 @@ sub decryptScores {
         my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
         push @singularRaceNames, $singularRaceName;
       } elsif ($typeId == 45) { # PlayerScoresBlock
+         
         my $playerId     = ($decryptedData[0] >> 0) & 0x0F; 
-        my $resources    = &read32(\@decryptedData, 8); # Not EXACTLY the same
-#        print "PlayerId: $playerId, Res: $resources\n";
+        $score        = &read32(\@decryptedData, 4);  # Not exactly the same
+        $resources    = &read32(\@decryptedData, 8); # Not EXACTLY the same
+        
+        print "PlayerId: $playerId, Res: $resources\n";
         if ($Player == $playerId) { $score = $resources; }
       }
     }
