@@ -198,7 +198,7 @@ if ($file_type =~ /HST/i || $file_type =~ /M/i ) {
 }
 
 # 
-# #BUG: These really are only writing out for debug purposes. 
+# These really write out for debug purposes. 
 # if ($file_type =~ /x/i && -e "$listPrefix.HST.design")   { &writeList("$listPrefix.$file_ext.design", \%designList); }
 # if ($file_type =~ /x/i && -e "$listPrefix.HST.queue")    { &writeList("$listPrefix.$file_ext.queue", \%queueList); }
 # if ($file_type =~ /x/i && -e "$listPrefix.HST.fleet")    { &writeList("$listPrefix.$file_ext.fleet", \%fleetList); }
