@@ -213,8 +213,6 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
       $id = $GameValues{'PlayerID'};
       $GameFile = $GameValues{'GameFile'};
       $hostAccess = $GameValues{'HostAccess'}; # Is Host Access set (0|1)
-#      push @messageFiles, $gamelocation . '/' . $GameFile . '.m' . $id; # Check for .m file
-#      push @messageFiles, $gamelocation . '/' . $GameFile . '.x' . $id; # Check for .x file
       push @messageFiles, $GameFile . '.m' . $id; # Check for .m file
       push @messageFiles,  $GameFile . '.x' . $id; # Check for .x file
       # remove any previous out-of-date message file
@@ -225,9 +223,9 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
         if (-e $messageFile) { unlink $messageFile; }
       }
     }
-  } else { &error("Failed to find Game $gamefile associated with this User $userlogin"); }
+  } else { &error("Download: Failed to find Game $gamefile associated with this User $userlogin"); }
 	&DB_Close($db);
-  # read in the player files  
+  # read in messages from the player files  
   foreach my $filename (@messageFiles) {
     $fullFileName = $gamelocation . '/' . $filename;
     # Read in the file data
@@ -255,21 +253,19 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
     }
   }
   # Change the default name of the file to be player-specific
-  # BUG: How will this work with the same player in the game twice?
   $file = $messageFile;
 	$downloadmsgfile = $GameFile . '.msg';
   unless ($hostAccess) { $downloadmsgfile .= $id; }
   $download_ok = 1;
-######################################################
-######################################################  
-
-# If the file type wasn't one of the predefined ones, error out.
-} else { &error("User $userlogin authorized. Invalid file type $file $filetype"); }
-
-
-
-if ($download_ok) { &download($file) or &error("User $userlogin authorized, but an unknown error has occured.");  }
-else { &error("User $userlogin Unauthorized.") }
+  ######################################################
+  ######################################################  
+  
+  # If the file type wasn't one of the predefined ones, error out.
+  } else { &error("User $userlogin authorized. Invalid file type $file $filetype"); }
+  
+  if ($download_ok) { &download($file) or &error("User $userlogin authorized, but an unknown error has occured.");  }
+  else { &error("User $userlogin Unauthorized.") 
+}
 
 ##########################################
 sub download {
@@ -296,13 +292,14 @@ sub download {
 		);
 	
 	# download the message file.
-	} elsif ($filetype eq 'msg') {
+	} elsif ($filetype eq 'msg') {       
    	open(DLFILE, '<', "$file") or return(0); 
 	  # this prints the download headers with the file size included
 	  # so you get a progress bar in the dialog box that displays during file downloads. 
-	  print $cgi->header(-type            => 'txt',
-	                    -attachment      => "$downloadmsgfile",
-	                    -Content_length  => -s "$file",
+	  print $cgi->header(-type            => 'text/html',
+#                        -charset        => 'utf-8',
+#                       -attachment      => "$downloadmsgfile",
+# 	                    -Content_length  => -s "$file",
 		);
 	
 	} else {

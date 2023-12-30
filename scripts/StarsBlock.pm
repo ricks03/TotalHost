@@ -117,7 +117,7 @@ our @EXPORT = qw(
   decodeBytesForStarsString
   getPlayers resetPlayers
   resetRace 
-  StarsClean decryptClean
+  StarsClean decryptClean  
   StarsFix StarsList decryptFix
   StarsAI decryptAI
   zerofy splitWarnId attackWho
@@ -130,7 +130,7 @@ our @EXPORT = qw(
   readList writeList printList updateList
   cleanFiles
   adjustFleetCargo tallyFleet 
-  decryptMessages
+  publicMessages decryptMessages
 );  
 
 my $debug = 1;
@@ -1223,6 +1223,72 @@ sub resetRace {
   return @decryptedBytes;
 }
 
+
+sub publicMessages {
+  # Exports player messages
+  my ($GameFile) = @_;
+  my $inDir = $DirGames . "\\" . $GameFile;
+  my @messages;
+
+  # Get all the .m file names in the directory
+  my @mFiles; # .m files in the directory
+  if (-d $inDir) {  
+    # If a directory name was specified
+    my $file;
+    opendir(BIN, $inDir) or &BlockLogOut(20,"publicMessages: Cannot open directory $inDir", $LogFile);
+    while (defined ($file = readdir BIN)) {
+      next if $file =~ /^\.\.?$/; # skip . and ..
+      next unless ($file =~  /^.*\.[Mm]\d*$/ ); #prefiltering for .m files
+      push @mFiles, "$inDir\\$file";
+    }
+  } else {&BlockLogOut(20,"publicMessages: $inDir does not exist", $LogFile); }
+
+  if (@mFiles == 0) { 
+    &BlockLogOut(20,"publicMessages: No .m files in $inDir", $LogFile);
+  } else {
+  
+    my $messagefile = "$inDir\\$GameFile" . '.messages';
+    if (-e $messagefile) { unlink $messagefile; } # Get rid of the old one, since we append
+    
+    # BUG: You know, we could probably pull this from the HST file
+    foreach $filename (@mFiles) {
+      # Loop through for each .m file in the directory
+      my $FileValues;
+      my @fileBytes;
+      &BlockLogOut(20,"publicMessages: For File: $filename", $LogFile);
+      open(StarFile, "<$filename" );
+      # Read in the binary Stars! .m file, byte by byte
+      binmode(StarFile);
+      while ( read(StarFile, $FileValues, 1)) {
+        push @fileBytes, $FileValues; 
+      }
+      close(StarFile);
+      
+      # Decrypt the data, block by block
+      my ($outBytes) = &decryptMessages(@fileBytes);
+      my @outBytes = @{ $outBytes };
+      if (scalar (@outBytes)) {
+        foreach my $message (@outBytes) {
+          push @messages, $message;
+        }
+      } 
+    }
+    
+    #Deduplicate the messages (as Everyone is in all files)
+    my %hash   = map { $_, 1 } @messages;
+    @messages = sort keys %hash;
+    
+    # Output the .messages file fro the dedup'd, sorted messages
+  	open (OUT_FILE, ">>$messagefile") || &BlockLogOut(100, "publicMessages: could not create $messagefile", $ErrorLog); 
+    foreach my $message (@messages) {
+      print OUT_FILE $message;
+    }
+    close(OUT_FILE);
+    &BlockLogOut(50, "publicMessages: Created messages for $GameFile", $LogFile);
+  }
+}
+
+
 sub StarsClean {
   my ($GameFile) = @_;
   # Removes shared "privileged" information from a .M file for TotalHost
@@ -1616,7 +1682,6 @@ sub StarsFix {
   %waypointList = %$waypointList;  
   
   # Need to return a string since passing an array through a URL is unlikely to work
-  # 221112 my $warning = '';
   foreach my $key (keys %warning) {
     $warning .= $warning{$key} . ',';
   }
@@ -1640,7 +1705,6 @@ sub StarsFix {
   	&BlockLogOut(300,"StarsFix: $filename does not need fixing", $LogFile);
     return $warning; 
   }  
-
 }
 
 sub StarsAI {
@@ -2527,6 +2591,7 @@ sub cleanFiles {
   # Clean the .M files
   # Works on a folder-by-folder game-by-game basis. 
   # Requires a file named 'clean' in the game folder
+  # $cleanFiles is set in config.pl
   if ($cleanFiles && -e "$DirGames\\$GameFile\\clean") {
     &StarsClean($GameFile); 
     &BlockLogOut(50, "Cleaned .m Files for $GameFile", $LogFile);
@@ -4036,11 +4101,12 @@ sub decryptMessages {
             # Different for x files, as we don't have player names in it.
             # Player ID #s are a bit weird, as 0 in this case is "everyone", not Player 1 (ID:0)
             if ( $recipientId == 0 ) { $recipient = 'Everyone'; } else { $recipient = 'Player ' . $recipientId; }
-            push @messages, "Message Year:" . ($turn+2400) . ", From: Me, To: $recipient (" . ($recipientId+1) . "), \"$message\"\n";
+            push @messages, "Year:" . ($turn+2400) . ", From: Me, To: $recipient (" . ($recipientId+1) . "), \"$message\"\n";
           } else { 
             # We don't have player names for races undiscovered either
 #            push @messages, "\tMessage Year:" . ($turn+2400) . ", From: $singularRaceName[$senderId+1], To: $singularRaceName[$recipientId], \"$message\"\n";
-            push @messages, "Message Year:" . ($turn+2400) . ", From: $singularRaceName[$senderId+1] (" . ($senderId+1) . "), To: $singularRaceName[$recipientId] (" . ($recipientId) . "), \"$message\"\n";
+            #push @messages, "Message Year:" . ($turn+2400) . ", From: $singularRaceName[$senderId+1] (" . ($senderId+1) . "), To: $singularRaceName[$recipientId] (" . ($recipientId) . "), \"$message\"\n";
+            push @messages, "Year:" . ($turn+2400) . ", \tFrom: " . ($senderId+1) .":$singularRaceName[$senderId+1], \tTo: " . ($recipientId) . ": $singularRaceName[$recipientId], \t\"$message\"\n";
           }
         } 
       } 
