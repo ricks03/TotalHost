@@ -2440,7 +2440,7 @@ sub read_game {
 	&DB_Close($db);
 	my @Values = ();
 	if     ($GameValues{'GameType'} == 1) { push(@Values, "Daily Turn Gen, $GameValues{'DailyTime'}:00"); }
-	elsif ( $GameValues{'GameType'} == 2) { push(@Values, "Hourly Turn Gen, $GameValues{'DailyTime'} hours");}
+	elsif ( $GameValues{'GameType'} == 2) { push(@Values, "Hourly Turn Gen, $GameValues{'HourlyTime'} hours");}
 	elsif ( $GameValues{'GameType'} == 3) { push(@Values, "Turns Gen Only when All Turns are In"); }
 	elsif ( $GameValues{'GameType'} == 4) { push(@Values, "Turns as Required"); }
 	else { push(@Values, "Unknown Turn Gen"); }	
