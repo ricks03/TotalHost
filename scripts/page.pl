@@ -1367,7 +1367,7 @@ sub process_game_launch {
 			  $NewTurn = $CurrentDateSecs + $DaysToAdd1*86400 + $DaysToAdd2*86400 +($GameValues{'DailyTime'} *60*60);
         # 221110 Fixing for DST 
         $NewTurn = &FixNextTurnDST($NewTurn, time(),0);
-			  $sql = qq|UPDATE Games SET NextTurn = $NewTurn WHERE GameFile = \'$GameFile'\' AND HostName=\'$userlogin\';|;
+			  $sql = qq|UPDATE Games SET NextTurn = $NewTurn WHERE GameFile = \'$GameFile\' AND HostName=\'$userlogin\';|;
   			if (&DB_Call($db,$sql)) {
   				&LogOut(100, "NextTurn set to $NextTurn for $GameFile and $userlogin", $LogFile);
   			} else {
