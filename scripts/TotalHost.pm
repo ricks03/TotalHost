@@ -54,7 +54,8 @@ our @EXPORT = qw(
 	clean 
 	DaysToAdd ValidTurnTime ValidFreq CheckHolidays LoadHolidays ShowHolidays
   show_race_block
-  process_fix
+  process_fix process_game_status
+  check_internet get_internet_down_count internet_log_status clear_internet_log
 );
 # Remarked out functions: FileData FixTime MakeGameStatus checkboxes checkboxnull
 #  showCategory
@@ -211,8 +212,7 @@ sub Email_Turns { #email turns out to the appropropriate players
  		if ($GameVals{'Subject'}) { $Subject = $GameVals{'Subject'}; }
  		else { $Subject = qq|$mail_prefix New Turn for $GameFile.m$PlayerID[$i] - Year $GameVals{'HST_Turn'}|; }
 		&LogOut(200, "Email_Turns: Subject: $Subject", $LogFile);
-		$Message = $GameVals{'Message'};
-		$Message .= "\n\n";
+		$Message = $GameVals{'Message'} . "\n\n";
     # If there's a next turn scheduled, and the game isn't over
 		if ($GameVals{'NextTurn'} > 0 && $GameVals{'GameStatus'} != 9 && $GameVals{'GameStatus'} != 4 && $GameVals{'GameType'} != 3 && $GameVals{'GameType'} != 4 ) {
 			$Message .= "Next scheduled turn generation on or after " . localtime($GameVals{'NextTurn'});
@@ -241,9 +241,8 @@ sub Email_Turns { #email turns out to the appropropriate players
 sub Load_EmailAddresses {
 	my ($GameFile, $sql) = @_;
 	my @User_Login, @Email, @PlayerID;
-	&LogOut(100,"      Load_EmailAddresses: Email game name: $GameFile",$LogFile);   
-	# added that you must be active to receive emails
-#	my $sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') AND ((User.EmailTurn)=-1) AND ((GameUsers.PlayerStatus)=1));|;
+  my %Host;
+	&LogOut(300,"      Load_EmailAddresses: Email game name: $GameFile",$LogFile);   
 	my $db = &DB_Open($dsn);
 	if (&DB_Call($db,$sql)) {
 		my $MailCounter = 0; # Game counter
@@ -253,6 +252,16 @@ sub Load_EmailAddresses {
 			$MailCounter++;
 		}
 	}
+  $sql = qq|SELECT Games.GameName, Games.HostName, User.User_Email, User.EmailTurn FROM [User] INNER JOIN Games ON User.User_Login = Games.HostName;|;
+  if (&DB_Call($db,$sql)) { $db->FetchRow(); %Host = $db->DataHash(); }	
+  #BUG: A player in the game more than once will be in the list more than once. 
+  # Only add the host if they're not in the game
+  if (!grep { $_ eq $Host{'HostName'} } @User_Login) {
+    push @User_Login, $Host{'HostName'};
+    push @Email, $Host{'User_Email'};
+    push @PlayerID, 0;  # The host doesnt have a player ID
+    push @EmailTurn, $Host{'EmailTurn'}; # Dont email the host a turn
+  }
 	&DB_Close($db);
 	return \@User_Login, \@Email, \@PlayerID, \@EmailTurn;
 }
@@ -630,9 +639,9 @@ sub fixdate {
 sub SubmitTime{
 	my ($daytime) = @_;
 	my $answer = '';
-#  	if ($daytime < .0006944) { $answer = int($daytime*86400) . " seconds ago";}
+ 	if ($daytime < .0006944) { $answer = int($daytime*86400) . " seconds ago";}
 # 	elsif ($daytime < .04167) { $answer = int($daytime * 1440 ) . " minute(s) ago"; }
-  if ($daytime < .04167) { $answer = " recently\n";}
+  elsif ($daytime < .04167) { $answer = "Recently\n";}
 	elsif ($daytime < 1) { $answer = int($daytime * 24 ) . " hour(s) ago";}
 	elsif ($daytime >= 1) { $answer = int($daytime) . " day(s) ago";}
 	return $answer;
@@ -1222,4 +1231,172 @@ sub process_fix {
 	print OUTFILE @fixes;
 	close (OUTFILE);
 }
+
+sub process_game_status {
+	# Change the current game state and report such.
+	my ($GameFile, $state, $userlogin) = @_;
+	my $success = 0;
+  my %GameValues; 
+	my $db = &DB_Open($dsn);
+  # Get the information about the game in question
+  # Since this can be reached by players (Pause) needs to not filter for $userlogin
+  $sql_local = qq|SELECT * FROM Games WHERE GameFile = \'$GameFile\';|;
+	if (&DB_Call($db,$sql_local)) { $db->FetchRow(); %GameValues = $db->DataHash(); }
+  my $state_set = 0;
+	if ($state eq 'Pause') {
+    if ($GameValues{'GamePause'}) {       # If players are allowed to pause the game
+#      $sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET Games.GameStatus = 4 WHERE Games.GameFile = \'$in{'GameFile'}\' AND GameUsers.User_Login=\'$userlogin\' AND Games.GamePause=1;|;
+      #$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) SET Games.GameStatus = 4 WHERE Games.GameFile = \'$GameFile\' AND GameUsers.User_Login=\'$userlogin\' AND Games.GamePause=1;|;
+      $sql = qq|UPDATE Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile SET Games.GameStatus = 4 WHERE (GameUsers.User_Login=\'$userlogin\' AND Games.GameFile=\'$GameFile\' AND Games.GamePause=1) OR (Games.GameFile=\'$GameFile\') AND (Games.HostName=\'$userlogin\');|;
+    } else { # Only the host can update the game
+      $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+    }
+    $GameValues{'GameStatus'} = 4; # When used later
+    $state_set = 1;
+  } elsif ($state eq 'UnPause') {
+    # Try to figure out when the next turn is due and update the date so it doesn't just start generating
+		($Second, $Minute, $Hour, $DayofMonth, $Month, $Year, $WeekDay, $WeekofMonth, $DayofYear, $IsDST, $CurrentDateSecs) = &GetTime; 
+		if ($GameValues{'GameType'} == 1 ) { # Daily game    
+			# Determine when the next possible time is that turns are due
+			($DaysToAdd1, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'},$WeekDay);
+			# now advance one interval from that, so you have a full interval
+			($DaysToAdd2, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'},$NextDayOfWeek);
+			# Set the time for the next turn on the right day
+			$NewTurn = $CurrentDateSecs + $DaysToAdd1*86400 + $DaysToAdd2*86400 +($GameValues{'DailyTime'} *60*60); 
+      #if (!$isDST) { $NewTurn = $NewTurn + (60*60); }
+      # 221110 Fixing for DST
+      $NewTurn = &FixNextTurnDST($NewTurn, time(), 0);
+      $GameValues{'GameStatus'} = 2; # So the value is changed if used later before a query.
+			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+		} elsif ($GameValues{'GameType'} == 2) { # Hourly game
+			# Determine when the next possible time is that turns are due
+      # BUG: This doesn't include the calculation from FixNextTimeDST
+      # Generate the next turn now + number of hours (sliding)
+      $NewTurn = time() + ($GameValues{'HourlyTime'} *60 *60); 
+      #221110 Fixing for DST
+      $NewTurn = &FixNextTurnDST($NewTurn, time(), 0);
+      # Make sure we're generating on a valid day
+      while (&ValidTurnTime($NewTurn,'Day',$GameValues{'DayFreq'}, $GameValues{'HourFreq'}) ne 'True') { $NewTurn = $NewTurn + ($GameValues{'HourlyTime'} *60*60); }
+      # Make sure we're generating on a valid hour
+      while (&ValidTurnTime($NewTurn,'Hour',$GameValues{'DayFreq'}, $GameValues{'HourFreq'}) ne 'True') { $NewTurn = $NewTurn + 3600; } 
+			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+		} else {
+      # BUG: Is there an issue here for DST?
+      $NewTurn = time()+86400;  # There really is no time the next turn will be due. Add a day so there's a buffer.
+			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+    }
+    $GameValues{'GameStatus'} = 2; # When used later
+    $state_set = 1;
+    &Make_CHK($GameValues{'GameFile'}); # Rebuild the .CHK file in case there's a problem
+    &updateList($GameValues{'GameFile'}, 1); # Rebuild the List files in case there's a problem
+  } elsif ($state eq 'Locked') {
+   	$sql = qq|UPDATE Games SET GameStatus = 0 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+    $GameValues{'GameStatus'} = 0; # When used later
+    $state_set = 1;
+    &LogOut(0,$sql,$ErrorLog);
+  } elsif ($state eq 'Unlocked') {
+    $sql = qq|UPDATE Games SET GameStatus = 7 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+    $GameValues{'GameStatus'} = 7; # When used later
+    $state_set = 1;
+  } elsif ($state eq 'Launched') {
+    $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+    $GameValues{'GameStatus'} = 4; # When used later
+    $state_set = 1;
+    &Make_CHK($GameValues{'GameFile'}); # Rebuild the .CHK file in case there's a problem
+  } elsif ($state eq 'Ended') {
+    $sql = qq|UPDATE Games SET GameStatus = 9 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
+    $GameValues{'GameStatus'} = 9; # When used later
+    $state_set = 1;
+    # Back up the last turn. Useful for how movie making works, as it reads the backed up turns
+	  if (my $turn = &Game_Backup($GameValues{'GameFile'})) { &LogOut(200,"Ended: Gamefile $GameValues{'GameFile'} Backed up for Turn: $turn",$LogFile); }
+  } elsif ($state eq 'Restart') {
+    $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\' AND GameStatus = 9;|;
+    $GameValues{'GameStatus'} = 4; # When used later
+    $state_set = 1;
+  # Adding outage detection / Protection
+  } elsif ($state eq 'Paused-Internet Outage') {
+    $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND (GameStatus = 2 OR GameStatus = 3);|;
+    $GameValues{'GameStatus'} = 4; # When used later
+    $state_set = 1;
+  } elsif ($state eq 'Paused-Power Outage') {
+    $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND (GameStatus = 2 OR GameStatus = 3);|;
+    $GameValues{'GameStatus'} = 4; # When used later
+    $state_set = 1;
+  } else {
+		&LogOut(100,"process_game_status: for $GameFile failed: $state", $ErrorLog);
+  }
+  
+  if ($state_set) {
+  	if (&DB_Call($db,$sql)) { 
+  		&LogOut(100,"process_game_status: $GameFile set to $state for $sql for $userlogin", $LogFile);
+  		$success = 1;
+  	} else { 
+  		print "<P>Game $GameFile failed to $state\n"; 
+  		&LogOut(0, "process_game_status: Game $GameFile failed to $state for $userlogin for $sql", $ErrorLog); 
+  	}
+	  &DB_Close($db);
+  }
+  
+	if ($success) {
+	   # Notify all players
+		$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Status updated to $state|;
+		$GameValues{'Message'} = "Game status for $GameValues{'GameName'} has been updated to $state.\n";
+    # Customize the message depending on the status change.
+    if ($state eq 'Locked') { $GameValues{'Message'}              .= "\nNo new players can join the game.\n"; 
+    } elsif ($state eq 'Unlocked') { $GameValues{'Message'}       .= "\nPlayers can again join the game.\n"; 
+    } elsif ($state eq 'Pause') { $GameValues{'Message'}          .= "\nAutomated turn generation is suspended.\n"; 
+    } elsif ($state eq 'UnPause' && ($GameValues{'GameType'} == 1 || $GameValues{'GameType'} == 2) ) { $GameValues{'Message'} .= "\nAutomated turn generation will renew.\n"; 
+    } elsif ($state eq 'Paused-Internet Outage') { $GameValues{'Message'} .= "\nInternet access was lost but is now restored. Automated turn generation was suspended as a safety measure.\n"; 
+    } elsif ($state eq 'Paused-Power Outage') { $GameValues{'Message'}    .= "\nPower to the server was lost but is now restored. Automated turn generation was paused as a safety measure. Your host should UnPause the game soon.\n"; 
+    } 
+    if ($state eq 'Launched') { # First turn 
+      $GameValues{'Message'} .= "\nGames default to Paused on game start to provide time for review prior to automated turn generation. Time to take your first turn! \n";
+      $GameValues{'HST_Turn'} = '2400'; # Faster than checking the new file for the turn data
+      &Email_Turns($GameFile, \%GameValues, 1); # Attach files to initial turn
+    } else { &Email_Turns($GameFile, \%GameValues, 0); }
+	} else {
+  	&LogOut(0, "Game $GameFile failed success to $state for $userlogin for $sql", $ErrorLog); 
+  }
+}
+
+# Check if the Internet is up
+sub check_internet {
+  my $p = Net::Ping->new("icmp");
+  return $p->ping("$internet_site");  # Check against a reliable host
+}
+
+# Get the number of consecutive Internet "down" records
+sub get_internet_down_count {
+  my $count = 0;
+  open (OUTFILE, "<$internet_status_log") or return 0;  # Return 0 if file doesn't exist
+  while (my $line = <OUTFILE>) {
+      chomp($line);
+      if ($line =~ /Internet is down/) {
+          $count++;
+      } else {
+          $count = 0;  # Reset if we find an "up" status
+      }
+  }
+  close OUTFILE;
+  return $count;
+}
+
+# Log the Internet status with a timestamp
+sub internet_log_status {
+  my ($status) = @_;
+  my $timestamp = &GetTimeString;
+  open (OUTFILE, '>>', $internet_status_log) or print "Could not open $internet_status_log: $!\n";  # or do { print "Could not open $internet_status_log\n"; &LogOut(0,"Could not open $internet_status_log",$ErrorLog); die; }
+  print OUTFILE "$timestamp - $status\n";
+  print "$timestamp - $status\n";
+  close OUTFILE;
+}
+
+# Clear the log file (used when Internet comes back up)
+sub clear_internet_log {
+  #open (OUTFILE, ">$internet_status_log") or do { print "Could not open $internet_status_log\n"; &LogOut(0,"Could not open $internet_status_log",$ErrorLog); die; }
+  open (OUTFILE, ">$internet_status_log") or print "Could not open $internet_status_log: $!\n";
+  close OUTFILE;
+}
+
+
 

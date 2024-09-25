@@ -24,6 +24,7 @@ use Win32::ODBC;
 require 'cgi-lib.pl';
 use CGI qw(:standard);
 use Net::SMTP;
+use Net::Ping;
 use TotalHost; # eval'd at compile time
 use StarStat;  # eval'd at compile time
 use StarsBlock;# eval'd at compile time
@@ -51,11 +52,57 @@ if ($commandline) {
   $GameData = &LoadGamesInProgress($db,qq|SELECT * FROM Games WHERE (GameFile=\'$commandline\' AND (GameStatus=2 or GameStatus=3)) ORDER BY GameFile;|);
 } else {
   # Check all Games
-  $GameData = &LoadGamesInProgress($db,qq|SELECT * FROM Games WHERE GameStatus=2 or GameStatus=3 ORDER BY GameFile;|);
+  $GameData = &LoadGamesInProgress($db,qq|SELECT * FROM Games WHERE (GameStatus=2 or GameStatus=3) ORDER BY GameFile;|);
 }
 my @GameData = @$GameData;
 
-&CheckandUpdate;  
+# Check if the system has been powered off. If so, pause all games
+$reboot_file = $Dir_Root . '/reboot';
+if (-e $reboot_file) {
+  my $Message, $Subject;
+  $sql = qq|SELECT Games.GameFile, Games.GameStatus, Games.HostName from Games WHERE (Games.GameStatus = 2 OR Games.GameStatus=3)|;
+  if (&DB_Call($db,$sql)) {
+		while ($db->FetchRow()) {
+	    ($GameFile, $GameStatus, $HostName) = $db->Data("GameFile", "GameStatus", "HostName");
+      &process_game_status($GameFile, 'Paused-Power Outage', ''); # No host name in TurnMake
+		}
+  }
+  # Notify admin that the internet is back up
+  # Send email to admin that the system recently powered up
+  $Subject = $mail_prefix . 'Power Restored';
+	$Message = "\n\n$WWW_HomePage Power Restored.\n";
+	$Message .= "Active games set to Paused.\n";
+  my $smtp = &Mail_Open;   
+  &Mail_Send($smtp, $mail_from, $mail_from, $Subject, $Message); # notify site host
+  &Mail_Close($smtp);
+  # Log the events
+  print "Mail sent to $mail_from about $reboot_file for $WWW_HomePage\n";
+	&LogOut(0,"Power restored, $mail_from, $reboot_file, $WWW_HomePage",$LogFile);
+  unlink $reboot_file;   # Delete the power on file now that we clearly have power
+  &DB_Close($db); exit;   # Stop execution, since we have a changed game status state
+} 
+  
+# Check to see if there's internet connectivity
+$internet_status     = check_internet();  # 1 is up, 0 (or null) is down
+$internet_down_count = get_internet_down_count();
+
+if ($internet_status) {
+  # If the internet is back up after being down, log the "up" time, clear the log, and set stored inactive events back to active
+  internet_game_status('active');  # Set inactive events back to active
+  clear_internet_log();
+  # Check turn status and generate
+  &CheckandUpdate;
+} else {
+    # Log the "down" status and increment the count
+    $internet_down_count++; # Just so we start at 1
+    internet_log_status("Internet is down, $internet_down_count");
+    # If the down count reaches the threshold, set active events to inactive
+    if ($internet_down_count >= $internet_threshold) {
+        internet_game_status('inactive');
+    }
+    &DB_Close($db); exit; # We have changed game state, so stop. 
+}
+ 
 &DB_Close($db);
 
 #####################################################################################
@@ -72,13 +119,13 @@ my @GameData = @$GameData;
 
 sub CheckandUpdate {
 	my $LoopPosition = 0; #Start with the first game in the array.
-  print "Starting to check games.\n";
+  print "Starting to check games...\n";
   # This would be massively more clear if I read all of this in as a hash, instead
   # of an array. If I just moved $LoopPosition out, and instead performed this
   # as I walked thorugh the database. 
   # Heck, even if I read all the data in from the database, and then called this function one line/row
   # at a time. 
-  print "LOOP: $LoopPosition   Game Data: " . ($#GameData). "\n";
+  #print "LOOP: $LoopPosition   Game Data: " . ($#GameData). "\n";
 	while ($LoopPosition <= ($#GameData)) { # work the way through the array. Empty array = -1
 		print "Checking whether to generate for Game $LoopPosition: $GameData[$LoopPosition]{'GameName'}: $GameData[$LoopPosition]{'GameFile'}...\n";
 		my($TurnReady) = 'False'; #Is it time to generate
@@ -353,8 +400,7 @@ sub CheckandUpdate {
 				$GameValues{'HST_Turn'} = $HST_Turn;
 				# Adjust the display value of next turn in case there's DST
 				# Since we've updated last turn, we need to use the original
-				$GameValues{'NextTurn'} = &FixNextTurnDST($GameValues{'NextTurn'}, $GameData[$LoopPosition]{'LastTurn'},1);
-        
+				$GameValues{'NextTurn'} = &FixNextTurnDST($GameValues{'NextTurn'}, $GameData[$LoopPosition]{'LastTurn'},1);        
 				&Email_Turns($GameData[$LoopPosition]{'GameFile'}, \%GameValues, 1); 
 			}
 			#Print when the next turn will be generated.
@@ -443,6 +489,45 @@ sub inactive_game {
 	&DB_Close($db); 
 }
 
+# Detection of Internet outages
+# Main action to handle setting Games to inactive (when down) and reactivating them (when up)
+sub internet_game_status {
+  my ($status) = @_;
+  
+  if ($status eq 'inactive') {
+    # Fetch all active games and set them to inactive
+    if ( $internet_down_count >= $internet_threshold ) {
+      print "Updating Active (Game Status = 2|3) to Paused : $internet_down_count >= $internet_threshold\n";
+      &LogOut(0,"Internet outage detected ($internet_down_count), $mail_from, $WWW_HomePage",$ErrorLog);
+      $sql = qq|SELECT Games.GameFile, Games.GameStatus, Games.HostName from Games WHERE (Games.GameStatus = 2 OR Games.GameStatus=3)|;
+      if (&DB_Call($db,$sql)) {
+        while ($db->FetchRow()) {
+          ($GameFile, $GameStatus, $HostName) = $db->Data("GameFile", "GameStatus", "HostName");
+          &process_game_status($GameFile, 'Paused-Internet Outage', ''); # No host name in TurnMake
+        }
+      }
+    } else {
+      print "Internet down count is $internet_down_count, waiting for $internet_threshold\n";
+    }
+  } elsif ($status eq 'active') {
+    # Only do something if the internet was just down
+    if (-s $internet_status_log) {  # If the file is present, and not empty
+      # Notify admin that the internet is back up
+      print "Internet restored, emailing $mail_from.\n";
+      $Subject = $mail_prefix . 'Internet Restored';
+    	$Message = "\n\n$WWW_HomePage Internet Restored.\n";
+    	$Message .= "All active games were paused when the outage was detected.\n";
+      $Message .= "Total Internet Down count: $internet_down_count\n";
+      my $smtp = &Mail_Open;   
+	    &Mail_Send($smtp, $mail_from, $mail_from, $Subject, $Message); # notify site host
+	    &Mail_Close($smtp);
+      # Log the events
+    	&LogOut(0,"Internet restored, $mail_from, $WWW_HomePage",$LogFile);
+    } 
+  }
+}
+
+ 
 # In th.pm sorta
 # sub ValidTurnTime { #Determine whether submitted time is valid to generate a turn
 #   # BXG: (remarked out function): $loopposition is used to determine array location 
@@ -472,4 +557,3 @@ sub inactive_game {
 # 	&LogOut(200,"   Valid = $Valid ",$LogFile);
 # 	return($Valid);
 # }
-
