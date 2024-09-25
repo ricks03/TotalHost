@@ -578,7 +578,8 @@ sub update_profile {
 	my $EmailList = &checkboxnull($in{'EmailList'});
 	my $userid = $id;
 	my $db = &DB_Open($dsn);
-	my $sql = "UPDATE User SET User_Login='$User_Login', User_First='$User_First',  User_Last='$User_Last', User_Email='$User_Email', User_Bio='$User_Bio', EmailTurn = $EmailTurn, EmailList = $EmailList, User_Modified='$Date' WHERE User_ID=$userid;";
+	#my $sql = "UPDATE User SET User_Login='$User_Login', User_First='$User_First',  User_Last='$User_Last', User_Email='$User_Email', User_Bio='$User_Bio', EmailTurn = $EmailTurn, EmailList = $EmailList, User_Modified='$Date' WHERE User_ID=$userid;";
+	my $sql = "UPDATE User SET User_First='$User_First',  User_Last='$User_Last', User_Email='$User_Email', User_Bio='$User_Bio', EmailTurn = $EmailTurn, EmailList = $EmailList, User_Modified='$Date' WHERE User_ID=$userid;";
 	if (&DB_Call($db,$sql)) { 
 		&LogOut(100,"User: User $User_ID updated",$LogFile); 
 		$session->param("userlogin",$User_Login);
