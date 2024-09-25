@@ -37,6 +37,7 @@ $browser = $ENV{'HTTP_USER_AGENT'};
 # User / Password Database as a flat file
 $max_login_attempts = 6;
 $max_users = 40;
+$min_password_length = 6;
 
 $max_inactivity = 14; # The longest a game can stay active, in days, with no turn submissions
 $max_forcegen = 50; # The maxumum number of turns that can be force generated. 
@@ -49,18 +50,20 @@ $imagemagick = 'C:\Program Files\ImageMagick-6.8.3-Q16\convert';
 $starmapper = 'd:\th\utils\starmapper\starmapper121\starmapper.bat';
 
 $FormMethod = 'Post'; # Method used for forms, Post or Get
-$Dir_Upload = 'd:/TH/Uploads';
-$DirUpload = 'd:\TH\Uploads';
-$DirRaces = 'd:\TH\Races';
-$Dir_Games = 'd:/TH/Games'; # Location of the actual game files used for turn gen
-$DirGames = 'd:\TH\Games'; # Location of the actual game files used for turn gen
-$Dir_Download = 'd:/TH/Download'; #Location where zip files are downloaded
-$DirDownload = 'd:\TH\Download'; #Location where zip files are downloaded
-$DirGraphs = 'd:\TH\Downloads'; #Location of movies & Graphs
-$File_Serials = 'd:/TH/serialC.txt'; # Text file of serial numbers
-$Dir_WWWRoot = 'd:/TH/html';
-$Dir_Scripts = 'd:/TH/scripts';
-$DirScripts = 'd:\TH\scripts';
+$Dir_Root        = 'd:/TH';
+$DirRoot         = 'd:\TH';
+$Dir_Upload      = $Dir_Root . '/Uploads';
+$DirUpload       = $DirRoot .'\Uploads';
+$DirRaces        = $DirRoot . '\Races';
+$Dir_Games       = $Dir_Root. '/Games'; # Location of the actual game files used for turn gen
+$DirGames        = $DirRoot .'\Games'; # Location of the actual game files used for turn gen
+$Dir_Download    = $Dir_Root . '/Download'; #Location where zip files are downloaded
+$DirDownload     = $DirRoot . '\Download'; #Location where zip files are downloaded
+$DirGraphs       = $DirRoot . '\Downloads'; #Location of movies & Graphs
+$File_Serials    = $Dir_Root .'/serialC.txt'; # Text file of serial numbers
+$Dir_WWWRoot     = $Dir_Root . '/html';
+$Dir_Scripts     = $Dir_Root .'/scripts';
+$DirScripts      = $DirRoot . '\scripts';
 
 $WWW_Image = '/images/';
 $WWW_Notes = '/Notes/';
@@ -72,11 +75,16 @@ $mail_server = '';
 #$mail_user = 'ricks@nc.rr.com';
 #$mail_password = '';
 $mail_from = '';
-$mail_prefix = '[TH]: ';
+$mail_prefix = '[TH] ';
+
+#Internet Detection
+$internet_status_log = $Dir_Root  . '/internet_status.log';
+$internet_threshold  = 3;
+$internet_site       = 'google.com';  
 
 $min_players = 2; # The minimum number of players to create/launch a game
 # Sessions
-$Dir_Sessions = 'd:/th/sessions/';
+$Dir_Sessions = $Dir_Root . '/sessions/';
 # Note if you change this all the current passwords will invalidate. 
 $secret_key = 'secret_key_for_md5_hashing';
 %TurnResult = ("turned in" => "In", "still out" => "Out", "right game" => "Wrong Game", "dead" => "Deceased", "right year" => "Wrong Year", "file corrupt" => "Corrupt");

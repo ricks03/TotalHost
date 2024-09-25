@@ -76,19 +76,24 @@ if ($id ) {
 				"2FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
 				"3Order of Events"	=> "$WWW_Scripts/index.pl?lp=home&cp=orderofevents",
 				"6Strategy Library"	=> "$WWW_Scripts/index.pl?lp=home&cp=library",
-				"9Other Sites"	=> "$WWW_Scripts/index.pl?lp=home&cp=othersites",
- 				"9Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
+				"7Other Sites"	=> "$WWW_Scripts/index.pl?lp=home&cp=othersites",
+ 				"8Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
  				"9Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create"
 				);
 } else {
+# %menu_left = 	(
+#  				"0Features" 			=> "$WWW_Scripts/index.pl?cp=features",
+#  				"1Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
+#  				"2Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create",
+#  				"3Reset Password" 	=> "$WWW_Scripts/index.pl?cp=reset_user",
+#  				"4Logout" 			=> "$WWW_Scripts/index.pl?cp=logout",
+#  				);
+# 				"5Erase" 			=> "$WWW_Scripts/index.pl?cp=logoutfull"
 %menu_left = 	(
  				"0Features" 			=> "$WWW_Scripts/index.pl?cp=features",
  				"1Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
  				"2Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create",
- 				"3Reset Password" 	=> "$WWW_Scripts/index.pl?cp=reset_user",
- 				"4Logout" 			=> "$WWW_Scripts/index.pl?cp=logout",
  				);
-# 				"5Erase" 			=> "$WWW_Scripts/index.pl?cp=logoutfull"
 }
 
 &html_left(\%menu_left);
@@ -206,7 +211,7 @@ print <<eof;
 <tr><td>Last Name: </td><td><input type=text name="User_Last" value="" size=32 maxlength=32></td></tr>
 <tr><td>User ID: </td><td><input type=text name="User_Login" value="" size=32 maxlength=32></td></tr>
 <tr><td>Email Address: </td><td><input type=text name="User_Email" value="" size=32 maxlength=32></td></tr>
-<tr><td>Password: </td><td><input type=password id="pass_temp"></td></tr>
+<tr><td>Password: </td><td><input type=password name="pass_temp" id="pass_temp"></td></tr>
 <tr><td><input type=hidden name="User_Password" id="User_Password"><input type=submit name="Submit" value="add"></td></tr>
 </table>
 <input type=hidden name="cp" value="">

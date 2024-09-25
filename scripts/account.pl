@@ -76,10 +76,16 @@ if ($in{'action'} eq 'add_user' || $in{'action'} eq 'activate_user' ) {
  				"9Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create"
 				);
 } else {
+# %menu_left = 	(
+#  				"1Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
+#  				"2Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create",
+#  				"3Reset Password" 	=> "$WWW_Scripts/index.pl?cp=reset_user",
+#  				"4Logout" 			=> "$WWW_Scripts/index.pl?cp=logout",
+#  				);
+# # 				"5Erase" 			=> "$WWW_Scripts/index.pl?cp=logoutfull"
 %menu_left = 	(
  				"1Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
  				"2Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create",
- 				"3Reset Password" 	=> "$WWW_Scripts/index.pl?cp=reset_user",
  				"4Logout" 			=> "$WWW_Scripts/index.pl?cp=logout",
  				);
 # 				"5Erase" 			=> "$WWW_Scripts/index.pl?cp=logoutfull"
@@ -90,13 +96,15 @@ if ($in{'action'} eq 'add_user' || $in{'action'} eq 'activate_user' ) {
 # cp
 print '<td>';
 if ($in{'action'} eq 'add_user') { &add_user; 
-} elsif ($in{'action'} eq 'create_user') { &create_user; 
+#} elsif ($in{'action'} eq 'create_user') { &create_user; 
 } elsif ($in{'action'} eq 'activate_user') { &activate_user; 
 } elsif ($in{'action'} eq 'reset_user') { &reset_user; 
 } elsif ($in{'action'} eq 'reset_password') { &reset_password; 
 } elsif ($in{'action'} eq 'reset_password2') { &reset_password2; 
 } elsif ($in{'action'} eq 'change_password') { &change_password; 
-} elsif ($in{'action'} eq 'login_fail') { print "Login failed! (The User Name is case-sensitive)"; 
+} elsif ($in{'action'} eq 'login_fail') { 
+    print "<P>Login failed! (The User Name is case-sensitive, and the account must be activated.)"; 
+    print qq|<P>Do you need to <a href=/scripts/index.pl?cp=reset_user>Reset your password</a>?|;
 } elsif ($in{'action'} eq '') { print "No action specified\n"; 
 } else { print "error with action: $in{'action'}\n"; }
 print '</td>';
@@ -112,9 +120,11 @@ sub add_user {
 	$User_Login = $in{'User_Login'};
 	$User_Email = $in{'User_Email'};
   my $valid_email = Email::Valid->address($User_Email);
+	$pass_temp = $in{'pass_temp'};
+	$User_Password = $in{'User_Password'};
   
   # Check to see that fields were filled out
-  if ($User_First && $User_Last && $User_Login && $User_Email && $valid_email) {
+  if ($User_First && $User_Last && $User_Login && $User_Email && $valid_email && $pass_temp && (length($pass_temp) > $min_pass_length)) {
   
   	$db = &DB_Open($dsn);
   	$Date =&GetTimeString();
@@ -146,21 +156,26 @@ sub add_user {
     print "<P>Sorry, but there was a problem with your submission:\n";
     print "<ul>\n";
     unless ($User_First) { print "<li>First Name is a required field.</li>\n"; }
-    unless ($User_Last) { print "<li>Last Name is a required field.</li>\n"; }
+    unless ($User_Last)  { print "<li>Last Name is a required field.</li>\n"; }
     unless ($User_Login) { print "<li>User ID is a required field.</li>\n"; }
     unless ($User_Email) { print "<li>Email Address is a required field.</li>\n";}
+    unless ($pass_temp && (length($pass_temp) > $min_password_length))  { print "<li>Password is a required field and at least $min_password_length characters.</li>\n";}
     if ($User_Email && !$valid_email) { print "<li>The email address you entered ( $User_Email ) does not detect as valid.</li>\n";  }
     print "</ul>\n";
     print "<P>Please try again!\n";
-    &LogOut(100,"Account: User1: $User_First, User2: $User_Last, Login: $User_Login, Email: $User_Email",$ErrorLog);
+    &LogOut(100,"Account: User1: $User_First, User2: $User_Last, Login: $User_Login, Email: $User_Email, Pass: $pass_temp",$ErrorLog);
   }
 }
 
 sub activate_user {
+  my $id;
 	$submit_hash = $in{'new'};
 	$submit_user = $in{'user'};
 	$db = &DB_Open($dsn);
-	$sql = "SELECT User.User_ID, User.User_Login, User.User_Password, User.User_Email FROM User;";
+  # 240923
+	#$sql = "SELECT User.User_ID, User.User_Login, User.User_Password, User.User_Email FROM User;";
+  # Can only activate users that aren't active
+	$sql = "SELECT User.User_ID, User.User_Login, User.User_Password, User.User_Email FROM User WHERE User_Status=-5;";
 	&LogOut(100,$sql,$SQLLog);
 	if (&DB_Call($db,$sql)) {
 		while ($db->FetchRow()) {
@@ -170,12 +185,12 @@ sub activate_user {
 			&LogOut(200,"Attempting a match on  1: $User_Login 2: $User_Password 3: $passhash  4: $submit_hash",$LogFile);		
 			if ($passhash eq $submit_hash && $submit_user eq $User_Login) {
 				$id = $User_ID;
-				&LogOut(200,"Activate user match success on $User_Login",$LogFile);
-			} else { &LogOut(200,"Activate user match failed on $User_Login",$LogFile); }
+				&LogOut(200,"Activate user match success on $User_Login $id $User_ID",$LogFile);
+			} else { &LogOut(200,"Activate user match failed on $User_Login $id $User_ID",$LogFile); }
 			if ($id) { last; }  # no need to keep going if there's a hit
 		}
 	} else {  &LogOut(200,"Database call $sql failed",$LogFile);}
-	if ($id) {
+	if ($id ne '') {
 		my $cgi = new CGI;
 		my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
 		$sessionid = $session->id unless $sessionid;
@@ -216,7 +231,8 @@ sub reset_user {
 	print "<P>Reset of User Password......\n"; 
 	&LogOut(100,"Password Reset for $in{'User_Login'}",$LogFile);
 	$db = &DB_Open($dsn);
-	$sql = "SELECT User.User_Login, User.User_ID, User.User_Email FROM User;";
+  # updated to only be active accounts
+	$sql = "SELECT User.User_Login, User.User_ID, User.User_Email FROM User WHERE User.User_Status > 0;";
 	&LogOut(100,$sql,$SQLLog);
 	# Check to be sure the account exists
 	if (&DB_Call($db,$sql)) {
@@ -250,7 +266,7 @@ sub reset_user {
   	&Mail_Close($smtp);
   	&LogOut(100,"Password Reset sent to $User_Email",$LogFile);
   	# set account to require a reset
-  } else { print "$in{'User_Login'} does not exist\n"; 	&LogOut(100,"ERROR: $in{'User_Login'} does not exist",$ErrorLog);  }
+  } else { print "$in{'User_Login'} does not exist or is not activated.\n"; 	&LogOut(100,"ERROR: $in{'User_Login'} does not exist or is not activated",$ErrorLog);  }
 }
 
 sub reset_password {
@@ -354,7 +370,10 @@ sub login {
 #    else {
 		$submit_hash = $in{'User_Password'};
 		$submit_user = $in{'User_Login'};
-		$sql = "SELECT * FROM User;";
+    #240923
+    # Can only log in fron an active account
+		#$sql = "SELECT * FROM User;";
+		$sql = "SELECT * FROM User WHERE User_Status > 0;";
 		&LogOut(200,$sql,$SQLLog);
 		$db = &DB_Open($dsn);
 		if (&DB_Call($db,$sql)) {
