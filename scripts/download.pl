@@ -88,7 +88,8 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
 	$filetype='m';
 	# need to check the database to see whether the logged in user gets access
 	# does the game file, player ID, and user ID exist (aka permitted)? 
-	$sql = qq|SELECT Games.GameFile, User.User_ID, GameUsers.PlayerID, GameUsers.PlayerStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$gamefile\') AND ((User.User_Login)=\'$userlogin\') AND ((GameUsers.PlayerID)=$turn_id));|;
+	# Can only download turn if you have an active user_status > 0
+  $sql = qq|SELECT Games.GameFile, User.User_ID, GameUsers.PlayerID, GameUsers.PlayerStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$gamefile\') AND ((User.User_Login)=\'$userlogin\') AND ((GameUsers.PlayerID)=$turn_id) AND (User.User_Status > 0));|;
 	$db = &DB_Open($dsn);
 	my %GameValues;
 	if (&DB_Call($db,$sql)) { 
@@ -200,7 +201,9 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
 	# Determine the user's player ID, which is not the same as their user ID
 	#$sql =qq|SELECT PlayerID, GameFile FROM [User] INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login WHERE (((GameUsers.GameFile)='$gamefile') AND ((User.User_Login)='$userlogin'));|;
   # updated to include host access (if host access is enabled, give all messages)
-  $sql = qq|SELECT GameUsers.PlayerID, GameUsers.GameFile, Games.HostAccess FROM Games INNER JOIN ([User] INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login) ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE (((GameUsers.GameFile)='$gamefile') AND ((User.User_Login)='$userlogin') OR ((GameUsers.GameFile='$gamefile') AND (Games.HostName)='$userlogin') AND ((Games.HostAccess)=True));|;  
+  # 240923
+  $sql = qq|SELECT GameUsers.PlayerID, GameUsers.GameFile, Games.HostAccess FROM Games INNER JOIN ([User] INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login) ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE (((GameUsers.GameFile)='$gamefile') AND ((User.User_Login)='$userlogin' ) OR ((GameUsers.GameFile='$gamefile') AND (Games.HostName)='$userlogin') AND ((Games.HostAccess)=True));|;  
+  #$sql = qq|SELECT GameUsers.PlayerID, GameUsers.GameFile, Games.HostAccess FROM Games INNER JOIN ([User] INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login) ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE (((GameUsers.GameFile)='$gamefile') AND ((User.User_Login)='$userlogin' AND (User.User_Login > 0)) OR ((GameUsers.GameFile='$gamefile') AND (Games.HostName)='$userlogin') AND ((Games.HostAccess)=True));|;  
 	$db = &DB_Open($dsn);
 	my %GameValues;
   # read in the player values

@@ -187,17 +187,17 @@ if ($in{'cp'} eq 'edit_profile') {
 } elsif ($in{'cp'} eq 'Lock Game') { 
 	# Option won't present with no players 
 	print "<td>"; 	
-	&process_game_status($in{'GameFile'}, 'Locked'); 
+	&process_game_status($in{'GameFile'}, 'Locked', $userlogin); 
 	&show_game($in{'GameFile'}); 
 	print "</td>";
 } elsif ($in{'cp'} eq 'Unlock Game') { 
 	print "<td>"; 	
-	&process_game_status($in{'GameFile'}, 'Unlocked'); 
+	&process_game_status($in{'GameFile'}, 'Unlocked', $userlogin); 
 	&show_game($in{'GameFile'}); 
 	print "</td>";
 } elsif ($in{'cp'} eq 'Restart Game') { 
 	print "<td>"; 	
-	&process_game_status($in{'GameFile'}, 'Restart'); 
+	&process_game_status($in{'GameFile'}, 'Restart', $userlogin); 
   &display_warning;
 	&show_game($in{'GameFile'}); 
 	print "</td>";
@@ -290,14 +290,14 @@ if ($in{'cp'} eq 'edit_profile') {
     &show_game($in{'GameFile'}); print "</td>\n";
 } elsif ($in{'cp'} eq 'Pause Game') {
 		print "<td>"; 
-    &process_game_status($in{'GameFile'}, 'Pause'); 
+    &process_game_status($in{'GameFile'}, 'Pause', $userlogin); 
     &display_warning;
     &show_game($in{'GameFile'}); 
     print "</td>";
     if ($GameValues{'NewsPaper'}) { $in{'rp'} = 'show_news'; }
 } elsif ($in{'cp'} eq 'UnPause Game') { # unpause the game and reset then the next turn is due
 		print "<td>"; 
-    &process_game_status($in{'GameFile'}, 'UnPause');
+    &process_game_status($in{'GameFile'}, 'UnPause', $userlogin);
     &display_warning; 
     &show_game($in{'GameFile'}); print "</td>";
     if ($GameValues{'NewsPaper'}) { $in{'rp'} = 'show_news'; }
@@ -321,7 +321,7 @@ if ($in{'cp'} eq 'edit_profile') {
 	print "</td>\n";
 } elsif ($in{'cp'} eq 'End Game') {
 		print "<td>"; 
-    &process_game_status($in{'GameFile'}, 'Ended'); 
+    &process_game_status($in{'GameFile'}, 'Ended', $userlogin); 
     &display_warning;
     &show_game($in{'GameFile'}); print "</td>";
 } elsif ($in{'cp'} eq 'Start Game') {
@@ -917,37 +917,55 @@ sub show_game {
         print "<td>$del$CHK_Name$del2</td>";
         
         # Display the .m file link
-        if ($del) {
-          # no link if the player is dead
-          print "<td>.m$Player</td>\n";
-        } elsif ($GameValues{'SharedM'}) { 
-          # Always display link if .m files are shared
-  	 			print qq|<td><A href=\"$WWW_Scripts/download.pl?file=$GameFile.m$Player\">.m$Player</A></td>\n|;
-  	 		} elsif ($PlayerValues{'User_Login'} eq $userlogin ) { 
-          # Display link if the logged in user is the player
-          print "<td><A href=\"$WWW_Scripts/download.pl?file=$GameFile.m$Player\">.m$Player</A></td>\n"; 
-        } elsif (!$playeringame && $GameValues{'HostName'} eq $userlogin && $GameValues{'HostAccess'}) {
-          # Display link if player is host but not in game
-          print "<td><A href=\"$WWW_Scripts/download.pl?file=$GameFile.m$Player\">.m$Player</A> (Host Access)</td>\n"; 
-  			} else { print "<td>.m$Player</td>\n"; }
+        if (-e $MFile) { # Only show if the file is present)
+          if ($del) {
+            # no link if the player is dead
+            print "<td>.m$Player</td>\n";
+          } elsif ($GameValues{'SharedM'}) { 
+            # Always display link if .m files are shared
+    	 			print qq|<td><A href=\"$WWW_Scripts/download.pl?file=$GameFile.m$Player\">.m$Player</A></td>\n|;
+    	 		} elsif ($PlayerValues{'User_Login'} eq $userlogin ) { 
+            # Display link if the logged in user is the player
+            print "<td><A href=\"$WWW_Scripts/download.pl?file=$GameFile.m$Player\">.m$Player</A></td>\n"; 
+          } elsif (!$playeringame && $GameValues{'HostName'} eq $userlogin && $GameValues{'HostAccess'}) {
+            # Display link if player is host but not in game
+            print "<td><A href=\"$WWW_Scripts/download.pl?file=$GameFile.m$Player\">.m$Player</A> (Host Access)</td>\n"; 
+    			} else { print "<td>.m$Player</td>\n"; }
 
-        # Display the number of years included in the .m file
-  			print qq|<td>|;
-  			if ($TurnYears > 1) { print "($TurnYears years)"; }
-  			print "</td>\n";
-  			if ($CHK_Status eq 'Wrong Year') { 	print "<td><font color=red>$CHK_Status</font></td>\n"; 
-  			} else {	
-          if ($del) { print "<td>$CHK_Status</td>\n";
-          } else { print "<td>$CHK_Status</td>\n"; }
-        }
-        
+          # Display the number of years included in the .m file
+    			print qq|<td>|;
+    			if ($TurnYears > 1) { print "($TurnYears years)"; }
+    			print "</td>\n";
+          
+    			if ($CHK_Status eq 'Wrong Year') { 	print "<td><font color=red>$CHK_Status</font></td>\n"; 
+    			} else {	
+            if ($del) { print "<td>$del$CHK_Status$del2</td>\n";
+            } else { print "<td>$CHK_Status</td>\n"; }
+          }
+        } else { print "<td>.M missing</td>\n<td></td>\n<td></td>\n"; }
+                   
         unless ($GameValues{'GameStatus'} == 9) { # Don't display for finished game
-    			print '<td>';
-          if (-e $XFile) {
+          print '<td>';
+          if (-e $XFile) {  
+#             if ($del) {
+#             # no link if the player is dead
+#               print ".x$Player\n";
+#             } elsif ($GameValues{'SharedM'}) { 
+#               # Always display link if .m files are shared
+#       	 			print qq|<A href=\"$WWW_Scripts/download.pl?file=$GameFile.x$Player\">.x$Player</A>\n|;
+#       	 		} elsif ($PlayerValues{'User_Login'} eq $userlogin ) { 
+#               # Display link if the logged in user is the player
+#               print "<A href=\"$WWW_Scripts/download.pl?file=$GameFile.x$Player\">.x$Player</A>\n"; 
+#             } elsif (!$playeringame && $GameValues{'HostName'} eq $userlogin && $GameValues{'HostAccess'}) {
+#               # Display link if player is host but not in game
+#               print "<A href=\"$WWW_Scripts/download.pl?file=$GameFile.x$Player\">.x$Player</A> (Host Access)\n"; 
+#       			} else { print ".x$Player\n"; }
+
     				my $file_date = -M $XFile;
     				$file_date = &SubmitTime($file_date);
     				print "$file_date\n";
-    			} else { print "Not Submitted\n"; }
+    			} else { print "Not Submitted\n"; }         
+          
           if ($PlayerValues{'PlayerStatus'} == 4) { print ' (Idle)'; }
           elsif ($PlayerValues{'PlayerStatus'} == 3) { print ' (Banned)'; }
           elsif ($PlayerValues{'PlayerStatus'} == 2) { print ' (Inactive-Housekeeping AI)'; }
@@ -1153,7 +1171,8 @@ sub show_game {
  		# Download the zip file. Don't bother displaying zip file option when there IS no history.
 		if (($HST_Turn > 2400) && ($current_player eq $userlogin) ) { print qq|<BUTTON $user_style type ="button" name="Download" | . &button_help('GetHistory') . qq| onClick = window.open("$WWW_Scripts/download.pl?file=$GameValues{'GameFile'}.zip")>Get History</BUTTON>|; $button_count = &button_check($button_count);}
  		# Download messages from .M and .X
-		if (($current_player eq $userlogin ) || ($GameValues{'HostName'} eq $session->param("userlogin"))) { print qq|<BUTTON $user_style type="button" name="Messages" | . &button_help('Messages') . qq| onClick = window.open("$WWW_Scripts/download.pl?file=$GameValues{'GameFile'}.msg")>Messages</BUTTON>|; $button_count = &button_check($button_count);}
+		if (($current_player eq $userlogin ) && ($HST_Turn >=2400)) { print qq|<BUTTON $user_style type="button" name="Messages" | . &button_help('Messages') . qq| onClick = window.open("$WWW_Scripts/download.pl?file=$GameValues{'GameFile'}.msg")>Messages</BUTTON>|; $button_count = &button_check($button_count);}
+		elsif (($GameValues{'HostName'} eq $session->param("userlogin") ) && ($HST_Turn >=2400) && $GameValues{'HostAccess'} ) { print qq|<BUTTON $host_style type="button" name="Messages" | . &button_help('Messages') . qq| onClick = window.open("$WWW_Scripts/download.pl?file=$GameValues{'GameFile'}.msg")>Messages</BUTTON>|; $button_count = &button_check($button_count);}
 		# Delete the game
     # Give me admin access to delete all of them, but the delete function requires game name and Host ID to match
     # And I don't have host id when I get there because I'm matching on user to be more secure.
@@ -1377,29 +1396,14 @@ sub process_game_launch {
       
       # Create the initial List file(s)
       &updateList($GameFile, 1);      
-#       # There's no need to clean the initial .m files, because there's no other player data included for the CA. 
-#       # Clean the initial .m files
-#       if ($cleanFiles && -e "$DirGames\\$GameFile\\clean") { 
-#         &StarsClean($GameFile); 
-# 		    &LogOut(50, "Cleaned .m Files for $new_hst_file", $LogFile);
-#       }
-
-## No longer necessary as we're using process_game_status 220207
-      # Email players that the game has started
-      # Attach the files if they so requested
-#      &LogOut (0,"Emailing for start of game $GameFile by $userlogin", $LogFile);
-#      $GameValues{'HST_Turn'} = '2400'; # Faster than checking the new file for the turn data
-#      &Email_Turns($GameFile, \%GameValues, 1); # attach games files.
-
+      # There's no need to clean the initial .m files, because there's no other player data included for the CA. 
       # set the game status to paused and send email 
-			&process_game_status($GameFile, 'Launched'); 
-
+			&process_game_status($GameFile, 'Launched', $userlogin); 
 			&DB_Close($db);
 			return 1;
 		} else {
 			print "<P>Game $GameFile Failed to Launch! (probably due to a corrupt race file)";
 			&LogOut (0,"Game $GameFile Failed to Launch (probably due to a corrupt race file). $CreateGame", $ErrorLog);
-			&LogOut (0,"Game $GameFile Failed to Launch (probably due to a corrupt race file). $CreateGame", $LogFile);
 			&DB_Close($db);
 			return 0;
 		}
@@ -2571,126 +2575,13 @@ sub process_restore {
 	closedir(DIR);
   
   # Pause the restored game
-  &process_game_status($in{'GameFile'}, 'Pause'); 
+  &process_game_status($in{'GameFile'}, 'Pause', $userlogin); 
   
 	print "<P>Game restored!\n";
 	# Notify all players who want to be notified that the game status has changed. 
 	$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Restored from Backup|;
 	$GameValues{'Message'} = "Game: $GameValues{'GameName'} restored to year $restore_year.\n";
 	&Email_Turns($GameFile, \%GameValues, 0);
-}
-
-sub process_game_status {
-	# Change the current game state and report such.
-	my ($GameFile, $state) = @_;
-	my $success = 0;
-  my %GameValues; 
-	my $db = &DB_Open($dsn);
-  # Get the information about the game in question
-  # Since this can be reached by players (Pause) needs to not filter for $userlogin
-  $sql_local = qq|SELECT * FROM Games WHERE GameFile = \'$GameFile\';|;
-	if (&DB_Call($db,$sql_local)) { $db->FetchRow(); %GameValues = $db->DataHash(); }
-  my $state_set = 0;
-	if ($state eq 'Pause') {
-    if ($GameValues{'GamePause'}) {       # If players are allowed to pause the game
-      $sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET Games.GameStatus = 4 WHERE Games.GameFile = \'$in{'GameFile'}\' AND GameUsers.User_Login=\'$userlogin\' AND Games.GamePause=1;|;
-    } else { # Only the host can update the game
-      $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
-    }
-    $GameValues{'GameStatus'} = 4; # When used later
-    $state_set = 1;
-  } elsif ($state eq 'UnPause') {
-    # Try to figure out when the next turn is due and update the date so it doesn't just start generating
-		($Second, $Minute, $Hour, $DayofMonth, $Month, $Year, $WeekDay, $WeekofMonth, $DayofYear, $IsDST, $CurrentDateSecs) = &GetTime; 
-		if ($GameValues{'GameType'} == 1 ) { # Daily game    
-			# Determine when the next possible time is that turns are due
-			($DaysToAdd1, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'},$WeekDay);
-			# now advance one interval from that, so you have a full interval
-			($DaysToAdd2, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'},$NextDayOfWeek);
-			# Set the time for the next turn on the right day
-			$NewTurn = $CurrentDateSecs + $DaysToAdd1*86400 + $DaysToAdd2*86400 +($GameValues{'DailyTime'} *60*60); 
-      #if (!$isDST) { $NewTurn = $NewTurn + (60*60); }
-      # 221110 Fixing for DST
-      $NewTurn = &FixNextTurnDST($NewTurn, time(), 0);
-      $GameValues{'GameStatus'} = 2; # So the value is changed if used later before a query.
-			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
-		} elsif ($GameValues{'GameType'} == 2) { # Hourly game
-			# Determine when the next possible time is that turns are due
-      # BUG: This doesn't include the calculation from FixNextTimeDST
-      # Generate the next turn now + number of hours (sliding)
-      $NewTurn = time() + ($GameValues{'HourlyTime'} *60 *60); 
-      #221110 Fixing for DST
-      $NewTurn = &FixNextTurnDST($NewTurn, time(), 0);
-      # Make sure we're generating on a valid day
-      while (&ValidTurnTime($NewTurn,'Day',$GameValues{'DayFreq'}, $GameValues{'HourFreq'}) ne 'True') { $NewTurn = $NewTurn + ($GameValues{'HourlyTime'} *60*60); }
-      # Make sure we're generating on a valid hour
-      while (&ValidTurnTime($NewTurn,'Hour',$GameValues{'DayFreq'}, $GameValues{'HourFreq'}) ne 'True') { $NewTurn = $NewTurn + 3600; } 
-			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
-		} else {
-      # BUG: Is there an issue here for DST?
-      $NewTurn = time()+86400;  # There really is no time the next turn will be due. Add a day so there's a buffer.
-			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
-    }
-    $GameValues{'GameStatus'} = 2; # When used later
-    $state_set = 1;
-    &Make_CHK($GameValues{'GameFile'}); # Rebuild the .CHK file in case there's a problem
-    &updateList($GameValues{'GameFile'}, 1); # Rebuild the List files in case there's a problem
-  } elsif ($state eq 'Locked') {
-   	$sql = qq|UPDATE Games SET GameStatus = 0 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
-    $GameValues{'GameStatus'} = 0; # When used later
-    $state_set = 1;
-  } elsif ($state eq 'Unlocked') {
-    $sql = qq|UPDATE Games SET GameStatus = 7 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
-    $GameValues{'GameStatus'} = 7; # When used later
-    $state_set = 1;
-  } elsif ($state eq 'Launched') {
-    $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
-    $GameValues{'GameStatus'} = 4; # When used later
-    $state_set = 1;
-    &Make_CHK($GameValues{'GameFile'}); # Rebuild the .CHK file in case there's a problem
-  } elsif ($state eq 'Ended') {
-    $sql = qq|UPDATE Games SET GameStatus = 9 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
-    $GameValues{'GameStatus'} = 9; # When used later
-    $state_set = 1;
-    # Back up the last turn. Useful for how movie making works, as it reads the backed up turns
-	  if (my $turn = &Game_Backup($GameValues{'GameFile'})) { &LogOut(200,"Ended: Gamefile $GameValues{'GameFile'} Backed up for Turn: $turn",$LogFile); }
-  } elsif ($state eq 'Restart') {
-    $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\' AND GameStatus = 9;|;
-    $GameValues{'GameStatus'} = 4; # When used later
-    $state_set = 1;
-  } else {
-		&LogOut(100,"process_game_status for $GameFile failed: $state", $ErrorLog);
-  }
-  
-  if ($state_set) {
-  	if (&DB_Call($db,$sql)) { 
-  		&LogOut(100,"$GameFile set to $state for $sql for $userlogin", $LogFile);
-  		$success = 1;
-  	} else { 
-  		print "<P>Game $GameFile failed to $state\n"; 
-  		&LogOut(0, "process_game_status: Game $GameFile failed to $state for $userlogin for $sql", $ErrorLog); 
-  	}
-	  &DB_Close($db);
-  }
-  
-	if ($success) {
-	   # Notify all players
-		$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Status updated to $state|;
-		$GameValues{'Message'} = "Game status for $GameValues{'GameName'} has been updated to $state.\n";
-    # Customize the message depending on the status change.
-    if ($state eq 'Locked') { $GameValues{'Message'} .= "No new players can join the game.\n"; 
-    } elsif ($state eq 'Unlocked') { $GameValues{'Message'} .= "Players can again join the game.\n"; 
-    } elsif ($state eq 'Pause') { $GameValues{'Message'} .= "Automated turn generation is suspended.\n"; 
-    } elsif ($state eq 'UnPause' && ($GameValues{'GameType'} == 1 || $GameValues{'GameType'} == 2) ) { $GameValues{'Message'} .= "Automated turn generation will renew.\n"; 
-    } 
-    if ($state eq 'Launched') { # First turn 
-      $GameValues{'Message'} .= "Games default to Paused on game start, to provide time to check everything before turn generation begins. Time to take your first turn! \n";
-      $GameValues{'HST_Turn'} = '2400'; # Faster than checking the new file for the turn data
-      &Email_Turns($GameFile, \%GameValues, 1); # Attach files to initial turn
-    } else { &Email_Turns($GameFile, \%GameValues, 0); }
-	} else {
-  	&LogOut(0, "Game $GameFile failed success to $state for $userlogin for $sql", $ErrorLog); 
-  }
 }
 
 sub process_join_game {
@@ -3028,7 +2919,7 @@ sub show_player_status {
   print qq|<P>Inactive alters the HST status to "Human (Inactive)" and enables the housekeeping AI.|;
   print qq|<P>Banned prevents the player from downloading turns. |;
   print qq|<P><P>Setting a player to inactive (or active) changes the .HST file. A turn will have to pass before the .M file is updated.|; 
-  print qq|<P>If you want access to the .M file sooner, reset the password.|;
+  print qq| If you want access to the .M file sooner, reset the password on the .M file.|;
 }
 
 sub process_player_status {
@@ -3184,7 +3075,7 @@ sub process_remove_password {
  	copy($Backup_Source_File, $Backup_Destination_File);
  	&LogOut(100,"Copy $Backup_Source_File to $Backup_Destination_File",$LogFile);
   # Remove the password
-  my $File = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.m' . $Player;
+  my $File = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.m' . $PlayerID;
   my $PasswordRemove = &StarsPWD($File);
   if ($PasswordRemove) { 
     print  "Password removed"; 
@@ -3198,7 +3089,7 @@ sub process_remove_password {
     &LogOut(100,"Password reset for $File, $GameFile, $PlayerID", $LogFile);
     print 'Password removed. Remember to Save and Submit with a new password.';
   } else {
-    print "Password failed to remove (or was not set)\n";
+    print "Password failed to remove (or was already blank)\n";
     &LogOut(100,"Password not reset for $File, $GameFile, $PlayerID", $ErrorLog);
   }
 	&DB_Close($db);
@@ -3312,7 +3203,15 @@ sub process_switch_player {
   # Make certain the person is the Game Host
   if ($GameValues{'HostName'} eq $session->param("userlogin")) {
     $sql = qq|UPDATE GameUsers SET User_Login = '$in{'ReplaceName'}' WHERE PlayerID = $PlayerID AND GameFile = '$GameFile';|;
-    if (&DB_Call($db,$sql)) { &LogOut(50, qq|switch_player: Player $PlayerID updated to $ReplaceName by $session->param("userlogin")|, $LogFile); }
-  } else { &LogOut(50, qq|switch_player: $session->param("userlogin") attempted to swap $PlayerID to $ReplaceName|, $ErrorLog);}
+    if (&DB_Call($db,$sql)) { 
+      &LogOut(50, qq|switch_player: Player $PlayerID updated to $ReplaceName by $session->param("userlogin")|, $LogFile); 
+    }
+    # Email all the players of the change
+    $GameValues{'Subject'} = $mail_prefix . "$GameValues{'GameName'} Player Change";
+    $GameValues{'Message'} = "\n\nIn $GameValues{'GameName'} ($GameValues{'GameFile'}), the host has replaced Player $PlayerID with $ReplaceName.\n";
+    &Email_Turns($GameFile, \%GameValues, 0);
+    # Log the events
+   	&LogOut(200,qq|switch_player: $session->param("userlogin") swapped $PlayerID to $ReplaceName|,$LogFile);
+  } else { &LogOut(50, qq|switch_player: $session->param("userlogin") attempted to swap $PlayerID to $ReplaceName|, $ErrorLog);}  
   &DB_Close($db);
 }
