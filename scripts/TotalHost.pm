@@ -565,9 +565,9 @@ print qq|</div>\n|;
 
 print qq|<!--4th drop down menu -->\n|;
 print qq|<div id="dropmenu4" class="dropmenudiv" style="width: 150px;">\n|;
-print qq|<a href="$WWW_Scripts/page.pl?lp=game&cp=show_games&rp=">Games</a>\n|;
-print qq|<a href="$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=show_news">My Games</a>\n|;
-print qq|<a href="$WWW_Scripts/page.pl?lp=game&cp=show_new">New Games</a>\n|;
+print qq|<a href="$WWW_Scripts/page.pl?lp=game&cp=show_games&rp=games">Games</a>\n|;
+print qq|<a href="$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=my_games">My Games</a>\n|;
+print qq|<a href="$WWW_Scripts/page.pl?lp=game&cp=show_new&rp=my_games">New Games</a>\n|;
 print qq|</div>\n|;
 
 print qq|<!--5th drop down menu --> \n|;
@@ -705,23 +705,25 @@ sub list_games {
 	my ($sql, $type) = @_;
 	my $db = &DB_Open($dsn);
 	my $countgames=0;
+  my $rp;
 	print qq|<h2>$type</h2>\n|;
 	print "<table border = 1>\n";
   print "<tr><th></th><th>Name</th><th>Status</th><th>Host</th><th>Description</th></tr>\n";
 	if (&DB_Call($db,$sql)) {
 		while ($db->FetchRow()) {
 			$countgames++;
- 	    ($GameName, $GameFile, $GameStatus, $GameDescrip, $HostName) = $db->Data("GameName", "GameFile", "GameStatus", "GameDescrip", "HostName");
+ 	    ($GameName, $GameFile, $GameStatus, $GameDescrip, $HostName, $NewsPaper) = $db->Data("GameName", "GameFile", "GameStatus", "GameDescrip", "HostName", "NewsPaper");
+      if ($NewsPaper) { $rp = 'show_news'; } else { $rp = 'my_games'; } # The URL should only include news if there's news.
  			print qq|<tr>|;
 			# Display Game Status
 			print qq|<td><img src="$StatusBall{$GameStatus[$GameStatus]}" alt='$GameStatus[$GameStatus]' border="0"></a></td>\n|;
 			# change the links for new games and running games, since their results should be different
 			if ($GameStatus == 6 || $GameStatus == 7) {
 				#Display Game Name
-				print qq|<td>&nbsp&nbsp<a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=show_news&GameFile=$GameFile>$GameName</a></td>|;
+				print qq|<td>&nbsp&nbsp<a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=$rp&GameFile=$GameFile>$GameName</a></td>|;
 			} else {
 				#Display Game Name
-				print qq|<td>&nbsp&nbsp<a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=show_news&GameFile=$GameFile>$GameName</a></td>|;
+				print qq|<td>&nbsp&nbsp<a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=$rp&GameFile=$GameFile>$GameName</a></td>|;
 			}
 			# Display Game Status
 			print qq|<td>$GameStatus[$GameStatus]</td>\n|;
