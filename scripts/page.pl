@@ -88,7 +88,7 @@ if ($in{'lp'} eq 'profile') {
 %menu_left = 	(
  				"4Change Password" 		=> "$WWW_Scripts/page.pl?lp=profile&cp=edit_password",
  				"1My Profile" 			=> "$WWW_Scripts/page.pl?lp=profile&cp=show_profile&rp=my_games",
- 				"2My Games" 			=> "$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=show_news",
+ 				"2My Games" 			=> "$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=my_games",
  				"3My Races" 			=> "$WWW_Scripts/page.pl?lp=profile_race&cp=show_first_race&rp=my_races",
  				);
 } elsif ($in{'lp'} eq 'profile_game') { 
@@ -101,7 +101,7 @@ if ($in{'lp'} eq 'profile') {
  				);
 } elsif ($in{'lp'} eq 'game') { 
 %menu_left = 	(
- 				"0My Games" 	=> "$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=show_news",
+ 				"0My Games" 	=> "$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=my_games",
  				"1Completed Games" 	=> "$WWW_Scripts/page.pl?lp=game&cp=welcome&rp=games_complete",
  				"1Games In Progress" 	=> "$WWW_Scripts/page.pl?lp=game&cp=welcome&rp=games",
  				"1New Games" 	=> "$WWW_Scripts/page.pl?lp=game&cp=show_new&rp=games_new",
@@ -229,10 +229,10 @@ if ($in{'cp'} eq 'edit_profile') {
 # Depending on the browser, it uses the label instead of the value
 # And the CANCEL button uses the value of "show_games"
 } elsif ($in{'cp'} eq 'show_games' || $in{'cp'} eq 'CANCEL') {
-	my $sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip, Games.HostName FROM Games ORDER BY Games.GameStatus, Games.NextTurn DESC;|;
+	my $sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip, Games.HostName, Games.NewsPaper FROM Games ORDER BY Games.GameStatus, Games.NextTurn DESC;|;
 	print "<td>"; &list_games($sql, 'All Games'); print "</td>";
 } elsif ($in{'cp'} eq 'show_games_inprogress') {
-	my $sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip, Games.HostName FROM Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE GameUsers.User_Login='$userlogin' AND Games.GameStatus>1 AND Games.GameStatus<6 ORDER BY Games.GameStatus;|;
+	my $sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip, Games.HostName, Games.NewsPaper FROM Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE GameUsers.User_Login='$userlogin' AND Games.GameStatus>1 AND Games.GameStatus<6 ORDER BY Games.GameStatus;|;
 	print "<td>"; &list_games($sql, 'My Games In Progress'); print "</td>";
 } elsif ($in{'cp'} eq 'show_my_new') { 
 	print "<td>"; &show_my_new(); print "</td>";
@@ -620,17 +620,17 @@ sub show_my_new {
 		$LoopPosition = 1; #Start with the first game in the array.
 		while ($LoopPosition <= ($#GameData)) { # work the way through the array
 			if ($GameData[$LoopPosition]{'GameStatus'} == 6) {
-				$table .= "<tr><td>$GameStatus[$GameData[$LoopPosition]{'GameStatus'}]</td><td>$GameData[$LoopPosition]{'GameName'}</td><td><a href=$WWW_Scripts/page.pl?lp=game&cp=create_game_size&rp=&GameFile=$GameData[$LoopPosition]{'GameFile'}&GameName=$GameData[$LoopPosition]{'GameName'}>$GameData[$LoopPosition]{'GameFile'}</a></td></tr>\n";
+				$table .= "<tr><td>$GameStatus[$GameData[$LoopPosition]{'GameStatus'}]</td><td>$GameData[$LoopPosition]{'GameName'}</td><td><a href=$WWW_Scripts/page.pl?lp=game&cp=create_game_size&rp=new_games&GameFile=$GameData[$LoopPosition]{'GameFile'}&GameName=$GameData[$LoopPosition]{'GameName'}>$GameData[$LoopPosition]{'GameFile'}</a></td></tr>\n";
 			}
 			if ($GameData[$LoopPosition]{'GameStatus'} == 7 ) {
-				$table .= "<tr><td>$GameStatus[$GameData[$LoopPosition]{'GameStatus'}]</td><td>$GameData[$LoopPosition]{'GameName'}</td><td><a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=&GameFile=$GameData[$LoopPosition]{'GameFile'}>$GameData[$LoopPosition]{'GameFile'}</a></td></tr>\n";
+				$table .= "<tr><td>$GameStatus[$GameData[$LoopPosition]{'GameStatus'}]</td><td>$GameData[$LoopPosition]{'GameName'}</td><td><a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=new_games&GameFile=$GameData[$LoopPosition]{'GameFile'}>$GameData[$LoopPosition]{'GameFile'}</a></td></tr>\n";
 			}
 			$LoopPosition++;
 		}
 	}
 	$table .= "</table>\n";
 	if ($create_game || $def_game) { print $table; } 
-	else { print qq|<P>No New Games. <a href="$WWW_Scripts/page.pl?lp=game&cp=create_game&rp=">Create one</a>?\n|; }
+	else { print qq|<P>No New Games. <a href="$WWW_Scripts/page.pl?lp=game&cp=create_game&rp=new_games">Create one</a>?\n|; }
 }
 
 sub show_new_games {	# Display new games
@@ -647,7 +647,7 @@ sub show_new_games {	# Display new games
 	#			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
 			$table .= "<tr>\n"; 
 			$table .= qq|<td><img src="$StatusBall{$GameStatus[$GameValues{'GameStatus'}]}" alt='Status' border="0">$GameStatus[$GameValues{'GameStatus'}]</td>\n|;  
-			$table .= qq|<td><A href="$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=&GameFile=$GameValues{'GameFile'}">$GameValues{'GameName'}</a></td>\n|;
+			$table .= qq|<td><A href="$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=new_games&GameFile=$GameValues{'GameFile'}">$GameValues{'GameName'}</a></td>\n|;
 			$table .= "<td>$GameValues{'HostName'}</td>\n";
 			$table .= "<td>$GameValues{'GameDescrip'}</td>\n";
 			$table .= "</tr>\n"; 
@@ -1553,7 +1553,7 @@ sub lp_list_games {
 	my ($id) = @_;
 	my %menu_left;
 	%menu_left = 	(
- 		"0My Games" 	=> "$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=show_news",
+ 		"0My Games" 	=> "$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=my_games",
 		"5My Completed" 	=> "$WWW_Scripts/page.pl?lp=profile_game&cp=welcome&rp=games_complete",
 		"1My In Progress" 	=> "$WWW_Scripts/page.pl?lp=profile_game&cp=show_games_inprogress&rp=games",
 		"4My New Games" 	=> "$WWW_Scripts/page.pl?lp=profile_game&cp=show_my_new&rp=games_new",
