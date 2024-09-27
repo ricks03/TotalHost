@@ -385,7 +385,7 @@ sub login {
 				if ($User_Password eq $passhash && $submit_user eq $User_Login) {
 					$id = $User_ID;
 					&LogOut(200,"Login user match success on $User_Login",$LogFile);
-				} else { &LogOut(200,"Login user match failed on $User_Login",$LogFile); }
+				} else { &LogOut(400,"Login user match failed on $User_Login",$LogFile); }
 				if ($id) { last; }  # no need to keep going if there's a hit
 			}
 		} else {  &LogOut(100,"Login Database call failed for $submit_user",$LogFile);}
