@@ -252,7 +252,7 @@ sub Load_EmailAddresses {
 			$MailCounter++;
 		}
 	}
-  $sql = qq|SELECT Games.GameName, Games.HostName, User.User_Email, User.EmailTurn FROM [User] INNER JOIN Games ON User.User_Login = Games.HostName;|;
+  $sql = qq|SELECT Games.GameName, Games.HostName, User.User_Email, User.EmailTurn FROM [User] INNER JOIN Games ON User.User_Login = Games.HostName WHERE Games.GameFile = \'$GameFile\';|;
   if (&DB_Call($db,$sql)) { $db->FetchRow(); %Host = $db->DataHash(); }	
   #BUG: A player in the game more than once will be in the list more than once. 
   # Only add the host if they're not in the game
