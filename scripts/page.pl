@@ -56,6 +56,14 @@ print $cgi->header();
 $id = $session->param("userid");
 $userlogin = $session->param("userlogin");
 
+# API output for the Java client
+if ($in{'client'} eq 'java') {
+    print "<html><body>\n";
+    &show_client($in{'GameFile'});
+    print "<body></html>\n";
+    exit;
+}
+
 &html_top($cgi,$session, $note);
 
 print "<P>\n";
@@ -82,6 +90,9 @@ if ($id == 1 && $debug) {
 if ($in{'tp'} eq 'xxx') {
 } else { # do nothing
 }
+
+
+    
 
 #### Left Panel
 if ($in{'lp'} eq 'profile') { 
@@ -704,56 +715,58 @@ sub process_game_remove {
 
 sub show_turngeneration {
 	# Display the turn generation schedule based on gametype
-
 	my ($GameFile, $GameType, $DailyTime, $HourlyTime, $HourFreq, $DayFreq, $AsAvailable) = @_;
+  my $output='';
+# 	# Display the Turn Generation Schedule formatted for GameType
+ 	$output .= "<P><b>Turn Generation Schedule</b>:\n";
 	# Display the Turn Generation Schedule formatted for GameType
-	print "<P><b>Turn Generation Schedule</b>:\n";
-	if ($GameType == 4) { print "Turns generated only when all turns are in.\n"; } 
-	elsif ($GameType == 3) { print " Turns Generated Manually.\n"; }
+	if ($GameType == 4) { $output .= "Turns generated only when all turns are in.\n"; } 
+	elsif ($GameType == 3) { $output .= " Turns Generated Manually.\n"; }
 	elsif ($GameType == 2) { 
     if ($HourlyTime >=1) {
-		  print " Turns generated every $HourlyTime hours"; 
+		  $output .= " Turns generated every $HourlyTime hours"; 
     } elsif ($HourlyTime < 1) {
       my $minutes = int(($HourlyTime * 60) + .5);
-      print " Turns generated every $minutes minutes";
+      $output .=  " Turns generated every $minutes minutes";
     }
-		if ($AsAvailable) { print " or when all turns are in"; }
-		print ".\n";
-		print "<table border=1>\n<tr>\n";
-		for (my $i=0; $i < 7; $i++) { print "<th>$WeekDays[$i]</th>\n"; }
-		print "</tr>\n<tr>\n";
+		if ($AsAvailable) { $output .=  " or when all turns are in"; }
+		$output .=  ".\n";
+		$output .=  "<table border=1>\n<tr>\n";
+		for (my $i=0; $i < 7; $i++) { $output .= "<th>$WeekDays[$i]</th>\n"; }
+		$output .=  "</tr>\n<tr>\n";
 		for (my $i=0; $i < 7; $i++) {
 	 		my $day = substr($DayFreq, $i, 1);
-	 		if ($day) { print "<td align=center>Yes</td>\n"; }
-	 		else { print "<td align=center>No</td>\n"; }
+	 		if ($day) { $output .=  "<td align=center>Yes</td>\n"; }
+	 		else { $output .=  "<td align=center>No</td>\n"; }
 		}
-		print "</tr>\n</table>\n";
+		$output .=  "</tr>\n</table>\n";
 		# Print the hours turns will generate
-		print "\n";
-		print "<table border=1><tr>\n";
+		$output .=  "\n";
+		$output .=  "<table border=1><tr>\n";
 		for (my $i=0; $i <=23; $i++) { 
-			if ($i/12 == int($i/12)) { print "</tr><tr>\n"; }
+			if ($i/12 == int($i/12)) { $output .= "</tr><tr>\n"; }
 		 		my $hour = substr($HourFreq, $i, 1);
-		 		if ($hour) { print "<td align=center>$i:00</td>\n"; }
-		 		else { print "<td align=center><strike>$i:00<strike></td>\n"; }
+		 		if ($hour) { $output .=  "<td align=center>$i:00</td>\n"; }
+		 		else { $output .=  "<td align=center><strike>$i:00<strike></td>\n"; }
 			}
-			print "</tr>\n</table>\n";
+			$output .=  "</tr>\n</table>\n";
 	}
 	elsif ($GameType == 1) {
-		print " Turns generated daily"; 
-		if ($AsAvailable) { print " or when all turns are in"; }
-		print ".";
-		print "<table border=1><tr>\n";
-		for (my $i=0; $i < 7; $i++) { print "<th>$WeekDays[$i]</th>\n"; }
-		print "</tr>\n<tr>\n";
+		$output .=  " Turns generated daily"; 
+		if ($AsAvailable) { $output .=  " or when all turns are in"; }
+		$output .=  ".";
+		$output .=  "<table border=1><tr>\n";
+		for (my $i=0; $i < 7; $i++) { $output .=  "<th>$WeekDays[$i]</th>\n"; }
+		$output .=  "</tr>\n<tr>\n";
 		for (my $i=0; $i < 7; $i++) {
 	 		my $day = substr($DayFreq, $i, 1);
 	 		my $gen_time = &fixdate($DailyTime) . ':00'; 
-	 		if ($day) { print "<td align=center>$gen_time</td>\n"; }
-	 		else { print "<td align=center>-</td>\n"; }
+	 		if ($day) { $output .=  "<td align=center>$gen_time</td>\n"; }
+	 		else { $output .=  "<td align=center>-</td>\n"; }
 		} 
-		print "</tr></table>\n";
-	} else { print "What kind of game IS this? \n"; &LogOut(0,"GameType Fail for $GameFile, $GameType", $ErrorLog);}
+		$output .=  "</tr></table>\n";
+	} else { $output .=  "What kind of game IS this? \n"; &LogOut(0,"GameType Fail for $GameFile, $GameType", $ErrorLog);}
+  return $output;
 }
 
 sub show_game {  
@@ -851,7 +864,10 @@ sub show_game {
 				print "<br><font color=red>[PAUSED]</font>\n";
 			} else {
 				if ($GameValues{'GameStatus'} != 9) {
-					print "<br><b>Next turn due on or before: " . localtime($NextTurnDST) . " EST</b>\n";  #BUG Need to be using DailyTime from database
+          my $time_difference =  $NextTurnDST - time();
+          my $hours = int($time_difference / 3600);                # Total hours
+          my $minutes = int(($time_difference % 3600) / 60);       # Remaining minutes
+					print "<br><b>Next turn due on or before: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($NextTurnDST)) . " ($hours hours, $minutes minutes)</b>\n";  #BUG Need to be using DailyTime from database
           print "<br>\n";
 				}
 			}
@@ -859,11 +875,11 @@ sub show_game {
 
     #Display when the last turn was generated if it was.
     unless ($GameValues{'GameStatus'} == 7 || $GameValues{'GameStatus'} == 0 )  {
-  		if ($GameValues{'LastTurn'}) { print "<br>Last turn generation: " . localtime($GameValues{'LastTurn'}) ." EST\n";}
+  		if ($GameValues{'LastTurn'}) { print "<br>Last turn generation: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($GameValues{'LastTurn'})) . "\n";}
   		else { print "<br>No turns have been generated yet.\n"; }
     } 
     
-    print "<br>Now: ". localtime(time()); 
+    print "<br>Now: ". strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time())); 
     
 		# If next turn is undefined(0) AND it's a game in progress somehow, display that the 
 		# next generation will be immediate
@@ -876,7 +892,8 @@ sub show_game {
     # Active Game
     if ($GameValues{'GameStatus'} != 7 && $GameValues{'GameStatus'} != 6 && $GameValues{'GameStatus'} != 0) {  
       # Display turn generation schedule
-  		&show_turngeneration($GameValues{'GameFile'}, $GameValues{'GameType'}, $GameValues{'DailyTime'}, $GameValues{'HourlyTime'}, $GameValues{'HourFreq'}, $GameValues{'DayFreq'}, $GameValues{'AsAvailable'});
+  		my $turngen = &show_turngeneration($GameValues{'GameFile'}, $GameValues{'GameType'}, $GameValues{'DailyTime'}, $GameValues{'HourlyTime'}, $GameValues{'HourFreq'}, $GameValues{'DayFreq'}, $GameValues{'AsAvailable'});
+      print $turngen;
       print "<P>\n";
       # Display Active Game data if an active game and this data exists
 		  # display the game and player information from the CHK File
@@ -1120,7 +1137,9 @@ sub show_game {
     		} else { print "<P>You can sign up only once. Host did not permit duplicate players.\n"; }
         } else { print "<P>No additional signups available. Game has reached the maximum player limit."; }
       # Display turn generation schedule
-		  &show_turngeneration($GameValues{'GameFile'}, $GameValues{'GameType'}, $GameValues{'DailyTime'}, $GameValues{'HourlyTime'}, $GameValues{'HourFreq'}, $GameValues{'DayFreq'}, $GameValues{'AsAvailable'});
+		  my $turngen = &show_turngeneration($GameValues{'GameFile'}, $GameValues{'GameType'}, $GameValues{'DailyTime'}, $GameValues{'HourlyTime'}, $GameValues{'HourFreq'}, $GameValues{'DayFreq'}, $GameValues{'AsAvailable'});
+      print $turngen; 
+      
     }
    
     print "<P>\n";
@@ -1223,6 +1242,171 @@ sub show_game {
   } else {
 		print "<P>No Games found\n";
 	}
+}
+
+sub show_client {  
+ 	my ($GameFile) = @_;
+  use POSIX qw(strftime);
+	my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware);
+	my $HSTFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.hst';
+	my $XYFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.xy';
+  my ($db, $sql);
+  my $players = 1; # Are there players in the game
+  my @CHK;
+  my $schedule;
+  my $status;
+  
+  &LogOut(100,"Processing show_client for $GameFile",$LogFile);
+  
+	if ($GameFile) {
+		$db = &DB_Open($dsn);
+		# Get the values for the current game
+		$sql = qq|SELECT Games.*, User.User_Email FROM [User] INNER JOIN Games ON User.User_Login = Games.HostName WHERE Games.GameFile=\'$GameFile\';|;
+		if (&DB_Call($db,$sql)) {
+				$db->FetchRow();
+				%GameValues = $db->DataHash();
+        #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
+		}
+
+    # Display the Game Status Data
+    if ($in{'status'}) { 
+      &display_warning($in{'status'}); 
+      # Display the warning if the error still exists
+      if ($in{'status'} =~ /bug/ && $in{'status'} !~ /Fixed/) { $status .= qq|You can resubmit a corrected .x file to remove alert.|; }
+    }
+    $status .= $in{'status'};
+    
+    # Print Game Name (and Year if applicable)
+		print "<br>game-name=$GameValues{'GameName'}\n";
+		print "<br>short-game-name=$GameValues{'GameFile'}\n";
+    # We need this early to display the year
+    if ($GameValues{'GameStatus'} != 7 && $GameValues{'GameStatus'} != 6  && $GameValues{'GameStatus'} != 0) { 
+  		($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
+      @CHK = &Read_CHK($GameFile); 
+      print qq|<br>game-year=$HST_Turn\n|; 
+    } else { print qq|game-year=2399 \n|; }
+
+    # Display the Game Status
+    if ($GameValues{'GameStatus'} eq 7) { $status .= "New Game - Pending new players\n";
+		} elsif ($GameValues{'GameStatus'} eq 0) { $status.="New Game - Locked, Waiting for Host to Start\n";
+    } else { 
+      $status.= "@GameStatus[$GameValues{'GameStatus'}]";
+      if  ($GameValues{'GameStatus'} == 3) { $status .= " $GameValues{'DelayCount'} times."; }
+    }
+    print "<br>status=$status\n";
+    
+    # Display the Host ID and email
+    print qq|<br>hosted-by=$GameValues{'HostName'}\n|;
+        
+    #Display Next Turn time
+    if (($GameValues{'NextTurn'} > 0) && ($GameValues{'GameType'} == 1 || $GameValues{'GameType'} == 2) ) { 
+			# Fix the display time for DST
+			my $NextTurnDST = &FixNextTurnDST($GameValues{'NextTurn'},$GameValues{'LastTurn'},1);
+			if ($GameValues{'GameStatus'} == 4) {
+				print "<br>next-gen=[PAUSED]\n";
+			} else {
+				if ($GameValues{'GameStatus'} != 9) {
+          my $time_difference =  $NextTurnDST - time();
+          my $hours = int($time_difference / 3600);                # Total hours
+          my $minutes = int(($time_difference % 3600) / 60);       # Remaining minutes
+					print "<br>next-gen-time=Next turn due on or before: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($NextTurnDST)) . "($hours hours, $minutes minutes)\n";  #BUG Need to be using DailyTime from database
+				}
+			}
+		} elsif ( $GameValues{'GameType'} == 3 ) {
+    	print "<br>next-gen-time=Turns generated as Required. \n";
+    } elsif ( $GameValues{'GameType'} == 4) {
+    	print "<br>next-gen-time=Turns generated when all turns are in.\n";
+    }
+
+    #Display when the last turn was generated if it was.
+    unless ($GameValues{'GameStatus'} == 7 || $GameValues{'GameStatus'} == 0 )  {
+  		if ($GameValues{'LastTurn'}) { print "<br>last-gen=" . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($GameValues{'LastTurn'})) . "\n";}
+  		else { print "<br>last-gen=No turns have been generated yet.\n"; }
+    } 
+    
+    # Get the time the game started by using the .xy file time stamp
+    my @stats = stat($XYFile);
+    my $mtime = $stats[9];
+    print "<br>game-created=" . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($mtime)) . "\n"; 
+    
+    # Get the time for "now"
+    print "<br>current-time=" . strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time())); 
+    
+    #Display ForceGen Parameters   
+    if ($GameValues{'ForceGen'} && $GameValues{'ForceGenTurns'} && $GameValues{'ForceGenTimes'} && $GameValues{'GameStatus'} != 9) { 
+			$schedule="Turns generate $GameValues{'ForceGenTurns'} years at a time for the next $GameValues{'ForceGenTimes'} turn generation(s)"; 
+			if ($HST_Turn eq '2400' || $HST_Turn eq '2401' || $HST_Turn eq '') { $schedule .= " not to include years 2400 and 2401, which will generate only one year"; }
+			$schedule .= ".\n";
+		}
+    
+		# If next turn is undefined(0) AND it's a game in progress somehow, display that the 
+		# next generation will be immediate
+    if ($GameValues{'NextTurn'} ne 0 && $GameValues{'GameStatus'} ne 7 && $GameValues{'GameStatus'} ne 9 && $GameValues{'GameStatus'} ne 4 && $GameValues{'GameType'} ne 4) { 
+      # print "<br>next-gen-time=" . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($GameValues{'NextTurn'})) . "\n";
+      print "<br>next-gen-time=Will gen with/on the next automated generation.\n";
+    }
+   
+    $schedule .= &show_turngeneration($GameValues{'GameFile'}, $GameValues{'GameType'}, $GameValues{'DailyTime'}, $GameValues{'HourlyTime'}, $GameValues{'HourFreq'}, $GameValues{'DayFreq'}, $GameValues{'AsAvailable'}); 
+    print "<br>schedule=$schedule\n";
+    
+    # Display the player information
+    # Active Game
+    if ($GameValues{'GameStatus'} != 7 && $GameValues{'GameStatus'} != 6 && $GameValues{'GameStatus'} != 0) { 
+      # Display Active Game data if an active game and this data exists
+		  # display the game and player information from the CHK File
+      
+      # This won't execute without a CHK file (not available if the game isn't started)
+  		my($Position) = '3';
+      my $Player = 0;
+      # Display player status, one line for each player in the CHK file
+  		while (@CHK[$Position]) {  #Write .m file lines
+  			my ($CHK_Status, $CHK_Name) = &Eval_CHKLine(@CHK[$Position]);    
+        # If an error is reported in the CHK file (like Host File Locked) report it and then move on.
+        if ($CHK_Status =~ /Error/) { print qq|$CHK_Status|; $Position++; next; }
+        $Player++;
+  			my $XFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.x' . $Player;
+  			my $MFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.m' . $Player;
+  			($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($MFile);
+  			$TurnYears = $HST_Turn - $turn +1; 
+  			# Get the values for the current player
+  			$sql = qq|SELECT Games.GameFile, User.User_File, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, [_PlayerStatus].PlayerStatus_txt FROM _PlayerStatus INNER JOIN ([User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerID)=$Player));|;
+  			if (&DB_Call($db,$sql)) { while ($db->FetchRow()) { %PlayerValues = $db->DataHash(); } }
+  			# Modify display based on player status. If the player isn't active indicate such
+
+        print "<br>player" . $Player . "-race=$CHK_Name";
+                
+  			if ($CHK_Status eq 'Wrong Year') { 	print "<br><font color=red>$CHK_Status</font>\n"; 
+  			} else { print "<br>player" . $Player . "-turn=$CHK_Status"; }
+
+        # Display the number of years included in the .m file
+  			if ($TurnYears > 1) { print " ($TurnYears years)"; }
+                 
+        if (-e $XFile) {  
+  				my $file_date = -M $XFile;
+  				$file_date = &SubmitTime($file_date);
+  				print " $file_date";
+  			} else { print " Not Submitted"; }         
+        
+        if ($PlayerValues{'PlayerStatus'} == 4) { print ' (Idle)'; }
+        elsif ($PlayerValues{'PlayerStatus'} == 3) { print ' (Banned)'; }
+        elsif ($PlayerValues{'PlayerStatus'} == 2) { print ' (Inactive-Housekeeping AI)'; }
+        if ($CHK_Status eq 'Deceased') { print " -Deceased"; }
+        print "\n";
+        
+        # Store the current player ID for future reference
+  			if ($PlayerValues{'User_Login'} eq $userlogin) { 
+  				$current_player = $PlayerValues{'User_Login'}; 
+  				$player_status = $PlayerValues{'PlayerStatus'}; 
+  			}
+  			undef %PlayerValues;
+  			$Position++;
+  		}
+  	# If there was no game returned from the original query, display that.
+    } else {
+  		print "<br>No Games found\n";
+  	}
+		&DB_Close($db);   
+  }
 }
 
 sub button_form {
@@ -1421,7 +1605,7 @@ sub show_fix {
 	my @fixes;
 	my $warningfile = "$DirGames\\$GameFile\\$GameFile.warnings";
 	# Check to see if there is a warnings file
-	if (!(-e $warningfile)) { # Create the new file if it doesn't exist
+	if (!(-e $warningfile)) { # Create the new warning file if it doesn't exist
   	open (OUT_FILE, ">$warningfile") || &LogOut(100, "show_fix: could not create $warningfile", $ErrorLog); 
   	close(OUT_FILE);
 	} 
@@ -1431,7 +1615,7 @@ sub show_fix {
   # Only print fixes if there are fixes
   if (@fixes) {  
     print qq|<hr>|; 
-    print "<b>Results of the Bug/Exploit Detection</b><P>";
+    print "<b>Results of the Bug/Exploit Detection:</b><P>";
 		foreach my $key (@fixes) {
       print "$key<br>\n";
 		}
@@ -1812,10 +1996,10 @@ sub edit_game {
 	print qq|<table><tr><td align=left><INPUT name="GameType" type="radio" value=1 onFocus="Help( 'Daily' )" onMouseOver="Help( \'Daily\' )" onMouseOut="Help( \'blank\' )" $Checked[$daily]>Daily</td>\n|;
 	print qq|<td><SELECT name=\"DailyTime\">\n|;
 	for (my $i=0; $i < 24; $i++) {
-		if ($i == $GameValues{'DailyTime'}) { 	print qq|<OPTION value=\"| . $i . qq|\" SELECTED>| . &fixdate($i) .  qq|:00 EST</OPTION>\n|; }
+		if ($i == $GameValues{'DailyTime'}) { 	print qq|<OPTION value=\"| . $i . qq|\" SELECTED>| . &fixdate($i) .  qq|:00</OPTION>\n|; }
 		# default select 9 pm.
-		elsif ($type eq 'create' && $i == 21) { print qq|<OPTION value=\"| . $i . qq|\" SELECTED>| . &fixdate($i) .  qq|:00 EST</OPTION>\n|; }
-		else { print qq|<OPTION value=\"| . $i . qq|\">| . &fixdate($i) .  qq|:00 EST</OPTION>\n|; }
+		elsif ($type eq 'create' && $i == 21) { print qq|<OPTION value=\"| . $i . qq|\" SELECTED>| . &fixdate($i) .  qq|:00</OPTION>\n|; }
+		else { print qq|<OPTION value=\"| . $i . qq|\">| . &fixdate($i) .  qq|:00</OPTION>\n|; }
 	}
 	print qq|</SELECT></td></tr>|;
 
@@ -2045,11 +2229,10 @@ sub update_game {
 	my $SharedM = &checkboxnull($in{'SharedM'});
 	my $HostAccess = &checkboxnull($in{'HostAccess'});
 	$in{'Notes'} = &clean($in{'Notes'});
-	my $Exploit = &checkboxnull($in{'Exploit'}); # Not a DB entry
-	my $Sanitize = &checkboxnull($in{'Sanitize'}); # Not a DB entry
-	my $PublicMessages = &checkboxnull($in{'PublicMessages'}); 
   # Enable/disable List functionality for Fix
-  if (!($Exploit)) { &updateList($in{'GameFile'}, 0); 
+ 	my $Exploit = &checkboxnull($in{'Exploit'}); # Not a DB entry
+  if (!($Exploit)) { 
+    &updateList($in{'GameFile'}, 0); 
   } else {
     open (EXPLOIT, ">$DirGames\\$in{'GameFile'}\\fix"); 
     print EXPLOIT time() . ": $in{'GameFile'}"; 
@@ -2057,9 +2240,16 @@ sub update_game {
     &updateList($in{'GameFile'}, 1);
   } 
   # Update the clean file for whether enabled or disabled
-  if (!($Sanitize)) { unlink "$DirGames\\$in{'GameFile'}\\clean"; 
-  } else {open (SANITIZE, ">$DirGames\\$in{'GameFile'}\\clean"); print SANITIZE time(). ": $in{'GameFile'}"; close SANITIZE; }
+	my $Sanitize = &checkboxnull($in{'Sanitize'}); # Not a DB entry
+  if (!($Sanitize)) { 
+    unlink "$DirGames\\$in{'GameFile'}\\clean"; 
+  } else {
+    open (SANITIZE, ">$DirGames\\$in{'GameFile'}\\clean"); 
+    print SANITIZE time(). ": $in{'GameFile'}"; 
+    close SANITIZE; 
+  }
   # If messages have been disabled, delete the messages file
+	my $PublicMessages = &checkboxnull($in{'PublicMessages'}); 
   if (!($PublicMessages)) { unlink "$DirGames\\$in{'GameFile'}\\$in{'GameFile'}" . "\.messages"; }
 
  	my $db = &DB_Open($dsn);
@@ -2471,11 +2661,11 @@ sub read_game {
 	if ($GameValues{'MaxPlayers'}) { push (@Values, "Max $GameValues{'MaxPlayers'} players allowed to join"); }
   if (-e "$DirGames\\$GameValues{'GameFile'}\\fix" ) {
     if ($fixFiles < 2) { push (@Values, "Exploit Detection configured"); }
-    if ($fixFiles == 2) { push (@Values, "Exploit Detection enabled"); }
+    elsif ($fixFiles == 2) { push (@Values, "Exploit Detection enabled"); }
   }
   if (-e "$DirGames\\$GameValues{'GameFile'}\\clean") {
     if ($cleanFiles < 2) { push (@Values, "File Sanitization configured"); }
-    if ($cleanFiles == 2) { push (@Values, "File Sanitization enabled"); }
+    elsif ($cleanFiles == 2) { push (@Values, "File Sanitization enabled"); }
   }  
 	my $c = 0;
 	my $col=4;

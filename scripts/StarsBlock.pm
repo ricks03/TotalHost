@@ -107,7 +107,7 @@ our @EXPORT = qw(
   displayBlockRace
   parseInt bitTest
   nibbleToChar charToNibble
-  showHab showLeftoverPoints
+  showHabRange showHab showLeftoverPoints
   showResearchCost showExpensiveTechStartsAt3
   showPlayerRelations
   showResearchPriority
@@ -910,7 +910,7 @@ sub displayBlockRace { # mostly a duplicate of decryptBlockRace
           print '<P><u>Spend Leftover Points</u>: ' . &showLeftoverPoints($spendLeftoverPoints) . "\n";
           print '<P><u>PRT</u>: ' . &PRT($PRT,1) . "\n";
           print '<P><u>LRTs</u>: ' . join(', ',&LRT($LRT,1)) . "\n";
-          print '<P><u>Hab</u>: Grav: ' . &showHab($lowGravity,$centreGravity,$highGravity, 0) . ", Temp: " . &showHab($lowTemperature,$centreTemperature,$highTemperature,1) . ", Rad: " . &showHab($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
+          print '<P><u>Hab</u>: Grav: ' . &showHabRange($lowGravity,$centreGravity,$highGravity, 0) . ", Temp: " . &showHabRange($lowTemperature,$centreTemperature,$highTemperature,1) . ", Rad: " . &showHabRange($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
           print '<P><u>Productivity</u>: Colonist ' . ($resourcePerColonist*100) . ", Factory: Produce $producePerFactory, Cost To Build $toBuildFactory, May Operate $operateFactory, Mine: Produce $producePerMine, Resources to Build $toBuildMine, May Operate $operateMine\n";
           print '<P><u>FactoriesCost1LessGerm</u>: ' . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
           print '<P><u>Research Cost</u>:  Energy ' . &showResearchCost($researchEnergy) . ", Weapons " . &showResearchCost($researchWeapons) . ", Propulsion " . &showResearchCost($researchProp). ", Construction " . &showResearchCost($researchConstruction) . ", Electronics " . &showResearchCost($researchElectronics) . ", Biotech " . &showResearchCost($researchBiotech) . "\n";
@@ -960,7 +960,7 @@ sub charToNibble {
   if (ord($ch) >= ord('a') && ord($ch) <= ord('f'))  { return (ord($ch) - ord('a') + 10); }
 }
 
-sub showHab {
+sub showHabRange {
   my ($low,$center,$high,$type) = @_; # Type is 0,1,2 for grav, temp, rad
   my ($lowFixed, $centerFixed, $highFixed); 
   my @habBase = qw ( .12 -200 0) ; #The starting value for each hab range, max 8.0, 200, 100
@@ -974,6 +974,20 @@ sub showHab {
     $highFixed = ($high * $habIncrement[$type]) + $habBase[$type]; # Radiation is simple
     return "$lowFixed/$centerFixed/$highFixed"; 
   } else {return "$gravity_table[$low]/$gravity_table[$center]/$gravity_table[$high]"; }  # Because gravity is weird. 
+}
+
+sub showHab {
+  # Display a planet's actual hab range
+  my ($value,$type) = @_; # Type is 0,1,2 for grav, temp, rad
+  my @habBase = qw ( .12 -200 0) ; #The starting value for each hab range, max 8.0, 200, 100
+  my @habIncrement = qw (.24 4 1 ) ; # The size of the hab increment
+  # I don't know the GRAV formula, but I can brute force it: https://wiki.starsautohost.org/wikinew/craebild/habcalc.htm
+  my @gravity_table = ( 0.12, 0.12, 0.13, 0.13, 0.14, 0.14, 0.15, 0.15, 0.16, 0.17, 0.17, 0.18, 0.19, 0.20, 0.21, 0.22, 0.24, 0.25, 0.27, 0.29, 0.31, 0.33, 0.36, 0.40, 0.44, 0.50, 0.51, 0.52, 0.53, 0.54, 0.55, 0.56, 0.58, 0.59, 0.60, 0.62, 0.64, 0.65, 0.67, 0.69, 0.71, 0.73, 0.75, 0.78, 0.80, 0.83, 0.86, 0.89, 0.92, 0.96, 1.00, 1.04, 1.08, 1.12, 1.16, 1.20, 1.24, 1.28, 1.32, 1.36, 1.40, 1.44, 1.48, 1.52, 1.56, 1.60, 1.64, 1.68, 1.72, 1.76, 1.80, 1.84, 1.88, 1.92, 1.96, 2.00, 2.24, 2.48, 2.72, 2.96, 3.20, 3.44, 3.68, 3.92, 4.16, 4.40, 4.64, 4.88, 5.12, 5.36, 5.60, 5.84, 6.08, 6.32, 6.56, 6.80, 7.04, 7.28, 7.52, 7.76, 8.00 );
+  if ($value == 255) {return 'Immune'; } 
+  elsif ($type != 0 ) { # Grav is different
+    $centerFixed = ($value * $habIncrement[$type]) + $habBase[$type];
+    return "$centerFixed"; 
+  } else {return "$gravity_table[$value]"; }  # Because gravity is weird. 
 }
 
 sub showLeftoverPoints {
@@ -1335,7 +1349,7 @@ sub StarsClean {
     
     # Output the Stars! file with modified data
     # Since we don't need to rewrite the file if nothing needs cleaning, let's not (safer)
-    if ($cleanFiles > 1 && $needsCleaning) {
+    if ($cleanFiles == 2 && $needsCleaning) {
       # Backup the file before we clean it
       # Because otherwise we can't get back to where we were, as the actual
       # backup is pre-turn generation, so random event will change.
@@ -1446,7 +1460,7 @@ sub decryptClean {
             $turnNoDisplay =  $turnNo + 2401;
             my $MTPart = &getMTPartName($itemBits);
             if ($cleanFiles) { 
-              # Reset players who has traded with MT
+              # Reset players who have traded with MT
               ($decryptedData[12], $decryptedData[13]) = &resetPlayers($Player, &read16(\@decryptedData, 12));
               # reset values for display
               $metBits = &read16(\@decryptedData, 12);
@@ -1682,6 +1696,7 @@ sub StarsFix {
   %waypointList = %$waypointList;  
   
   # Need to return a string since passing an array through a URL is unlikely to work
+  $warning='';
   foreach my $key (keys %warning) {
     $warning .= $warning{$key} . ',';
   }
@@ -1689,7 +1704,7 @@ sub StarsFix {
   # Output the Stars! file with modified data
   # Since we don't need to rewrite the file if nothing needs fixing, let's not (safer)
   if ($needsFixing) {
-    if ($fixFiles > 1) {  # Don't do unless in write mode
+    if ($fixFiles == 2) {  # Don't do unless in write mode
   	  &BlockLogOut(300,"StarsFix Backup: $filename > $filename.preFix", $LogFile);
    	  copy($filename, "$filename.preFix");
       &BlockLogOut(200," StarsFix: Pushing out $filename post-fixing", $LogFile);
@@ -2721,7 +2736,7 @@ sub decryptFix {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
 #       # WHERE THE MAGIC HAPPENS
-      if ($typeId == 6) { # Player Block. .m files can contain multiple pleyers. Only enough info for Fix. More elsewhere.
+      if ($typeId == 6) { # Player Block. .m files can contain multiple players. Only enough info for Fix. More elsewhere.
         my $playerId = $decryptedData[0] & 0xFF; # typically >> 1
         my $shipDesigns = $decryptedData[1] & 0xFF;  
         my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); 
@@ -2927,7 +2942,7 @@ sub decryptFix {
               if ( ( $playerShipCount[$i] + $targetShipCount[$i] ) > 32767) {
                 $err = '32k Merge: Player ' . ($playerId+1) . ' Fleet ' . ($fleetId+1) . ' to ' . ($targetId+1) . ' Merge order triggers 32k Fleet bug.';
                 $needsFixing++; 
-                if ($fixFiles > 1) {
+                if ($fixFiles == 2 ) {
                   $decryptedData[11] = $decryptedData[11] & 0xF0 ; # Set the right 4 bits to 0 (no action)
                   $err .= ' Fixed!! Reset to No Task.';
                 }
@@ -2947,7 +2962,7 @@ sub decryptFix {
           if ($typeId == 5 && $taskId == 1 && $targetType == 1 && $taskPopulation =~ /[135679]/ && $fleetList{$playerId}{$fleetId}{robberBaron} == 1 ) { # @showTransportTask
             $err = 'SS Pop Steal: Player ' . ($playerId+1) . ' fleet ' . ($fleetId+1) . " asssigned Transport> Population> $showTransportTask[$taskPopulation] orders at $xDest" . 'x' . "$yDest.";          
             $needsFixing++;
-            if ($fixFiles > 1) { # Only fix if fixFiles is set
+            if ($fixFiles == 2 ) { # Only fix if fixFiles is set
               $decryptedData[18] = 0; # Set the fleet task and cargo value for population to do nothing
               $decryptedData[19] = 0; 
               $err .= ' Fixed!! Reset to Do Nothing.';
@@ -2974,7 +2989,7 @@ sub decryptFix {
   #             $err = "Freepop Exploit: Player " . ($playerId+1) . " moved excess cargo over fleet " . ($fleetId+1) . " capacity: $errI, $errB, $errG, $errP, $errF,";
   #             #BUG: How to fix for this. 
   #             # needsFixing++;
-  # #           if ($fixFiles > 1) {
+  # #           if ($fixFiles == 2) {
   # #             $decryptedData[18] = 0; # Set the fleet task and cargo value for population to do nothing
   # #             $decryptedData[19] = 0; 
   # #             $err .= ' Fixed!! Reset to do nothing.';
@@ -3382,7 +3397,7 @@ sub decryptFix {
                 $warnId = &zerofy($ownerId) . '-colonizer-' . &zerofy($designId);
                 $itemCategory = &read16(\@decryptedData, $index-3);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
                 $needsFixing++;
-                if ($fixFiles > 1) {
+                if ($fixFiles == 2) {
                   ($decryptedData[$index-3], $decryptedData[$index-2]) = &write16(0); # Category
                   $err .= ' Fixed!! Slot now truly empty.';
                 } 
@@ -3407,7 +3422,7 @@ sub decryptFix {
               $err = 'Spacedock Overflow: Player ' . ($ownerId+1) . ': > 21 SuperLatanium detected in starbase design slot ' . ($designNumber+1) . ": $shipName.";
               $warnId = &zerofy($ownerId) . '-dock-' . &zerofy($designId);
               $needsFixing++;
-              if ($fixFiles > 1) {
+              if ($fixFiles == 2) {
                 $decryptedData[$spaceDockIndex+11] = 21; # Armor slot on spacedock
                 # Armor value should be 250 + (1500 * $itemCount) / 2
                 $armor = 250 + (1500 * 21) / 2; # adjust for 21 Super Latanium
@@ -3462,7 +3477,7 @@ sub decryptFix {
                     }
                     $needsFixing++;
                     $warnId = &zerofy($ownerId) . '-starbase-' . &zerofy($planetId); # warn on player and planet
-                    if ($fixFiles > 1) {
+                    if ($fixFiles == 2) {
                       $err .= " Fixed!! Starbase design for $shipName reset to blank.";
                     } 
                     $warning{$warnId} = $err;
@@ -3573,7 +3588,7 @@ sub decryptFix {
               $err = 'Mineral Upload: Overage of '. ( $totalUpload{$toId}-$fleetList{$toOwnerId}{$toId}{cargoCapacity}) . ' from player ' . ($Player+1) . ' to player ' . ($toOwnerId+1). ', fleet ' . ($toId+1) . '.';
               $needsFixing++; 
               $warning{$warnId} = $err;
-              if ($fixFiles > 1) {
+              if ($fixFiles == 2) {
                 # BUG: If we make an adjustment here remember to update fleetList data
                 # Setting the contents to 0 seems to prevent the order from happening.
                 $decryptedData[5] = 0;
@@ -3749,7 +3764,7 @@ sub decryptFix {
         if (($attackWho) > 3 && $planNumber == 0) { 
            $err = 'Friendly Fire: Player ' . ($planPlayerId+1) . ': detected in Default battle plan against ' . &attackWho($attackWho) . '.';
            $needsFixing++;
-           if ($fixFiles > 1) {
+           if ($fixFiles == 2) {
              $decryptedData[3] = 2;
              $err .= ' Fixed!! Attack Who reset to Neutral/Enemy.';
            }
@@ -3770,22 +3785,18 @@ sub decryptFix {
       	$researchNext = $decryptedData[1] >> 4;	   # left 4 bits
       }
       elsif ( $typeId == 35) { # Planet Change block
-        # Planet Route orders
+        # Planet Route orders, either NoResearch, iWarpfling, OR idRoute
         # Max planets = 945
-        # BUG: Not fully decrypted
-        #my ($planetId, $targetId, $yDest, $warp, $isKnown) = (0) x 4;
-        #my $order; # 0 = mass driver, 1 = route
-        #$planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
-        #$toIdType = $decryptedData[4] >> 4;  # left 4 bits    #unknown(0), planet(1), fleet(2), space(4), salvage/packet/MT(8)  
-        #$fromIdType =  ($decryptedData[4] >> 0) & 0xF;  # right 4 bits 
-        # @decryptedData[2] # Always is 0 or 1? 
-        
-        # BUG: I really want this bit to be the order, but it's not
-        #$order = ($decryptedData[3] & 0x80); # leftmost bit
-        #if ($order) { $order = 'Route' } else { $order = 'Mass'; }
-        #$warp = (($decryptedData[3] & 0x7f ) >> 3) ; # mass driver warp range: 5-16. abcdefgh > 000bcdef
-        #print "@decryptedData\n";
-        #print "Source Planet: $planetId, Order: $order, Warp: " . ($warp+4) . " \n"; #1 = Warp 5
+        $planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
+        $ownerId = ($decryptedData[1] & 0xF8) >> 3;
+        my $fNoResearch =   $decryptedData[2] & 0x01;  # 0000000x
+        my $iWarpFling =   (($decryptedData[3] & 0x7f ) >> 3);  # 0xxxx000
+        my $warpSpeed = $iWarpFling + 4;
+        my $idFling =  (&read16(\@decryptedData, 2) >> 1) & 0b1111111111; # bytes 2 & 3, 10 bits shifted 1 to the right.
+        # I need one bit from byte 3, all of byte 4, and 1 bit from byte 5  (10 bits)              
+        my $byte1 = $decryptedData[3] >> 7; # Extracting the first bit of $byte1      
+        my $idRoute = ($decryptedData[5] & 0x01) << 9 | ($decryptedData[4] << 1) | $byte1 & 0x01; #move 4 one to the left, and then get the first bit of byte 5
+
       }
       elsif ($typeId == 37) {  # Fleet Merge block
         # Manual merge. Waypoint merges are handled under waypoints. 

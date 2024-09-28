@@ -109,7 +109,7 @@ sub ValidateFileUpload {
       
       # Check to see if the race file is corrupt
       if (&checkRaceCorrupt($File_Loc)) {
-        $err .= 'This race file is corrupt! Caused by making the plural name too short. Rereate the race or fix it with StarsRace.exe !!';
+        $err .= 'This race file is corrupt! Caused by making the plural name too short. Recreate the race or fix it with StarsRace.exe !!';
         &LogOut (0, "ValidateFileUpload: Race file $File_Loc corrupt for $userlogin",$ErrorLog);
         unlink $File_Loc; #user-input cleaned as much as I can. 
         return 0;

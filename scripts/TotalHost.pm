@@ -197,9 +197,9 @@ sub Email_Turns { #email turns out to the appropropriate players
 	my $sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerStatus)=1)) ORDER BY GameUsers.PlayerID;|;
 	my ($User_Login, $Email, $PlayerID, $EmailTurn) = &Load_EmailAddresses($GameFile, $sql);
 	my @User_Login = @$User_Login;
-	my @Email = @$Email; 
-	my @PlayerID = @$PlayerID;
-	my @EmailTurn = @$EmailTurn;
+	my @Email      = @$Email; 
+	my @PlayerID   = @$PlayerID;
+	my @EmailTurn  = @$EmailTurn;
   my $user_count =  @User_Login;
 	&LogOut(201, "Email_Turns: User Count $user_count for $GameFile", $LogFile); 
   # User count is number of players, but the values are in an array
@@ -209,8 +209,10 @@ sub Email_Turns { #email turns out to the appropropriate players
 		$Message = '';
 		# This subject line is here because it has the player information that 
 		# isn't available until you get to here. 
- 		if ($GameVals{'Subject'}) { $Subject = $GameVals{'Subject'}; }
- 		else { $Subject = qq|$mail_prefix New Turn for $GameFile.m$PlayerID[$i] - Year $GameVals{'HST_Turn'}|; }
+ 		if ($GameVals{'Subject'}) { $Subject = $GameVals{'Subject'}; 
+    } elsif ( $PlayerID == 0 ) { # If this is a host message
+      $Subject = qq|$mail_prefix New Turns for $GameFile - Year $GameVals{'HST_Turn'}|;
+ 		} else { $Subject = qq|$mail_prefix New Turn for $GameFile.m$PlayerID[$i] - Year $GameVals{'HST_Turn'}|; }
 		&LogOut(200, "Email_Turns: Subject: $Subject", $LogFile);
 		$Message = $GameVals{'Message'} . "\n\n";
     # If there's a next turn scheduled, and the game isn't over
@@ -226,9 +228,13 @@ sub Email_Turns { #email turns out to the appropropriate players
 			$Message .= ".\n";
 		}
 		&LogOut(200, "Email_Turns: Message: $Message", $LogFile);
-		if ($Attach && $EmailTurn[$i]) {
+		if ($Attach && $EmailTurn[$i] == 1) { # If player has email and attach enabled
 			&LogOut(200,"Email_Turns: Emailing player w attach: T: $Email[$i], F: $mail_from, G: $GameVals{'GameFile'}, P: $PlayerID[$i], T: $GameVals{'HST_Turn'}",$LogFile);
 			&MailAttach($Email[$i], $mail_from, $Subject, $Message, $GameFile, $PlayerID[$i], $GameVals{'HST_Turn'});
+		} elsif ( $PlayerID == 0 ) { # If this is email to the host
+     	&LogOut(200,"Email_Turns: Emailing host: T: $Email[$i], F: $mail_from, G: $GameVals{'GameFile'}, P: $PlayerID[$i], T: $GameVals{'HST_Turn'}",$LogFile);
+			&Mail_Send($smtp, $Email[$i], $mail_from, $Subject, $Message);
+			&Mail_Close($smtp);
 		} else {
 			$smtp = &Mail_Open;
 			&LogOut(200,"Email_Turns: Emailing player: $Email[$i], $mail_from, $Subject, $Message",$LogFile);
@@ -260,7 +266,7 @@ sub Load_EmailAddresses {
     push @User_Login, $Host{'HostName'};
     push @Email, $Host{'User_Email'};
     push @PlayerID, 0;  # The host doesnt have a player ID
-    push @EmailTurn, $Host{'EmailTurn'}; # Dont email the host a turn
+    push @EmailTurn, $Host{'EmailTurn'}; # Use Host turn value to whether they get emailed
   }
 	&DB_Close($db);
 	return \@User_Login, \@Email, \@PlayerID, \@EmailTurn;
@@ -905,10 +911,6 @@ sub GenerateTurn { # Generate a turn and refresh files
 	system($GenTurn);
 	sleep 4;
 
-#   &updateList($GameFile, 1); # update List files for exploit detection
-#   &cleanFiles($GameFile); # Clean the .M files of player information
-#   &Make_CHK($GameFile);
-
 # I can't find anywhere that actually uses this code anymore; everything is in the GameFile location
 # If for some reason this gets reimplemented, delete needs to be updated to remove files in the Download folder.   
 # 	# Copy files to the correct (safe) location for download
@@ -1204,23 +1206,23 @@ sub process_fix {
   # Called from upload.pl
 	my ($GameFile, $newWarning) = @_;
 	my @fixes;
-	my $fixfile = $Dir_Games . '/' . $GameFile . '/' . "$GameFile" . '.warnings';
+	my $warningfile = $Dir_Games . '/' . $GameFile . '/' . "$GameFile" . '.warnings';
 	my $HSTFile = $Dir_Games . '/' . $GameFile . '/' . "$GameFile" . '.HST';
 	($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
-	if (!(-e $fixfile)) { # If there's no fix file, create one. 
-  	open (OUT_FILE, ">$fixfile") || &LogOut (0,"process_fix: Failed to create $fixfile for $GameFile", $ErrorLog); 
+	if (!(-e $warningfile)) { # If there's no fix file, create one. 
+  	open (OUT_FILE, ">$warningfile") || &LogOut (0,"process_fix: Failed to create $warningfile for $GameFile", $ErrorLog); 
   	print OUT_FILE "\n";
   	close(OUT_FILE);
 	}
 
 	# Read in the old fixes
-	open (IN_FILE,$fixfile) || &LogOut (0,"process_fix: Failed to read $fixfile for $GameFile", $ErrorLog);
+	open (IN_FILE,$warningfile) || &LogOut (0,"process_fix: Failed to read $warningfile for $GameFile", $ErrorLog);
 	@fixes = <IN_FILE>;
 	close(IN_FILE);
 	# Write out the fixes with the current news at the beginning (So the data is from new to old)
-	$fixfile = '>' . $fixfile;
+	$warningfile = '>' . $warningfile;
 	&LogOut (200,"process_fix: Update .warning with $newWarning for $GameFile", $ErrorLog);
-	open (OUTFILE, $fixfile) || &LogOut (0,"process_fix: failed to open fix file $fixfile", $ErrorLog);
+	open (OUTFILE, $warningfile) || &LogOut (0,"process_fix: failed to open fix file $warningfile", $ErrorLog);
 
   # Since these are CSV,
   @newWarning = split(',', $newWarning);
