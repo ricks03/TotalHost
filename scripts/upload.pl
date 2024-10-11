@@ -215,7 +215,7 @@ sub ValidateFileUpload {
     # Unless there was an error, move the file to the game folder
     unless ($err) { 
 			# Do whatever you would do with a valid change (.x) file
-		  &LogOut(100,"ValidateFileUpload: Valid Turn file $File_Loc, moving it to $DirGames  $GameFile", $LogFile);      
+		  &LogOut(100,"ValidateFileUpload: Valid Turn file $File_Loc, moving it to $DirGames\\$GameFile", $LogFile);      
 			if (&Move_Turn($File, $file_prefix)) {
 				$db = &DB_Open($dsn);
 				# update the Last Submitted Field

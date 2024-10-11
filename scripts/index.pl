@@ -61,24 +61,22 @@ if ($id ) {
 %menu_left = 	(
 				"0About Us"			=> "$WWW_Scripts/index.pl?lp=home&cp=aboutus",
  				"1Features" 			=> "$WWW_Scripts/index.pl?cp=features",
-				"2FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
-				"3Order of Events"	=> "$WWW_Scripts/index.pl?lp=home&cp=orderofevents",
-				"3Game Defaults"	=> "$WWW_Scripts/index.pl?lp=home&cp=gamedefaults",
-				"3Game Policies"	=> "$WWW_Scripts/index.pl?lp=home&cp=policies",
+				"2TH FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
 				"6Strategy Library"	=> "$WWW_Scripts/index.pl?lp=home&cp=library",
 				"8Other Sites"	=> "$WWW_Scripts/index.pl?lp=home&cp=othersites",
 				"9Recent Changes"	=> "$WWW_Scripts/index.pl?lp=home&cp=recentchanges"
 				);
+# "3Game Defaults"	=> "$WWW_Scripts/index.pl?lp=home&cp=gamedefaults",
+# "3Game Policies"	=> "$WWW_Scripts/index.pl?lp=home&cp=policies",
 } elsif ($in{'lp'} eq 'home') {
 %menu_left = 	(
 				"0About Us"			=> "$WWW_Scripts/index.pl?lp=home&cp=aboutus",
- 				"1Features" 			=> "$WWW_Scripts/index.pl?cp=features",
-				"2FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
-				"3Order of Events"	=> "$WWW_Scripts/index.pl?lp=home&cp=orderofevents",
+ 				"1Features" 			=> "$WWW_Scripts/index.pl?lp=home&cp=features",
+				"2TH FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
 				"6Strategy Library"	=> "$WWW_Scripts/index.pl?lp=home&cp=library",
 				"7Other Sites"	=> "$WWW_Scripts/index.pl?lp=home&cp=othersites",
- 				"8Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
- 				"9Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create"
+ 				"8Sign Up" 			=> "$WWW_Scripts/index.pl?lp=home&cp=create",
+ 				"9Log In" 			=> "$WWW_Scripts/index.pl?lp=home&cp=login_page",
 				);
 } else {
 # %menu_left = 	(
@@ -90,7 +88,6 @@ if ($id ) {
 #  				);
 # 				"5Erase" 			=> "$WWW_Scripts/index.pl?cp=logoutfull"
 %menu_left = 	(
- 				"0Features" 			=> "$WWW_Scripts/index.pl?cp=features",
  				"1Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
  				"2Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create",
  				);
