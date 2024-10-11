@@ -565,9 +565,9 @@ print qq|<div id="dropmenu3" class="dropmenudiv" style="width: 150px;">\n|;
 print qq|<a href="$WWW_Scripts/page.pl?lp=profile&cp=show_profile&rp=my_games">My Profile</a>\n|;
 print qq|<a href="$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game">My Games</a>\n|;
 print qq|<a href="$WWW_Scripts/page.pl?lp=profile_race&cp=show_first_race&rp=my_races">My Races</a>\n|;
+print qq|<a href="$WWW_Scripts/index.pl?lp=home&cp=started">Getting Started</a>\n|;
 print qq|<a href="$WWW_Scripts/page.pl?lp=profile&cp=edit_password">Change Password</a>\n|;
 print qq|</div>\n|;
-
 
 print qq|<!--4th drop down menu -->\n|;
 print qq|<div id="dropmenu4" class="dropmenudiv" style="width: 150px;">\n|;
@@ -583,6 +583,7 @@ print qq|<a href="$WWW_Scripts/index.pl?lp=home&cp=faq">FAQ</a>\n|;
 print qq|<a href="$WWW_Scripts/index.pl?lp=home&cp=orderofevents">Order of Events</a>\n|;
 print qq|<a href="$WWW_Scripts/index.pl?lp=home&cp=tips">Tips</a>\n|;
 print qq|</div>\n|;
+
 
 print <<eof;
 <script type="text/javascript">
@@ -851,7 +852,7 @@ sub UpdateNextTurn { #Update the database for the time that the next turn should
   # Fix Next Turn for DST
   # 221110 Time is alerady fixed for DST earlier, so don't fix it again!
 	#$NextTurn = &FixNextTurnDST($NextTurn, $LastTurn, 0); 
-	my $upd = "UpdateNextTnext Next turn for $GameFile updated to $NextTurn: " . localtime($NextTurn);
+	my $upd = "UpdateNextTurn for $GameFile updated to $NextTurn: " . localtime($NextTurn);
 	&LogOut(50,$upd,$LogFile);
 	$sql = qq|UPDATE Games SET NextTurn = $NextTurn WHERE GameFile = \'$GameFile\';|;
 	if (&DB_Call($db,$sql)) { return 1;	} 
