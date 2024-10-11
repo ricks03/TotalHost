@@ -61,6 +61,7 @@ if ($in{'client'} eq 'java') {
     print "<html><body>\n";
     &show_client($in{'GameFile'});
     print "<body></html>\n";
+    &LogOut(100,"client: %in{'client'}, GameFile: $GameFile",$LogFile);
     exit;
 }
 
@@ -91,34 +92,41 @@ if ($in{'tp'} eq 'xxx') {
 } else { # do nothing
 }
 
-
-    
-
 #### Left Panel
 if ($in{'lp'} eq 'profile') { 
 %menu_left = 	(
- 				"4Change Password" 		=> "$WWW_Scripts/page.pl?lp=profile&cp=edit_password",
- 				"1My Profile" 			=> "$WWW_Scripts/page.pl?lp=profile&cp=show_profile&rp=my_games",
- 				"2My Games" 			=> "$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=my_games",
- 				"3My Races" 			=> "$WWW_Scripts/page.pl?lp=profile_race&cp=show_first_race&rp=my_races",
+ 				"5Change Password" 		  => "$WWW_Scripts/page.pl?lp=profile&cp=edit_password",
+ 				"1My Profile" 			    => "$WWW_Scripts/page.pl?lp=profile&cp=show_profile&rp=my_games",
+ 				"2My Games" 			      => "$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=my_games",
+ 				"3My Races" 		       	=> "$WWW_Scripts/page.pl?lp=profile_race&cp=show_first_race&rp=my_races",
+ 				"4Getting Started" 			=> "$WWW_Scripts/index.pl?lp=home&cp=started",
  				);
 } elsif ($in{'lp'} eq 'profile_game') { 
 %menu_left = &lp_list_games($id);
 } elsif ($in{'lp'} eq 'profile_race') { 
 %menu_left = 	(
- 				"1My Races" 	=> "$WWW_Scripts/page.pl?lp=profile_race&cp=show_first_race&rp=my_races",
+ 				"1My Races" 	  => "$WWW_Scripts/page.pl?lp=profile_race&cp=show_first_race&rp=my_races",
  				"0My Profile" 	=> "$WWW_Scripts/page.pl?lp=profile&cp=show_profile&rp=my_games",
  				"2Upload Race"	=> "$WWW_Scripts/page.pl?lp=profile_race&cp=upload_race&rp=my_races",
  				);
 } elsif ($in{'lp'} eq 'game') { 
 %menu_left = 	(
- 				"0My Games" 	=> "$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=my_games",
- 				"1Completed Games" 	=> "$WWW_Scripts/page.pl?lp=game&cp=welcome&rp=games_complete",
- 				"1Games In Progress" 	=> "$WWW_Scripts/page.pl?lp=game&cp=welcome&rp=games",
- 				"1New Games" 	=> "$WWW_Scripts/page.pl?lp=game&cp=show_new&rp=games_new",
+ 				"0My Games" 	         => "$WWW_Scripts/page.pl?lp=profile_game&cp=show_first_game&rp=my_games",
+ 				"1Games In Progress" 	 => "$WWW_Scripts/page.pl?lp=game&cp=show_games_inprogress&rp=games",
+ 				"2New Games" 	         => "$WWW_Scripts/page.pl?lp=game&cp=show_new&rp=games_new",
+ 				"3Completed Games" 	   => "$WWW_Scripts/page.pl?lp=game&cp=show_games_completed&rp=games_complete",
 # 				"1Replacement Players" 	=> "$WWW_Scripts/page.pl?lp=profile_game&cp=welcome&rp=games_replacement",
 # 				"2XInvite People"	=> "",
- 				"2Create Game"	=> "$WWW_Scripts/page.pl?lp=game&cp=create_game&rp=",
+ 				"4Create Game"	       => "$WWW_Scripts/page.pl?lp=game&cp=create_game&rp=",
+ 				);
+} elsif ($in{'lp'} eq 'hosting') { 
+%menu_left = 	(
+ 				"0Features" 	      => "$WWW_Scripts/scripts/index.pl?lp=home&cp=features",
+ 				"1Create Game" 	    => "$WWW_Scripts/scripts/page.pl?lp=game&cp=create_game&rp=",
+ 				"2Turn Generation" 	=> "$WWW_Scripts/scripts/index.pl?lp=home&cp=turngeneration",
+ 				"3Recent Changes" 	=> "$WWW_Scripts/scripts/index.pl?lp=home&cp=recentchanges",
+# 				"1Replacement Players" 	=> "$WWW_Scripts/page.pl?lp=profile_game&cp=welcome&rp=games_replacement",
+# 				"2XInvite People"	=> "",
  				);
 } else { 
 %menu_left = 	(
@@ -214,7 +222,6 @@ if ($in{'cp'} eq 'edit_profile') {
 	print "</td>";
 } elsif ($in{'cp'} eq 'DELETE' || $in{'cp'} eq 'delete_game') { &delete_game($in{'GameFile'}); 
 } elsif ($in{'cp'} eq 'show_first_game') { 
-	print "<td>"; 	
 	my $sql = qq|SELECT Games.*, Games.GameStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((User.User_ID)=$id) AND ((Games.GameStatus)=2 Or (Games.GameStatus)=3 Or (Games.GameStatus)=4) Or (Games.GameStatus)=7 Or (Games.GameStatus)=0  );|;
 	my %First;
 	my $db = &DB_Open($dsn);
@@ -222,29 +229,43 @@ if ($in{'cp'} eq 'edit_profile') {
 	else { &LogOut(10,"ERROR: Finding show_first_game",$ErrorLog); }
 	&DB_Close($db);
 	# If game(s) found, display
+	print "<td>"; 	
 	if ($First{'GameFile'}) {
     unless ($First{'GameStatus'} == 7) { &show_game($First{'GameFile'});}
     else { &show_game($First{'GameFile'}); }
 	} else {	print "No games found. Are you in any games?\n"; }
 	print "</td>";
 } elsif ($in{'cp'} eq 'show_new') { 
-	print "<td>"; 	
 	my $sql = qq|SELECT * FROM Games WHERE GameStatus=7 OR GameStatus=0;|;
-	&show_new_games($sql); 
-	print "</td>";
+	print "<td>"; &show_new_games($sql); print "</td>";
 } elsif ($in{'cp'} eq 'show_game') { 
- 	if ($in{'GameFile'}) { print "<td>"; &show_game($in{'GameFile'}); print "</td>"; if ($GameValues{'NewsPaper'}) { $in{'rp'} = 'show_news'; }   }
+ 	if ($in{'GameFile'}) { 
+   print "<td>"; &show_game($in{'GameFile'}); print "</td>"; 
+   if ($GameValues{'NewsPaper'}) { $in{'rp'} = 'show_news'; }   }
 } elsif ($in{'cp'} eq 'Refresh') { 
-	if ($in{'GameFile'}) {  print "<td>"; &show_game($in{'GameFile'}); print "</td>"; if ($GameValues{'NewsPaper'}) { $in{'rp'} = 'show_news'; }   }
+	if ($in{'GameFile'}) {  
+    print "<td>"; 
+    &show_game($in{'GameFile'}); 
+    print "</td>"; 
+    if ($GameValues{'NewsPaper'}) { 
+    $in{'rp'} = 'show_news'; 
+  }   
+}
 # CANCEL is also here due to a browser defect
 # Depending on the browser, it uses the label instead of the value
 # And the CANCEL button uses the value of "show_games"
 } elsif ($in{'cp'} eq 'show_games' || $in{'cp'} eq 'CANCEL') {
 	my $sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip, Games.HostName, Games.NewsPaper FROM Games ORDER BY Games.GameStatus, Games.NextTurn DESC;|;
 	print "<td>"; &list_games($sql, 'All Games'); print "</td>";
-} elsif ($in{'cp'} eq 'show_games_inprogress') {
+} elsif ($in{'cp'} eq 'show_my_games_inprogress') {
 	my $sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip, Games.HostName, Games.NewsPaper FROM Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE GameUsers.User_Login='$userlogin' AND Games.GameStatus>1 AND Games.GameStatus<6 ORDER BY Games.GameStatus;|;
 	print "<td>"; &list_games($sql, 'My Games In Progress'); print "</td>";
+} elsif ($in{'cp'} eq 'show_games_inprogress') {
+	my $sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip, Games.HostName, Games.NewsPaper FROM Games WHERE Games.GameStatus>1 AND Games.GameStatus<6 ORDER BY Games.GameStatus;|;
+	print "<td>"; &list_games($sql, 'Games In Progress'); print "</td>";
+} elsif ($in{'cp'} eq 'show_games_completed') {
+	my $sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip, Games.HostName, Games.NewsPaper FROM Games WHERE Games.GameStatus=9 ORDER BY Games.GameStatus;|;
+	print "<td>"; &list_games($sql, 'Completed Games'); print "</td>";
 } elsif ($in{'cp'} eq 'show_my_new') { 
 	print "<td>"; &show_my_new(); print "</td>";
 } elsif ($in{'cp'} eq 'upload_race') { &upload_race; 
@@ -256,25 +277,22 @@ if ($in{'cp'} eq 'edit_profile') {
 	&show_race($sql); 
 	print "</td>"; 
 } elsif ($in{'cp'} eq 'show_first_race') {
-	print "<td>"; 	
 	my $sql = qq|SELECT * FROM Races WHERE User_Login = \'| . $session->param("userlogin") . qq|\';|;
 	my %First;
 	my $db = &DB_Open($dsn);
   # Get the first race from the list
 	if (&DB_Call($db,$sql)) { $db->FetchRow(); %First = $db->DataHash(); }	
 	else { &LogOut(10,"ERROR: Finding show_first_race $sql",$ErrorLog); }
-	&DB_Close($db);
-  
+	&DB_Close($db);  
   if ($First{'RaceID'}) { 
   	$sql = qq|SELECT * FROM Races WHERE RaceID = $First{'RaceID'} AND User_Login = \'| . $session->param("userlogin") . qq|\';|;
   } else { $sql =''; }
+	print "<td>"; 	
   &show_race($sql); 
 	print "</td>"; 
 } elsif ($in{'cp'} eq 'process_race') { 
-	print "<td>";
-	print "$in{'status'}";
+	print "<td>"; print "$in{'status'}"; 	print "</td>";
 #	else { print "Processed Race File $in{'File'} for " . $session->param("userlogin"); }
-	print "</td>";
 } elsif ($in{'cp'} eq 'delete_race') {
 	print "<td>"; &delete_race($in{'RaceID'}); print "</td>";
 } elsif ($in{'cp'} eq 'Restore Game') {
@@ -283,7 +301,8 @@ if ($in{'cp'} eq 'edit_profile') {
 		print "<td>\n"; 
     &process_restore($in{'GameFile'},$in{'restore_year'}); 
     &display_warning;
-    &show_game($in{'GameFile'}); print "</td>\n";
+    &show_game($in{'GameFile'}); 
+    print "</td>\n";
 } elsif ($in{'cp'} eq 'Report News') {	
 		&submit_news($in{'GameFile'});
     if ($GameValues{'NewsPaper'}) { $in{'rp'} = 'show_news'; }
@@ -334,7 +353,8 @@ if ($in{'cp'} eq 'edit_profile') {
 		print "<td>"; 
     &process_game_status($in{'GameFile'}, 'Ended', $userlogin); 
     &display_warning;
-    &show_game($in{'GameFile'}); print "</td>";
+    &show_game($in{'GameFile'}); 
+    print "</td>";
 } elsif ($in{'cp'} eq 'Start Game') {
 		print "<td>"; 
     if (&process_game_launch($in{'GameFile'})) { &show_game($in{'GameFile'}); }
@@ -390,6 +410,10 @@ if ($in{'cp'} eq 'edit_profile') {
 		print "<td>"; &delete_confirm($in{'GameFile'}); print "</td>";
 } elsif ($in{'cp'} eq 'welcome') {
 		&show_html($welcome);
+} elsif ($in{'cp'} eq 'DeactivateProfile') {
+		# Deactivate a user's profile. 
+    # BUG: Not enabled yet
+    my $sql = qq|SELECT * FROM User WHERE User_Login = \'| . $session->param("userlogin") . qq|\';|;
 } else {	
 	print "<td>\n"; 
 	$in{'Type'} = 'Table';
@@ -511,10 +535,10 @@ sub change_password {
 }
 
 sub edit_profile {
-	my ($sql) = @_;
+	my ($sql) = @_;     
 	my $id = $session->param("userid");
   my ($User_ID, $User_Login, $User_First, $User_Last, $User_Email, $User_Bio, $EmailTurn, $EmailList);
-	my $db = &DB_Open($dsn);
+	my $db = &DB_Open($dsn); 
 	print "<td>\n";
 	if (&DB_Call($db,$sql)) {
 		while ($db->FetchRow()) {
@@ -532,12 +556,17 @@ print <<eof;
 <table>
 <tr><td>First Name:</td><td> <input type=text name="User_First" value="$User_First" size=32 maxlength=32></td></tr>
 <tr><td>Last Name:</td><td><input type=text name="User_Last" value="$User_Last" size=32 maxlength=32></td></tr>
-<tr><td>Email Address: </td><td><input type=text name="User_Email" value="$User_Email" size=32 maxlength=32></td></tr>
+<tr><td>Email Address: </td><td><input type=text name="User_Email" value="$User_Email" size=32 maxlength=32></td></tr>  
 <tr><td>Bio: </td><td><textarea name="User_Bio" value="$User_Bio" cols="40" rows="5">$User_Bio</textarea></td></tr>
 </table>
 <INPUT type="Checkbox" name="EmailTurn" value = $EmailTurn $Checked[$EmailTurn]>Receive Turns via Email</P>
 <INPUT type="Checkbox" name="EmailList" value = $EmailList $Checked[$EmailList]>Receive New Game Notifications</P>
 <input type=submit name="Submit" value="Update">
+</form>
+<form>
+eof
+print qq|<BUTTON $host_style type="submit" name="cp" value="Deactivate Profile" | . &button_help('DeactivateProfile') .  qq|>Deactivate Profile</BUTTON>\n|; $button_count = &button_check($button_count);}
+eof<<;
 </form>
 </td>
 eof
@@ -596,9 +625,9 @@ sub update_profile {
 		$session->param("userlogin",$User_Login);
 		$session->param("email",$User_Email);
 		print "User Updated\n";
-	} else { &LogOut(10,"ERROR: update_profile failed updating for User $User_Login:$User_ID",$ErrorLog);}
+	} else { &LogOut(10,"ERROR: update_profile failed updating for User:$User_Login:$User_ID:$userid",$ErrorLog);}
 	&DB_Close($db);
-	# Need to close the database to get the channges to display immediately.
+	# Need to close the database to get the changes to display immediately.
 	&show_profile("SELECT * FROM User WHERE User_ID = $userid;");
 	print "</td>\n";
 }
