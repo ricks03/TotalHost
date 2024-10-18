@@ -8,23 +8,25 @@
 
 <P>Starbase upgrades are slot-dependent, and if you don't change what's in a slot (or add more of the same type of weapon or shield to a slot) you'll only have to pay the upgrade cost for the additional parts. So when you upgrade a starbase, you're much better off performing the upgrade on the next generation one slot at a time. If you keep changing what's in a slot, the upgrades will be a lot more expensive. 
 <P>Whether a single ship in a stack is killed, or the entire stack is damaged, depends on how much individual damage is done by all the weapons in the same slot in the attacking stack.
-<P>If you set a scout's destination order to "Colonize" it will proceed at maximum speed, so you don't have to tinker with the speed for each waypoint. If you set additional waypoints, it will continue to move at the maximum necessary speed. 
-<P>If you set a fleet's orders to "Lay Minefields" it will cause them to pause for one year to try to lay mines before proceeding. Note the orders will cancel, so orders to lay mines for multiple years will still delay only one year.
-<P>CA Hab Feature: CA's having the ability to see everyone's habs, by temporarily setting relations to "Ally".
-<P>Chaff: The game mechanics will cap the kills inflicted by missiles to the number of missiles fired (i.e. one missile = one kill). The targeting algorithm favours weakly armoured targets (in relation to cost in res and bor). The cheapest armed ship you can build is a scout or frigate with an x-ray laser and QJ5 engine. If you build 1000's of cheap armed ships, the enemy's missiles will target these first. Note that the "one missile = one kill rule" doesn't apply to beam weapons; damage from beams will stream from one ship to the next.
-<P>Chaff Sweeping: Individual fleets remove a certain number of mines (50) when they hit a minefield. You can therefore sweep a minefield by hitting it with many many fleets. This
-was the game authors' intent, and is thus as designed.
-<P>Fleets hit minefields in order of Fleet ID#.
-<P>You can change a fleet's Fleet ID by merging it with another fleet with a different ID.
-<P>PenScan Limits: Pen scanning works only after the scout stops at the end of the turn. It won't scan every planet on the route.
-<P>Pop Growth: Pop growth stars tapering off after getting to 25% and after 45%, starts reducing. It's not a constant growth curve the entire time.
-<P>32k Ship Limit Per Fleet: There is a limit of 32k of any one type of ship in a fleet (32,767 to be precise). If you try and merge two fleets together 
-which would push the ship count over this limit (i.e. a fleet with 25k chaff and another with 10k), Stars! has a few problems. If done manually, the ship 
-type will disappear from the fleet readout, but re-appear in the next generation (you will only lose ships in excess of the 32k). But if done 
-using the "merge with fleet" waypoint order, all the ships of that type will disappear. This is because when the integer (16 bit - signed) 
-holding the number of ships goes over the 32k limit it becomes negative, and as you can't have a negative number of ships, it reads as 0.
 
-<P>Limits: There are also some other limits in the game: 512 separate fleets, 512 separate minefields, 16 ship designs, 10 starbase designs, 256 tokens 
+<P>If you set a scout's destination order to "Colonize" it will proceed at maximum speed, so you don't have to tinker with the speed for each waypoint. If you set additional waypoints, it will continue to move at the maximum necessary speed. 
+
+<P>If you set a fleet's orders to "Lay Minefields" it will cause them to pause for one year to try to lay mines before proceeding. Note the orders will cancel, so orders to lay mines for multiple years will still delay only one year.
+
+<P>CA Hab Feature: CA's having the ability to see everyone's habs, by temporarily setting relations to "Ally".
+
+<P>Chaff: The game mechanics will cap the kills inflicted by missiles to the number of missiles fired (i.e. one missile = one kill). The targeting algorithm favours weakly armoured targets (in relation to cost in res and bor). The cheapest armed ship you can build is a scout or frigate with an x-ray laser and QJ5 engine. If you build 1000's of cheap armed ships, the enemy's missiles will target these first. Note that the "one missile = one kill rule" doesn't apply to beam weapons; damage from beams will stream from one ship to the next.
+<P>Chaff Sweeping: Individual fleets remove a certain number of mines (50) when they hit a minefield. You can therefore sweep a minefield by hitting it with many many fleets. This was the game authors' intent, and is thus as designed.
+
+<P>Fleets hit minefields in order of Fleet ID#.
+
+<P>You can change a fleet's Fleet ID by merging it with another fleet with a different ID.
+
+<P>PenScan Limits: Pen scanning works only after the scout stops at the end of the turn. It won't scan every planet on the route.
+
+<P>Pop Growth: Pop growth stars tapering off after getting to 25% and after 45%, starts reducing. It's not a constant growth curve the entire time.
+
+<P>Limits: There are alimits in the game: 512 separate fleets, 512 separate minefields, 16 ship designs, 10 starbase designs, 256 tokens 
 at a battle. The game will not allow you to exceed these limits. There's a fair amount of strategy in managing those effectively. 
 
 <P>Failing to Close to Range 2 with Sappers and R2 Beams: In the battle VCR, if a token of ships is armed with both sappers and 
@@ -38,9 +40,14 @@ WP1  merge order at the destination with a stationary fleet# B the damaged ships
 *will* get repaired. Stars! looks for fleet#s that have moved and obviously **fleet# A no longer exists.
 
 <P>ISB trumps IT gate scanning: Improved Starbases makes gates invisible to some IT gate scanning. ITs can't see ISB gates with 150kT/600ly gates and infinite/800ly. This may seem like a limited liability, however, there is often a fairly long period where infinite/800ly gates are the best that can be built, before the 100ly/infinite or infinite/infinite gates can be built. Note that the other race only needs the ISB LRT, they do not have to build a Space Dock or an Ultra Station to make their gate invisible, any hull will do. 
+
 <P>Exploding Minefield Dodge: The SD specific mini-minelayer and super-minelayer hulls are immune to the explosions of their own minefields however the checks are performed in player number order and, regardless of number of detonating minefields the ship's in, it can be hit only by one field hence the rest of the exploding minefields are ignored (i.e., if a given MML or SML has "survived" its own exploding field, it will also survive the exploding fields of all following SD players' exploding fields it may be in.)
 <P>AR Starter Colonies: Starter colonies for AR races will not contribute excess resources to research, unless the build queue is cleared first (using the clear button) or the hull design changed / upgraded. This is due to the "build Starter Colony" order invisibly blocks the end of the queue despite the fact that it has already been completed. 
+
 <P>It is important to remember that you are penalized for taking five or more LRT's. The penalty is not too bad at five, but taking any more LRTs is not recommended.
-<P>When you set up your habitat, remember that radiation is randomly determined. Because of that, you can slide the radiation habitat around and gain points without statistically costing yourself anything. Remember to keep it at least 15 clicks (30 if you have TT) from the edge, if possible. This will guarantee your use of the maximum number of planets. Sliding temperature and gravity is not as good a deal since gravity and temperature distributions are weighted towards the center. <a href="http://stars.arglos.net/articles/basic_race_design.html">Basic Race Design</a>
+
+<P>When you set up your habitat, remember that radiation is randomly determined. Because of that, you can slide the radiation habitat around and gain points without statistically costing yourself anything. Remember to keep it at least 15 clicks (30 if you have TT) from the edge, if possible. This will guarantee your use of the maximum number of planets. Sliding temperature and gravity is not as good a deal since gravity and temperature distributions are weighted towards the center. 
+
+<P><a href="http://stars.arglos.net/articles/basic_race_design.html">Basic Race Design</a>
 </body>
 </html>
