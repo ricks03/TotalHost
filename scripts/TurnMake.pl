@@ -20,7 +20,10 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use Win32::ODBC;
+#use strict;
+#use warnings;
+do 'config.pl';   
+unless ($DB_NAME) {use Win32::ODBC; }
 require 'cgi-lib.pl';
 use CGI qw(:standard);
 use Net::SMTP;
@@ -28,10 +31,7 @@ use Net::Ping;
 use TotalHost; # eval'd at compile time
 use StarStat;  # eval'd at compile time
 use StarsBlock;# eval'd at compile time
-do 'config.pl';   
 
-#use strict;
-#use warnings;
 # Usable from the command line for a single game. Just give it the gamefile.
 my $commandline = $ARGV[0];
 
@@ -168,9 +168,9 @@ sub CheckandUpdate {
 				# If there are any delays set, then we need to clear them out, and reset the game status
 				# since if we're generating with a turn missing we've clearly hit the window past the delays.
 				if ($GameData[$LoopPosition]{'DelayCount'} > 0) {
-					$sql = "UPDATE Games SET DelayCount = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
+					$sql = qq|UPDATE Games SET DelayCount = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';|;
 					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: Delay reset to 0 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
-					$sql = "UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
+					$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';|;
 					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
 				}
 
@@ -189,9 +189,9 @@ sub CheckandUpdate {
 				# If there are any delays set, then we need to clear them out, and reset the game status
 				# since if we're generating with a turn missing we've clearly hit the window past the delays.
 				if ($GameData[$LoopPosition]{'DelayCount'} > 0) {
-					$sql = "UPDATE Games SET DelayCount = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
+					$sql = qq|UPDATE Games SET DelayCount = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';|;
 					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: Delay reset to 0 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
-					$sql = "UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
+					$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';|;
 					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
 				}
 
@@ -209,12 +209,12 @@ sub CheckandUpdate {
 				$TurnReady = 'True';
 				# If the game is in a delay state, decrement the delay 
 				if ($GameData[$LoopPosition]{'DelayCount'} > 0 ) {
-					$sql = "UPDATE Games SET DelayCount = DelayCount -1 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
+					$sql = qq|UPDATE Games SET DelayCount = DelayCount -1 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';|;
 					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: Delay decremented for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
 				}
         # And reset the game to active if it's time
         if ( $GameData[$LoopPosition]{'DelayCount'} == 1 ) { # which is now really 0
-  	   		$sql = "UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
+  	   		$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';|;
   				if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
         }
 
@@ -321,11 +321,11 @@ sub CheckandUpdate {
 					$NumberofTurns = $GameData[$LoopPosition]{'ForceGenTurns'};
 					$NumberofTimes = $GameData[$LoopPosition]{'ForceGenTimes'} -1;
 					# Update NumberofTimes
-					$sql = "UPDATE Games SET ForceGenTimes = $NumberofTimes WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'";
+					$sql = qq|UPDATE Games SET ForceGenTimes = $NumberofTimes WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'|;
 					if (&DB_Call($db,$sql)) { &LogOut(200,"Decremented ForceGenTimes for $GameData[$LoopPosition]{'GameFile'}",$LogFile); }
 					else { &LogOut(200,"Failed to Decrement ForceGenTimes for $GameData[$LoopPosition]{'GameFile'}",$ErrorLog);}
 					if ($NumberofTimes <= 0) { #If the game is no longer forced, unforce game
-						$sql = "UPDATE Games SET ForceGen = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'";
+						$sql = qq|UPDATE Games SET ForceGen = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'|;
 						if (&DB_Call($db,$sql)) { &LogOut(200,"Forcegen set to 0 for $GameData[$LoopPosition]{'GameFile'}",$LogFile) }
 						else { &LogOut(0,"Failed to set forcegen to 0 for $GameData[$LoopPosition]{'GameFile'}",$ErrorLog); }
 					}
@@ -346,7 +346,7 @@ sub CheckandUpdate {
         
 				# If Game was flagged as Delayed, once we generate it's not anymore
 				if ($GameData[$LoopPosition]{'GameStatus'} == 3 && $GameData[$LoopPosition]{'DelayCount'} <= 0) { 
-					$sql = "UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'";
+					$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'|;
 					if (&DB_Call($db,$sql)) { &LogOut(100, "TurnMake: Resetting Game Status for $GameData[$LoopPosition]{'GameFile'} to Active", $LogFile);  }
 					else { &LogOut(0, "TurnMake: Failed to Reset Game Status for $GameData[$LoopPosition]{'GameFile'} to Active", $ErrorLog); }
 				}

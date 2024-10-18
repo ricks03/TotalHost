@@ -82,10 +82,11 @@
 # 46	SaveAndSubmitBlock
 
 package StarsBlock;
+our $VERSION = '1.00';  # Use a floating-point string for version numbers
+do 'config.pl';
 # 220824 Don't think this is ever called from StarsBlock. Fix for required SSL from SMTP library for block applications
 #use TotalHost; # eval'd at compile time
 use StarStat;  # eval'd at compile time
-do 'config.pl';
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -2585,11 +2586,11 @@ sub updateList { # Update the list data for a game
   my ($GameFile, $enable) = @_;
   # Enable/disable List functionality for Fix
   # Remove the old List files, as they may be out of date
-  unlink qq|$DirGames\\$GameFile\\$GameFile.warnings|; 
+  # unlink qq|$DirGames\\$GameFile\\$GameFile.warnings|; 
   my @extensions = qw ( design queue fleet waypoint last ); 
   if (!($enable)) { # Remove the fix file
     unlink qq|$DirGames\\$GameFile\\fix|; 
-  # StarsList cleans up the files otherwise
+    # StarsList cleans up the files otherwise
     foreach my $extension (@extensions) {
       unlink qq|$DirGames\\$GameFile\\$GameFile.HST.$extension|; 
     }

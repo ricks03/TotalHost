@@ -21,12 +21,13 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+do 'config.pl';
+require Win32::ODBC unless $DB_NAME;
 use CGI qw(:standard);
 use CGI::Session;
-use Win32::ODBC;
-CGI::Session->name('TotalHost');
 use TotalHost;
-do 'config.pl';
+
+CGI::Session->name('TotalHost');
 
 #%in = &parse_input(*in);
 foreach my $field (param()) { $in{$field} = &clean(param($field)); }
@@ -128,6 +129,7 @@ if ($in{'cp'} eq 'login_page') { &login_page;
 } elsif ($in{'cp'} eq 'install') { &show_html("$Dir_WWWRoot/THInstall.htm"); 
 } elsif ($in{'cp'} eq 'started') { &show_html("$Dir_WWWRoot/THStarted.htm"); 
 } elsif ($in{'cp'} eq 'starsfiles') { &show_html("$Dir_WWWRoot/THStarsFiles.htm"); 
+} elsif ($in{'cp'} eq 'notes') { &show_notes; 
 #} elsif ($in{'cp'} eq 'ssg') { &show_html("$Dir_WWWRoot/SSG/SSG.HTM"); 
 } else { 
 	my $welcome = $Dir_WWWRoot . '/' . 'welcome.htm';
@@ -153,7 +155,6 @@ sub login_page {
 # duplicate since base value set at beginning.
 #	$id = $session->param('userid');
 	print qq|<td>\n|;
-#	print qq|<h2>Log In</h2>\n|;
 	print qq|<form name="login" method=POST action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">\n|;
 	print qq|<input type=hidden name="action" value="login">\n|;
 	print qq|<table>\n|;
