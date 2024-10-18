@@ -28,16 +28,16 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+do 'config.pl';
+unless ($DB_NAME) {use Win32::ODBC; }
 use CGI qw(:standard);
 use CGI::Session qw/-ip-match/;
-CGI::Session->name('TotalHost');
-use Win32::ODBC;
-use TotalHost; 
-use StarsBlock; 
 use File::Find; # Used for zip/compression
 use Archive::Zip; # Used for zip/compression
-do 'config.pl';
+use TotalHost; 
+use StarsBlock; 
 
+CGI::Session->name('TotalHost');
 $CGI::POST_MAX=1024 * 50;  # max 50K posts
 $CGI::DISABLE_UPLOADS = 1;
 my $cgi = new CGI;

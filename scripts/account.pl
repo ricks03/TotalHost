@@ -21,15 +21,15 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
+do 'config.pl';
+unless ($DB_NAME) {use Win32::ODBC; }
 use CGI qw(:standard);
 use CGI::Session qw/-ip-match/;
-CGI::Session->name('TotalHost');
-use Win32::ODBC;
 use Digest::SHA1  qw(sha1 sha1_hex sha1_base64);
 use TotalHost;
-do 'config.pl';
 use Email::Valid;
+
+CGI::Session->name('TotalHost');
 
 # The _new_ way (from like 10 years ago)
 foreach my $field (param()) { $in{$field} = param($field); }
@@ -130,7 +130,7 @@ sub add_user {
   	$Date =&GetTimeString();
   	$hash = $in{'User_Password'} . $secret_key;
   	$passhash = sha1_hex($hash); 
-  	$sql = "INSERT INTO User ([User_Login], [User_Last], [User_First], [User_Password], [User_Email], [User_Status], [User_Creation], [User_Modified], [EmailTurn], [EmailList]) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', -5,'$Date','$Date', 1, 1);";
+  	$sql = qq|INSERT INTO User ([User_Login], [User_Last], [User_First], [User_Password], [User_Email], [User_Status], [User_Creation], [User_Modified], [EmailTurn], [EmailList]) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', -5,'$Date','$Date', 1, 1);|;
   	&LogOut(100,$sql,$SQLLog);
   	if (&DB_Call($db,$sql)) { print "<P>Done!  Check your email to activate your account. \n"; }
   	else { print '<P>Error creating account. Duplicate User ID?'; &LogOut(10,"ERROR: Adding New User $in{'User_Login'} $in{'User_Email'}",$ErrorLog);}
@@ -173,16 +173,16 @@ sub activate_user {
 	$submit_user = $in{'user'};
 	$db = &DB_Open($dsn);
   # 240923
-	#$sql = "SELECT User.User_ID, User.User_Login, User.User_Password, User.User_Email FROM User;";
+	#$sql = qq|SELECT User.User_ID, User.User_Login, User.User_Password, User.User_Email FROM User;|;
   # Can only activate users that aren't active
-	$sql = "SELECT User.User_ID, User.User_Login, User.User_Password, User.User_Email FROM User WHERE User_Status=-5;";
+	$sql = qq|SELECT User.User_ID, User.User_Login, User.User_Password, User.User_Email FROM User WHERE User_Status=-5;|;
 	&LogOut(100,$sql,$SQLLog);
 	if (&DB_Call($db,$sql)) {
 		while ($db->FetchRow()) {
 			($User_ID, $User_Login, $User_Password, $User_Email) = $db->Data("User_ID", "User_Login", "User_Password", "User_Email");
 			$hash = $User_Password . $secret_key;
 			$passhash = sha1_hex($hash); 
-			&LogOut(200,"Attempting a match on  1: $User_Login 2: $User_Password 3: $passhash  4: $submit_hash",$LogFile);		
+			&LogOut(200,"Attempting a match on A: $User_Login 2: $User_Password 3: $passhash  4: $submit_hash",$LogFile);		
 			if ($passhash eq $submit_hash && $submit_user eq $User_Login) {
 				$id = $User_ID;
 				&LogOut(200,"Activate user match success on $User_Login $id $User_ID",$LogFile);
@@ -212,7 +212,7 @@ sub activate_user {
     } else { &LogOut(0,"Missing Serials File $File_Serials",$ErrorLog);}
 		$Date =&GetTimeString();
     $userfile = substr(sha1_hex(time()), 5, 8); 
-		$sql = "UPDATE User SET User_Status=1, User_Modified='$Date', User_File='$userfile', User_Serial='$user_serial'  WHERE User_ID=$id;";
+		$sql = qq|UPDATE User SET User_Status=1, User_Modified='$Date', User_File='$userfile', User_Serial='$user_serial'  WHERE User_ID=$id;|;
 		&LogOut(100,$sql,$SQLLog);
 		&DB_Call($db,$sql);
 		$redirect = $WWW_HomePage . $WWW_Scripts . '/page.pl';
@@ -232,7 +232,7 @@ sub reset_user {
 	&LogOut(100,"Password Reset for $in{'User_Login'}",$LogFile);
 	$db = &DB_Open($dsn);
   # updated to only be active accounts
-	$sql = "SELECT User.User_Login, User.User_ID, User.User_Email FROM User WHERE User.User_Status > 0;";
+	$sql = qq|SELECT User.User_Login, User.User_ID, User.User_Email FROM User WHERE User.User_Status > 0;|;
 	&LogOut(100,$sql,$SQLLog);
 	# Check to be sure the account exists
 	if (&DB_Call($db,$sql)) {
@@ -251,10 +251,9 @@ sub reset_user {
   	$new_password = sha1_hex($temp);
   	$Date =&GetTimeString();
   	# add new temporary password to database
-  	$sql = "UPDATE User SET User_Password='$new_password', User_Status=2, User_Modified='$Date' WHERE User_ID=$id;";
+  	$sql = qq|UPDATE User SET User_Password='$new_password', User_Status=2, User_Modified='$Date' WHERE User_ID=$id;|;
   	&LogOut(100,$sql,$SQLLog);
   	&DB_Call($db,$sql);
-  	&DB_Close($db);
   	# Email new temporary password
   	$Subject = $mail_prefix . 'Password Reset Request';
   	$Message = "\n\nA request was submitted to reset your password for User ID: $in{'User_Login'}.\n";
@@ -267,6 +266,7 @@ sub reset_user {
   	&LogOut(100,"Password Reset sent to $User_Email",$LogFile);
   	# set account to require a reset
   } else { print "$in{'User_Login'} does not exist or is not activated.\n"; 	&LogOut(100,"ERROR: $in{'User_Login'} does not exist or is not activated",$ErrorLog);  }
+ 	&DB_Close($db);
 }
 
 sub reset_password {
@@ -275,7 +275,7 @@ sub reset_password {
 	$submit_hash = $in{'new'};
 	$submit_user = $in{'user'};
 	$db = &DB_Open($dsn);
-	$sql = "SELECT User.User_Login, User.User_ID, User.User_Password, User.User_Email FROM User;";
+	$sql = qq|SELECT User.User_Login, User.User_ID, User.User_Password, User.User_Email FROM User;|;
 	if (&DB_Call($db,$sql)) {
 		while ($db->FetchRow()) {
 	      	($User_Login, $User_ID, $User_Password, $User_Email) = $db->Data("User_Login", "User_ID", "User_Password", "User_Email");
@@ -309,7 +309,7 @@ eof
 
 sub reset_password2 {
 	$db = &DB_Open($dsn);
-	$sql = "SELECT User.User_Login, User.User_Password, User.User_ID, User.User_Email FROM User;";
+	$sql = qq|SELECT User.User_Login, User.User_Password, User.User_ID, User.User_Email FROM User;|;
 	if (&DB_Call($db,$sql)) {
 		while ($db->FetchRow()) {
 	      	($User_Login, $User_ID, $User_Password, $User_Email) = $db->Data("User_Login", "User_ID", "User_Password", "User_Email");
@@ -324,7 +324,7 @@ sub reset_password2 {
 		$hash = $new_password . $secret_key;
 		$userhash = sha1_hex($hash); 
 		$Date = &GetTimeString();
-		$sql = "UPDATE User SET User_Password='$userhash', User_Status=1, User_Modified='$Date' WHERE User_ID=$id;";
+		$sql = qq|UPDATE User SET User_Password='$userhash', User_Status=1, User_Modified='$Date' WHERE User_ID=$id;|;
 		&LogOut(100,$sql,$SQLLog);
 		&DB_Call($db,$sql);
 		print "Password Updated for $in{'User_Login'}.";		
@@ -372,8 +372,9 @@ sub login {
 		$submit_user = $in{'User_Login'};
     #240923
     # Can only log in fron an active account
-		#$sql = "SELECT * FROM User;";
-		$sql = "SELECT * FROM User WHERE User_Status > 0;";
+		#$sql = qq|SELECT * FROM User;|;
+		#$sql = qq|SELECT * FROM User WHERE User_Status > 0;|;
+		$sql = qq|SELECT  User_ID, User_Login, User_Password, User_Email FROM User WHERE User_Status > 0;|;
 		&LogOut(200,$sql,$SQLLog);
 		$db = &DB_Open($dsn);
 		if (&DB_Call($db,$sql)) {
@@ -381,7 +382,7 @@ sub login {
 				($User_ID, $User_Login, $User_Password, $User_Email) = $db->Data("User_ID", "User_Login", "User_Password", "User_Email");
 				$hash = $submit_hash . $secret_key;
 				$passhash = sha1_hex($hash); 
-				&LogOut(300,"Attempting a match on  1: $User_Login 2: $User_Password 3: $passhash  4: $submit_hash",$LogFile);		
+				&LogOut(300,"Attempting a match on B: $User_Login 2: $User_Password 3: $passhash  4: $submit_hash 5: $passhash",$LogFile);		
 				if ($User_Password eq $passhash && $submit_user eq $User_Login) {
 					$id = $User_ID;
 					&LogOut(200,"Login user match success on $User_Login",$LogFile);

@@ -20,13 +20,13 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+do 'config.pl';
+unless ($DB_NAME) {use Win32::ODBC; }
 use CGI qw/:standard/;
-use Win32::ODBC;
+use File::Basename;
 use TotalHost; # eval'd at compile time
 use StarStat;  # eval'd at compile time
 use StarsBlock;# eval'd at compile time
-do 'config.pl';
-use File::Basename;
 
 $CGI::POST_MAX=1024 * 25;  # max 25K posts
 # Read in the post values and clean them a bit
@@ -140,7 +140,7 @@ sub ValidateFileUpload {
    				if (not(-e $Race_Destination)) { #if the file does not already exist
   					# Add the new race to the database
   					$db=&DB_Open($dsn);
-  					$sql = "INSERT INTO Races (RaceName, RaceFile, User_Login, RaceDescrip, User_File) VALUES ('$RaceName', '$File', '$userlogin', '$RaceDescrip', '$UserValues{'User_File'}');";
+  					$sql = qq|INSERT INTO Races (RaceName, RaceFile, User_Login, RaceDescrip, User_File) VALUES ('$RaceName', '$File', '$userlogin', '$RaceDescrip', '$UserValues{'User_File'}');|;
   					if (&DB_Call($db,$sql)) { # If the SQL query is not a failure
   							$err .= "Database updated. ";
   							&LogOut(200, "ValidateFileUpload: Race Database Updated for $userlogin, $File: $err",$LogFile);
@@ -247,7 +247,7 @@ sub ValidateFileUpload {
         }
  
         # If the game is AsAvailable, check to see if all Turns are in and whether we should generate. 
-   			$sql = "SELECT * FROM Games WHERE GameFile = \'$file_prefix\';";
+   			$sql = qq|SELECT * FROM Games WHERE GameFile = \'$file_prefix\';|;
  				# Load game values into the array
         if (&DB_Call($db,$sql)) { $db->FetchRow(); %GameValues = $db->DataHash(); } # Should return only one value
         if ($GameValues{'AsAvailable'} == 1 ) { # Don't immediately generate As Available if the file generated warnings

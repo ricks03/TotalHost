@@ -22,6 +22,7 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 package StarStat;
+our $VERSION = '1.00';  # Use a floating-point string for version numbers
 do 'config.pl';
 
 require Exporter;
@@ -96,7 +97,7 @@ sub starstat {
 	$iPlayer = &dec2bin($iPlayer);
 	$iPlayer = substr($iPlayer,11,5);
 	$iPlayer = bin2dec($iPlayer);
-	$iPlayer=$iPlayer +1; # Correcting for 0-15
+	$iPlayer = $iPlayer + 1; # Correcting for 0-15
 	
 	# dts
 	# Convert DTS to binary so we can pull the values back out
@@ -106,13 +107,13 @@ sub starstat {
 	$dt = bin2dec($dt);
 	# These are 1 character, so there's no need to convert them back to decimal
 	# Turn state (.x file only)
-	$fDone = substr($dts, 7,1);
+	$fDone = substr($dts, 7, 1);
 	# Host instance is using this file (dtHost, dtTurn).
 	$fInUse = substr($dts, 6, 1);
 	# Are multiple turns included (.m only)
-	$fMulti = substr($dts, 5,1);
+	$fMulti = substr($dts, 5, 1);
 	# Is the Game Over
-	$fGameOver = substr($dts, 4,1);  # Probably 4
+	$fGameOver = substr($dts, 4, 1);  # Probably 4
 	# Shareware
 	$fShareware = substr($dts, 3, 1);
   
@@ -126,7 +127,6 @@ sub Check_Version {
   	&SLogOut(400,"Correct Check_Version: $File $version", $LogFile);
 		return 1; 
 	} else { 
-#		print "<P>Incorrect version $ver\n";
 		&SLogOut(0,"Incorrect version $ver ($Version{$ver}) in $File",$ErrorLog);
 		return 0; 
 	}
@@ -280,8 +280,6 @@ sub Fix_Version {
 	# Make the stars version # display as the game version
 	my ($ver) = @_;
   return $Version{$ver};
-#	if ($ver eq '2.83.0') { return '2.6jrc4'; }
-#	else { return $ver; }
 }
 
 sub SLogOut {
