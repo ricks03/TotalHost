@@ -22,14 +22,17 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+package TotalHost;
+our $VERSION = '1.00';  # Use a floating-point string for version numbers
+do 'config.pl';
+require Win32::ODBC unless $DB_NAME;
 use Net::SMTP; # requires libcrypto-1_1_.dll
 use CGI qw(:standard);
 use CGI::Session qw/-ip-match/;
-CGI::Session->name('TotalHost');
-package TotalHost;
 use StarStat; # eval'd at compile time
 use StarsBlock; # eval'd at compile time
-do 'config.pl';
+
+CGI::Session->name('TotalHost');
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -40,7 +43,7 @@ our @EXPORT = qw(
 	Email_Turns Load_EmailAddresses
 	GetTime CheckTime GetTimeString LogOut
 	validate
-	show_html
+	show_html show_notes
 	html_top html_head html_banner
 	html_left html_right html_bottom
 	html_meta html_title html_menu html_footer
@@ -70,16 +73,16 @@ sub print_header {
 }
 
 sub DB_Open {
-	($dsn) = @_;
-   if (!($db = new Win32::ODBC($dsn))){   
-		$error = "Database: Error: connecting to $dsn " . Win32::ODBC::Error();
-		&LogOut(0, $error, $ErrorLog);
-   } else { return $db;	}
+	my ($dsn) = @_;
+  if (!($db = new Win32::ODBC($dsn))){   
+    $error = "Database: Error: connecting to $dsn " . Win32::ODBC::Error();
+  	&LogOut(0, $error, $ErrorLog);
+  } else { return $db;	}  
 }
 
 sub DB_Close {
 	($db)=@_;
-	$db->Close();
+  $db->Close();
 }
 
 sub DB_Check { #Check to see if an error was returned by the database call
@@ -376,6 +379,40 @@ sub show_html {
 	} else { print "<P>File $File not found.\n"; &LogOut(0, "show_html: File $File not found", $ErrorLog)}
 	print '</td>';
 }
+
+sub show_notes {
+  # Display a list of all the files in the /Notes folder and their text.
+  use File::Find;
+  my @htm_files;
+  my $directory = $Dir_WWWRoot . '/Notes';
+	# Display all the notes
+	print '<td>';
+  print "<h2>List of TH Tool Tips</h2>\n";  
+  find(
+      sub {
+          if ( $_ =~ /\.htm$/i ) { # Check if the file ends with .htm
+              push @htm_files, $File::Find::name;  # Add full path to the file
+          }
+      },
+      $directory
+  );
+
+  # Print all .htm files
+  foreach my $file (@htm_files) {
+    my $filename = $file;
+    $filename =~ s|.*/||;      # Remove the path
+    $filename =~ s/\.[^.]+$//; # Remove the extension
+    print "<P>$filename:\n";      
+    open my $fh, '<', $file; 
+    while (my $line = <$fh>) {
+      print $line;  # Print each line of the file
+    }
+    close $fh;
+    print "\n";  # Add a newline after the file contents
+  }
+	print '</td>';
+}
+
 
 sub html_top {
 	($cgi, $session) = @_;
@@ -1019,7 +1056,7 @@ sub DaysToAdd {
 
 sub ValidTurnTime { #Determine whether submitted time is valid to generate a turn
 	my($ValidTurnTimeTest, $WhentoTestFor, $Day, $Hour) = @_;	
-	&LogOut(100,"ValidTurnTime: $ValidTurnTimeTest, WhentoTestfor: $WhentoTestFor",$LogFile);
+	&LogOut(100,"ValidTurnTime: $ValidTurnTimeTest, WhentoTestfor: $WhentoTestFor  Day = $Day, Hour = $Hour",$LogFile);
 	my($Valid) = 'True';
 	#Check to see if it's a holiday
 # 	if ($GameValues{'ObserveHoliday'} > 0){ 
@@ -1037,12 +1074,13 @@ sub ValidTurnTime { #Determine whether submitted time is valid to generate a tur
   	my($HourlyTime) = &ValidFreq($Hour,$CHour);
   	if ($HourlyTime eq 'False') { $Valid = 'False'; }
 	}
-	&LogOut(200,"   ValidTurnTime: Valid = $Valid ",$LogFile);
+	&LogOut(400,"   ValidTurnTime: DayFreq: $DayFreq, HourlyTime: $HourlyTime, DayFreg: $Day, HourFreq: $Hour, CHour: $CHour, Valid = $Valid ",$LogFile);
 	return($Valid);
 }
 
 sub ValidFreq { #is the hour or day valid
 	my($ValuetoCompare, $TimeUnit) = @_;
+	&LogOut(200,"   ValidFreq: ValuetoCompare: $ValuetoCompare, TimeUnit: $TimeUnit ",$LogFile);
 	if ( substr($ValuetoCompare,$TimeUnit,1) == 0 ) { 
 		return('False'); } #If the proposed unit shouldn't be generated on, return false.
 	else { return('True');
@@ -1201,7 +1239,7 @@ sub show_race_block {
 sub process_fix {
 	# When the Fix scripts run (detecting errors) they need to log somewhere. 
   # And then be available on the display.
-  # The warning/fix file is stored as .warning in the folder for the game
+  # The warning/fix file is stored as .warnings in the folder for the game
 	## The format for each entry is id<tab>epochtime<tab>year<tab>result
 	## and stored in chronologic order, newest first
   # Called from upload.pl

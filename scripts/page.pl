@@ -25,14 +25,15 @@
 #use warnings;   
 #use warnings::unused;   
 
+do 'config.pl';
+unless ($DB_NAME) {use Win32::ODBC; }
 use CGI qw(:standard);
 use CGI::Session;
-CGI::Session->name('TotalHost');
-$CGI::POST_MAX=1024 * 25;  # max 25K posts
-use Win32::ODBC;
 use TotalHost;
 use StarStat; 
-do 'config.pl';
+
+CGI::Session->name('TotalHost');
+$CGI::POST_MAX=1024 * 25;  # max 25K posts
 
 my %in;
 my %GameValues; # This passes values from the CP panels into the RP panels
@@ -413,7 +414,7 @@ if ($in{'cp'} eq 'edit_profile') {
 } elsif ($in{'cp'} eq 'DeactivateProfile') {
 		# Deactivate a user's profile. 
     # BUG: Not enabled yet
-    my $sql = qq|SELECT * FROM User WHERE User_Login = \'| . $session->param("userlogin") . qq|\';|;
+    #my $sql = qq|SELECT * FROM User WHERE User_Login = \'| . $session->param("userlogin") . qq|\';|;
 } else {	
 	print "<td>\n"; 
 	$in{'Type'} = 'Table';
@@ -437,25 +438,25 @@ if ($in{'rp'} eq 'my_games') {
 # Display a list of games in progress
 } elsif ($in{'rp'} eq 'games') { 
 	print "<td width=$rp_width>";
-	my $sql = "SELECT * FROM Games WHERE GameStatus>1 AND GameStatus<6;";
+	my $sql = qq|SELECT * FROM Games WHERE GameStatus>1 AND GameStatus<6;|;
 	&rp_list_games($sql,'Games In Progress');
 	print "</td>\n";
 # Display a list of new games
 } elsif ($in{'rp'} eq 'games_new') { 
 	print "<td width=$rp_width>";
-	my $sql = "SELECT * FROM Games WHERE GameStatus = 7 OR GameStatus = 0;";
+	my $sql = qq|SELECT * FROM Games WHERE GameStatus = 7 OR GameStatus = 0;|;
 	&rp_list_games($sql,'New Games');
 	print "</td>\n";
 # Display a list of games needing a replacement player
 } elsif ($in{'rp'} eq 'games_replacement') { 
 	print "<td width=$rp_width>";
-	my $sql = "SELECT * FROM Games WHERE GameStatus = 5;";
+	my $sql = qq|SELECT * FROM Games WHERE GameStatus = 5;|;
 	&rp_list_games($sql,'Games needing Players');
 	print "</td>\n";
 # Display a list of completed games
 } elsif ($in{'rp'} eq 'games_complete') { 
 	print "<td width=$rp_width>";
-	my $sql = "SELECT * FROM Games WHERE GameStatus = 9 ORDER BY Games.NextTurn DESC;";
+	my $sql = qq|SELECT * FROM Games WHERE GameStatus = 9 ORDER BY Games.NextTurn DESC;|;
 	&rp_list_games($sql,'Completed Games');
 	print "</td>\n";
 # Display a list of my races
@@ -565,11 +566,9 @@ print <<eof;
 </form>
 <form>
 eof
-print qq|<BUTTON $host_style type="submit" name="cp" value="Deactivate Profile" | . &button_help('DeactivateProfile') .  qq|>Deactivate Profile</BUTTON>\n|; $button_count = &button_check($button_count);}
-eof<<;
-</form>
-</td>
-eof
+
+#print qq|<BUTTON $host_style type="submit" name="cp" value="Deactivate Profile" | . &button_help('DeactivateProfile') .  qq|>Deactivate Profile</BUTTON>\n|; $button_count = &button_check($button_count);
+print "</form></td>\n";
 }
 
 sub show_profile {
@@ -618,8 +617,8 @@ sub update_profile {
 	my $EmailList = &checkboxnull($in{'EmailList'});
 	my $userid = $id;
 	my $db = &DB_Open($dsn);
-	#my $sql = "UPDATE User SET User_Login='$User_Login', User_First='$User_First',  User_Last='$User_Last', User_Email='$User_Email', User_Bio='$User_Bio', EmailTurn = $EmailTurn, EmailList = $EmailList, User_Modified='$Date' WHERE User_ID=$userid;";
-	my $sql = "UPDATE User SET User_First='$User_First',  User_Last='$User_Last', User_Email='$User_Email', User_Bio='$User_Bio', EmailTurn = $EmailTurn, EmailList = $EmailList, User_Modified='$Date' WHERE User_ID=$userid;";
+	#my $sql = qq|UPDATE User SET User_Login='$User_Login', User_First='$User_First',  User_Last='$User_Last', User_Email='$User_Email', User_Bio='$User_Bio', EmailTurn = $EmailTurn, EmailList = $EmailList, User_Modified='$Date' WHERE User_ID=$userid;|;
+	my $sql = qq|UPDATE User SET User_First='$User_First',  User_Last='$User_Last', User_Email='$User_Email', User_Bio='$User_Bio', EmailTurn = $EmailTurn, EmailList = $EmailList, User_Modified='$Date' WHERE User_ID=$userid;|;
 	if (&DB_Call($db,$sql)) { 
 		&LogOut(100,"User: User $User_ID updated",$LogFile); 
 		$session->param("userlogin",$User_Login);
@@ -1041,7 +1040,7 @@ sub show_game {
       		# Get the User List
 	        print qq|<td valign="bottom"><form><SELECT name=\"ReplaceName\">|;
           # Sort and limit to active players
-        	$sql = "SELECT * FROM User WHERE User_Status=1 ORDER BY User_Login;";
+        	$sql = qq|SELECT * FROM User WHERE User_Status=1 ORDER BY User_Login;|;
         	if (&DB_Call($db,$sql)) {
         		while ($db->FetchRow()) { %ReplaceValues = $db->DataHash(); 
         #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
@@ -1076,7 +1075,7 @@ sub show_game {
   		print "</table>\n";
   
   		# Only show the ability to upload to an active player in an active game
-  		if ((($GameValues{'GameStatus'} == 2 || $GameValues{'GameStatus'} == 3 || $GameValues{'GameStatus'} == 4)) && ($current_player eq $userlogin)) {
+  		if (($GameValues{'GameStatus'} =~ /^[234]$/) && ($current_player eq $userlogin)) {
   	  		&show_upload($GameValues{'GameName'},$GameFile);
   		} 
     } else {
@@ -1202,14 +1201,14 @@ sub show_game {
 		# Edit the game
 		if ($GameValues{'HostName'} eq $session->param("userlogin") && $GameValues{'HostMod'} ) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Edit Game" | . &button_help('EditGame') .  qq|>Edit Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Change the player status
-		if ($GameValues{'HostName'} eq $session->param("userlogin")  && ($GameValues{'GameStatus'} eq '2' || $GameValues{'GameStatus'} eq '4')) 		{ print qq|<BUTTON $host_style type="submit" name="cp" value="Player Status" | . &button_help('PlayerStatus') . qq|>Player Status</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if ($GameValues{'HostName'} eq $session->param("userlogin")  && ($GameValues{'GameStatus'} =~ /^[234]$/)) 		{ print qq|<BUTTON $host_style type="submit" name="cp" value="Player Status" | . &button_help('PlayerStatus') . qq|>Player Status</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Pause/Unpause the game
 		# Must be hosting the game, or in the game if the game permits
 		if ($GameValues{'GamePause'} && $current_player eq $userlogin) { $pause_style = $user_style; } else { $pause_style = $host_style; }
 		if (($GameValues{'GameStatus'} eq '4') && (($GameValues{'HostName'} eq $session->param("userlogin")) || (&checkbox($GameValues{'GamePause'}) && $current_player eq $userlogin))) { print qq|<BUTTON $pause_style type="submit" name="cp" value="UnPause Game"| . &button_help('GameUnPause') . qq|>UnPause Game</BUTTON>|; print qq|<input type=hidden name="GamePause" value="$GameValues{'GamePause'}">\n|; $button_count = &button_check($button_count);} 
 		if (($GameValues{'GameStatus'} =~ /^[235]$/) && (($GameValues{'HostName'} eq $session->param("userlogin")) || (&checkbox($GameValues{'GamePause'}) && $current_player eq $userlogin))) { print qq|<BUTTON $pause_style type="submit" name="cp" value="Pause Game" | . &button_help('GamePause') . qq|>Pause Game</BUTTON>|; print qq|<input type=hidden name="GamePause" value="$GameValues{'GamePause'}">\n|; $button_count = &button_check($button_count);}
 		# End the game
-		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} eq '2' || $GameValues{'GameStatus'} eq '4')) { print qq|<BUTTON $host_style type="submit" name="cp" value="End Game" | . &button_help('EndGame') . qq|>End Game</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[234]$/)) { print qq|<BUTTON $host_style type="submit" name="cp" value="End Game" | . &button_help('EndGame') . qq|>End Game</BUTTON>\n|; $button_count = &button_check($button_count);}
     # Restart Game
 		if ($GameValues{'HostName'} eq $session->param("userlogin") && $GameValues{'GameStatus'} eq '9') { print qq|<BUTTON $host_style type="submit" name="cp" value="Restart Game" | . &button_help('RestartGame') . qq|>Restart Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Change personal game state from active to Idle and vice versa.
@@ -1779,6 +1778,9 @@ sub lp_list_games {
 	if (&DB_Call($db,$sql)) {
 		while ($db->FetchRow()) {
 	    my ($GameName, $GameFile, $NewsPaper) = $db->Data("GameName", "GameFile", "NewsPaper");
+      # Add a chacater to $GameName as part of html_left that will strip off the first character
+      # Without this games with a number in the name will have it stripped out later. 
+      $GameName = '0' . $GameName;
       # Change the URL based on whether the game has Galactic News enabled
 			if (&checkbox($NewsPaper)) {
 				$menu_left{"<i>$GameName</i>"} = qq|page.pl?lp=profile_game&cp=show_game&rp=show_news&GameFile=$GameFile|;
@@ -1921,7 +1923,7 @@ sub delete_race {
 		if (&DB_Call($db,$sql)) {
 			while ($db->FetchRow()) { 
          %RaceValues = $db->DataHash();
-#				($RaceFiled, $User_Login) = $db->Data('RaceFile', 'User_Login');
+#				($RaceFile, $User_Login) = $db->Data('RaceFile', 'User_Login');
 			} 
 		} else { print qq|<P>RaceID $RaceID not found as $RaceValues{'RaceID'} for User $User_Login\n|; }
 		if ($RaceValues{'RaceID'} && $RaceValues{'User_Login'}) {
@@ -1989,7 +1991,7 @@ sub edit_game {
 	}	
 	if ($type eq 'edit') {
   	# Let the user select from those with accounts (should it be only those playing the game?)
-  	$sql = "SELECT * FROM User ORDER BY User_Login;";
+  	$sql = qq|SELECT * FROM User ORDER BY User_Login;|;
   	if (&DB_Call($db,$sql)) {
   		while ($db->FetchRow()) { %HostValues = $db->DataHash(); 
   #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
@@ -2259,7 +2261,7 @@ sub update_game {
 	my $HostAccess = &checkboxnull($in{'HostAccess'});
 	$in{'Notes'} = &clean($in{'Notes'});
   # Enable/disable List functionality for Fix
- 	my $Exploit = &checkboxnull($in{'Exploit'}); # Not a DB entry
+ 	my $Exploit = &checkboxnull($in{'Exploit'}); # Not a DB entry 
   if (!($Exploit)) { 
     &updateList($in{'GameFile'}, 0); 
   } else {
@@ -2286,7 +2288,7 @@ sub update_game {
     # AutoInactive is, deceptively, the AutoIdle feature
     # in order to avoid a DB update
     my @Values;
-   	my $sql = qq|Update Games  SET 
+   	my $sql = qq|UPDATE Games  SET 
 								GameDescrip = '$in{'GameDescrip'}',
                 HostName = '$in{'HostName'}',
 								DailyTime = $in{'DailyTime'},  
@@ -2572,7 +2574,7 @@ sub MakeDayFreq { #Make the day turn frequency
   $Friday = &checkboxnull($in{'Fri.'});
   $Saturday = &checkboxnull($in{'Sat.'});
   $DayFreq = $Sunday . $Monday . $Tuesday . $Wednesday . $Thursday . $Friday . $Saturday;
-  if ($DayFreq eq '0000000') { $DayFreq = '1000000'; } #default to Sunday if nothing is selected
+  if ($DayFreq  == 0 ) { $DayFreq = '1000000'; } #default to Sunday if nothing is selected
   return($DayFreq);
 }
 
@@ -2584,7 +2586,7 @@ sub MakeHourFreq { #Make the hour turn frequency
 		$hour[$i] = &checkboxnull($in{"$h"});
 		$HourFreq = $HourFreq . $hour[$i];
 	}
-	if ($HourFreq eq '000000000000000000000000') { $DayFreq = '000000001111111111111100'; } #default to not after 10
+	if ($HourFreq == 0) { $HourFreq = '000000001111111111111100'; } #default to not after 10
 	return($HourFreq);
 }
 
@@ -2657,7 +2659,7 @@ sub read_def {
 sub read_game {
 	# Read in the game paramenters and create a table
 	my ($file_prefix) = @_;
-	my $sql = qq|SELECT * FROM Games WHERE Gamefile = \'$file_prefix\';|;
+	my $sql = qq|SELECT * FROM Games WHERE GameFile = \'$file_prefix\';|;
 	my %GameValues;
 	$db = &DB_Open($dsn);
 	if (&DB_Call($db,$sql)) { $db->FetchRow(); %GameValues = $db->DataHash(); }
@@ -2892,10 +2894,10 @@ sub show_delay {
 	if ($GameValues{'GameType'} == 3) { print "Turns generated only when all turns are in.\n"; } 
   	elsif ($GameValues{'GameType'} == 4) { print " Turns generated manually.\n"; }
   	elsif ($GameValues{'GameType'} == 2) { 
-      if ($HourlyTime >=1) {
-  		  print " Turns generated every $HourlyTime hours"; 
-      } elsif ($HourlyTime < 1) {
-        my $minutes = int(($HourlyTime * 60) + .5);
+      if ($GameValues{'HourlyTime'} >=1) {
+  		  print " Turns generated every $GameValues{'HourlyTime'} hours"; 
+      } elsif ($GameValues{'HourlyTime'} < 1) {
+        my $minutes = int(($GameValues{'HourlyTime'} * 60) + .5);
         print " Turns generated every $minutes minutes";
       }
 		if ($GameValues{'AsAvailable'}) { print " or when all turns are in"; }
@@ -2971,8 +2973,9 @@ sub process_delay {
 	my ($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $IsDST);
 	my %GameValues;
 	my $db = &DB_Open($dsn);
-	$sql = qq|SELECT Games.GameName, Games.GameFile, Games.DailyTime, Games.NextTurn, Games.LastTurn, Games.GameType, Games.NumDelay, Games.MinDelay, Games.DayFreq, Games.HourlyTime, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.DelaysLeft FROM Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE (((Games.GameFile)='$GameFile') AND ((GameUsers.User_Login)='$userlogin') AND ((GameUsers.PlayerID) Is Not Null));|;
+	$sql = qq|SELECT Games.GameName, Games.GameFile, Games.DailyTime, Games.NextTurn, Games.LastTurn, Games.GameType, Games.NumDelay, Games.MinDelay, Games.DayFreq, Games.HourFreq, Games.HourlyTime, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.DelaysLeft FROM Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE (((Games.GameFile)='$GameFile') AND ((GameUsers.User_Login)='$userlogin') AND ((GameUsers.PlayerID) Is Not Null));|;
 	# make sure the user actually has a delay available, and get other game-related values
+  #BUG: If the player is in the game twice, it's going to decrement for one of them at random 
 	if (&DB_Call($db,$sql)) { if ($db->FetchRow()) { %GameValues = $db->DataHash(); } 	}
   &LogOut(200, "process_delay: DELAYSLEFT: $GameValues{'DelaysLeft'}",$LogFile);
 	if ($GameValues{'DelaysLeft'} >= $delay_turns) {
@@ -2984,11 +2987,11 @@ sub process_delay {
 		if (&DB_Call($db,$sql)) { 
 			&LogOut(100, "$userlogin delays decreased by $delay for $GameValues{'GameFile'}.",$LogFile); 
 			#	Set Game Status to Player Delay [3] / Flag game as player timeout/delayed (so we can display it). 
-			$sql = qq|Update Games SET GameStatus = 3 WHERE GameFile = \'$GameFile\'|;
+			$sql = qq|UPDATE Games SET GameStatus = 3 WHERE GameFile = \'$GameFile\'|;
 			if (&DB_Call($db,$sql)) { 
 				&LogOut(200, "process_delay: Game Status set to Delayed for $GameFile by $userlogin.",$LogFile); 
 				# Increment the number of delays for the game
-				$sql = qq|Update Games SET DelayCount = DelayCount + $delay WHERE GameFile = \'$GameFile\'|;
+				$sql = qq|UPDATE Games SET DelayCount = DelayCount + $delay WHERE GameFile = \'$GameFile\'|;
 				if (&DB_Call($db,$sql)) { 
           $ToDelay = 1; 
           &LogOut(200, "process_delay: Increase DelayCount + $delay for $GameFile by $userlogin.",$LogFile); 
@@ -3014,18 +3017,36 @@ sub process_delay {
 					($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST, $CSecOfDay) = &CheckTime($NextTurn);
 					($DaysToAdd, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'},$CWeekDay); 
 					$NextTurn = $NextTurn + ($DaysToAdd * 86400); 
+          $abort++;
+          if ($abort > 168) { 
+            my $log = "ValidTurnTime failure, abort = $abort";
+            &LogOut(0, $log,$ErrorLog);
+            &LogOut(0, $log,$LogFile);
+            $NextTurn = $GameValues{'NextTurn'} + ( 86400 * 14 ); # Add 2 weeks
+            last;
+          }
 				}
 			} elsif ( $GameValues{'GameType'} == 2) {
 				my ($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $IsDST) = localtime($NextTurn); 
 				$NextTurn = $NextTurn + (($GameValues{'HourlyTime'} * 60 * 60) );
 # 				while (&ValidTurnTime($NextTurn,'Hour',\%GameValues) ne 'True') { 
+        my $abort = 0;
  				while (&ValidTurnTime($NextTurn,'Hour',$GameValues{'DayFreq'}, $GameValues{'HourFreq'}) ne 'True') { 
  					# Get the weekday of the new turn so we can see if it's ok
  					($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST, $CSecOfDay) = localtime($NextTurn);
  					# Move to the next available hour
- 					print "New Weekday: $CWeekDay   timeFreq = $GameValues{'HourlyTime'}\n";
+ 					#print "New Weekday: $CWeekDay   timeFreq = $GameValues{'HourlyTime'}\n";
  					$NextTurn = $NextTurn + $GameValues{'HourlyTime'}*60*60;
- 					print "<P>Next Turn" . localtime($NextTurn);
+ 					#print "<P>Next Turn" . localtime($NextTurn);
+          # An emergency abort if the loop can't find a ValidTurnTime
+          $abort++;
+          if ($abort > 168) { 
+            my $log = "ValidTurnTime failure, abort = $abort";
+            &LogOut(0, $log,$ErrorLog);
+            &LogOut(0, $log,$LogFile);
+            $NextTurn = $GameValues{'NextTurn'} + ( 86400 * 14 ); # Add 2 weeks
+            last;
+          }
  				}
 			} else { &LogOut(0,"Delay Failed for $GameFile wrong game type",$ErrorLog); }
 		}
@@ -3255,11 +3276,11 @@ sub process_forcegen {
     if (&checkbox($decrementforcegentimes)) {
     	$NumberofTimes = $GameValues{'ForceGenTimes'} -1;
 			# Update NumberofTimes
-			$sql = "UPDATE Games SET ForceGenTimes = $NumberofTimes WHERE GameFile = \'$GameValues{'GameFile'}\'";
+			$sql = qq|UPDATE Games SET ForceGenTimes = $NumberofTimes WHERE GameFile = \'$GameValues{'GameFile'}\'|;
 			if (&DB_Call($db,$sql)) { &LogOut(200,"Decremented ForceGenTimes for $GameValues{'GameFile'}",$LogFile); }
 			else { &LogOut(200,"Failed to Decrement ForceGenTimes for $GameValues{'GameFile'}",$ErrorLog);}
 			if ($NumberofTimes <= 0) { #If the game is no longer forced, unforce game
-				$sql = "UPDATE Games SET ForceGen = 0 WHERE GameFile = \'$GameValues{'GameFile'}\'";
+				$sql = qq|UPDATE Games SET ForceGen = 0 WHERE GameFile = \'$GameValues{'GameFile'}\'|;
 				if (&DB_Call($db,$sql)) { &LogOut(200,"Forcegen set to 0 for $GameValues{'GameFile'}",$LogFile) }
 				else { &LogOut(0,"Failed to set forcegen to 0 for $GameValues{'GameFile'}",$ErrorLog); }
 			}
@@ -3383,14 +3404,11 @@ sub display_warning {
   my ($warning) = @_;
   my @warnings;
   if ($warning) {
-#    print "<font color=red><ul>\n";
     print "<font color=red>\n";
     @warnings = split (',',$warning);
     foreach my $warned (@warnings) {
-#      print "<li>$warned</li>\n";
       print "<P>$warned</P>\n";
     } 
-#    print "</ul></font>\n";
     print "</font>\n";
   } else {
     print "<P><font color=red>Warning: Using the browser Page Refresh/Reload will repeat the last Action.</font></P>\n";

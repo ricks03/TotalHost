@@ -35,7 +35,7 @@ use Net::SMTP;
 sub DelayTurn {
 	($GameFile) = @_; 
 	# Get the information for the relevant game
-	my $sql = "SELECT * FROM Games WHERE GameFile = $GameFile ORDER BY GameFile";
+	my $sql = qq|SELECT * FROM Games WHERE GameFile = $GameFile ORDER BY GameFile|;
 	my $GameData = &LoadGamesInProgress($db,$sql); #Load all games
 	my @GameData = @$GameData;
 	# Determine when it's currently supposed to generate
