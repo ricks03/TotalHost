@@ -92,6 +92,8 @@ sub DB_Open {
 
 sub DB_Close {
   my ($dbh) = @_;
+  #  my ($dbh, $sth) = @_;
+  #if (defined $sth) { $sth->finish(); }
   $dbh->disconnect();
 }
 
@@ -276,16 +278,21 @@ sub Load_EmailAddresses {
   my %Host;
 	&LogOut(300,"      Load_EmailAddresses: Email game name: $GameFile",$LogFile);   
 	my $db = &DB_Open($dsn);
-	if (&DB_Call($db,$sql)) {
+	if (my $sth = &DB_Call($db,$sql)) {
 		my $MailCounter = 0; # Game counter
     while (my $row = $sth->fetchrow_hashref()) {
       (@User_Login[$MailCounter], @Email[$MailCounter], @PlayerID[$MailCounter], @EmailTurn[$MailCounter]) =  ($row->{'User_Login'}, $row->{'User_Email'}, $row->{'PlayerID'}, $row->{'EmailTurn'});
 			&LogOut(100,"      Load_EmailAddresses: Will mail for $GameFile to User Name: $User_Login[$MailCounter] PlayerID: $PlayerID[$MailCounter] Email: $Email[$MailCounter]",$LogFile);
 			$MailCounter++;
 		}
+    $sth->finish();
 	}
   $sql = qq|SELECT Games.GameName, Games.HostName, User.User_Email, User.EmailTurn FROM [User] INNER JOIN Games ON User.User_Login = Games.HostName WHERE Games.GameFile = \'$GameFile\';|;
-  if ( my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); %Host = %{$row}; }	
+  if ( my $sth = &DB_Call($db,$sql)) { 
+    my $row = $sth->fetchrow_hashref(); %Host = %{$row}; 
+    $sth->finish();
+  }	
+
   #BUG: A player in the game more than once will be in the list more than once. 
   # Only add the host if they're not in the game
   if (!grep { $_ eq $Host{'HostName'} } @User_Login) {
@@ -542,7 +549,7 @@ sub html_banner {
 	$id = $session->param("userid");
 	$login = $session->param("userlogin");
 	print qq|<table width=100%>\n|;
-	print qq|<tr height=50>\n<td width=20% align=left><a href="$WWW_HomePage"><img src=$WWW_Image| . qq|TotalHost.jpg alt="Total Host" border=0></a></td>\n|;
+	print qq|<tr height=50>\n<td width=20% align=left><a href="/"><img src=$WWW_Image| . qq|TotalHost.jpg alt="Total Host" border=0></a></td>\n|;
 #	print qq|<td name=notes><iframe id ="ifr" src="$WWW_Notes| . qq|blank.htm" name="your_name" marginwidth=0 marginheight=0 width="400" height="25" frameborder="0" scrolling="auto"></iframe></td>|;
 	print qq|<td name="notes"></td>|;
 
@@ -653,7 +660,7 @@ eof
 }
 
 sub html_footer {
-	print qq|\n<hr>\n<font size="-1"><table width=100%><tr><td width=200></td><td><a href="$WWW_HomePage/scripts/index.pl?cp=privacypolicy">Privacy Policy</a></td><td><a href="$WWW_HomePage/scripts/index.pl?cp=termsofuse">Terms of Use</a></td><td><A href="mailto:TH\@corwyn.net">Contact Us</A></td></font>\n|;
+	print qq|\n<hr>\n<font size="-1"><table width=100%><tr><td width=200></td><td><a href="$WWW_Scripts/index.pl?cp=privacypolicy">Privacy Policy</a></td><td><a href="$WWW_Scripts/index.pl?cp=termsofuse">Terms of Use</a></td><td><A href="mailto:TH\@corwyn.net">Contact Us</A></td></font>\n|;
 }
 
 sub clean_old_sessions {
@@ -664,7 +671,7 @@ sub clean_old_sessions {
   		while ($file = glob($filez)) {
     		@stat=stat $file; 
     		$days = (time()-$stat[9]) / (60*60*24);
-    		unlink $file if ($days > 30);
+    		if (-e $file) { unlink $file if ($days > 90); }
   		}
 	} 
 }
@@ -801,6 +808,7 @@ sub list_games {
 			print qq|</tr>\n|;
   	}
 		if (!($countgames)) { print "<tr><td>&nbsp&nbsp No Games Found</td></tr>"; }
+    $sth->finish();
 	} else { &LogOut(10,"list_games: ERROR Finding list_games",$ErrorLog); }
 	print "</table>\n";
 	&DB_Close($db);
@@ -823,6 +831,7 @@ sub rp_list_games {
  			print qq|</td></tr>\n|;
 		}
 		if (!($countgames)) { print "<tr><td>&nbsp&nbsp No Games Found</td></tr>"; }
+    $sth->finish();
 	} else { &LogOut(10,"ERROR: Finding list_games",$ErrorLog); }
 	print "</table>\n";
 	&DB_Close($db);
@@ -838,6 +847,7 @@ sub LoadGamesInProgress {
 			@GameData[$GameCounter] = { %GameValues };
 			$GameCounter++;
 		}
+    $sth->finish();
 	}
 #   	for $href ( @GameData ) { print "{ "; for $role ( keys %$href ) { print "$role=$href->{$role} "; } print "}\n"; }
 	return \@GameData;
@@ -847,14 +857,12 @@ sub Make_CHK {
 # Updates the .chk file for a game
 	my($GameFile) = @_;
   # Stars! does not like forward slashes as command-line parameters
-  #my($CheckGame) = $executable . ' -v ' . $WINE_Games . '\\\\' . $GameFile . '\\\\' . $GameFile . '.hst';
-  my($CheckGame) = $executable;
+  my($CheckGame) = $executable . ' -v ' . $WINE_Games . '\\\\' . $GameFile . '\\\\' . $GameFile . '.hst';
   &LogOut(200, "Make_CHK: Running for $GameFile, $CheckGame", $LogFile);
+  chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
   #system($CheckGame);
-   my $exit_status = system($CheckGame);
-   print "Command failed with exit status: $exit_status\n";
-  #my $output = qx($CheckGame);
-  #print "OUTPUT: $output";
+  my $exit_status = system($CheckGame);
+  # print "Command failed with exit status: $exit_status\n";
 	#sleep 2;
 }
 
@@ -921,7 +929,10 @@ sub UpdateNextTurn { #Update the database for the time that the next turn should
 	my $upd = "UpdateNextTurn for $GameFile updated to $NextTurn: " . localtime($NextTurn);
 	&LogOut(50,$upd,$LogFile);
 	$sql = qq|UPDATE Games SET NextTurn = $NextTurn WHERE GameFile = \'$GameFile\';|;
-	if (&DB_Call($db,$sql)) { return 1;	} 
+	if (my $sth = &DB_Call($db,$sql)) { 
+    $sth->finish();
+    return 1;	
+  } 
 	else { return 0; }
 }
 
@@ -931,7 +942,10 @@ sub UpdateLastTurn {
 	my $upd = "UpdateLastTurn: Last turn for $GameFile updated to $LastTurn: " . localtime($LastTurn);
 	&LogOut(50,$upd,$LogFile);
 	$sql = qq|UPDATE Games SET LastTurn = $LastTurn WHERE GameFile = \'$GameFile\';|;
-	if (&DB_Call($db,$sql)) { return 1;	} 
+	if (my $sth = &DB_Call($db,$sql)) {
+    $sth->finish(); 
+    return 1;	
+  } 
 	else { return 0; }
 }
 
@@ -975,6 +989,7 @@ sub GenerateTurn { # Generate a turn and refresh files
 	# So you have to use \ (eg d:\th\games instead of d:/th/games)
   # Because Stars! does the forcegen, there are no backups of the interim turns
 	my($GenTurn) = $executable . ' -g' . $NumberofTurns . ' ' . $WINE_Games . '\\\\' .  $GameFile . '\\\\' . $GameFile . '.hst';
+  chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
 	system($GenTurn);
 	sleep 4;
 
@@ -1146,13 +1161,14 @@ sub LoadHolidays { #Load the Holiday Values from the Database
 	if (my $sth = &DB_Call($db,$sql)) {
 		# Load all game values into the array
 		&LogOut(200,"LoadHolidays...",$LogFile);
-      while (my $row = $sth->fetchrow_hashref()) { 
-        %HolidayValues = %{$row};
+    while (my $row = $sth->fetchrow_hashref()) { 
+      %HolidayValues = %{$row};
 #			(@Holiday[$HolidayCounter], @Holiday_txt[$HolidayCounter], @Nationality[$HolidayCounter]) = $db->Data("Holiday", "Holiday_txt", "Nationality");
 #			while ( my ($key, $value) = each(%GameValues) ) { print "$key => $value\n"; }
-			@Holiday[$HolidayCounter] = { %HolidayValues };
-			$HolidayCounter++;
+		  @Holiday[$HolidayCounter] = { %HolidayValues };
+		  $HolidayCounter++;
 		}
+    $sth->finish();
 	}
 	return @Holiday;
 }
@@ -1312,7 +1328,10 @@ sub process_game_status {
   # Get the information about the game in question
   # Since this can be reached by players (Pause) needs to not filter for $userlogin
   $sql_local = qq|SELECT * FROM Games WHERE GameFile = \'$GameFile\';|;
-	if (my $sth = &DB_Call($db,$sql_local)) { my $row = $sth->fetchrow_hashref(); %GameValues = %{$row}; }
+	if (my $sth = &DB_Call($db,$sql_local)) { 
+    my $row = $sth->fetchrow_hashref(); %GameValues = %{$row}; 
+    $sth->finish();
+  }
   my $state_set = 0;
 	if ($state eq 'Pause') {
     if ($GameValues{'GamePause'}) {       # If players are allowed to pause the game
@@ -1398,9 +1417,10 @@ sub process_game_status {
   }
   
   if ($state_set) {
-  	if (&DB_Call($db,$sql)) { 
+  	if (my $sth = &DB_Call($db,$sql)) { 
   		&LogOut(100,"process_game_status: $GameFile set to $state for $sql for $userlogin", $LogFile);
   		$success = 1;
+      $sth->finish(); 
   	} else { 
   		print "<P>Game $GameFile failed to $state\n"; 
   		&LogOut(0, "process_game_status: Game $GameFile failed to $state for $userlogin for $sql", $ErrorLog); 

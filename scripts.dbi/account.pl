@@ -32,7 +32,11 @@ do 'config.pl';
 use TotalHost;
 
 # The _new_ way (from like 10 years ago)
-foreach my $field (param()) { $in{$field} = param($field); }
+#foreach my $field (param()) { $in{$field} = param($field); }
+foreach my $field (param()) {
+   my $value = param($field);  # Get the values for the current parameter in list context
+   $in{$field} = clean($value);  # Clean and assign to %in hash
+}
 
 #my $cgi = new CGI;      
 #my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
@@ -66,7 +70,7 @@ if ($in{'action'} eq 'add_user' || $in{'action'} eq 'activate_user' ) {
 	%menu_left = 	(
 				"1About Us"			=> "$WWW_Scripts/index.pl?lp=home&cp=aboutus",
 				"2FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
-				"3Strategy Guide"	=> "$WWW_HomePage/Strategy/SSG.HTM",
+				"3Strategy Guide"	=> "/Strategy/ssh.htm",
 				"4Downloads"		=> "$WWW_Scripts/index.pl?lp=home&cp=downloads",
 				"3Order of Events"	=> "$WWW_Scripts/index.pl?lp=home&cp=orderofevents",
 				"3Game Defaults"	=> "$WWW_Scripts/index.pl?lp=home&cp=gamedefaults",
@@ -131,7 +135,10 @@ sub add_user {
   	$hash = $in{'User_Password'} . $secret_key;
   	$passhash = sha1_hex($hash); 
   	$sql = qq|INSERT INTO User (`User_Login`, `User_Last`, `User_First`, `User_Password`, `User_Email`, `User_Status`, `User_Creation`, `User_Modified`, `EmailTurn`, `EmailList`) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', -5,'$Date','$Date', 1, 1);|;
-  	if (&DB_Call($db,$sql)) { print "<P>Done!  Check your email to activate your account. \n"; }
+  	if (my $sth = &DB_Call($db,$sql)) { 
+      print "<P>Done!  Check your email to activate your account. \n";
+      $sth->finish();
+    }
   	else { print '<P>Error creating account. Duplicate User ID?'; &LogOut(10,"ERROR: Adding New User $in{'User_Login'} $in{'User_Email'}",$ErrorLog);}
   	# add an entry in the temp file to expect the account to be activated
   	&DB_Close($db);
@@ -143,7 +150,7 @@ sub add_user {
   	$Subject = $mail_prefix . 'Account Creation';
   	$Message = "\n\nA request was submitted to create an account $User_Login.\n";
   	$Message .= "To activate your account, select the link below:\n";
-  	$Message .= "$WWW_HomePage$WWW_Scripts" . '/account.pl?action=activate_user&user=' . $in{'User_Login'} . '&new=' . $tmphash;
+  	$Message .= "$WWW_Scripts" . '/account.pl?action=activate_user&user=' . $in{'User_Login'} . '&new=' . $tmphash;
   	$smtp = &Mail_Open;
   	&Mail_Send($smtp, $in{'User_Email'}, $mail_from, $Subject, $Message); # email user
   	&Mail_Send($smtp, $mail_from, $mail_from, $Subject, $Message); # notify site host
@@ -216,8 +223,9 @@ sub activate_user {
     $Date =&GetTimeString();
     $userfile = substr(sha1_hex(time()), 5, 8); 
     $sql = "UPDATE User SET User_Status=1, User_Modified='$Date', User_File='$userfile', User_Serial='$user_serial'  WHERE User_ID=$id;";
-    &DB_Call($db,$sql);
-    $redirect = $WWW_HomePage . $WWW_Scripts . '/page.pl';
+    my $sth = &DB_Call($db,$sql);
+    $sth->finish();
+    $redirect = $WWW_Scripts . '/page.pl';
     # handy function - don't lose. 
     #	&print_redirect($cgi,$sessionid,$redirect);
     print "Account Activated for $User_Login" . ". Please Log In.";
@@ -253,7 +261,8 @@ sub reset_user {
   	$Date =&GetTimeString();
   	# add new temporary password to database
   	$sql = "UPDATE User SET User_Password='$new_password', User_Status=2, User_Modified='$Date' WHERE User_ID=$id;";
-  	&DB_Call($db,$sql);
+  	my $sth = &DB_Call($db,$sql);
+    $sth->finish();
   	# Email new temporary password
   	$Subject = $mail_prefix . 'Password Reset Request';
   	$Message = "\n\nA request was submitted to reset your password for User ID: $in{'User_Login'}.\n";
@@ -290,8 +299,8 @@ sub reset_password {
       }
       if ($id) { last; }  # Exit the loop if a match is found
     }
+    $sth->finish();
   }
-
 	&DB_Close($db);
 	if ($id) {
 print <<eof;
@@ -325,6 +334,7 @@ sub reset_password2 {
         }
         if ($id) { last; }  # Exit the loop if a match is found
     }
+    $sth->finish();
   }
 
 	if ($id) {
@@ -333,7 +343,8 @@ sub reset_password2 {
 		$userhash = sha1_hex($hash); 
 		$Date = &GetTimeString();
 		$sql = "UPDATE User SET User_Password='$userhash', User_Status=1, User_Modified='$Date' WHERE User_ID=$id;";
-		&DB_Call($db,$sql);
+		my $sth = &DB_Call($db,$sql);
+    $sth->finish(); 
 		print "Password Updated for $in{'User_Login'}.";		
 	} else {
 		$log = "Failure to update password for $in{'User_Login'}";
@@ -353,8 +364,8 @@ sub change_password {
 	$userhash = sha1_hex($hash); 
 	$db = &DB_Open($dsn);
 	$sql = qq|UPDATE User SET User_Password=\'$userhash\', User_Modified=\'$Date\'  WHERE User_ID=$userid;|;
-	&DB_Call($db,$sql);
-
+	my $sth = &DB_Call($db,$sql);
+  $sth->finish();
 	print "Password changed for $userid\n";
   &DB_Close($db);
 }
@@ -398,6 +409,7 @@ sub login {
       }
       if ($id) { last; }  # Exit the loop if a match is found
     }
+    $sth->finish();
   }
 
   &DB_Close($db);	
@@ -410,9 +422,9 @@ sub login {
       $session->param("userid", $User_ID);
       $session->param("userlogin", $User_Login);
       $session->param("email", $User_Email);
-#			$redirect = $WWW_HomePage . $WWW_Scripts . '/page.pl';
+#			$redirect =$WWW_Scripts . '/page.pl';
 #			$redirect = $WWW_HomePage . $WWW_Scripts . '/index.pl?lp=home';
-			$redirect = $WWW_HomePage . $WWW_Scripts . '/page.pl?lp=profile_game&cp=show_first_game';
+			$redirect = $WWW_Scripts . '/page.pl?lp=profile_game&cp=show_first_game';
 			&print_redirect($cgi,$sessionid,$redirect);
   } else {
     &LogOut(100,"$submit_user failed to Log In",$LogFile);
@@ -424,7 +436,7 @@ sub login {
 #			$session->param("userlogin", $User_Login);
 #			$session->param("email", $User_Email);
     print $cgi->redirect( -URL => "$WWW_Scripts/account.pl?action=login_fail");
-#			$redirect = $WWW_HomePage . $WWW_Scripts . '/index.pl';
+#			$redirect = $WWW_Scripts . '/index.pl';
 #			&print_redirect($cgi,$sessionid,$redirect);
   }
 #    }

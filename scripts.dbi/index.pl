@@ -32,7 +32,11 @@ use TotalHost;
 CGI::Session->name('TotalHost');
 
 #%in = &parse_input(*in);
-foreach my $field (param()) { $in{$field} = &clean(param($field)); }
+#foreach my $field (param()) { $in{$field} = &clean(param($field)); }
+foreach my $field (param()) {
+   my $value = param($field);  # Get the values for the current parameter in list context
+   $in{$field} = clean($value);  # Clean and assign to %in hash
+}
 
 my $cgi = new CGI;      
 my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
@@ -191,6 +195,7 @@ sub account_create {
 	$sql = qq|SELECT Count(User.User_ID) AS CountOfUser_ID FROM `User`;|;
 	if (my $sth = &DB_Call($db,$sql)) { 
   	($User_Count) = $sth->fetchrow_array();
+    $sth->finish();
   }
   &DB_Close($db);
   if ($User_Count > $max_users ) {

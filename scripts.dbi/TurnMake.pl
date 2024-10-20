@@ -5,7 +5,7 @@
 # 120808, 121016
 
 #     Copyright (C) 2012 Rick Steeves
-# 
+#                                                                    f
 #     This file is part of TotalHost, a Stars! hosting utility.
 #     TotalHost is free software: you can redistribute it and/or modify
 #     it under the terms of the GNU General Public License as published by
@@ -67,6 +67,7 @@ if (-e $reboot_file) {
       ($User_ID, $User_Login, $User_First) =  ($row->{'$User_ID'}, $row->{'$User_Login'}, $row->{'$User_First'});
       &process_game_status($GameFile, 'Paused-Power Outage', ''); # No host name in TurnMake
 		}
+    $sth->finish();
   }
   # Notify admin that the internet is back up
   # Send email to admin that the system recently powered up
@@ -79,8 +80,9 @@ if (-e $reboot_file) {
   # Log the events
   print "Mail sent to $mail_from about $reboot_file for $WWW_HomePage\n";
 	&LogOut(0,"Power restored, $mail_from, $reboot_file, $WWW_HomePage",$LogFile);
-  unlink $reboot_file;   # Delete the power on file now that we clearly have power
-  &DB_Close($db); exit;   # Stop execution, since we have a changed game status state
+  if (-e $reboot_file) { unlink $reboot_file; }  # Delete the power on file now that we clearly have power
+  &DB_Close($db); 
+  exit;   # Stop execution, since we have a changed game status state
 } 
   
 # Check to see if there's internet connectivity
@@ -101,7 +103,8 @@ if ($internet_status) {
     if ($internet_down_count >= $internet_threshold) {
         internet_game_status('inactive');
     }
-    &DB_Close($db); exit; # We have changed game state, so stop. 
+    &DB_Close($db); 
+    exit; # We have changed game state, so stop. 
 }
  
 &DB_Close($db);
@@ -170,9 +173,16 @@ sub CheckandUpdate {
 				# since if we're generating with a turn missing we've clearly hit the window past the delays.
 				if ($GameData[$LoopPosition]{'DelayCount'} > 0) {
 					$sql = "UPDATE Games SET DelayCount = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
-					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: Delay reset to 0 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
+					if (my $sth = &DB_Call($db,$sql)) { 
+            &LogOut(50, "Checkandupdate: Delay reset to 0 for $GameData[$LoopPosition]{'GameFile'}", $LogFile);
+            $sth->finish(); 
+          }
+            
 					$sql = "UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
-					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
+					if (my $sth = &DB_Call($db,$sql)) { 
+            &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); 
+            $sth->finish(); 
+          }
 				}
 
 	    #Game Type = Hourly
@@ -191,9 +201,15 @@ sub CheckandUpdate {
 				# since if we're generating with a turn missing we've clearly hit the window past the delays.
 				if ($GameData[$LoopPosition]{'DelayCount'} > 0) {
 					$sql = "UPDATE Games SET DelayCount = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
-					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: Delay reset to 0 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
+					if (my $sth = &DB_Call($db,$sql)) { 
+            &LogOut(50, "Checkandupdate: Delay reset to 0 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); 
+            $sth->finish(); 
+          }
 					$sql = "UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
-					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
+					if (my $sth = &DB_Call($db,$sql)) { 
+            &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); 
+            $sth->finish(); 
+          }
 				}
 
 	    #Game Type = All In
@@ -211,12 +227,18 @@ sub CheckandUpdate {
 				# If the game is in a delay state, decrement the delay 
 				if ($GameData[$LoopPosition]{'DelayCount'} > 0 ) {
 					$sql = "UPDATE Games SET DelayCount = DelayCount -1 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
-					if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: Delay decremented for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
+					if (my $sth = &DB_Call($db,$sql)) { 
+            &LogOut(50, "Checkandupdate: Delay decremented for $GameData[$LoopPosition]{'GameFile'}", $LogFile); 
+            $sth->finish(); 
+          }
 				}
         # And reset the game to active if it's time
         if ( $GameData[$LoopPosition]{'DelayCount'} == 1 ) { # which is now really 0
   	   		$sql = "UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
-  				if (&DB_Call($db,$sql)) { &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); }
+  				if (my $sth = &DB_Call($db,$sql)) { 
+            &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile);
+            $sth->finish();  
+          }
         }
 
 				# Recalculate when the next turn is due
@@ -323,11 +345,17 @@ sub CheckandUpdate {
 					$NumberofTimes = $GameData[$LoopPosition]{'ForceGenTimes'} -1;
 					# Update NumberofTimes
 					$sql = "UPDATE Games SET ForceGenTimes = $NumberofTimes WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'";
-					if (&DB_Call($db,$sql)) { &LogOut(200,"Decremented ForceGenTimes for $GameData[$LoopPosition]{'GameFile'}",$LogFile); }
+					if (my $sth = &DB_Call($db,$sql)) {
+            &LogOut(200,"Decremented ForceGenTimes for $GameData[$LoopPosition]{'GameFile'}",$LogFile);
+            $sth->finish(); 
+          }
 					else { &LogOut(200,"Failed to Decrement ForceGenTimes for $GameData[$LoopPosition]{'GameFile'}",$ErrorLog);}
 					if ($NumberofTimes <= 0) { #If the game is no longer forced, unforce game
 						$sql = "UPDATE Games SET ForceGen = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'";
-						if (&DB_Call($db,$sql)) { &LogOut(200,"Forcegen set to 0 for $GameData[$LoopPosition]{'GameFile'}",$LogFile) }
+						if (my $sth = &DB_Call($db,$sql)) { 
+              &LogOut(200,"Forcegen set to 0 for $GameData[$LoopPosition]{'GameFile'}",$LogFile);
+              $sth->finish(); 
+            }
 						else { &LogOut(0,"Failed to set forcegen to 0 for $GameData[$LoopPosition]{'GameFile'}",$ErrorLog); }
 					}
 				}
@@ -348,7 +376,10 @@ sub CheckandUpdate {
 				# If Game was flagged as Delayed, once we generate it's not anymore
 				if ($GameData[$LoopPosition]{'GameStatus'} == 3 && $GameData[$LoopPosition]{'DelayCount'} <= 0) { 
 					$sql = "UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'";
-					if (&DB_Call($db,$sql)) { &LogOut(100, "TurnMake: Resetting Game Status for $GameData[$LoopPosition]{'GameFile'} to Active", $LogFile);  }
+					if (my $sth = &DB_Call($db,$sql)) { 
+            &LogOut(100, "TurnMake: Resetting Game Status for $GameData[$LoopPosition]{'GameFile'} to Active", $LogFile);
+            $sth->finish(); 
+          }
 					else { &LogOut(0, "TurnMake: Failed to Reset Game Status for $GameData[$LoopPosition]{'GameFile'} to Active", $ErrorLog); }
 				}
         
@@ -376,10 +407,11 @@ sub CheckandUpdate {
     			if (($PlayerValues{'PlayerStatus'} == 1) && ($GameData[$LoopPosition]{'AutoIdle'}) && ($TurnYears >= $GameData[$LoopPosition]{'AutoIdle'})) {
             &LogOut(300, "TurnMake: Need to set Player $Player to Idle", $LogFile);  
             $sql = qq|UPDATE GameUsers SET PlayerStatus=4 WHERE PlayerID = $Player AND GameFile = '$GameFile';|;
-          	if (&DB_Call($db,$sql)) { 
+          	if (my $sth = &DB_Call($db,$sql)) { 
               &LogOut(100,"TurnMake: Player $Player Status updated to Idle for $GameFile having missed $TurnYears turns", $LogFile); 
               # Create the message for the email
               $IdleMessage .= $IdleMessage . "Player $Player Status changed to Idle. No turns submitted for $TurnYears turn(s).\n";
+              $sth->finish(); 
             } else { &LogOut(0, "TurnMake: Player $Player Status failed to update to Idle for $GameFile", $ErrorLog); }
           } else { }  # no need to do anything otherwise 
    			  undef %PlayerValues; # Need to clear array to be ready for the next player
@@ -447,6 +479,7 @@ sub Turns_Missing {
       }
 			else { &LogOut(300,"IN $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile);  }
 		} 
+    $sth->finish(); 
 	}
 	if ($TurnsMissing) { &LogOut(200,"Turns_Missing: .x files are missing for $GameFile",$LogFile) } else { &LogOut(200,"All .x files are in for $GameFile",$LogFile); }
 	return $TurnsMissing;
@@ -464,12 +497,14 @@ sub inactive_game {
 	# Read in all the user data for the game.
 	if (my $sth = &DB_Call($db,$sql)) { 	
     while (my $row = $sth->fetchrow_hashref()) { 
-    my %UserValues = %{$row};
-		$UserCounter++;
-		$UserData[$UserCounter] = { %UserValues };
-		# Get the largest/ most recent Last Generated value
-		if ($UserData[$UserCounter]{'LastSubmitted'} > $LastSubmitted ) { $LastSubmitted = $UserData[$UserCounter]{'LastSubmitted'}; }
-	} }
+      my %UserValues = %{$row};
+  		$UserCounter++;
+  		$UserData[$UserCounter] = { %UserValues };
+  		# Get the largest/ most recent Last Generated value
+  		if ($UserData[$UserCounter]{'LastSubmitted'} > $LastSubmitted ) { $LastSubmitted = $UserData[$UserCounter]{'LastSubmitted'}; }
+  	} 
+    $sth->finish(); 
+  }
 	#while ( my ($key, $value) = each(%UserValues) ) { print "$key => $value\n"; }
 
 	my $currenttime = time();
@@ -480,8 +515,9 @@ sub inactive_game {
 		&LogOut(50,$log, $ErrorLog);
 		# End/Pause the game
 		$sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameFile\'|;
-		if (&DB_Call($db,$sql)) {
+		if (my $sth = &DB_Call($db,$sql)) {
 			&LogOut(100, "inactive_game: $GameFile Ended/Paused for lack of activity", $LogFile);
+      $sth->finish(); 
 		} else {
 			&LogOut(0, "inactive_game: $GameFile Failed to end for lack of activity", $ErrorFile);
 		}
@@ -506,6 +542,7 @@ sub internet_game_status {
           ($GameFile, $GameStatus, $HostName) = ($row->{'GameFile'}, $row->{'GameStatus'}, $row->{'HostName'});
           &process_game_status($GameFile, 'Paused-Internet Outage', ''); # No host name in TurnMake
         }
+        $sth->finish(); 
       }
     } else {
       print "Internet down count is $internet_down_count, waiting for $internet_threshold\n";

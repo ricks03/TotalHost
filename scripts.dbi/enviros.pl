@@ -2,6 +2,8 @@
 # prints out an alphabetical list of all environmental variables
 use CGI;
 use CGI qw(:standard);
+use lib '/var/www/html/scripts';
+do 'config.pl';
 
 my $cgi = new CGI;    
 print $cgi->header();
