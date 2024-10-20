@@ -1,0 +1,131 @@
+<html>
+<head>
+<title>Recent Changes</title>
+</head>
+
+<body>
+<h2>Recent Changes to the TotalHost Site</h2>
+<ul>
+<li>
+<li>241017 - Added a page that lists all the tool tips
+<li>241017 - Forked the entire codebase to move from ODBC to DBI, and Windows > Linux/Wine
+<li>241013 - structural changes around migrating to Linux/MariaDB from ODBC
+<li>241008 - Updated the menus a bit
+<li>249028 - Now displays number of hours until next turn as well as actual time. 
+<li>240926 - Added support for a modified AutoHost Java client, ex: http://totalhost.sinister.net:999/scripts/page.pl?client=java&GameFile=testfile
+<li>240925 - Player changes now notify all players
+<li>240925 - Passwords can no longer be blank
+<li>240925 - Hosts not in the game also receive game notifications.
+<li>240922 - Added detection for a recent reboot to prevent automatic turn generation.
+<li>231229 - Expanded on the Game Parameters change notifications
+<li>231228 - Added the ability to enabled shared player messages.
+<li>221110 - Fixed bug with DST and pause/unpause
+<li>220826 - Updated "Messages" button to be Host Access and player more-than-once aware. 
+<li>220825 - Added StarsMsg function to TH as a "Messages" button in the game UI.
+<li>220824 - Updated StarsMsg (and associated EXE) to scan subdirs
+<li>220824 - Updated StarsBlock to not require libcrypto.dll (in StarsMsg)
+<li>220728 - fixed a div/0 problem in StarsBlock, and a number of improvements to log output
+<li>220210 - Cleaned up some display issues with when GalNews shows up
+<li>220206 - Removed unimplemented delete news. Removed unimplemented add/delete/invite friend code.
+<li>220206 - Removed the various bits of the POP3 code. I can't see how it's needed.
+<li>220203 - Added UI to enable the Exploit and Cleaning functonality. 
+<li>220202 - AllTurnsIn generates on submission. Movies now include last turn automatically.
+<li>220201 - Players can no longer submit turns for players they are not. Many old small bugs resolved.
+<li>220201 - Added unique RaceID to avoid issues with duplicate race (file) names. 
+<li>220131 - Added "Remove Player" as host option on game creation. Fixed Leave Game bug for same player in game multiple times.
+<li>220131 - Restoring a game from backup automatically pauses (and cleans up the Fix detection files)
+<li>220121 - can no longer join game when game is at max players
+<li>220119 - .x processing now stateful (adapting to changes in the .x file) for exploit/bug detection/fixing
+<li>220119 - TH Integrated: 32k Merge, SS Pop Steal, Mineral Upload, Space Dock, Cheap Colonizer, Cheap Starbase, 10th Starbase, Friendly Fire, Space Dock Armor, Serial checking, 
+<li>211111 - Added detection and fixing of 32k merge (TH integration TBD)
+<li>211110 - Added detection and fixing of SS Pop Steal exploit (TH Integration TBD)
+<li>211107 - More advanced version of the Mineral Upload exploit (TH Integration TBD).
+<li>211105 - Simple version of roughly checking for the Mineral Upload exploit.
+<li>211104 - Added serial and hardware hash checking to safeguard against copy protection errors (TH integration TBD).
+<li>211028 - Serial number support (free serial, serial in profile)
+<li>211028 - Fixed bug in read_def that returning a value of the array makes it display the returned value.
+<li>210518 - TH will no longer let you upload a corrupt race file. 
+<li>210515 - StarsRace now detects and fixed corrupt race files. StarsPWD resets the password on race files. 
+<li>210514 - Games display the date the game was created. 
+<li>201119 - More blocks decoded. Fix for Idle state when editing game. Fix results log and display on host page. 
+<li>201119 - StarsFleet enhanced. StarsFix integrated. Movie/graph  performance boosted by referencing array.
+<li>201114 - Added new "Idle" player state (same as old Inactive state). Inactive now enables the housekeeping AI.
+<li>201106 - Modified overall code (parseblock) for massive performance boost by not passing fileBytes
+<li>200604 - Added the StarsAI standalone which can toggle players active <> inactive.
+<li>201104 - Added multiturn to starstat
+<li>200603 - Added support for graphing of resources at end of game.
+<li>200509 - Added detect/correct for: Cheap Starbase, Friendly Fire
+<li>200430 - Added "host only" ability to post to News.
+<li>200423 - Vastly improved StarsShip.pl and site turn-fixing ability. Site can now detect (and correct) Colonizer bug and Spacedock bug. Warns for 10th Starbase bug.
+<li>200303 - Updates to newest code (fix PWD clean, movies)
+<li>000000 - Added "cleaning" ability, where information "shared" in the .m file is cleaned/removed (MT cargo, MT visitors, Minefields, wormhole sightings and visits, CA) 
+<li>200225 - Added ability to replace/swap players (even more possible with earlier password blanking). 
+<li>200225 - Added suite of movie functionality (creation and display)
+<li>200225 - Fixed minor corruption bug in password replacement for files with multiple player blocks
+<li>200225 - Major changes to include the starmapping function, and files for password cracking. 
+<li>191219 - turn delays now more clearly process on turns, not intervals.
+<li>191218 - .m files now get cleaned of player info if configured in config.
+<li>191203 - Now can download uploaded race files (again)
+<li>191125 - Viewing an uploaded race will now show you the actual specs
+<li>191021 - Manual Force Gen can now decrement the ForceGenTimes counter
+<li>191020 - Fixed so Next Turn takes DST into account. (Page, line #2479)
+<li>191020 - Paused games no longer email with a Next Turn Generation time (PM, #206)
+<li>190226 - Host can now blank passwords!!
+<li>190214 - Fixed IE6 FilePath problem for file uploads. Invalid files are also now removed, not maintained.
+<li>190213 - Fixed issue where players couldn't delete a race file associated with a game after the game was over.
+<li>190213 - Fixed the issue where you could join a game even if you had no race file uploaded. 
+<li>180417 - Anon players now stay anon when their status is changed. 
+<li>180404 - Context-sensitive buttons for game creation now a lot more context-sensitive
+<li>180404 - Fixed Race Descrip Tip. Race shows version. Delete Race implemented. Start button appears when game pending start. Players have unique Ids. 
+<li>180403 - Can set Max Players for game
+<li>180403 - Logs roll over by week
+<li>189493 - Host can now delete an unstarted game
+<li>180402 - Improved Race upload tool tips
+<li>180402 - Now emails host when people join (and leave) their new game.
+<li>180316 - Restore game won't be an option if the year is 2400
+<li>180312 - Game status icons now show up (most) across the GUI (much like the player status icons)
+<li>180306 - Race files are now stored separately for each player profile.
+<li>130208 - Updated where and how documents display; added Library
+<li>130206 - Fixed obscure bug where if parsed text had the word "head" in it the paragraph would not display
+<li>130203 - Adjusted Profile display for how selections display
+<li>130203 - AutoInactive will now set people to inactive at turn generation based on AutoInactive, and emails player
+<li>130109 - Added AutoInactive Feature which doesn't yet do anything
+<li>130109 - Fixed the Edit Game function
+<li>121201 - Turns should generate and display correctly for DST changes.
+<li>121201 - Report News, Restore Game, Change Player Status, and Force Gen no longer display when a game is over.
+<li>121201 - The option to go inactive no longer displays when a game is over.
+<li>121201 - When the number of game delays resets, players in the game receive an email notification.
+<li>121201 - Player race files are now stored in their own folder, not shared (avoiding occasional name conflicts)
+<li>121201 - Host can now email all the players in the game.
+<li>121107 - Fixed bug where if you had only 1 delay left, it reported as none (< instead of <=)
+<li>121107 - Fixed bug/SQL error in Email_Turns where emails that didn't have and attachment had invalid SQL. 
+<li>121107 - Fixed bug where there was the option to select 0 delays. 
+<li>120912 - Fixed bug where valid users coulnd't submit entries to the Galactic News
+<li>120811 - Host can now send email to all players in the game
+<li>120811 - Game generation schedule and next due won't display when the game is ended.
+<li>120811 - Now have to be a game member to be able to post even if you try to hack around it
+<li>120811 - Now have to be a member of the game to get Submit News or Delay Turn buttons
+<li>120811 - Games will now automatically End if there is no activity for $max_activity days
+<li>120811 - Game now tracks when an individual player last uploaded a turn. Defaults to when the game "Start"ed
+<li>120811 - When the game is set to permit players to pause, they can now.
+<li>120806 - Tweaked the delay code to more accurately delay.
+<li>120806 - Uploading your .m file now returns feedback that you screwed up.
+<li>120806 - Fixed that forcegen turns would display when the values were "0"
+<li>120731 - Tightened up the code around the Pause function
+<li>120731 - Better error reporting when you upload an invalid .x file
+<li>120731 - Players can change their own status from active<>inactive
+<li>120731 - Now displays date players join a game
+<li>120731 - Added email link to host on game page
+<li>120731 - Ability to download your entire game history (and fix lost .h file).
+<li>120731 - A number of (minor) formatting changes.
+<li>120728 - Site no longer launches games when they won't launch
+<li>120715 - Game Creation finally works (with a few caveats).
+<li>120712 - Added a number of Help Box texts for things that were missing.
+<li>120712 - Poor table format fixed in Game Notes display.
+<li>120712 - When the game is Paused, "Next Turn Due" will show "Paused" and be red.
+<li>120712 - Unpause now sets the Turn Due Date to the next turn interval. (previously unpause would most likely then immediately generate)
+<li>120712 - When the Host Selects "End Game", the host can now undo that with a "Restart Game" button.
+<li>120712 - Players can now submit turns when the game is paused.
+<li>120711 - If all players submit their turns between when turns are due and midnight, the next due date now calculates correctly.
+</body>
+</html>
