@@ -38,7 +38,11 @@ use StarStat;
 my %in;
 my %GameValues; # This passes values from the CP panels into the RP panels
 # Clean all incoming /submitted values
-foreach my $field (param()) { $in{$field} = &clean(param($field)); }
+#foreach my $field (param()) { $in{$field} = &clean(param($field)); }
+foreach my $field (param()) {
+   my $value = param($field);  # Get the values for the current parameter in list context
+   $in{$field} = clean($value);  # Clean and assign to %in hash
+}
 
 # if ($ARGV[0]) { 
 # 	$in{'GameFile'} = 'alpha';
@@ -227,8 +231,9 @@ if ($in{'cp'} eq 'edit_profile') {
 	my %First;
 	my $db = &DB_Open($dsn);
  	if (my $sth = &DB_Call($db,$sql)) { 
-     my $row = $sth->fetchrow_hashref(); 
-     %First = %{$row};  # Dereference the hash reference into %Profile
+    my $row = $sth->fetchrow_hashref(); 
+    %First = %{$row};  # Dereference the hash reference into %Profile
+    $sth->finish();
   }
  	else { &LogOut(10,"ERROR: Finding show_first_game",$ErrorLog); }
 	&DB_Close($db);
@@ -285,7 +290,10 @@ if ($in{'cp'} eq 'edit_profile') {
 	my %First;
 	my $db = &DB_Open($dsn);
   # Get the first race from the list
-	if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); %First = %{$row; } }	
+	if (my $sth = &DB_Call($db,$sql)) { 
+    my $row = $sth->fetchrow_hashref(); %First = %{$row}; 
+    $sth->finish();
+  }	
 	else { &LogOut(10,"ERROR: Finding show_first_race $sql",$ErrorLog); }
 	&DB_Close($db);  
   if ($First{'RaceID'}) { 
@@ -523,7 +531,9 @@ sub change_password {
 	my $userhash = sha1_hex($hash); 
 	my $db = &DB_Open($dsn);
 	my $sql = qq|UPDATE User SET User_Password=\'$userhash\', User_Modified=\'$Date\'  WHERE User_ID=$userid;|;
-	&DB_Call($db,$sql);
+	my $sth = &DB_Call($db,$sql);
+  $sth->finish(); 
+
 	print "Password changed for $User_Login.\n";
   #email user to let them know
   my $MailTo = $User_Email;
@@ -550,6 +560,7 @@ sub edit_profile {
     ($User_ID, $User_Login, $User_First, $User_Last, $User_Email, $User_Bio, $EmailTurn, $EmailList) =  ($row->{'User_ID'}, $row->{'User_Login'}, $row->{'User_First'}, $row->{'User_Last'}, $row->{'User_Email'}, $row->{'User_Bio'}, $row->{'EmailTurn'}, $row->{'EmailList'});
 		$EmailTurn = &checkboxnull($EmailTurn);
 		$EmailList = &checkboxnull($EmailList);
+    $sth->finish();
   } else { &LogOut(10,"ERROR: Finding edit_profile",$ErrorLog); }
 	&DB_Close($db);
 print <<eof;
@@ -581,6 +592,7 @@ sub show_profile {
 	if (my $sth = &DB_Call($db,$sql)) {
     my $row = $sth->fetchrow_hashref(); 
     %Profile = %{$row};  
+    $sth->finish();
   }
   &DB_Close($db);
 #   foreach my $key (keys %Profile) {
@@ -626,11 +638,12 @@ sub update_profile {
 	my $db = &DB_Open($dsn);
 	#my $sql = "UPDATE User SET User_Login='$User_Login', User_First='$User_First',  User_Last='$User_Last', User_Email='$User_Email', User_Bio='$User_Bio', EmailTurn = $EmailTurn, EmailList = $EmailList, User_Modified='$Date' WHERE User_ID=$userid;";
 	my $sql = "UPDATE User SET User_First='$User_First',  User_Last='$User_Last', User_Email='$User_Email', User_Bio='$User_Bio', EmailTurn = $EmailTurn, EmailList = $EmailList, User_Modified='$Date' WHERE User_ID=$userid;";
-	if (&DB_Call($db,$sql)) { 
+	if (my $sth = &DB_Call($db,$sql)) { 
 		&LogOut(100,"User: User $User_ID updated",$LogFile); 
 		$session->param("userlogin",$User_Login);
 		$session->param("email",$User_Email);
 		print "User Updated\n";
+    $sth->finish();
 	} else { &LogOut(10,"ERROR: update_profile failed updating for User:$User_Login:$User_ID:$userid",$ErrorLog);}
 	&DB_Close($db);
 	# Need to close the database to get the changes to display immediately.
@@ -656,6 +669,7 @@ sub show_my_new {
 			if ($GameData[$counter]{'GameStatus'} == 6) { $create_game = 1; } # if there are any games in create status
 			if ($GameData[$counter]{'GameStatus'} == 7) { $def_game = 1; } # if there are any games in def status
 		}
+    $sth->finish();
 	}
 	&DB_Close($db);
 	print "<h2>My New Games</h2>\n";
@@ -699,11 +713,12 @@ sub show_new_games {	# Display new games
 			$table .= "</tr>\n"; 
 			$new_found++;
 		}
+    $sth->finish();
 	} else { &LogOut(0, "show_new failed", $ErrorLog); }
+	&DB_Close($db);
 	$table .= "</table>\n"; 
 	if ($new_found) { print $table; }
 	else { print qq|No New Games Found. <a href="$WWW_Scripts/page.pl?lp=game&cp=create_game&rp=">Create one!</a>|; }
-	&DB_Close($db);
 }
 
 sub process_game_leave {
@@ -712,14 +727,16 @@ sub process_game_leave {
 	#my $sql = qq|DELETE User_Login, GameFile, PlayerID FROM GameUsers WHERE User_Login='$userlogin' AND GameFile='$GameFile' AND PlayerID=$PlayerID;|;
 	my $sql = qq|DELETE FROM GameUsers WHERE User_Login='$userlogin' AND GameFile='$GameFile' AND PlayerID=$PlayerID;|;
 	my $db = &DB_Open($dsn);
-	if (&DB_Call($db,$sql)) { 
+	if (my $sth = &DB_Call($db,$sql)) { 
     &LogOut(100,"$userlogin left game $GameFile", $LogFile);
+    $sth->finish(); 
   }
   # Need to let the host know. Figure out who the host is first.
   $sql = qq|SELECT * FROM Games WHERE GameFile = '$GameFile';|;
   if (my $sth = &DB_Call($db,$sql)) { 
     my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};  
     &LogOut(100,"Fetching Host name for $GameFile", $LogFile);
+    $sth->finish();
   }
   $sql = qq|SELECT * FROM User WHERE User_Login = '$GameValues{'HostName'}';|;
   if (my $sth = &DB_Call($db,$sql)) { 
@@ -733,6 +750,7 @@ sub process_game_leave {
     my $smtp = &Mail_Open;
     &Mail_Send($smtp, $MailTo, $MailFrom, $Subject, $Message);
 	  &Mail_Close($smtp);
+    $sth->finish();
   } else { &LogOut(0, "Failed to email host about new player $userlogin leaving $GameFile", $ErrorLog);}
 	&DB_Close($db);
 }
@@ -745,8 +763,9 @@ sub process_game_remove {
   #my $sql = qq|DELETE GameUsers FROM GameUsers INNER JOIN Games ON Games.GameFile = GameUsers.GameFile WHERE Games.HostName = '$userlogin' AND GameUsers.GameFile = '$GameFile' AND GameUsers.PlayerID = $PlayerID;|;
   my $sql = qq|DELETE FROM GameUsers INNER JOIN Games ON Games.GameFile = GameUsers.GameFile WHERE Games.HostName = '$userlogin' AND GameUsers.GameFile = '$GameFile' AND GameUsers.PlayerID = $PlayerID;|;
 	my $db = &DB_Open($dsn);
-	if (&DB_Call($db,$sql)) { 
+	if (my $sth = &DB_Call($db,$sql)) { 
     &LogOut(100,"$userlogin removed $playerID removed from game $GameFile $sql" , $LogFile);
+    $sth->finish(); 
   }
 	&DB_Close($db);
 }
@@ -829,6 +848,7 @@ sub show_game {
         %GameValues = %{$row};  # Dereference the hash reference into %Profile
       }
       #while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
+      $sth->finish();
 		}
 
 		# Determine if the player is already in the game
@@ -836,8 +856,9 @@ sub show_game {
 		$playeringame = 0; 
 		if (my $sth = &DB_Call($db,$sql)) { 
       if (my @row = $sth->fetchrow_array()) { $playeringame = 1; }
+      $sth->finish();
 		} 
-    
+   
     # Display the Game Status Data
     if ($in{'status'}) { 
       &display_warning($in{'status'}); 
@@ -954,7 +975,11 @@ sub show_game {
   			$TurnYears = $HST_Turn - $turn +1; 
   			# Get the values for the current player
   			$sql = qq|SELECT Games.GameFile, User.User_File, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, _PlayerStatus.PlayerStatus_txt FROM _PlayerStatus INNER JOIN (User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerID)=$Player));|;
-  			if (my $sth = &DB_Call($db,$sql)) {while (my $row = $sth->fetchrow_hashref()) { %PlayerValues = %{$row};  } }
+  			if (my $sth = &DB_Call($db,$sql)) {
+          while (my $row = $sth->fetchrow_hashref()) { %PlayerValues = %{$row};  } 
+          $sth->finish();
+        }
+
   			# Modify display based on player status. If the player isn't active indicate such
   			if ($PlayerValues{'PlayerStatus'} == 1) { $del = ''; $del2 = ''; 
         } elsif ($PlayerValues{'PlayerStatus'} == 4) { $del = '<i>'; $del2 = '</del>';
@@ -1057,6 +1082,7 @@ sub show_game {
         #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
         			print qq|<OPTION value="$ReplaceValues{'User_Login'}">$ReplaceValues{'User_Login'}</OPTION>\n|;
         		}
+            $sth->finish();
         	}
         	print qq|</SELECT>|;
   
@@ -1140,6 +1166,7 @@ sub show_game {
   				$players = 1;
           $playercount++;
   			} 
+        $sth->finish();
   			$table .= "</table>\n";
   			# If there are new players, print the player table otherwise there aren't any.
   			if ($players) { print $table; }
@@ -1166,6 +1193,7 @@ sub show_game {
                 }
                 print qq|<OPTION value=$RaceValues{'RaceID'}>$RaceValues{'RaceName'}</OPTION>\n|;
                }
+              $sth->finish();
             }
             if ($races_exist) { 
     				  # Join the game
@@ -1306,6 +1334,7 @@ sub show_client {
         my $row = $sth->fetchrow_hashref(); 
         %GameValues = %{$row};  
         #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
+      $sth->finish();
 		}
 
     # Display the Game Status Data
@@ -1410,7 +1439,10 @@ sub show_client {
   			$TurnYears = $HST_Turn - $turn +1; 
   			# Get the values for the current player
   			$sql = qq|SELECT Games.GameFile, User.User_File, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, _PlayerStatus.PlayerStatus_txt FROM _PlayerStatus INNER JOIN (User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerID)=$Player));|;
-  			if (my $sth = &DB_Call($db,$sql)) { while (my $row = $sth->fetchrow_hashref()) { %PlayerValues = %{$row};  } }
+  			if (my $sth = &DB_Call($db,$sql)) { 
+          while (my $row = $sth->fetchrow_hashref()) { %PlayerValues = %{$row};  } 
+          $sth->finish();
+        }
   			# Modify display based on player status. If the player isn't active indicate such
 
         print "<br>player" . $Player . "-race=$CHK_Name";
@@ -1475,7 +1507,10 @@ sub submit_news {
   # GameValues for display of NewsPaper
   my $sql = qq|SELECT * FROM Games WHERE GameFile = \'$GameFile\';|;
 	my $db = &DB_Open($dsn);
-	if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};  }
+	if (my $sth = &DB_Call($db,$sql)) { 
+    my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};  
+    $sth->finish();
+  }
 	&DB_Close($db);	
 
 	print "<td>\n";
@@ -1514,7 +1549,9 @@ sub process_game_launch {
 			$counter++;
 			@GameUserData[$counter] = { %GameUserValues };
 		}
+    $sth->finish();
 	}
+
   
   # Get Game Values
 	my $sql = qq|SELECT * FROM Games WHERE GameFile = '$GameFile';|;
@@ -1523,6 +1560,7 @@ sub process_game_launch {
       %GameValues = %{$row};  
 #			while ( my ($key, $value) = each(%GameUserValues) ) { print "<br>$key => $value\n"; }
 		}
+    $sth->finish();
 	}
 
 	# Confirm that there are enough players to launch, otherwise abort. 
@@ -1533,7 +1571,8 @@ sub process_game_launch {
       # Attempt to make the SQL query unique. 
       # BUG (Minor): Will fail if the same user joined twice with the same race in the same second.
 			$sql = 	qq|UPDATE GameUsers SET PlayerID = $i WHERE PlayerID = $GameUserData[$i]{'PlayerID'} AND GameFile = '$GameFile' AND JoinDate = $GameUserData[$i]{'JoinDate'} AND RaceID = $GameUserData[$i]{'RaceID'};|;
-			&DB_Call($db,$sql);
+			my $sth = &DB_Call($db,$sql);
+      $sth->finish(); 
 		}
 		# Read the DEF file in, and push it back out with the race file information	
 		my $def_file = "$Dir_Games/$GameFile/$GameFile.def"; 
@@ -1561,6 +1600,7 @@ sub process_game_launch {
 		    if (my $sth = &DB_Call($db,$sql)) {
           my $row = $sth->fetchrow_hashref();
           %UserValues = %{$row};
+          $sth->finish();
 		    }
   			#$path = "$Dir_Races/$UserValues{'User_File'}/$GameUserData[$i]{'RaceFile'}";
 				$path = "$WINE_Races\\$UserValues{'User_File'}\\$GameUserData[$i]{'RaceFile'}";
@@ -1586,6 +1626,7 @@ sub process_game_launch {
     my $WINE_file_races = "$WINE_Games\\\\$GameFile\\\\$GameFile.df2";
   	my ($CreateGame) = $executable . ' -a ' . $WINE_file_races;
 		&LogOut(50, "Creating Game $CreateGame", $LogFile);
+    chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
 		system(1,$CreateGame);
 		sleep 4; # Give Stars! time to create all the files
 
@@ -1594,8 +1635,9 @@ sub process_game_launch {
 		  &LogOut(50, "Game $CreateGame Created", $LogFile);
 			# set the "last submitted date for players to "now". 
 			$sql = qq|UPDATE GameUsers SET LastSubmitted = | . time() . qq| WHERE GameFile = \'$in{'GameFile'}\';|;
-			if (&DB_Call($db,$sql)) {
+			if (my $sth = &DB_Call($db,$sql)) {
 				&LogOut(100, "$GameFile User Last Submitted updated at Game Start", $LogFile);
+        $sth->finish(); 
 			} else {
 				&LogOut(0, "$GameFile User Last Submitted failed to update at Game Start", $ErrorLog);
 			}
@@ -1614,8 +1656,9 @@ sub process_game_launch {
         # 221110 Fixing for DST 
         $NewTurn = &FixNextTurnDST($NewTurn, time(),0);
 			  $sql = qq|UPDATE Games SET NextTurn = $NewTurn WHERE GameFile = \'$GameFile\' AND HostName=\'$userlogin\';|;
-  			if (&DB_Call($db,$sql)) {
+  			if (my $sth = &DB_Call($db,$sql)) {
   				&LogOut(100, "NextTurn set to $NextTurn for $GameFile and $userlogin", $LogFile);
+          $sth->finish(); 
   			} else {
   				&LogOut(0, "Failed to update NextTurn for $Gamefile and $userLogin, $sql", $ErrorLog);
   			}
@@ -1716,6 +1759,7 @@ sub process_news {
         &LogOut(200, "Valid news from $userlogin", $LogFile); 
       }
 		}
+    $sth->finish();
 	}
   # And then check to see if they're a host instead
   unless ($valid_submitter) {
@@ -1729,6 +1773,7 @@ sub process_news {
           &LogOut(200, "Valid news from host $userlogin", $LogFile); 
         }
 			}
+      $sth->finish();
     }
   }
 	&DB_Close($db);
@@ -1804,6 +1849,7 @@ sub lp_list_games {
 		    $menu_left{"<i>$GameName</i>"} = qq|page.pl?lp=profile_game&cp=show_game&rp=show_news&GameFile=$GameFile|;
 		  } else { 	$menu_left{"<i>$GameName</i>"} = qq|page.pl?lp=profile_game&cp=show_game&rp=&GameFile=$GameFile|; }
 		}
+    $sth->finish();
 	} else { &LogOut(10,"lp_list_games: Error finding list_games $sql",$ErrorLog); }
 	&DB_Close($db);
 	return %menu_left;
@@ -1827,6 +1873,7 @@ sub lp_list_new {
 	    ($GameName, $GameFile) = ($row->{'GameName'}, $row->{'GameFile'});   
 			$menu_left{"<i>$GameName<i>"} = qq|page.pl?lp=profile_game&cp=show_game&rp=&GameFile=$GameFile|; 
 		}
+    $sth->finish();
 	} else { &LogOut(10,"ERROR: Finding list_new $sql",$ErrorLog); }
 	&DB_Close($db);
 	return %menu_left;
@@ -1847,6 +1894,7 @@ sub list_races {
 				print qq|<tr><td><a href=$WWW_Scripts/page.pl?lp=profile_race&cp=show_race&rp=my_races&RaceID=$RaceID>$RaceName</a></td></tr>\n|;
 			} else { print qq|<tr><td><a href=$WWW_Scripts/page.pl?lp=profile_race&cp=show_race&rp=list_races&RaceID=$RaceID>$RaceName</a></td></tr>\n|; }
 		}
+    $sth->finish();
 		unless ($c) {print "<tr><td>  No races found</td></tr>";}
 	} else { &LogOut(10,"ERROR: Finding list_races $sql",$ErrorLog);}
 	print "</table>\n";
@@ -1862,6 +1910,7 @@ sub show_race {
   	$db = &DB_Open($dsn);
   	if (my $sth = &DB_Call($db,$sql)) {
         while (my $row = $sth->fetchrow_hashref()) {  %RaceValues = %{$row}; $c++; };  # Dereference the hash reference into %Profile
+        $sth->finish();
   	} else { &LogOut(10,"ERROR: Finding show_race $sql", $ErrorLog); }
   	&DB_Close($db);
   }
@@ -1929,6 +1978,7 @@ sub delete_race {
       %GameValues = %{$row}; 
 #			while ( my ($key, $value) = each(%GameValues) ) { print "$key => $value\n"; }
 		}
+    $sth->finish();
 	}
 #	if ($counter) {
 	if ($GameValues{'RaceID'}) {
@@ -1943,15 +1993,19 @@ sub delete_race {
          %RaceValues = %{$row}; 
          #				($RaceFiled, $User_Login) = $db->Data('RaceFile', 'User_Login');
 			} 
+      $sth->finish();
 		} else { print qq|<P>RaceID $RaceID not found as $RaceValues{'RaceID'} for User $User_Login\n|; }
 		if ($RaceValues{'RaceID'} && $RaceValues{'User_Login'}) {
 			#$sql= "DELETE RaceID, User_Login FROM Races WHERE (RaceID=$RaceValues{'RaceID'} AND User_Login=\'$RaceValues{'User_Login'}\');";
 			$sql= "DELETE FROM Races WHERE (RaceID=$RaceValues{'RaceID'} AND User_Login=\'$RaceValues{'User_Login'}\');";
 			&LogOut(200,"delete_race: $sql",$SQLLog);
-			if (&DB_Call($db,$sql)) { print qq|<P>Race $RaceValues{'RaceName'} deleted from database.\n|; }
+			if (my $sth = &DB_Call($db,$sql)) { 
+        print qq|<P>Race $RaceValues{'RaceName'} deleted from database.\n|;
+        $sth->finish();  
+      }
 			my $race_file = $Dir_Races . '/' . $RaceValues{'User_File'} . '/' . $RaceValues{'RaceFile'};
 			$race_file = &clean($race_file);
-			unlink($race_file);
+			if (-e $race_file) { unlink($race_file); }
       if (-e $race_file) {
         print "Race file $RaceValues{'RaceFile'} failed to delete from file system";
         &LogOut(0,"Race ID: $RaceValues{'RaceID'}, File: $RaceValues{'RaceFile'} failed to file delete for $userlogin",$ErrorLog);
@@ -1973,6 +2027,7 @@ sub list_players {
 			($GameFile, $User_ID, $User_Name, $Invite_Status) = ($row->{'GameFile'}, $row->{'User_ID'}, $row->{'User_Name'}, ($row->{'Invite_Status'})); 
 			print qq|<a href="$WWW_Scripts/page.pl?lp=$in{'lp'}&cp=show_friend&rp=&User_ID">$User_Name</a><br>\n|;
 		}
+    $sth->finish();
 	} else { &LogOut(10,"ERROR: Finding list_players",$ErrorLog); }
 }
           
@@ -1983,8 +2038,8 @@ sub edit_game {
 	if ($type eq 'edit') {
 		$sql = qq|SELECT * FROM Games WHERE GameFile = \'$in{'GameFile'}\' AND HostName = \'$userlogin\';|;
 		if (my $sth = &DB_Call($db,$sql)) {
-      while (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row}; 
-			}
+      while (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row}; }
+      $sth->finish();
 		}
 	}
 
@@ -2015,7 +2070,8 @@ sub edit_game {
   #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
   			print qq|<OPTION value="$HostValues{'User_Login'}">$HostValues{'User_Login'}</OPTION>\n|;
   		}
-  	}
+      $sth->finish();
+ 	}
   }
 	print qq|</SELECT></td>|;
 	&DB_Close($db);
@@ -2172,6 +2228,7 @@ sub delete_confirm {
 	$sql = qq|SELECT * FROM Games WHERE GameFile = \'$GameFile\' AND HostName = \'$userlogin\';|;
 	if (my $sth = &DB_Call($db,$sql)) {
     while (my $row = $sth->fetchrow_hashref()) {  %GameValues = %{$row};  
+    $sth->finish();
     }
 #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
 	}
@@ -2195,7 +2252,8 @@ sub delete_game {
 	my %GameValues;
 	if (my $sth = &DB_Call($db,$sql)) {
     while (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row};  
-			#while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
+		#while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
+    $sth->finish();
 		}
 	}
   # Confirm that the user logged in is the host, and that the game returns from the sql query 
@@ -2204,16 +2262,19 @@ sub delete_game {
     # Delete the entries from the Games database
     #$sql = qq|DELETE Games.GameFile, Games.HostName FROM Games WHERE Games.GameFile=\'$GameValues{'GameFile'}\' AND Games.HostName=\'$userlogin\';|;
     $sql = qq|DELETE FROM Games WHERE Games.GameFile=\'$GameValues{'GameFile'}\' AND Games.HostName=\'$userlogin\';|;
-  	&DB_Call($db,$sql);
+  	my $sth = &DB_Call($db,$sql);
+    $sth->finish(); 
     print qq|<P>Game database entries deleted for: $GameValues{'GameName'}.\n|;
     # Delete the entries from the GameUser database
     # (Shoulnd't be necessary, as the relationship should take them out
     #$sql = qq|DELETE GameUsers.GameFile, Games.HostName FROM GameUsers WHERE GameUsers.GameFile=\'$GameValues{'GameFile'}\';|;
     $sql = qq|DELETE FROM GameUsers WHERE GameUsers.GameFile=\'$GameValues{'GameFile'}\';|;
-   	&DB_Call($db,$sql);
+   	my $sth = &DB_Call($db,$sql);
+    $sth->finish(); 
+
     print qq|<P>Game user database entries deleted for: $GameValues{'GameName'}.\n|;
-  	&DB_Close($db);
-  
+  	my $sth = &DB_Close($db);
+    $sth->finish(); 
     # Delete the files, carefully using the database values, not the user input.
     $dir = $Dir_Games . '/' . $GameValues{'GameFile'};
     # Get the functions to remove a directory
@@ -2293,7 +2354,8 @@ sub update_game {
   # Update the clean file for whether enabled or disabled
 	my $Sanitize = &checkboxnull($in{'Sanitize'}); # Not a DB entry
   if (!($Sanitize)) { 
-    unlink "$Dir_Games/$in{'GameFile'}/clean"; 
+    my $clean = "$Dir_Games/$in{'GameFile'}/clean";
+    if (-e $clean) { unlink $clean; } 
   } else {
     open (SANITIZE, ">$Dir_Games/$in{'GameFile'}/clean"); 
     print SANITIZE time(). ": $in{'GameFile'}"; 
@@ -2301,7 +2363,10 @@ sub update_game {
   }
   # If messages have been disabled, delete the .messages file
 	my $PublicMessages = &checkboxnull($in{'PublicMessages'}); 
-  if (!($PublicMessages)) { unlink "$Dir_Games/$in{'GameFile'}/$in{'GameFile'}" . "/.messages"; }
+  if (!($PublicMessages)) { 
+    my $messages = "$Dir_Games/$in{'GameFile'}/$in{'GameFile'}" . "/.messages";
+    if (-e $messages) { unlink $messages; } 
+  }
 
  	my $db = &DB_Open($dsn);
 	if ($in{'type'} eq 'edit') {
@@ -2358,13 +2423,16 @@ sub update_game {
     if ($Sanitize) { push @Values, "File Sanitize"; }
     if ($Exploit) { push @Values, "Exploit Detection"; }   
     
-    if (&DB_Call($db,$sql)) { 
+    if (my $sth = &DB_Call($db,$sql)) { 
       print "<P>Game Updated!\n"; 
 		  &LogOut(50,"Game updated for $sql",$LogFile);
       #Get the game values for emailing edit information.
       # And email all the players that the game has changed.
       $sql = qq|SELECT * FROM Games WHERE GameFile = \'$GameFile\';|;
-      if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};  }
+      if (my $sth = &DB_Call($db,$sql)) { 
+        my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};
+        $sth->finish();
+      }
      	# Notify all players who want to be notified that the game status has changed. 
     	$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Game Parameters Edited|;
      	$GameValues{'Message'} = "Game Parameters have been edited for $GameValues{'GameName'} ($GameFile). Please review Game page for any changes.\n";
@@ -2374,6 +2442,7 @@ sub update_game {
       chop $GameValues{'Message'}; # Get rid of the trailing comma
       
      	&Email_Turns($GameFile, \%GameValues, 0);
+      $sth->finish(); 
     } else { 
        print "Game Update failed\n"; 
        &LogOut(0,"$in{'GameName'} update $sql failed for $userlogin", $ErrorLog); 
@@ -2384,7 +2453,9 @@ sub update_game {
 		$CleanGameFile = uc(substr(sha1_hex(time()), 5, 8)); # Should be random enough
 		&LogOut(50,"Creating random GameFile $CleanGameFile for $in{'GameName'}",$LogFile);
 		my $sql = qq|INSERT INTO Games (GameFile,HostName,GameName,GameDescrip,DailyTime,HourlyTime,GameType,GameStatus,AsAvailable,OnlyIfAvailable,DayFreq,HourFreq,ForceGen,ForceGenTurns,ForceGenTimes,HostMod,HostForce,NoDuplicates,GameRestore,AnonPlayer,GamePause,GameDelay,NumDelay,MinDelay,ObserveHoliday,NewsPaper,SharedM,HostAccess,PublicMessages,Notes,MaxPlayers) VALUES ('$CleanGameFile','$userlogin','$in{'GameName'}','$in{'GameDescrip'}',$in{'DailyTime'},'$in{'HourlyTime'}',$in{'GameType'},6,'$AsAvailable','$OnlyIfAvailable','$DayFreq','$HourFreq','$ForceGen',$ForceGenTurns,$ForceGenTimes,'$HostMod','$HostForceGen','$NoDuplicates','$GameRestore','$AnonPlayer','$GamePause','$GameDelay',$NumDelay, $MinDelay,'$ObserveHoliday','$NewsPaper','$SharedM','$HostAccess','$PublicMessages','$in{'Notes'}',$MaxPlayers);|;
-		if (&DB_Call($db,$sql)) { } 
+		if (my $sth = &DB_Call($db,$sql)) {
+      $sth->finish(); 
+    } 
 		else { 
       print "Create failed. Did you forget to provide a Game Name?\n"; 
       &LogOut(0,"$in{'GameFile'} create failed with $sql for $userlogin", $ErrorLog);
@@ -2514,7 +2585,10 @@ sub create_game_def {
     $db = &DB_Open($dsn);
     # Get the name of the game
 		$sql = qq|SELECT * FROM Games WHERE GameFile = \'$GameFile\' AND HostName ='$userlogin';|;
-		if (my $sth = &DB_Call($db,$sql)) { while (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row};  } }
+		if (my $sth = &DB_Call($db,$sql)) { 
+      while (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row};  } 
+      $sth->finish();
+    }
  
 		print DEFOUT "$GameValues{'GameName'}\n";
 		$Size = $in{'Size'};
@@ -2555,7 +2629,8 @@ sub create_game_def {
 		close (DEFOUT);
 		# update the database to reflect that the def file is created for this game
 		my $sql = qq|UPDATE Games SET GameStatus = 7 WHERE GameFile = \'$GameFile\' AND HostName ='$userlogin';|;
-		&DB_Call($db,$sql);
+		my $sth = &DB_Call($db,$sql);
+    $sth->finish(); 
     
     # Email all players with new game email notification enabled
     # in their profile that there's a new game
@@ -2578,6 +2653,7 @@ sub create_game_def {
           &Mail_Send($smtp, $UserValues{'User_Email'}, $mail_from, $Subject, $Message);
           &Mail_Close($smtp);
         }
+        $sth->finish();
       }
     }
     &DB_Close($db);
@@ -2682,7 +2758,10 @@ sub read_game {
 	my $sql = qq|SELECT * FROM Games WHERE GameFile = \'$file_prefix\';|;
 	my %GameValues;
 	$db = &DB_Open($dsn);
-	if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref();  %GameValues = %{$row};  }
+	if (my $sth = &DB_Call($db,$sql)) { 
+    my $row = $sth->fetchrow_hashref();  %GameValues = %{$row};  
+    $sth->finish();
+  }
 	&DB_Close($db);
 	my @Values = ();
 	if     ($GameValues{'GameType'} == 1) { push(@Values, "Daily Turn Gen, $GameValues{'DailyTime'}:00"); }
@@ -2744,7 +2823,10 @@ sub show_restore {
 	closedir(DIRS);
 	$db = &DB_Open($dsn);
   $sql = qq|SELECT * FROM Games WHERE GameFile = '$GameFile';|;
-	if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};  }
+	if (my $sth = &DB_Call($db,$sql)) { 
+    my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};  
+    $sth->finish();
+  }
 	&DB_Close($db);
   print qq|<h2>Restore Game for: $GameValues{'GameName'}</h2>\n|;
  	print qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod>\n|;
@@ -2772,7 +2854,10 @@ sub process_restore {
   
   $db = &DB_Open($dsn);
   $sql = qq|SELECT * FROM Games WHERE GameFile = '$GameFile';|;
-	if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};  }
+	if (my $sth = &DB_Call($db,$sql)) { 
+    my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};  
+    $sth->finish();
+  }
 	&DB_Close($db);
   
 	print "<br>Restoring Game Year $restore_year for: $GameValues{'GameName'}....\n";
@@ -2796,12 +2881,12 @@ sub process_restore {
 			# but my skills at regexp escape me
 			if ($file =~ /^.*\.x.*/) {
 				&LogOut(100,"Deleting File: $file: $Backup_Destination_File",$LogFile);
-				unlink($Backup_Destination_File);
+				if (-e $Backup_Destination_File) { unlink($Backup_Destination_File); }
 			}
       # remove List files, as they might not exist on the old turn
       if ($file =~ /^.*\.hst\..*/) {
 				&LogOut(100,"Deleting File: $file: $Backup_Destination_File",$LogFile);
-			  unlink($Backup_Destination_File);
+			  if (-e $Backup_Destination_File) { unlink($Backup_Destination_File); }
 			}
 		}
 	}
@@ -2834,13 +2919,18 @@ sub process_join_game {
 	$db = &DB_Open($dsn);
 	# Get the necessary game data to add the user
 	$sql = qq|SELECT * FROM Games WHERE GameFile = '$GameFile';|;
-	if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};  }
+	if (my $sth = &DB_Call($db,$sql)) { 
+    my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};  
+    $sth->finish();
+  }
 	#	while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
 
   #Count number of players signed up
 	$sql = qq|SELECT  * FROM GameUsers WHERE GameFile = '$GameFile';|;
-	if (my $sth = &DB_Call($db,$sql)) { while (my @row = $sth->fetchrow_array()) { $playercount++; }  }
-  
+	if (my $sth = &DB_Call($db,$sql)) { 
+    while (my @row = $sth->fetchrow_array()) { $playercount++; }  
+    $sth->finish();
+  }
   # If the number of players is greater than permitted, don't allow it
   if ($playercount > $GameValues{'MaxPlayers'}) { 
     print "<P><font color=red>This game already has the Max Players signed up!</font>"; 
@@ -2850,7 +2940,10 @@ sub process_join_game {
   	# user is only in the game once. 
   	if (&checkbox($GameValues{'NoDuplicates'})) {
   		$sql = qq|SELECT  * FROM GameUsers WHERE User_Login = '$userlogin' AND GameFile = '$GameFile';|;
-  		if (my $sth = &DB_Call($db,$sql)) { while (my @row = $sth->fetchrow_array()) { $countdupes++; } }
+  		if (my $sth = &DB_Call($db,$sql)) { 
+        while (my @row = $sth->fetchrow_array()) { $countdupes++; } 
+        $sth->finish();
+      }
   	}
   	if ($countdupes) {
   		print "<P><font color=red>This game does not permit you to join more than once.</font>\n"; 
@@ -2865,6 +2958,7 @@ sub process_join_game {
       my %RaceValues;
       if (my $sth = &DB_Call($db,$sql)) { 
         my $row = $sth->fetchrow_hashref(); %RaceValues = %{$row}; 
+        $sth->finish();
       }
   		my $now = time();
   		$sql = qq|INSERT INTO GameUsers (GameName, GameFile, RaceFile, RaceID, User_Login, DelaysLeft, PlayerID, PlayerStatus, JoinDate) VALUES ('$GameValues{'GameName'}','$GameFile','$RaceValues{'RaceFile'}',$RaceID,'$userlogin',$GameValues{'NumDelay'},$random_number,1, $now);|;
@@ -2883,6 +2977,7 @@ sub process_join_game {
           $smtp = &Mail_Open;
           &Mail_Send($smtp, $MailTo, $MailFrom, $Subject, $Message);
   	      &Mail_Close($smtp);
+          $sth->finish();
         } else { &LogOut(0, "Failed to email host $GameValues{'HostName'} about new player $userlogin join of $GameFile", $ErrorLog);}
   		} else { 
         print "<P>Failed to join game $GameValues{'GameName'}\n"; 
@@ -2908,6 +3003,7 @@ sub show_delay {
 	if (my $sth = &DB_Call($db,$sql)) {
 		while (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row}; $counter++;
 #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
+    $sth->finish();
 		}
 	}
 	&DB_Close($db);
@@ -2997,7 +3093,11 @@ sub process_delay {
 	$sql = qq|SELECT Games.GameName, Games.GameFile, Games.DailyTime, Games.NextTurn, Games.LastTurn, Games.GameType, Games.NumDelay, Games.MinDelay, Games.DayFreq, Games.HourFreq, Games.HourlyTime, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.DelaysLeft FROM Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE (((Games.GameFile)='$GameFile') AND ((GameUsers.User_Login)='$userlogin') AND ((GameUsers.PlayerID) Is Not Null));|;
 	# make sure the user actually has a delay available, and get other game-related values
 	  #BUG: If the player is in the game twice, it's going to decrement for one of them at random 
-if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); %GameValues = %{$row}; 	}
+  if (my $sth = &DB_Call($db,$sql)) { 
+    my $row = $sth->fetchrow_hashref(); %GameValues = %{$row}; 	
+    $sth->finish();
+  }
+
   &LogOut(200, "process_delay: DELAYSLEFT: $GameValues{'DelaysLeft'}",$LogFile);
 	if ($GameValues{'DelaysLeft'} >= $delay_turns) {
 		#decrement the user's number of delays
@@ -3005,17 +3105,20 @@ if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); %GameVal
     # Note if all the same player, the delays will get reset, drop below the limit
     # and then get restored to full. 
 		$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.DelaysLeft = [GameUsers.DelaysLeft]-$delay WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.User_Login)=\'$userlogin\') AND ((GameUsers.PlayerID) Is Not Null));|;
-		if (&DB_Call($db,$sql)) { 
+		if (my $sth = &DB_Call($db,$sql)) { 
 			&LogOut(100, "$userlogin delays decreased by $delay for $GameValues{'GameFile'}.",$LogFile); 
+      $sth->finish(); 
 			#	Set Game Status to Player Delay [3] / Flag game as player timeout/delayed (so we can display it). 
 			$sql = qq|UPDATE Games SET GameStatus = 3 WHERE GameFile = \'$GameFile\'|;
-			if (&DB_Call($db,$sql)) { 
+			if (my $sth = &DB_Call($db,$sql)) { 
+        $sth->finish(); 
 				&LogOut(200, "process_delay: Game Status set to Delayed for $GameFile by $userlogin.",$LogFile); 
 				# Increment the number of delays for the game
 				$sql = qq|UPDATE Games SET DelayCount = DelayCount + $delay WHERE GameFile = \'$GameFile\'|;
-				if (&DB_Call($db,$sql)) { 
+				if (my $sth = &DB_Call($db,$sql)) { 
           $ToDelay = 1; 
-          &LogOut(200, "process_delay: Increase DelayCount + $delay for $GameFile by $userlogin.",$LogFile); 
+          &LogOut(200, "process_delay: Increase DelayCount + $delay for $GameFile by $userlogin.",$LogFile);
+          $sth->finish(); 
         } else { &LogOut(200, "process_delay: Increase DelayCount failed for $GameFile by $userlogin.",$LogFile);}
 			} else { &LogOut(0,"process_delay: Game Status failed to Delay for $delay_turns turns for $GameFile by $userLogin",$ErrorLog); }
 		} else { &LogOut(0,"$userlogin delays failed to decrease for process_delays = $delay_turns  $delay for $GameFile by $userLogin", $ErrorLog); }
@@ -3066,15 +3169,20 @@ if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); %GameVal
 		else { &LogOut(0, "Turn for $GameFile failed to process_delay",$ErrorLog); }
 		# check to see if we're too low on delays
 		$sql = qq|SELECT Games.GameFile, Sum(GameUsers.DelaysLeft) AS SumOfDelaysLeft, Games.MinDelay FROM Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) GROUP BY Games.GameFile, Games.MinDelay HAVING (((Games.GameFile)=\'$GameFile\'));|;
-		if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); ($SumOfDelaysLeft, $MinDelay) = ($row->{'SumOfDelaysLeft'}, $row->{'MinDelay'}); }
+		if (my $sth = &DB_Call($db,$sql)) { 
+      my $row = $sth->fetchrow_hashref(); ($SumOfDelaysLeft, $MinDelay) = ($row->{'SumOfDelaysLeft'}, $row->{'MinDelay'}); 
+      $sth->finish();
+    }
+
     # If we're too low on delays, reset everyone
 		if ($SumOfDelaysLeft < $MinDelay) { 
 			$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.DelaysLeft = [NumDelay] WHERE (((Games.GameFile)=\'$GameFile\'));|;
-			if (&DB_Call($db,$sql)) { 
+			if (my $sth = &DB_Call($db,$sql)) { 
 				$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Turn Delays reset|;
 				$GameValues{'Message'} = qq|A recent player for the $GameValues{'GameName'} game has delayed the game, causing a reset of the number of player delays available. You can now delay the game $GameValues{'NumDelay'} times.|;
 				&Email_Turns($GameFile, \%GameValues, 0);
-				&LogOut(100, "process_delay: $GameFile delays reset to $GameValues{'NumDelay'} due to $userlogin request of $delay_turns",$LogFile); 
+				&LogOut(100, "process_delay: $GameFile delays reset to $GameValues{'NumDelay'} due to $userlogin request of $delay_turns",$LogFile);
+        $sth->finish();  
 			}
 		}
 	} else { print "<P>You don't have enough delays left. Sorry!\n"; 
@@ -3115,6 +3223,7 @@ sub show_player_status {
 #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
 			push (@PlayerData, { %PlayerValues });
 		}
+    $sth->finish();
 	} 
 	# Get the different player statuses
 	$sql = qq|SELECT * FROM _PlayerStatus;|;
@@ -3124,6 +3233,7 @@ sub show_player_status {
 			push (@Status, $Status);
 			push (@TXT, $TXT);
 		}
+    $sth->finish();
 	}
 	&DB_Close($db);
 	print "<H2>Update Player Status for: $PlayerData[0]{'GameName'}</H2>\n";
@@ -3180,6 +3290,7 @@ sub process_player_status {
       # Only run updates if it's something we can update to
       if ($TXT eq $NewPlayerStatus) { $update = $Status; }
     }
+    $sth->finish();
   }
   # Validate the new player status matches an entry in the database
   if ($update) {
@@ -3198,7 +3309,7 @@ sub process_player_status {
       } else {
         $sql = qq|UPDATE User INNER JOIN (Games INNER JOIN (_PlayerStatus INNER JOIN GameUsers ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus) ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login SET GameUsers.PlayerStatus = $update WHERE (((Games.HostName)=\'$userlogin\') AND ((Games.GameFile)=\'$GameFile\') AND ((User.User_File)=\'$UserFile\') );|;
       }
-      if (&DB_Call($db,$sql)) { 
+      if (my $sth = &DB_Call($db,$sql)) { 
         &LogOut(100, "StarsAI: Status updated to $NewPlayerStatus for $GameFile by $userlogin",$LogFile);
         # email affected player(s)
         # First, get the name and email address of all the players for this game. 
@@ -3209,6 +3320,7 @@ sub process_player_status {
             %PlayerValues = %{$row};   
             push (@PlayerData, { %PlayerValues });
           }
+          $sth->finish();
           # Next, loop through the list to email all the players and let them know what's happened. 
           my $LoopPosition = 0; #Start with the first player in the array.
           $MailFrom = $mail_from;
@@ -3224,6 +3336,7 @@ sub process_player_status {
           }
           &Mail_Close($smtp); 
         } else { &LogOut(10,"StarsAI: player_status failed updating PlayerID: $PlayerID for User $User_Login in $GameFile",$ErrorLog);}
+        $sth->finish();
       }
     } else { &LogOut(10,"StarsAI: Invalid attempt to update player_status=$update for $User_Login by $userlogin for $GameFile",$ErrorLog);}
   } else { &LogOut(10,"StarsAI: Invalid attempt(2) to update player_status=$update for $User_Login by $userlogin for $GameFile",$ErrorLog);}
@@ -3235,7 +3348,10 @@ sub submit_forcegen {
 	my ($GameFile) = @_;
 	my $sql = qq|SELECT Games.* FROM Games WHERE (((Games.GameFile)='$GameFile') AND ((Games.HostName)='$userlogin'));|;
 	my $db = &DB_Open($dsn);
-	if (my $sth = &DB_Call($db,$sql)) { while (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row};  } }
+	if (my $sth = &DB_Call($db,$sql)) { 
+    while (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row};  } 
+    $sth->finish();
+  }
 	&DB_Close($db);
 	# Get the current gate status
 	my $HSTFile = "$Dir_Games/$GameFile/$GameFile.hst";
@@ -3268,7 +3384,10 @@ sub process_forcegen {
 	my %GameValues;
 	my $sql = qq|SELECT * FROM Games WHERE HostName = \'$userlogin\' AND GameFile = \'$GameFile\';|;     
 	my $db = &DB_Open($dsn);
-	if (my $sth = &DB_Call($db,$sql)) { while (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row};   } }
+	if (my $sth = &DB_Call($db,$sql)) { 
+    while (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row};   } 
+    $sth->finish();
+  }
 	# Only the game host can force gen
 	if ($GameValues{'HostName'} eq $userlogin && $GameValues{'HostForce'}) {
 		&GenerateTurn($NumberofTurns, $GameFile); 
@@ -3280,11 +3399,17 @@ sub process_forcegen {
     	$NumberofTimes = $GameValues{'ForceGenTimes'} -1;
 			# Update NumberofTimes
 			$sql = "UPDATE Games SET ForceGenTimes = $NumberofTimes WHERE GameFile = \'$GameValues{'GameFile'}\'";
-			if (&DB_Call($db,$sql)) { &LogOut(200,"Decremented ForceGenTimes for $GameValues{'GameFile'}",$LogFile); }
+			if (my $sth = &DB_Call($db,$sql)) { 
+        &LogOut(200,"Decremented ForceGenTimes for $GameValues{'GameFile'}",$LogFile); 
+        $sth->finish(); 
+      }
 			else { &LogOut(200,"Failed to Decrement ForceGenTimes for $GameValues{'GameFile'}",$ErrorLog);}
 			if ($NumberofTimes <= 0) { #If the game is no longer forced, unforce game
 				$sql = "UPDATE Games SET ForceGen = 0 WHERE GameFile = \'$GameValues{'GameFile'}\'";
-				if (&DB_Call($db,$sql)) { &LogOut(200,"Forcegen set to 0 for $GameValues{'GameFile'}",$LogFile) }
+				if (my $sth = &DB_Call($db,$sql)) { 
+          &LogOut(200,"Forcegen set to 0 for $GameValues{'GameFile'}",$LogFile);
+          $sth->finish();  
+        }
 				else { &LogOut(0,"Failed to set forcegen to 0 for $GameValues{'GameFile'}",$ErrorLog); }
 			}
 		}
@@ -3312,7 +3437,10 @@ sub process_remove_password {
   # Get the relevant Game Data
  	my $sql = qq|SELECT * FROM Games WHERE HostName = \'$userlogin\' AND GameFile = \'$GameFile\';|;
   my $db = &DB_Open($dsn);
- 	if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); { %GameValues = %{$row};   } }
+ 	if (my $sth = &DB_Call($db,$sql)) { 
+    my $row = $sth->fetchrow_hashref(); { %GameValues = %{$row};   } 
+    $sth->finish();
+  }
   # Backup the existing .m file
   my $Backup_Source_File      = $Dir_Games . '/' .  $GameValues{'GameFile'} . '/' . $GameValues{'GameFile'} . '.m' . $PlayerID;
   my $Backup_Destination_File = $Backup_Source_File . '.bak'; 
@@ -3346,9 +3474,10 @@ sub show_movie {
 	$db = &DB_Open($dsn);
 	# Get the values for the current game
 	if (my $sth = &DB_Call($db,$sql)) {
-      my $row = $sth->fetchrow_hashref();
-      %GameValues = %{$row};  
-      #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
+    my $row = $sth->fetchrow_hashref();
+    %GameValues = %{$row};  
+    #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
+    $sth->finish();
 	}
   &DB_Close($db);
   
@@ -3440,15 +3569,17 @@ sub process_switch_player {
   $sql = qq|SELECT * from Games WHERE GameFile = '$GameFile';|;
 	# Get the values for the current game
 	if (my $sth = &DB_Call($db,$sql)) {
-      my $row = $sth->fetchrow_hashref(); 
-      %GameValues = %{$row};  
-      #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
+    my $row = $sth->fetchrow_hashref(); 
+    %GameValues = %{$row};  
+    #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
+    $sth->finish();
 	}
   # Make certain the person is the Game Host
   if ($GameValues{'HostName'} eq $session->param("userlogin")) {
     $sql = qq|UPDATE GameUsers SET User_Login = '$in{'ReplaceName'}' WHERE PlayerID = $PlayerID AND GameFile = '$GameFile';|;
-    if (&DB_Call($db,$sql)) { 
-      &LogOut(50, qq|switch_player: Player $PlayerID updated to $ReplaceName by $session->param("userlogin")|, $LogFile); 
+    if (my $sth = &DB_Call($db,$sql)) { 
+      &LogOut(50, qq|switch_player: Player $PlayerID updated to $ReplaceName by $session->param("userlogin")|, $LogFile);
+      $sth->finish(); 
     }
     # Email all the players of the change
     $GameValues{'Subject'} = $mail_prefix . "$GameValues{'GameName'} Player Change";

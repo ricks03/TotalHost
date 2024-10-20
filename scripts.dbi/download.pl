@@ -122,6 +122,7 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
       my $row = $sth->fetchrow_hashref(); 
       %GameValues = %{$row};
       if ($GameValues{'HostName'} eq $GameValues{'User_Login'} ) { $playeringame = 1; }
+      $sth->finish();
 		} 
     if ($GameValues{'HostName'} eq $userlogin && !$playeringame && $GameValues{'HostAccess'}) { $download_ok = 1; }
   }
@@ -136,6 +137,7 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
 	if (my $sth = &DB_Call($db,$sql)) { 
     my $row = $sth->fetchrow_hashref();
     %RaceValues = %{$row};
+    $sth->finish();
 	}
 	if ($RaceValues{'RaceFile'}) { $download_ok = 1; }
 	&DB_Close($db);
@@ -169,6 +171,7 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
     		}
   	 }, @gamelocation;
    }
+   $sth->finish();
   } else { &error("ZIP: Failed to find Game $gamefile associated with for this User $userlogin"); }
 	&DB_Close($db);
 
@@ -225,6 +228,7 @@ elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) {
         if (-e $messageFile) { unlink $messageFile; }
       }
     }
+    $sth->finish();
   } else { &error("Download: Failed to find Game $gamefile associated with this User $userlogin"); }
 	&DB_Close($db);
   # read in messages from the player files  

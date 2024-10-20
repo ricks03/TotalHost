@@ -2589,10 +2589,12 @@ sub updateList { # Update the list data for a game
   # unlink qq|$Dir_Games/$GameFile/$GameFile.warnings|; 
   my @extensions = qw ( design queue fleet waypoint last ); 
   if (!($enable)) { # Remove the fix file
-    unlink qq|$Dir_Games/$GameFile/fix|; 
+    my $fixfile = qq|$Dir_Games/$GameFile/fix|; 
+    if (-e $fixfile) {  unlink $fixfile; } 
   # StarsList cleans up the files otherwise
     foreach my $extension (@extensions) {
-      unlink qq|$Dir_Games/$GameFile/$GameFile.hst.$extension|; 
+      my $extension = qq|$Dir_Games/$GameFile/$GameFile.hst.$extension|; 
+      if (-e extension) { unlink $extension; } 
     }
   } 
   else { # We need to create both the fix file, and the List files

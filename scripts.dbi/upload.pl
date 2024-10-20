@@ -31,7 +31,11 @@ use StarsBlock;# eval'd at compile time
 
 $CGI::POST_MAX=1024 * 25;  # max 25K posts
 # Read in the post values and clean them a bit
-foreach my $field (param()) { 	$in{$field} = &clean(param($field)); }
+#foreach my $field (param()) { 	$in{$field} = &clean(param($field)); }
+foreach my $field (param()) {
+   my $value = param($field);  # Get the values for the current parameter in list context
+   $in{$field} = clean($value);  # Clean and assign to %in hash
+}
 
 my($File) = $in{'File'};
 my($GameName) = $in{'GameName'};
@@ -57,14 +61,14 @@ $userlogin = $session->param("userlogin");
 # If there was an uploaded file
 if ($File) {
   $valid_file = &ValidateFileUpload($File);
-  my $newPage = qq|$WWW_HomePage$WWW_Scripts/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err|;
+  my $newPage = qq|$WWW_Scripts/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err|;
   # Redirect to newPage, which solves for reloading the page retaking the action.
   # Nothing can print before this or it breaks.
   #  print $cgi->redirect($newPage);  # Doesn't work
   print "Location: $newPage\n\n";
 } else { 
   print $cgi->header(); # Create the HTML page header
-  print qq|<meta HTTP-EQUIV="REFRESH" content="2; url=| . $WWW_HomePage . $WWW_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
+  print qq|<meta HTTP-EQUIV="REFRESH" content="2; url=| . $WWW_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
   print $cgi->start_html;
   $err .= "$userlogin: File Name must be provided for upload to $GameName." ;
   &LogOut(300,$err,$ErrorLog);
@@ -99,12 +103,15 @@ sub ValidateFileUpload {
       # Confirm there's not already a entry with that name
       $sql = qq|SELECT RaceName from Races where RaceName = '$RaceName' AND User_Login = '$userlogin';|;
   		$db=&DB_Open($dsn);
-      if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); %RaceValues = %{$row};  }
+      if (my $sth = &DB_Call($db,$sql)) { 
+        my $row = $sth->fetchrow_hashref(); %RaceValues = %{$row}; 
+        $sth->finish();
+      }
       &DB_Close($db);
       if ($RaceValues{'RaceName'}) {
   				$err .= 'Race Name $RaceName already exists in your profile.'; 
   				&LogOut (0,"ValidateFileUpload: Race Name $RaceName already exists in profile for $userlogin: $err $File_Loc", $ErrorLog);
-          unlink $File_Loc; #user-input cleaned as much as I can. 
+          if (-e $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
           return 0;    
       }
       
@@ -112,7 +119,7 @@ sub ValidateFileUpload {
       if (&checkRaceCorrupt($File_Loc)) {
         $err .= 'This race file is corrupt! Caused by making the plural name too short. Recreate the race or fix it with StarsRace.exe !!';
         &LogOut (0, "ValidateFileUpload: Race file $File_Loc corrupt for $userlogin",$ErrorLog);
-        unlink $File_Loc; #user-input cleaned as much as I can. 
+        if (-e $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
         return 0;
       }   
 
@@ -127,7 +134,10 @@ sub ValidateFileUpload {
           # Read in the user information so we know where to put the race file
           $sql = qq|SELECT * FROM User WHERE User_Login = '$userlogin';|;
   				$db=&DB_Open($dsn);
-          if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); %UserValues = %{$row};  }
+          if (my $sth = &DB_Call($db,$sql)) { 
+            my $row = $sth->fetchrow_hashref(); %UserValues = %{$row};  
+            $sth->finish();
+          }
           &DB_Close($db);
   	      &LogOut(200,"$sql",$SQLLog); 
   
@@ -140,43 +150,44 @@ sub ValidateFileUpload {
    		    my $Race_Destination = "$racefiledir/$File";  
    				if (not(-e $Race_Destination)) { #if the file does not already exist
   					# Add the new race to the database
-  					$db=&DB_Open($dsn);
+  					$db = &DB_Open($dsn);
   					$sql = "INSERT INTO Races (RaceName, RaceFile, User_Login, RaceDescrip, User_File) VALUES ('$RaceName', '$File', '$userlogin', '$RaceDescrip', '$UserValues{'User_File'}');";
-  					if (&DB_Call($db,$sql)) { # If the SQL query is not a failure
-  							$err .= "Database updated. ";
-  							&LogOut(200, "ValidateFileUpload: Race Database Updated for $userlogin, $File: $err",$LogFile);
-  							if (&Move_Race($File_Loc, $Race_Destination)) { # move the race to its final location
-   								$err .= "Race File $File Uploaded.\n";
-  								&LogOut(200,"ValidateFileUpload: $File $File_Loc moved to $Race_Destination for $userlogin: $err", $LogFile);
-  								return 1; 
-  							} else { 
-  								$err .= "RaceFile $File failed to move/upload\n"; 
-  								&LogOut(0,"ValidateFileUpload: Race file $File_Loc failed to move to $Race_Destination for $userlogin: $err", $ErrorLog);
-                  return 0;
-  							}
+  					if (my $sth = &DB_Call($db,$sql)) { # If the SQL query is not a failure
+							$err .= "Database updated. ";
+							&LogOut(200, "ValidateFileUpload: Race Database Updated for $userlogin, $File: $err",$LogFile);
+							if (&Move_Race($File_Loc, $Race_Destination)) { # move the race to its final location
+ 								$err .= "Race File $File Uploaded.\n";
+								&LogOut(200,"ValidateFileUpload: $File $File_Loc moved to $Race_Destination for $userlogin: $err", $LogFile);
+								return 1; 
+							} else { 
+								$err .= "RaceFile $File failed to move/upload\n"; 
+								&LogOut(0,"ValidateFileUpload: Race file $File_Loc failed to move to $Race_Destination for $userlogin: $err", $ErrorLog);
+                return 0;
+							}
+              $sth->finish();
   					} else {
   						$err .= "File $File failed to insert into database. Had you entered a race name?";
   						&LogOut(0,"ValidateFileUpload: Failed to insert $File into database for $userlogin: $err", $ErrorLog);
-              unlink $File_Loc; #user-input cleaned as much as I can. 
+              if (-e $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
   						return 0;
   					}
   					&DB_Close($db);
   				} else {
   					$err .= "<b>ERROR: Race File: $File already exists. Delete that Race (or rename your file) and try again! $Race_Destination</b>";
-            unlink ($File_Loc); # Delete the temp file
+            if (-e $File_Loc ) { unlink $File_Loc; }  # Delete the temp file
   					&LogOut(0, "ValidateFileUpload: Race File: $File $File_Loc already exists at $Race_Destination: $err", $ErrorLog); 
   					return 0; 
   				}
   			} else { 
   				$err .= uc($File) . " not a valid Race ( .r1 ) file."; 
           &LogOut (0, "ValidateFileUpload: Invalid Race (.r1) File: Deleted $File_Loc for $userlogin",$ErrorLog);
-          unlink $File_Loc; #user-input cleaned as much as I can. 
+          if (-e $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
   				return 0; 
   			}
   		} else {
   			$err .= "Invalid Race File upload of $File by $userlogin";
   			&LogOut(0, "ValidateFileUpload: Invalid race file upload of $File_Loc by $userlogin. CheckMagic: $checkmagic, CheckVersion: $checkversion: $err", $ErrorLog);
-        unlink ($File_Loc); #user-input cleaned as much as I can. 
+        if (-e $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
   			return 0;
   		}
     } else {
@@ -209,7 +220,7 @@ sub ValidateFileUpload {
       &LogOut(0, "ValidateFileUpload: Error $err $errSerial", $ErrorLog); 
       # Pass the results to $err for display
       $err = 	uc($File) . " not a valid .x[n] file: $err $errSerial. DISCARDING FILE"; 
-      unlink $File_Loc; # #user-input cleaned as much as I can. 
+      if (-e $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
       return 0; 
     } else {&LogOut(300, "ValidateFileUpload: No errors for $in{'GameFile'}", $LogFile); }
     
@@ -221,8 +232,9 @@ sub ValidateFileUpload {
 				$db = &DB_Open($dsn);
 				# update the Last Submitted Field
 				$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.LastSubmitted = | . time() . qq| WHERE GameUsers.GameFile=\'$file_prefix\' AND GameUsers.User_Login=\'$userlogin\';|;
-				if (&DB_Call($db, $sql)) {
-					&LogOut(200, "ValidateFileUpload: Last Submitted updated for $File, $File_Loc, $file_prefix for $userlogin", $LogFile); 
+				if (my $sth = &DB_Call($db, $sql)) {
+					&LogOut(200, "ValidateFileUpload: Last Submitted updated for $File, $File_Loc, $file_prefix for $userlogin", $LogFile);
+          $sth->finish();
 				} else {
 					&LogOut(200, "ValidateFileUpload: Last Submitted update FAILED $File, $File_Loc, in $file_prefix for $userlogin", $ErrorLog); 
 				}
@@ -250,7 +262,10 @@ sub ValidateFileUpload {
         # If the game is AsAvailable, check to see if all Turns are in and whether we should generate. 
    			$sql = "SELECT * FROM Games WHERE GameFile = \'$file_prefix\';";
  				# Load game values into the array
-        if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};  } # Should return only one value
+        if (my $sth = &DB_Call($db,$sql)) { 
+          my $row = $sth->fetchrow_hashref(); %GameValues = %{$row}; 
+          $sth->finish();
+        } # Should return only one value
         if ($GameValues{'AsAvailable'} == 1 ) { # Don't immediately generate As Available if the file generated warnings
           if ($warning) {
             $err .= "Not immediately generating As Available game $file_prefix due to Warnings. Will generate on next turn check interval however.\n";
@@ -270,7 +285,7 @@ sub ValidateFileUpload {
         # If the file failed to move, report and remove. 
         $err .= "<P>File failed to move!\n";
 				&LogOut(0,"ValidateFileUpload: File $File $File_Loc, $file_prefix failed to move for $userlogin",$ErrorLog);
-        unlink ($File_Loc);
+        if (-e $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
         return 0;
 			}
 		}
@@ -333,8 +348,11 @@ sub Check_User {
   # Confirm the user submitting the file is actually in the game and the correct player
   my ($file_prefix, $user_login, $playerId) = @_;
   my $sql = qq|SELECT * from GameUsers WHERE User_Login =\'$user_login\' AND GameFile = \'$file_prefix\' AND PlayerID = $playerId;|;
-  $db=&DB_Open($dsn);
-  if (my $sth = &DB_Call($db,$sql)) { my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};  }
+  my $db=&DB_Open($dsn);
+  if (my $sth = &DB_Call($db,$sql)) { 
+    my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};
+    $sth->finish();  
+  }
   &DB_Close($db);
   if ($GameValues{'User_Login'} eq $user_login) { 
     &LogOut(200,"Check_User: $file_prefix, $user_login, $playerId, $sql",$LogFile);
