@@ -55,9 +55,17 @@ $DB_PASSWORD = 'PASSWORD';
 $DB_HOST = 'localhost';
 $dsn = "DBI:mysql:database=$DB_NAME;host=$DB_HOST";
 
-$executable= 'wine c:\stars.exe';
+$ENV{'DISPLAY'} = ':99';  
+$ENV{'WINEPREFIX'} = '/home/www-data/.wine';
+#$ENV{'WINEDLLOVERRIDES'} ="ole32=n"; # Disable wine clipboard
+#$executable= 'wine c:\\stars.exe';   
+#$executable= 'DISPLAY=:99 /usr/bin/wine c:\stars.exe'; 
+#$executable='sudo -u www-data /usr/bin/wine c:\stars.exe'; 
+$executable= '/usr/bin/wine c:\\stars.exe';   
+
 # Location of ImageMagic convert applications
-$imagemagick = 'C:\Program Files\ImageMagick-6.8.3-Q16\convert';
+#$imagemagick = 'C:\Program Files\ImageMagick-6.8.3-Q16\convert';
+$imagemagick = '/usr/bin/convert';
 # Location of the starmapper executable (Java)
 $starmapper = 'd:\th\utils\starmapper\starmapper121\starmapper.bat';
 
@@ -80,7 +88,7 @@ $WINE_Games      = $Dir_WINE  . '\games'; # Location of the actual game files us
 # Email
 $mail_present = 0;
 $mail_server = '';
-#$mail_user = 'ricks@nc.rr.com';
+#$mail_user = 'user@example.com';
 #$mail_password = '';
 $mail_from = '';
 $mail_prefix = '[TH] ';
@@ -94,7 +102,7 @@ $min_players = 2; # The minimum number of players to create/launch a game
 # Sessions
 $Dir_Sessions = $Dir_Root . '/sessions/';
 # Note if you change this all the current passwords will invalidate. 
-$secret_key = 'secret_key_for_md5_hashing';
+$secret_key = 'secret_key';
 %TurnResult = ("turned in" => "In", "still out" => "Out", "right game" => "Wrong Game", "dead" => "Deceased", "right year" => "Wrong Year", "file corrupt" => "Corrupt");
 %TurnBall = ("In" => "$WWW_Image"  . "greenball.gif", "Out" => "$WWW_Image"  . "yellowball.gif", "Wrong Game" => "$WWW_Image"  . "redball.gif", "Deceased" => "$WWW_Image"  . "blackball.gif", "Wrong Year" => "$WWW_Image"  . "redball.gif", "Corrupt" => "$WWW_Image"  . "redball.gif", "Error" => "$WWW_Image"  . "redball.gif", "Idle" => "$WWW_Image"  . "grayball.gif", "Abandoned" => "$WWW_Image"  . "grayball.gif");
 %StatusBall = ("Finished" => "$WWW_Image"  . "blackball.gif", "Awaiting Players" => "$WWW_Image"  . "yellowball.gif", "In Progress" => "$WWW_Image"  . "greenball.gif", "Delayed" => "$WWW_Image"  . "blueball.gif", "Active" => "$WWW_Image"  . "greenball.gif", "Idle" => "$WWW_Image"  . "greyball.gif", "Creation in Progress" => "$WWW_Image"  . "yellowball.gif", "Pending Start" => "$WWW_Image"  . "yellowball.gif", "Paused" => "$WWW_Image"  . "yellowball.gif");
