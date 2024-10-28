@@ -25,7 +25,6 @@ use CGI qw(:standard);
 use Net::SMTP;
 use Net::Ping;
 use DBI;
-use lib '/var/www/html/scripts';
 do 'config.pl';   
 use TotalHost; # eval'd at compile time
 use StarStat;  # eval'd at compile time
@@ -49,7 +48,6 @@ $db = &DB_Open($dsn);
 # If a single game is specified, process only that game
 if ($commandline) {
   # Execute for a single GameFile
-  print "CL\n";
   $GameData = &LoadGamesInProgress($db,qq|SELECT * FROM Games WHERE (GameFile=\'$commandline\' AND (GameStatus=2 or GameStatus=3)) ORDER BY GameFile;|);
 } else {
   # Check all Games
@@ -59,8 +57,9 @@ my @GameData = @$GameData;
 
 # Check if the system has been powered off. If so, pause all games
 $reboot_file = $Dir_Root . '/reboot';
-if (-e $reboot_file) {
+if (-f $reboot_file) {
   my $Message, $Subject;
+  print "Turn Generation paused from power outage. Delete $reboot_file to resume operations,\n";
   $sql = qq|SELECT Games.GameFile, Games.GameStatus, Games.HostName from Games WHERE (Games.GameStatus = 2 OR Games.GameStatus=3)|;
   if (my $sth = &DB_Call($db,$sql)) {
     while (my $row = $sth->fetchrow_hashref()) {
@@ -80,7 +79,7 @@ if (-e $reboot_file) {
   # Log the events
   print "Mail sent to $mail_from about $reboot_file for $WWW_HomePage\n";
 	&LogOut(0,"Power restored, $mail_from, $reboot_file, $WWW_HomePage",$LogFile);
-  if (-e $reboot_file) { unlink $reboot_file; }  # Delete the power on file now that we clearly have power
+  if (-f $reboot_file) { unlink $reboot_file; }  # Delete the power on file now that we clearly have power
   &DB_Close($db); 
   exit;   # Stop execution, since we have a changed game status state
 } 
@@ -88,24 +87,27 @@ if (-e $reboot_file) {
 # Check to see if there's internet connectivity
 $internet_status     = check_internet();  # 1 is up, 0 (or null) is down
 $internet_down_count = get_internet_down_count();
-
 if ($internet_status) {
   # If the internet is back up after being down, log the "up" time, clear the log, and set stored inactive events back to active
   internet_game_status('active');  # Set inactive events back to active
   clear_internet_log();
   # Check turn status and generate
-  &CheckandUpdate;
 } else {
     # Log the "down" status and increment the count
+    my $log =  "Internet is down, $internet_down_count\n";
+    print "$log\n";
     $internet_down_count++; # Just so we start at 1
-    internet_log_status("Internet is down, $internet_down_count");
+    internet_log_status("$log");
     # If the down count reaches the threshold, set active events to inactive
     if ($internet_down_count >= $internet_threshold) {
         internet_game_status('inactive');
     }
-    &DB_Close($db); 
+    &DB_Close($db);  # Need to close since we're jsut exiting
     exit; # We have changed game state, so stop. 
 }
+
+# If we got here the power hasn't gone out and the Internet is up.
+&CheckandUpdate;
  
 &DB_Close($db);
 
@@ -123,7 +125,10 @@ if ($internet_status) {
 
 sub CheckandUpdate {
 	my $LoopPosition = 0; #Start with the first game in the array.
-  print "Starting to check games...\n";
+  print "Starting to check games...  \n";
+  #if ($#GameData <= 0) { print "\tNo games are currently active.\n"; }
+  if (scalar(@GameData == 0)) { print "\tNo games are currently active.\n"; exit; }
+  
   # This would be massively more clear if I read all of this in as a hash, instead
   # of an array. If I just moved $LoopPosition out, and instead performed this
   # as I walked thorugh the database. 
@@ -145,7 +150,7 @@ sub CheckandUpdate {
 		#}
     
     # Don't bother checking if the game is no longer active. BUG: Shouldn't this be filtered out by SQL?
-		if (($GameData[$LoopPosition]{'GameStatus'} != 9) && (&inactive_game($GameData[$LoopPosition]{'GameFile'}))) { # do nothing 
+		if (($GameData[$LoopPosition]{'GameStatus'} != 9) && (&inactive_game($GameData[$LoopPosition]{'GameFile'}))) { # don't gen, and Pause the game
 	  } elsif ($GameData[$LoopPosition]{'GameStatus'} == 2 || $GameData[$LoopPosition]{'GameStatus'} == 3) { # if it's an active game 		
 	    #Game Type = Daily
 			if ($GameData[$LoopPosition]{'GameType'} == 1 && $CurrentEpoch > $GameData[$LoopPosition]{'NextTurn'}) { # GameType: turn set to daily
@@ -359,18 +364,18 @@ sub CheckandUpdate {
 						else { &LogOut(0,"Failed to set forcegen to 0 for $GameData[$LoopPosition]{'GameFile'}",$ErrorLog); }
 					}
 				}
-        
+        # If running from the CLI, output that a turn is being generated
+        if ($commandline) { print "\tGenerating turn for $GameData[$LoopPosition]{'GameFile'}\n";}
         &GenerateTurn($NumberofTurns, $GameData[$LoopPosition]{'GameFile'}); 
         &updateList($GameData[$LoopPosition]{'GameFile'}, 1); # update List files for exploit detection
         &cleanFiles($GameData[$LoopPosition]{'GameFile'}); # Clean the .m files of player information
         if ($GameData[$LoopPosition]{'PublicMessages'}) { &publicMessages($GameData[$LoopPosition]{'GameFile'})}; # create public .messages file
-        &Make_CHK($GameData[$LoopPosition]{'GameFile'});
+        &Make_CHK($GameData[$LoopPosition]{'GameFile'}); # Update the .chk file so it's current for the new turn
 
 				# get updated current turn so you can put it in the email, can vary based on force gen.
 				($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
 				$GameData[$LoopPosition]{'NextTurn'} = $NewTurn; # BUG? What is NewTurn
 
-				# Update the .chk file so it's current for the new turn
 				my @CHK = &Read_CHK($GameData[$LoopPosition]{'GameFile'});
         
 				# If Game was flagged as Delayed, once we generate it's not anymore
@@ -400,7 +405,7 @@ sub CheckandUpdate {
           &LogOut(299, "TurnMake: Player: $Player Status: $CHK_Status  TurnYears: $TurnYears Player: $CHK_Player", $LogFile);
     			# Get the Player Status values for the current player
           $GameFile = $GameData[$LoopPosition]{'GameFile'};
-    			$sql = qq|SELECT Games.GameFile, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, _PlayerStatus.PlayerStatus_txt FROM _PlayerStatus INNER JOIN ([User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON [_PlayerStatus].PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerID)=$Player));|;
+    			$sql = qq|SELECT Games.GameFile, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, _PlayerStatus.PlayerStatus_txt FROM _PlayerStatus INNER JOIN (User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON _PlayerStatus.PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerID)=$Player));|;
     			if (my $sth = &DB_Call($db,$sql)) { while (my $row = $sth->fetchrow_hashref()) { %PlayerValues = %{$row}; } }
     			# If the player is active, AND the number of turns missed is greater than AutoIdle, set the player to Idle
           &LogOut(300, "TurnMake: Player Status: $PlayerValues{'PlayerStatus'}   AutoIdle: $GameData[$LoopPosition]{'AutoIdle'}  TurnYears: $TurnYears ", $LogFile); 
@@ -458,7 +463,7 @@ sub Turns_Missing {
  	my $CHKFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.chk';
   &Make_CHK($GameFile);
 	# Determine the number of players in the .chk File
-	if (-e $CHKFile) { #Check to see if .chk file is there.
+	if (-f $CHKFile) { #Check to see if .chk file is there.
 		&LogOut(200,"Turns_Missing: Reading .chk File $CHKFile",$LogFile);
 		open (IN_CHK,$CHKFile) || &LogOut(0,"Cannot open .chk file $CHKFile", $ErrorLog);
 		chomp((@CHK) = <IN_CHK>);
@@ -511,15 +516,16 @@ sub inactive_game {
 	# Check to see if it's been too long since a turn was generated
 	# Can't use .x[n] file date because it gets removed when turns gen.
 	if ((($currenttime - $LastSubmitted) > ($max_inactivity * 86400)) && ($LastSubmitted > 0)) {
-		my $log = "inactive_game: $GameFile Inactive more than $max_inactivity days, last submitted on " . localtime($LastSubmitted); 
+		my $log = "\t$GameFile paused. Inactive more than $max_inactivity days, last submitted on " . localtime($LastSubmitted); 
 		&LogOut(50,$log, $ErrorLog);
 		# End/Pause the game
 		$sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameFile\'|;
 		if (my $sth = &DB_Call($db,$sql)) {
-			&LogOut(100, "inactive_game: $GameFile Ended/Paused for lack of activity", $LogFile);
+			&LogOut(100, "inactive_game: $GameFile Ended/Paused. $log", $LogFile);
+      print "$log\n";
       $sth->finish(); 
 		} else {
-			&LogOut(0, "inactive_game: $GameFile Failed to end for lack of activity", $ErrorFile);
+			&LogOut(0, "inactive_game: $GameFile Failed to end $log, $sql", $ErrorFile);
 		}
 		return 1; 
 	} else { return 0; }
@@ -530,11 +536,10 @@ sub inactive_game {
 # Main action to handle setting Games to inactive (when down) and reactivating them (when up)
 sub internet_game_status {
   my ($status) = @_;
-  
   if ($status eq 'inactive') {
     # Fetch all active games and set them to inactive
     if ( $internet_down_count >= $internet_threshold ) {
-      print "Updating Active (Game Status = 2|3) to Paused : $internet_down_count >= $internet_threshold\n";
+      print "Updating Active (Game Status = 2|3) to Paused : Internet down count $internet_down_count >=  Internet Threshold $internet_threshold\n";
       &LogOut(0,"Internet outage detected ($internet_down_count), $mail_from, $WWW_HomePage",$ErrorLog);
       $sql = qq|SELECT Games.GameFile, Games.GameStatus, Games.HostName from Games WHERE (Games.GameStatus = 2 OR Games.GameStatus=3)|;
       if (my $sth = &DB_Call($db,$sql)) {

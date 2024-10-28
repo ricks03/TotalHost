@@ -27,9 +27,10 @@ CGI::Session->name('TotalHost');
 use Digest::SHA1  qw(sha1 sha1_hex sha1_base64);
 use Email::Valid;
 use DBI;
-use lib '/var/www/html/scripts';
 do 'config.pl';
 use TotalHost;
+
+my %in; 
 
 # The _new_ way (from like 10 years ago)
 #foreach my $field (param()) { $in{$field} = param($field); }
@@ -119,27 +120,30 @@ print qq|<td width="$rp_width"></td>\n|;
 ########################################
 
 sub add_user {
-	$User_First = $in{'User_First'};
-	$User_Last = $in{'User_Last'};
-	$User_Login = $in{'User_Login'};
-	$User_Email = $in{'User_Email'};
-        my $valid_email = Email::Valid->address($User_Email);
-	$pass_temp = $in{'pass_temp'};
-	$User_Password = $in{'User_Password'};
+	my $User_First = $in{'User_First'};
+	my $User_Last = $in{'User_Last'};
+	my $User_Login = $in{'User_Login'};
+	my $User_Email = $in{'User_Email'};
+  my $valid_email = Email::Valid->address($User_Email);
+	my $pass_temp = $in{'pass_temp'};
+	my $User_Password = $in{'User_Password'};
   
   # Check to see that fields were filled out
   if ($User_First && $User_Last && $User_Login && $User_Email && $valid_email && $pass_temp && (length($pass_temp) > $min_pass_length)) {
   
-  	$db = &DB_Open($dsn);
-  	$Date =&GetTimeString();
-  	$hash = $in{'User_Password'} . $secret_key;
-  	$passhash = sha1_hex($hash); 
-  	$sql = qq|INSERT INTO User (`User_Login`, `User_Last`, `User_First`, `User_Password`, `User_Email`, `User_Status`, `User_Creation`, `User_Modified`, `EmailTurn`, `EmailList`) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', -5,'$Date','$Date', 1, 1);|;
+  	my $db = &DB_Open($dsn);
+  	my $Date =&GetTimeString();
+  	my $hash = $in{'User_Password'} . $secret_key;
+  	my $passhash = sha1_hex($hash); 
+  	my $sql = qq|INSERT INTO User (`User_Login`, `User_Last`, `User_First`, `User_Password`, `User_Email`, `User_Status`, `User_Creation`, `User_Modified`, `EmailTurn`, `EmailList`) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', -5,'$Date','$Date', 1, 1);|;
   	if (my $sth = &DB_Call($db,$sql)) { 
       print "<P>Done!  Check your email to activate your account. \n";
       $sth->finish();
     }
-  	else { print '<P>Error creating account. Duplicate User ID?'; &LogOut(10,"ERROR: Adding New User $in{'User_Login'} $in{'User_Email'}",$ErrorLog);}
+  	else { 
+      print '<P>Error creating account. Duplicate User ID?'; 
+      &LogOut(10,"ERROR: Adding New User $in{'User_Login'} $in{'User_Email'}",$ErrorLog);
+    }
   	# add an entry in the temp file to expect the account to be activated
   	&DB_Close($db);
   	# email user to activate the account
@@ -150,7 +154,7 @@ sub add_user {
   	$Subject = $mail_prefix . 'Account Creation';
   	$Message = "\n\nA request was submitted to create an account $User_Login.\n";
   	$Message .= "To activate your account, select the link below:\n";
-  	$Message .= "$WWW_Scripts" . '/account.pl?action=activate_user&user=' . $in{'User_Login'} . '&new=' . $tmphash;
+  	$Message .= $WWW_HomePage . $WWW_Scripts . '/account.pl?action=activate_user&user=' . $in{'User_Login'} . '&new=' . $tmphash;
   	$smtp = &Mail_Open;
   	&Mail_Send($smtp, $in{'User_Email'}, $mail_from, $Subject, $Message); # email user
   	&Mail_Send($smtp, $mail_from, $mail_from, $Subject, $Message); # notify site host
@@ -175,6 +179,7 @@ sub add_user {
 
 sub activate_user {
   my $id;
+  my ($User_ID, $User_Login, $User_Password, $User_Email);
   $submit_hash = $in{'new'};
   $submit_user = $in{'user'};
   $db = &DB_Open($dsn);
@@ -184,7 +189,7 @@ sub activate_user {
   $sql = "SELECT User.User_ID, User.User_Login, User.User_Password, User.User_Email FROM User WHERE User_Status=-5;";
   if (my $sth = &DB_Call($db, $sql)) {
     while (my @row = $sth->fetchrow_array()) {
-    	my ($User_ID, $User_Login, $User_Password, $User_Email) = @row;
+    	($User_ID, $User_Login, $User_Password, $User_Email) = @row;
        
     	# Hashing password with secret key
     	my $hash = $User_Password . $secret_key;
@@ -213,16 +218,16 @@ sub activate_user {
     # which will be the serial number of the line of the corresponding User ID. 
     # We lose some this way, but we have 7 million so I think it will be ok. 
     my $user_serial;
-    if (-e $File_Serials) { # If the serial file exists
+    if (-f $File_Serials) { # If the serial file exists
       open (IN_FILE,$File_Serials) || &LogOut(0,"Can\'t open Serials File $File_Serials",$ErrorLog);
       chomp(my @serials = <IN_FILE>);
 		  close(IN_FILE);
       my $id_update = $User_ID + 1; 
       $user_serial = $serials[$id_update]; # to match line number of serial file
-    } else { &LogOut(0,"Missing Serials File $File_Serials",$ErrorLog);}
+    } else { $user_serial="ERROR"; &LogOut(0,"Missing Serials File $File_Serials",$ErrorLog);}
     $Date =&GetTimeString();
     $userfile = substr(sha1_hex(time()), 5, 8); 
-    $sql = "UPDATE User SET User_Status=1, User_Modified='$Date', User_File='$userfile', User_Serial='$user_serial'  WHERE User_ID=$id;";
+    $sql = "UPDATE User SET User_Status=1, User_Modified='$Date', User_File='$userfile', User_Serial='$user_serial', CreateGame=1 WHERE User_ID=$id;";
     my $sth = &DB_Call($db,$sql);
     $sth->finish();
     $redirect = $WWW_Scripts . '/page.pl';
@@ -242,18 +247,18 @@ sub reset_user {
 	&LogOut(100,"Password Reset for $in{'User_Login'}",$LogFile);
 	$db = &DB_Open($dsn);
   # updated to only be active accounts
-	$sql = "SELECT User.User_Login, User.User_ID, User.User_Email FROM User WHERE User.User_Status > 0;";
+	$sql = "SELECT User_Login, User_ID, User_Email FROM User WHERE User_Status > 0;";
 	# Check to be sure the account exists
   if (my $sth = &DB_Call($db, $sql)) {
     while (my @row = $sth->fetchrow_array()) {
-        my ($User_Login, $User_ID, $User_Email) = @row;
+        ($User_Login, $User_ID, $User_Email) = @row;
         if ($User_Login eq $in{'User_Login'} && lc($User_Email) eq lc($in{'User_Email'})) {
             $id = $User_ID;
         }
         if ($id) { last; }
     }
+    $sth->finish();
   }
-
   if ($id) { 
   	# Create new temporary password
   	$temp = $id . $secretkey;
@@ -323,11 +328,10 @@ eof
 
 sub reset_password2 {
 	$db = &DB_Open($dsn);
-	$sql = "SELECT User.User_Login, User.User_Password, User.User_ID, User.User_Email FROM User;";
+	$sql = "SELECT User_Login, User_Password, User_ID, User_Email FROM User;";
 	if (my $sth = &DB_Call($db, $sql)) {
     while (my @row = $sth->fetchrow_array()) {
-        my ($User_Login, $User_ID, $User_Password, $User_Email) = @row;
-
+        ($User_Login, $User_Password, $User_ID, $User_Email) = @row;
         # Check if the user login and old password match
         if ($User_Login eq $in{'User_Login'} && $User_Password eq $in{'Old_Password'}) {
             $id = $User_ID;

@@ -23,7 +23,6 @@
 use DBI;
 use CGI qw(:standard);
 use Net::SMTP;
-use lib '/var/www/html/scripts';
 require ('timelocal.pl');
 require 'cgi-lib.pl';
 

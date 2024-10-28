@@ -1,0 +1,69 @@
+Binary operators:
+$x & 0x0F;   # Right 4 bits          abcdefgh becomes 0000efgh  (0-15) because we blank out the other bits with a mask.
+$x >> 4;     # Left 4 bits           abcdefgh  turns to 0000abcd (0-15) because we move the bits, and the others drop off. 
+$x & 0xFF;   # 8 bits from the right abcdefgh (0-255)
+$x & 0x01    for abcdefgh gives you 0000000h
+$x & 0x02    for abcdefgh gives you 000000g0
+$x & 0x04    for abcdefgh gives you 00000f00
+$x & 0x08    for abcdefgh gives you 0000e000
+$x & 0x10    for abcdefgh gives you 000d0000
+$x & 0x20    for abcdefgh gives you 00c00000
+$x & 0x40    for abcdefgh gives you 0b000000
+$x & 0x80    for abcdefgh gives you a0000000
+
+
+0x8000        is x0000000 00000000  
+0x4000        is 0x000000 00000000
+0x2000        is 00x00000 00000000
+0x1000        is 000x0000 00000000
+0x0800        is 0000x000 00000000
+0x0400        is 00000x00 00000000
+0x0200        is 000000x0 00000000 
+0x0100        is 00000001 00000000
+     
+($x & 0x0F) << 8    Move the right 4 bits 8 places to the left, effectively multiplying them by 256.
+
+$x %16;      # Right 4 bits          0000abcd  (0-15)  ??
+$x >> 1;     # Shift everything one step right (drop the rightmost bit)   abcdefgh becomes 0abcdefg
+$x >> 8; would make abcdefgh  0000000a
+
+($x >> 7) & 0x01  # bit 7, right shifted, and then all left bits zeroed out. So abcdefgh becomes 0000000b****
+So $x >> 4 & 0x0F is abcdefgh to 0000abcd
+untested:
+		encryptionSalt = playerData >> 5;  // First 11 bits
+		playerNumber = playerData & 0x1F;  // Last 5 bits
+   
+    0x0f is a hexadecimal representation of a byte. Specifically, the bit pattern 00001111 (15)
+$D1 = ($num >> 7) & 0x01;  # 1 bit  starting at bit 7.
+$D2 = ($num >> 4) & 0x07;  # 3 bits starting at bit 4.
+$D3 = ($num >> 0) & 0x0F;  # 4 bits starting at bit 0.
+
+
+>> shifts all the bits to the right, drops off the right bits, and leaves you whats left. 
+  so: abcdefgh >> 4 becomes 0000abcd    (also making the decimal number smaller)
+  
+<< shifts all the bits to the left adding 0s.   The << operator fills vacated bits with zeros.
+$x  << 4 on abcdefgh becomes efgh0000   (also making the decimal number bigger)
+$x  << 8 on abcdefgh  becomes h0000000
+Bitwise AND: &
+& Mask out bits you don't want 
+
+0x0F   is   00001111      which will blank out the left 4 bits, leaving a number from 0-15
+0xFF        11111111      which will keep 8 bits.
+0x7f   is   01111111
+
+00000001     0x01       00000001  1
+00000010     0x02       00000011  3
+00000100     0x04       00000111  7
+00001000     0x08       00001111  15
+00010000     0x10       00011111  31
+00100000     0x20       00111111  63
+01000000     0x40       01111111 127
+10000000     0x80       11111111 255
+
+
+ & 0xF0 turn 11111111 to 11110000 
+ & 0x1F turn 11111111 to 00011111 <I think this is wrong
+ 
+
+

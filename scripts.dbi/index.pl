@@ -25,7 +25,6 @@ use CGI qw(:standard);
 use CGI::Session;
 use CGI::Carp qw(fatalsToBrowser);
 use DBI;
-use lib '/var/www/html/scripts';
 do 'config.pl';
 use TotalHost;
 
@@ -48,7 +47,6 @@ $cookie = $cgi->cookie(TotalHost);
 #&validate($cgi,$session);
 $id = $session->param('userid');
 $userlogin = $session->param('userlogin');
-
 
 # BUG: This should be enabled and work, just didn't last I thinkered with it. 
 # If the user happens to be logged in, redirect them to the first game page

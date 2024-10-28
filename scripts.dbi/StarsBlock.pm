@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # StarsBlock.pm
 #
 # Rick Steeves
@@ -33,7 +34,7 @@
 
 # Here is a list of blocks and their types I found so far. I've never met several of them in any game file, which I can access to, but you can try to find them in your own game files using this small command line tool (there is no decryption code, since block headers are never encrypted), and please if you find them let me know:
 # https://wiki.starsautohost.org/wiki/Technical_Information
-# 0	FileFooterBlock (Year: .m, .hst   Checksum XOR .R, null .x, .H) 
+# 0	FileFooterBlock (Year: .m, .hst   Checksum XOR .r, null .x, .h) 
 # 1	ManualSmallLoadUnloadTaskBlock
 # 2	ManualMediumLoadUnloadTaskBlock
 # 3	WaypointDeleteBlock
@@ -84,7 +85,6 @@
 package StarsBlock;
 # 220824 Don't think this is ever called from StarsBlock. Fix for required SSL from SMTP library for block applications
 #use TotalHost; # eval'd at compile time
-use lib '/var/www/html/scripts';
 do 'config.pl';
 use StarStat;  # eval'd at compile time
 
@@ -913,7 +913,7 @@ sub displayBlockRace { # mostly a duplicate of decryptBlockRace
           print '<P><u>LRTs</u>: ' . join(', ',&LRT($LRT,1)) . "\n";
           print '<P><u>Hab</u>: Grav: ' . &showHabRange($lowGravity,$centreGravity,$highGravity, 0) . ", Temp: " . &showHabRange($lowTemperature,$centreTemperature,$highTemperature,1) . ", Rad: " . &showHabRange($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
           print '<P><u>Productivity</u>: Colonist ' . ($resourcePerColonist*100) . ", Factory: Produce $producePerFactory, Cost To Build $toBuildFactory, May Operate $operateFactory, Mine: Produce $producePerMine, Resources to Build $toBuildMine, May Operate $operateMine\n";
-          print '<P><u>FactoriesCost1LessGerm</u>: ' . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
+          print '<P><u>Factories Cost 1 Less Germ</u>: ' . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
           print '<P><u>Research Cost</u>:  Energy ' . &showResearchCost($researchEnergy) . ", Weapons " . &showResearchCost($researchWeapons) . ", Propulsion " . &showResearchCost($researchProp). ", Construction " . &showResearchCost($researchConstruction) . ", Electronics " . &showResearchCost($researchElectronics) . ", Biotech " . &showResearchCost($researchBiotech) . "\n";
           print '<P><u>Expensive Tech Starts at 3</u>: ' . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n";
         }
@@ -993,7 +993,7 @@ sub showHab {
 
 sub showLeftoverPoints {
    my ($points) = @_;
-   my @Leftover = qw ( SurfaceMinerals MineralConcentrations Mines Factories Defenses );
+   my @Leftover = ( "Surface Minerals", "Mineral Concentrations", "Mines", "Factories", "Defenses" );
    return $Leftover[$points];
 }
 
@@ -1039,7 +1039,7 @@ sub LRT {
   my ($lrts, $type) = @_;
   my @lrts;
   if ($type) {
-    @lrts = qw (ImprovedFuelEfficiency TotalTerraforming AdvancedRemoteMining ImprovedStarbases GeneralisedResearch UltimateRecycling MineralAlchemy NoRamScoopEngines CheapEngines OnlyBasicRemoteMining NoAdvancedScanners LowStartingPopulation BleedingedgeTechnology RegeneratingShields Unused Unused);
+    @lrts = ("Improved Fuel Efficiency", "Total Terraforming",  "Advanced Remote Mining", "Improved Starbases", "Generalised Research", "Ultimate Recycling", "Mineral Alchemy", "No RamScoop Engines", "Cheap Engines", "Only Basic Remote Mining", "No Advanced Scanners", "Low Starting Population", "Bleeding Edge Technology", "Regenerating Shields", "Unused", "Unused");
   } else { @lrts = qw( IFE TT ARM ISB GR UR MA NRSE CE OBRM NAS LSP BET RS Unused Unused); }
   my @string = ();
   if (&bitTest($lrts, 0)) { push @string, $lrts[0];  }
@@ -1263,7 +1263,7 @@ sub publicMessages {
   } else {
   
     my $messagefile = "$inDir/$GameFile" . '.messages';
-    if (-e $messagefile) { unlink $messagefile; } # Get rid of the old one, since we append
+    if (-f $messagefile) { unlink $messagefile; } # Get rid of the old one, since we append
     
     # BUG: You know, we could probably pull this from the .hst file
     foreach $filename (@mFiles) {
@@ -1601,11 +1601,11 @@ sub StarsList {
   %waypointList = %$waypointList;
 
   # Get rid of the old List Files in case they don't exist in the new turn
-  if (-e "$listPrefix.hst.fleet")    { unlink "$listPrefix.hst.fleet" }
-  if (-e "$listPrefix.hst.queue")    { unlink "$listPrefix.hst.queue" }
-  if (-e "$listPrefix.hst.waypoint") { unlink "$listPrefix.hst.waypoint" }
-  if (-e "$listPrefix.hst.design")   { unlink "$listPrefix.hst.design" }
-  #if (-e "$listPrefix.hst.last")     { unlink "$listPrefix.hst.last" }  # Never changes
+  if (-f "$listPrefix.hst.fleet")    { unlink "$listPrefix.hst.fleet" }
+  if (-f "$listPrefix.hst.queue")    { unlink "$listPrefix.hst.queue" }
+  if (-f "$listPrefix.hst.waypoint") { unlink "$listPrefix.hst.waypoint" }
+  if (-f "$listPrefix.hst.design")   { unlink "$listPrefix.hst.design" }
+  #if (-f "$listPrefix.hst.last")     { unlink "$listPrefix.hst.last" }  # Never changes
 
   if (-d $gameDir) { # Check to make sure we're putting the List files in the right place
     if (%designList)   { &writeList("$listPrefix.hst.design", \%designList); }
@@ -1616,9 +1616,11 @@ sub StarsList {
       open (LISTFILE, ">$listPrefix.hst.last");
       print LISTFILE "$lastPlayer"; 
       close (LISTFILE);
+      umask 0002; 
+      chmod 0664,"$listPrefix.hst.last";
     }
     &BlockLogOut(100, "StarsList: Done writing out List files for $listPrefix", $LogFile)
-  } else { &BlockLogOut (0,"TurnMake: Directory $GameDir Missing for $listPrefix", $ErrorLog); }
+  } else { &BlockLogOut (0,"TurnMake: Directory $Dir_Games Missing for $listPrefix", $ErrorLog); }
 }
 
 sub StarsFix {
@@ -1634,7 +1636,7 @@ sub StarsFix {
 
   # read Production queue data from export
   my %queueList;
-  if (-e "$listPrefix.hst.queue" ) { 
+  if (-f "$listPrefix.hst.queue" ) { 
     my $queueList = &readList("$listPrefix.hst.queue");
     %queueList = %$queueList;
   #  &printList(\%queueList);
@@ -1642,7 +1644,7 @@ sub StarsFix {
 
   # Read Ship Design data from export
   my %designList;
-  if (-e "$listPrefix.hst.design") {
+  if (-f "$listPrefix.hst.design") {
     my $designList = &readList("$listPrefix.hst.design");
     %designList = %$designList;
     #&printList(\%designList);
@@ -1650,7 +1652,7 @@ sub StarsFix {
   
   # Read Fleet data from export for: 32k bug, Mineral Upload exploit
   my %fleetList;
-  if (-e "$listPrefix.hst.fleet" ) {
+  if (-f "$listPrefix.hst.fleet" ) {
     my $fleetList = &readList("$listPrefix.hst.fleet");
     %fleetList = %$fleetList;
   #  &printList(\%fleetList);
@@ -1658,7 +1660,7 @@ sub StarsFix {
   
   # Read waypoint data
   my %waypointList;
-  if (-e "$listPrefix.hst.waypoint" ) {
+  if (-f "$listPrefix.hst.waypoint" ) {
     my $waypointList = &readList("$listPrefix.hst.waypoint");
     %waypointList = %$waypointList;
   #  &printList(\%fleetList);
@@ -1666,7 +1668,7 @@ sub StarsFix {
  
   # read lastPlayer
   my $lastPlayer = -1; # storing the last player # for 10th Starbase
-  if ($file_type =~ /x/i && -e "$listPrefix.hst.last") {
+  if ($file_type =~ /x/i && -f "$listPrefix.hst.last") {
     open (LISTFILE,"$listPrefix.hst.last");
     my @lastFile = <LISTFILE>;
     close LISTFILE;
@@ -1734,7 +1736,7 @@ sub StarsAI {
   my $backupfile = $filename . '.ai';
   
   #Validate the .hst file exists 
-  unless (-e $filename  ) { 
+  unless (-f $filename  ) { 
     &BlockLogOut(0,"StarsAI: Failed to find $filename for $GameFile", $ErrorLog);
     return 0;
   }
@@ -2554,6 +2556,8 @@ sub writeList {
     }
   }
   close LISTFILE;
+  umask 0002; 
+  chmod 0664, $File;
 }
 
 #print List hash
@@ -2590,15 +2594,15 @@ sub updateList { # Update the list data for a game
   my @extensions = qw ( design queue fleet waypoint last ); 
   if (!($enable)) { # Remove the fix file
     my $fixfile = qq|$Dir_Games/$GameFile/fix|; 
-    if (-e $fixfile) {  unlink $fixfile; } 
+    if (-f $fixfile) {  unlink $fixfile; } 
   # StarsList cleans up the files otherwise
     foreach my $extension (@extensions) {
       my $extension = qq|$Dir_Games/$GameFile/$GameFile.hst.$extension|; 
-      if (-e extension) { unlink $extension; } 
+      if (-f extension) { unlink $extension; } 
     }
   } 
   else { # We need to create both the fix file, and the List files
-    if ($fixFiles && -e "$Dir+Games/$GameFile/fix") { 
+    if ($fixFiles && -f "$Dir+Games/$GameFile/fix") { 
       &StarsList("$Dir_Games/$GameFile", "$Dir_Games/$GameFile/$GameFile.hst"); 
     }
   }
@@ -2610,7 +2614,7 @@ sub cleanFiles {
   # Works on a folder-by-folder game-by-game basis. 
   # Requires a file named 'clean' in the game folder
   # $cleanFiles is set in config.pl
-  if ($cleanFiles && -e "$Dir+Games/$GameFile/clean") {
+  if ($cleanFiles && -f "$Dir+Games/$GameFile/clean") {
     &StarsClean($GameFile); 
     &BlockLogOut(50, "Cleaned .m Files for $GameFile", $LogFile);
   }
@@ -2931,7 +2935,7 @@ sub decryptFix {
         }
         
         ### 32K Merge & SS Pop Steal ###########################################
-        if ($file_type =~ /x/i && -e "$listPrefix.hst.fleet") { # Requires fleet file
+        if ($file_type =~ /x/i && -f "$listPrefix.hst.fleet") { # Requires fleet file
           ### 32k Merge #######################################################
           $warnId = &zerofy($playerId) . '-32k-' . $fleetId . '+' . $waypointId; # adding a zero lets us sort on key
          if ($typeId == 5 && $taskId == 4 && $targetType == 2) {
@@ -3454,7 +3458,7 @@ sub decryptFix {
 
           ### Cheap Starbase ###################################################
           # Editing a starbase under construction at planet(s) with no starbase
-          if ($file_type =~ /x/i && -e "$listPrefix.hst.queue") {
+          if ($file_type =~ /x/i && -f "$listPrefix.hst.queue") {
             if ($typeId == 27 && $isStarbase && $totalBuilt == 0) { # .x and Starbase
               foreach my $planetId (sort keys %{$queueList{$ownerId}}) { 
                 my @itemList = split (chr(31), $queueList{$ownerId}{$planetId}{item}); # $planetId = planetId
@@ -3579,7 +3583,7 @@ sub decryptFix {
         # If the owner is 0-15, type is 2, it's a fleet
         # As the orders can accumulate, need to track the total uploaded over 
         # multiple tasks.
-        if (-e "$listPrefix.hst.fleet" ) {
+        if (-f "$listPrefix.hst.fleet" ) {
           unless (exists($totalUpload{$toId})) { $totalUpload{$toId} = 0; }
           if ((($fromOwnerId == 0 &&  $fromIdType == 1 ) && ($toOwnerId != $Player && $toIdType == 2) )) {
             $totalUpload{$toId} = $totalUpload{$toId} - $ironium; 
