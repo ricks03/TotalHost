@@ -24,9 +24,8 @@
 use DBI;
 require 'cgi-lib.pl';
 use CGI qw(:standard);
-require ('timelocal.pl');
 use Net::SMTP;
-use lib '/var/www/html/scripts';
+require ('timelocal.pl');
 use TotalHost;
 
 # Pause Game

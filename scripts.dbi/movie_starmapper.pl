@@ -44,9 +44,9 @@
 use File::Copy;
 use File::Copy::Recursive qw(fcopy rcopy dircopy fmove rmove dirmove);
 use File::Path 'rmtree';
+do 'config.pl';
 use TotalHost;
 use StarsBlock;
-do 'config.pl';
 
 # # Location of Stars! EXE (see config.pl)
 # my $executable= 'D:\TH\Stars!\stars26j\stars.exe';

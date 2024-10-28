@@ -23,7 +23,6 @@
 use CGI qw/:standard/;
 use File::Basename;
 use DBI;
-use lib '/var/www/html/scripts';
 do 'config.pl';
 use TotalHost; # eval'd at compile time
 use StarStat;  # eval'd at compile time
@@ -32,6 +31,8 @@ use StarsBlock;# eval'd at compile time
 $CGI::POST_MAX=1024 * 25;  # max 25K posts
 # Read in the post values and clean them a bit
 #foreach my $field (param()) { 	$in{$field} = &clean(param($field)); }
+my %in;
+
 foreach my $field (param()) {
    my $value = param($field);  # Get the values for the current parameter in list context
    $in{$field} = clean($value);  # Clean and assign to %in hash
@@ -52,8 +53,9 @@ my $cgi = new CGI; # Create the new CGI Session
 my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
 $cookie = $cgi->cookie(TotalHost);  # Get the cookie information
 # make the user values handy and easy to use
-$id = $session->param("userid");
-$userlogin = $session->param("userlogin");
+my $id = $session->param("userid");
+my $userlogin = $session->param("userlogin");
+
 &validate($cgi,$session); # Confirm user or Display error and end.
 
 #print $cgi->header(); # Create a page header
@@ -70,7 +72,7 @@ if ($File) {
   print $cgi->header(); # Create the HTML page header
   print qq|<meta HTTP-EQUIV="REFRESH" content="2; url=| . $WWW_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
   print $cgi->start_html;
-  $err .= "$userlogin: File Name must be provided for upload to $GameName." ;
+  $err .= "$userlogin: File Name must be provided for upload." ;
   &LogOut(300,$err,$ErrorLog);
   print $err; 
   print $cgi->end_html;
@@ -83,7 +85,7 @@ sub ValidateFileUpload {
 	# Save the file out so we can do further analysis with it
 	my $File_Loc = &Save_File($File); 
 	&LogOut(400, "ValidateFileUpload: File_Loc = $File_Loc",$LogFile);
-  $File = uc(basename($File));   # Clean up the file name for IE6 which includes path
+  $File = basename($File);   # Clean up the file name for IE6 which includes path
 	# Break the filename into component parts
 	my ($file_prefix, $file_player, $file_type, $file_ext) = &FileData ($File); 
 	&LogOut(300,"ValidateFileUpload: File type = $file_type",$LogFile); 
@@ -101,17 +103,18 @@ sub ValidateFileUpload {
     # Check to make sure the Race Name was entered
     if ($RaceName) {
       # Confirm there's not already a entry with that name
+      my $row;
       $sql = qq|SELECT RaceName from Races where RaceName = '$RaceName' AND User_Login = '$userlogin';|;
   		$db=&DB_Open($dsn);
       if (my $sth = &DB_Call($db,$sql)) { 
-        my $row = $sth->fetchrow_hashref(); %RaceValues = %{$row}; 
+        $row = $sth->fetchrow_hashref(); %RaceValues = %{$row}; 
         $sth->finish();
       }
       &DB_Close($db);
       if ($RaceValues{'RaceName'}) {
-  				$err .= 'Race Name $RaceName already exists in your profile.'; 
+  				$err .= "Race Name $RaceName already exists in your profile."; 
   				&LogOut (0,"ValidateFileUpload: Race Name $RaceName already exists in profile for $userlogin: $err $File_Loc", $ErrorLog);
-          if (-e $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
+          if (-f $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
           return 0;    
       }
       
@@ -119,7 +122,7 @@ sub ValidateFileUpload {
       if (&checkRaceCorrupt($File_Loc)) {
         $err .= 'This race file is corrupt! Caused by making the plural name too short. Recreate the race or fix it with StarsRace.exe !!';
         &LogOut (0, "ValidateFileUpload: Race file $File_Loc corrupt for $userlogin",$ErrorLog);
-        if (-e $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
+        if (-f $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
         return 0;
       }   
 
@@ -133,7 +136,7 @@ sub ValidateFileUpload {
   				# If the file doesn't exist already
           # Read in the user information so we know where to put the race file
           $sql = qq|SELECT * FROM User WHERE User_Login = '$userlogin';|;
-  				$db=&DB_Open($dsn);
+  				$db = &DB_Open($dsn);
           if (my $sth = &DB_Call($db,$sql)) { 
             my $row = $sth->fetchrow_hashref(); %UserValues = %{$row};  
             $sth->finish();
@@ -144,55 +147,58 @@ sub ValidateFileUpload {
           my $racefiledir = "$Dir_Races/$UserValues{'User_File'}";  
           # If the User Race folder doesn't exist, create it. 
           if (not(-e($racefiledir))) {
-            unless (mkdir $racefiledir) { &LogOut(0,"ValidateFileUpload: Failed to create Race Directory $racefiledir",$ErrorLog); }
+            my $call = "sudo -u $user mkdir $racefiledir";
+            my $exit_code = system($call);  # Where 0 is success
+            if ($exit_code) { &LogOut(0,"ValidateFileUpload: Failed to create Race Directory $racefiledir",$ErrorLog); }
+            #unless (mkdir $racefiledir) { &LogOut(0,"ValidateFileUpload: Failed to create Race Directory $racefiledir",$ErrorLog); }
           }
           #write out the race name to where it is supposed to go.
-   		    my $Race_Destination = "$racefiledir/$File";  
-   				if (not(-e $Race_Destination)) { #if the file does not already exist
-  					# Add the new race to the database
-  					$db = &DB_Open($dsn);
-  					$sql = "INSERT INTO Races (RaceName, RaceFile, User_Login, RaceDescrip, User_File) VALUES ('$RaceName', '$File', '$userlogin', '$RaceDescrip', '$UserValues{'User_File'}');";
-  					if (my $sth = &DB_Call($db,$sql)) { # If the SQL query is not a failure
-							$err .= "Database updated. ";
-							&LogOut(200, "ValidateFileUpload: Race Database Updated for $userlogin, $File: $err",$LogFile);
-							if (&Move_Race($File_Loc, $Race_Destination)) { # move the race to its final location
- 								$err .= "Race File $File Uploaded.\n";
-								&LogOut(200,"ValidateFileUpload: $File $File_Loc moved to $Race_Destination for $userlogin: $err", $LogFile);
-								return 1; 
-							} else { 
-								$err .= "RaceFile $File failed to move/upload\n"; 
-								&LogOut(0,"ValidateFileUpload: Race file $File_Loc failed to move to $Race_Destination for $userlogin: $err", $ErrorLog);
-                return 0;
-							}
-              $sth->finish();
-  					} else {
-  						$err .= "File $File failed to insert into database. Had you entered a race name?";
-  						&LogOut(0,"ValidateFileUpload: Failed to insert $File into database for $userlogin: $err", $ErrorLog);
-              if (-e $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
-  						return 0;
-  					}
-  					&DB_Close($db);
+   		    my $Race_Destination = "$racefiledir/$File"; 
+   				if (not(-d $Race_Destination)) { #if the file does not already exist
+						if (&Move_Race($File_Loc, $Race_Destination)) { # move the race to its final location
+							$err .= "Race File $File Uploaded.\n";
+							&LogOut(200,"ValidateFileUpload: $File $File_Loc moved to $Race_Destination for $userlogin: $err", $LogFile);
+        			# Add the new race to the database
+    					$db = &DB_Open($dsn);
+    					$sql = "INSERT INTO Races (RaceName, RaceFile, User_Login, RaceDescrip, User_File) VALUES ('$RaceName', '$File', '$userlogin', '$RaceDescrip', '$UserValues{'User_File'}');";
+      				if (my $sth = &DB_Call($db,$sql)) { # If the SQL query is not a failure
+      					#$err .= "Database updated"; # This causes a crash. No idea why
+      					&LogOut(200, "ValidateFileUpload: Race Database Updated for User: $userlogin, File: $File: $err",$LogFile);
+                $sth->finish();
+    					} else {
+    						$err .= "File $File failed to insert into database. Had you entered a race name?";
+    						&LogOut(0,"ValidateFileUpload: Failed to insert $File into database for $userlogin: $err", $ErrorLog);
+              }
+    					&DB_Close($db);
+							return 1; 
+						} else { 
+							$err .= "RaceFile $File failed to move/upload\n"; 
+							&LogOut(0,"ValidateFileUpload: Race file $File_Loc failed to move to $Race_Destination for $userlogin: $err", $ErrorLog);
+              if (-f $File_Loc ) { unlink $File_Loc; &LogOut(0,"Race file $File_Loc unlinked: $err", $ErrorLog);} #user-input cleaned as much as I can. 
+              return 0;
+						}
+						return 0;
   				} else {
-  					$err .= "<b>ERROR: Race File: $File already exists. Delete that Race (or rename your file) and try again! $Race_Destination</b>";
-            if (-e $File_Loc ) { unlink $File_Loc; }  # Delete the temp file
+  					$err .= "<b>ERROR: Race File: $File already exists. Delete the race that uses that file (or rename the file you are uploading) and try again!</b>";
+            if (-f $File_Loc ) { unlink $File_Loc; }  # Delete the temp file
   					&LogOut(0, "ValidateFileUpload: Race File: $File $File_Loc already exists at $Race_Destination: $err", $ErrorLog); 
   					return 0; 
   				}
   			} else { 
   				$err .= uc($File) . " not a valid Race ( .r1 ) file."; 
           &LogOut (0, "ValidateFileUpload: Invalid Race (.r1) File: Deleted $File_Loc for $userlogin",$ErrorLog);
-          if (-e $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
+          if (-f $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
   				return 0; 
   			}
   		} else {
-  			$err .= "Invalid Race File upload of $File by $userlogin";
+  			$err .= "Failed Race File upload of $File by $userlogin";
   			&LogOut(0, "ValidateFileUpload: Invalid race file upload of $File_Loc by $userlogin. CheckMagic: $checkmagic, CheckVersion: $checkversion: $err", $ErrorLog);
-        if (-e $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
+        if (-f $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
   			return 0;
   		}
     } else {
        $err .= 'You must enter a Race Name for your race (this field is independent of the name in the file). Try Again!';
-       &LogOut (0, "Upload: No race name entered for $userlogin",$ErrorLog);
+       &LogOut(0, "Upload: No race name entered for $userlogin",$ErrorLog);
     }
 	} elsif ($file_type eq 'x') { # A turn file
  		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
@@ -215,12 +221,12 @@ sub ValidateFileUpload {
     # Check that the turn won't trigger a serial/hardware conflict
 		elsif (my $errSerial = &checkSerials($File_Loc))  { $err .= "$errSerial"; &LogOut(0,"ValidateFileUpload: Serial/hardware error $err $File_Loc for $userlogin",$ErrorLog); }
 
-    # If any critical errors have been reported, error. Delete the file
+    # If any critical errors have been reported, error. Delete the file.
     if ($err) { 
       &LogOut(0, "ValidateFileUpload: Error $err $errSerial", $ErrorLog); 
       # Pass the results to $err for display
-      $err = 	uc($File) . " not a valid .x[n] file: $err $errSerial. DISCARDING FILE"; 
-      if (-e $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
+      $err = 	$File . " not a valid .x[n] file: $err $errSerial. DISCARDING FILE"; 
+      if (-f $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
       return 0; 
     } else {&LogOut(300, "ValidateFileUpload: No errors for $in{'GameFile'}", $LogFile); }
     
@@ -245,7 +251,7 @@ sub ValidateFileUpload {
         # Requires a file named 'fix' in the game folder as an additional safety net 
         my $fixFile = "$Dir_Games/$GameFile/fix";
         my $warning; 
-        if ($fixFiles && -e $fixFile) { 
+        if ($fixFiles && -f $fixFile) { 
           &LogOut(300, "ValidateFileUpload: fixfile: $fixFile fixFiles: $fixFiles, $File_Loc", $LogFile); 
           my $gameDir = "$Dir_Games/$GameFile";
           $warning = &StarsFix($gameDir, "$gameDir/$file_prefix.$file_ext", $turn);
@@ -273,9 +279,10 @@ sub ValidateFileUpload {
           } else {
             # Run TurnMake for the game since TurnMake is currently not a function
             # TurnMake will handle for emails, .chk file, etc.
-            my $MakeTurn = "perl -I $Dir_Scripts $Dir_Scripts/TurnMake.pl $GameFile >nul";
-            &LogOut(100, "Upload: AsAvailable $MakeTurn", $LogFile);
-            system($MakeTurn); # Starting system with 1 makes it launch asynchronously, in case Stars! hangs
+            #my $MakeTurn = "perl -I $Dir_Scripts $Dir_Scripts/TurnMake.pl $GameFile >/dev/null";
+            my $MakeTurn = "$PerlLocation -I $Dir_Scripts $Dir_Scripts/TurnMake.pl $GameFile >/dev/null";
+            &call_system($MakeTurn,0); # Starting system with 1 makes it launch asynchronously, in case Stars! hangs
+            #&LogOut(100, "Upload: AsAvailable $MakeTurn", $LogFile);
           }
         }
 				&DB_Close($db);
@@ -285,12 +292,12 @@ sub ValidateFileUpload {
         # If the file failed to move, report and remove. 
         $err .= "<P>File failed to move!\n";
 				&LogOut(0,"ValidateFileUpload: File $File $File_Loc, $file_prefix failed to move for $userlogin",$ErrorLog);
-        if (-e $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
+        if (-f $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
         return 0;
 			}
 		}
 	# Zip files
-	} elsif ($file_type eq 'z') {
+	} elsif ($file_type eq 'zip') {
 		# Extract Zip files and check all the files inside somehow :-)
 		################################################################
 		$err .= qq|You've uploaded a zip file, and we\'re not sure what to do with that yet!\n|;
@@ -307,7 +314,7 @@ sub Move_Turn {
 	# Move the turn from the temp location to its final destination
 	my ($Turn_File, $Turn_Name) = @_; 
  	my($Turn_Source)= $Dir_Upload . '/' . $Turn_File;  
- 	my($Turn_Destination)= $Dir_Games . '/' . $Turn_Name . '/' . $Turn_File;  
+ 	my($Turn_Destination)= $Dir_Games . '/' . $Turn_Name . '/' . lc($Turn_File);  
 	# If we got to here the file is valid, so we can overwrite
 	move($Turn_Source, $Turn_Destination) or return 0;
 	&LogOut(100,"Turn File $Turn_File moved from $Turn_Source > $Turn_Destination",$LogFile);
@@ -318,10 +325,11 @@ sub Move_Race {
 	use File::Copy;
 	# Move the race from the temp location to its final destination
 	my ($Race_Source, $Race_Destination) = @_; 
- 	if (not(-e $Race_Destination)) { #if the file does not already exist
-		move($Race_Source, $Race_Destination);
-		&LogOut(100,"Race File moved from $Race_Source to $Race_Destination",$LogFile);
-		return 1;
+ 	if (not(-f $Race_Destination)) { #if the file does not already exist
+		if (move($Race_Source, $Race_Destination)) {
+		  &LogOut(100,"Race File moved from $Race_Source to $Race_Destination",$LogFile);
+		  return 1;
+    } else { &LogOut(100,"Race File failed to move from $Race_Source to $Race_Destination",$ErrorLog); return 0;}
   } else {
 		#otherwise tell them the file already exists
 		&LogOut(0,"Move_Race: Race file $Race_Source already exists at $Race_Destination--nice try: $err",$ErrorLog);
@@ -331,17 +339,26 @@ sub Move_Race {
 
 sub Save_File {
 	my ($File) = @_; 
+  # In Windows, Stars! turns are saved as upper case (esp. the file extension). In 
+  #   Linux, the file extensions when created are lower case. So everything uploaded as 
+  #   lower case appears to be the ideal simplest path. 
+  #$File = lc($File);
   # Strip any path information off the uploaded File
   # Since for some reason some browsers (IE6) include it
   use File::Basename;
-  if ($File) { $FileName = uc(basename($File)); }
-	my $File_Loc= $Dir_Upload . '/' . $FileName;  #write out the race name to where it is supposed to go.
-	&LogOut(100,"Writing out $FileName / $File to $File_Loc for $userlogin",$LogFile);
-	open (OUTFILE,">$File_Loc") || &LogOut(0,"Error writing file $File_Loc for $userlogin",$ErrorLog);
-	binmode(OUTFILE);
-	while (read($File,$data,1024)) { print OUTFILE $data;   }
-	close(OUTFILE); 
-	return $File_Loc; 
+  if ($File) { 
+    $FileName = basename($File); 
+    my $File_Loc = $Dir_Upload . '/' . $FileName;  #write out the race file to where it is supposed to go.
+    &LogOut(100,"Writing out $FileName / $File to $File_Loc for $userlogin",$LogFile);
+    open (OUTFILE,">$File_Loc") || &LogOut(0,"Error writing file $File_Loc for $userlogin",$ErrorLog);
+    binmode(OUTFILE);
+    while (read($File,$data,1024)) { print OUTFILE $data;   }
+    close(OUTFILE); 
+    #&LogOut(100,"chmod $mode, $File_Loc",$ErrorLog);
+    umask 0002; 
+    chmod 0664, $File_Loc;
+    return $File_Loc;
+  } 
 }
 
 sub Check_User {

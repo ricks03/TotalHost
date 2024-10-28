@@ -22,7 +22,6 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 package StarStat;
-use lib '/var/www/html/scripts';
 do 'config.pl';
 
 require Exporter;
@@ -157,7 +156,7 @@ sub Check_Turn {
 	my ($file_prefix, $x_turn) = @_;
 	my $Game_Loc = $Dir_Games . '/' . $file_prefix . '/' . $file_prefix . '.hst';
 	# Check to see if the .hst file exists at all
-	if (-e $Game_Loc) {
+	if (-f $Game_Loc) {
 		# Get the data for the game
 		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($Game_Loc);
 		if ($turn == $x_turn) {
@@ -177,7 +176,7 @@ sub Check_GameFile {
   # Where file_prefix is the game prefix of the file name
   my($file_prefix) = @_;
   my $Game_Loc = $Dir_Games . '/' . $file_prefix . '/' . $file_prefix . '.hst';
-  if (-e $Game_Loc) {
+  if (-f $Game_Loc) {
   	&SLogOut(400,"Game Exists at $Game_Loc: Game File = $file_prefix",$LogFile);
   	return 1;
   } else { 
@@ -191,7 +190,7 @@ sub Check_GameID {
 	my ($file_prefix, $Game_ID) = @_;
 	my $Game_Loc = $Dir_Games . '/' . $file_prefix . '/' . $file_prefix . '.hst';
 	# Check to see if the .hst file exists at all
-	if (-e $Game_Loc) {
+	if (-f $Game_Loc) {
 		# Get the data for the game
 		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($Game_Loc);
 		if ($lidGame == $Game_ID) {
@@ -251,7 +250,7 @@ sub ValidateFile {
  	my ($File, $FilePath) = @_;
 #	$FilePath =~ s/\\/\//g; # "fix" the file path so it's consistent for \
  	my $File_Loc = $FilePath . '/' . $File;
-	if (!(-e $File_Loc)) { &SLogOut(0, "Validate file $File_Loc not found", $ErrorLog); return 0; }
+	if (!(-f $File_Loc)) { &SLogOut(0, "Validate file $File_Loc not found", $ErrorLog); return 0; }
 	# Break the filename apart into component parts
 	my ($file_prefix, $file_player, $file_type, $file_ext) = &FileData($File); 
 	unless (&Check_FileType($file_type)) { return 0; }

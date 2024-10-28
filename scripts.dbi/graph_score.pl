@@ -30,8 +30,8 @@
 
 use GD;      # for font names
 use GD::Graph::lines;
-use StarsBlock;
 do 'config.pl';
+use StarsBlock;
 
 my @singularRaceNames;
 my @AllDirs; # The list of all directories
@@ -85,7 +85,7 @@ foreach $dirname (@AllDirs) {
     if ($firstPass) {
       $firstPass = 0; # Don't do this again
       my $HST = "$sourcedir/$dirname/" . $GameFile . '.hst';
-      if (-e $HST) {
+      if (-f $HST) {
         ($singularRaceNames, $score) = &getScores($HST);
         @singularRaceNames = @{$singularRaceNames};
         print "Singular: @singularRaceNames\n";

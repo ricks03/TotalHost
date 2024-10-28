@@ -6,7 +6,7 @@ $PerlLocation='c:/perl/bin/perl.exe'; # Local Path
 $disableGenerate = 0; # Disable TurnMake
 $debug=0;
 
-$WWW_HomePage = 'https://www.example.com';
+$WWW_HomePage = 'https://www.example.com'; #Must match site URL
 $WWW_Image = '/images/';
 $WWW_Notes = '/Notes/';
 $WWW_Scripts = '/scripts';
@@ -32,10 +32,10 @@ $fixFiles = 1; # 0, 1, 2: display, clean but don't write, write
 $Dir_Log = '/home/totalhost/logs';
 $File_Log = '/th.log';
 $LogFile = $Dir_Log . $File_Log;
-$File_ErrorLog = '/Error.log';
+$File_ErrorLog = '/error.log';
 $ErrorLog = $Dir_Log . $File_ErrorLog;
-$file_SQLLog = '/sql.log';
-$SQLLog = $Dir_Log . $file_SQLLog;
+$File_SQLLog = '/sql.log';
+$SQLLog = $Dir_Log . $File_SQLLog;
 
 $ip = $ENV{'REMOTE_ADDR'};
 $browser = $ENV{'HTTP_USER_AGENT'};
@@ -55,10 +55,11 @@ $DB_PASSWORD = 'PASSWORD';
 $DB_HOST = 'localhost';
 $dsn = "DBI:mysql:database=$DB_NAME;host=$DB_HOST";
 
+# WINE config
+$user = "totalhost";  # Linux user account
 $ENV{'DISPLAY'} = ':99';  
 $ENV{'WINEPREFIX'} = '/home/www-data/.wine';
-#$ENV{'WINEDLLOVERRIDES'} ="ole32=n"; # Disable wine clipboard
-#$executable= 'wine c:\\stars.exe';   
+$ENV{'WINEDLLOVERRIDES'}="winex11.drv=b"; # Disable wine clipboard
 #$executable= 'DISPLAY=:99 /usr/bin/wine c:\stars.exe'; 
 #$executable='sudo -u www-data /usr/bin/wine c:\stars.exe'; 
 $executable= '/usr/bin/wine c:\\stars.exe';   
@@ -71,37 +72,38 @@ $starmapper = 'd:\th\utils\starmapper\starmapper121\starmapper.bat';
 
 $FormMethod      = 'Post'; # Method used for forms, Post or Get
 
-$Dir_Root        = '/var/www';
+# You're going to want all of these to be lower case. 
+$Dir_Root        = '/var/www/html';
 $Dir_User        = '/home/totalhost';
 $Dir_WINE        = 'd:';
-$Dir_Upload      = $Dir_User . '/uploads';
+# You're going to want all of these to be lower case. 
+$Dir_Sessions    = $Dir_User . '/sessions/'; # Note if you change this all the current passwords will invalidate. 
+$Dir_Upload      = $Dir_User . '/upload';
 $Dir_Games       = $Dir_User . '/games'; # Location of the actual game files used for turn gen
 $Dir_Download    = $Dir_User . '/download'; #Location where zip files are downloaded
-$Dir_Races       = $Dir_Root . '/races';
+$Dir_Races       = $Dir_User . '/races';
+$File_Serials    = $Dir_User . '/serialC.txt'; # Text file of serial numbers
 $Dir_Graphs      = $Dir_Root . '/downloads'; #Location of movies & Graphs
-$File_Serials    = $Dir_Root . '/serialC.txt'; # Text file of serial numbers
-$Dir_WWWRoot     = $Dir_Root . '/html';
+$Dir_WWWRoot     = $Dir_Root;
 $Dir_Scripts     = $Dir_Root . '/scripts';
-$WINE_Races      = $Dir_WINE  . '\races'; # Location of the actual race files used for game creation 
-$WINE_Games      = $Dir_WINE  . '\games'; # Location of the actual game files used for game creation & turn gen
+$WINE_Races      = '\\races'; # Location of the actual race files used for game creation 
+$WINE_Games      = '\\games'; # Location of the actual game files used for game creation & turn gen
 
 # Email
 $mail_present = 0;
-$mail_server = '';
+$mail_server = 'localhost';
 #$mail_user = 'user@example.com';
 #$mail_password = '';
-$mail_from = '';
+$mail_from = 'me@example.com';
 $mail_prefix = '[TH] ';
 
 #Internet Detection
 $internet_status_log = $Dir_Root  . '/internet_status.log';
 $internet_threshold  = 3;
-$internet_site       = 'google.com';  
+$internet_site       = '8.8.8.8';      # Google
 
 $min_players = 2; # The minimum number of players to create/launch a game
-# Sessions
-$Dir_Sessions = $Dir_Root . '/sessions/';
-# Note if you change this all the current passwords will invalidate. 
+
 $secret_key = 'secret_key';
 %TurnResult = ("turned in" => "In", "still out" => "Out", "right game" => "Wrong Game", "dead" => "Deceased", "right year" => "Wrong Year", "file corrupt" => "Corrupt");
 %TurnBall = ("In" => "$WWW_Image"  . "greenball.gif", "Out" => "$WWW_Image"  . "yellowball.gif", "Wrong Game" => "$WWW_Image"  . "redball.gif", "Deceased" => "$WWW_Image"  . "blackball.gif", "Wrong Year" => "$WWW_Image"  . "redball.gif", "Corrupt" => "$WWW_Image"  . "redball.gif", "Error" => "$WWW_Image"  . "redball.gif", "Idle" => "$WWW_Image"  . "grayball.gif", "Abandoned" => "$WWW_Image"  . "grayball.gif");
