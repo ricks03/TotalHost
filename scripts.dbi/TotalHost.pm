@@ -28,7 +28,6 @@ use Net::SMTP; # requires libcrypto-1_1_.dll
 use CGI qw(:standard);
 use CGI::Session qw/-ip-match/;
 use DBI;
-use lib '/var/www/html/scripts';
 do 'config.pl';
 use StarStat; # eval'd at compile time
 use StarsBlock; # eval'd at compile time
@@ -59,7 +58,8 @@ our @EXPORT = qw(
 	DaysToAdd ValidTurnTime ValidFreq CheckHolidays LoadHolidays ShowHolidays
   show_race_block
   process_fix process_game_status
-  check_internet get_internet_down_count internet_log_status clear_internet_log
+  lwp_head check_internet get_internet_down_count internet_log_status clear_internet_log
+  call_system  get_user
 );
 # Remarked out functions: FileData FixTime MakeGameStatus checkboxes checkboxnull
 #  showCategory
@@ -222,7 +222,7 @@ sub Email_Turns { #email turns out to the appropropriate players
 #	while ( my ($key, $value) = each(%GameVals) ) { print "<P>$key => $value\n"; }
 	# If you're emailing attachments, only do so to people who have requested it
 	# Otherwise mail the active people. 
-	my $sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM [User] INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerStatus)=1)) ORDER BY GameUsers.PlayerID;|;
+	my $sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerStatus)=1)) ORDER BY GameUsers.PlayerID;|;
 	my ($User_Login, $Email, $PlayerID, $EmailTurn) = &Load_EmailAddresses($GameFile, $sql);
 	my @User_Login = @$User_Login;
 	my @Email      = @$Email; 
@@ -276,7 +276,7 @@ sub Load_EmailAddresses {
 	my ($GameFile, $sql) = @_;
 	my @User_Login, @Email, @PlayerID;
   my %Host;
-	&LogOut(300,"      Load_EmailAddresses: Email game name: $GameFile",$LogFile);   
+	&LogOut(300,"Load_EmailAddresses: Email game name: $GameFile",$LogFile);   
 	my $db = &DB_Open($dsn);
 	if (my $sth = &DB_Call($db,$sql)) {
 		my $MailCounter = 0; # Game counter
@@ -287,7 +287,7 @@ sub Load_EmailAddresses {
 		}
     $sth->finish();
 	}
-  $sql = qq|SELECT Games.GameName, Games.HostName, User.User_Email, User.EmailTurn FROM [User] INNER JOIN Games ON User.User_Login = Games.HostName WHERE Games.GameFile = \'$GameFile\';|;
+  $sql = qq|SELECT Games.GameName, Games.HostName, User.User_Email, User.EmailTurn FROM User INNER JOIN Games ON User.User_Login = Games.HostName WHERE Games.GameFile = \'$GameFile\';|;
   if ( my $sth = &DB_Call($db,$sql)) { 
     my $row = $sth->fetchrow_hashref(); %Host = %{$row}; 
     $sth->finish();
@@ -369,11 +369,16 @@ sub LogOut {
       if (($Logging) <= 9) { $Logging = ' ' . $Logging; } # Fix for log file format
       if (($Logging) <= 99) { $Logging = ' ' . $Logging; } # Fix for log file format
   		$PrintString = localtime(time()) . ' : ' . $Logging . ' : ' . $PrintString;
+      # Debug
+  #my $user = &get_user();
+  #$PrintString .= ": User: $user";
   		open (LOGFILE, ">>$LogFileDate");
   		print LOGFILE "$PrintString\n\n";
   		close LOGFILE;
     } else { print "$PrintString\n"; }
 	}
+
+
 }
 
 sub validate {
@@ -398,7 +403,7 @@ sub show_html {
 	# Take a HTML file and import it into the TH interface
 	print '<td>';
 	my ($File) = @_; 
-	if (-e $File) { #Check to see if file is there.
+	if (-f $File) { #Check to see if file is there.
 		open (IN_FILE,$File) || die('Can\'t open file');
 		my(@File) = <IN_FILE>;
 		close(IN_FILE);
@@ -664,14 +669,17 @@ sub html_footer {
 }
 
 sub clean_old_sessions {
+  my $sessions;
+  my @stat;
+  my $days;
 	# Clean the server
-	if (int(rand(10)) == 1) {
+	if (int(rand(20)) == 1) { # Only run ~ 1 out of xtimes it's called
   		# expire old sessions
-  		$filez = $Dir_Sessions ."/*";
-  		while ($file = glob($filez)) {
-    		@stat=stat $file; 
-    		$days = (time()-$stat[9]) / (60*60*24);
-    		if (-e $file) { unlink $file if ($days > 90); }
+  		$sessions = $Dir_Sessions .'*';  # match all files in the sessions folder
+  		while (my $file = glob($sessions)) {
+    		@stat=stat $file;   # Age of file in seconds
+    		$days = (time()-$stat[9]) / (60*60*24); # Age of file in days
+    		if (-f $file) { unlink $file if ($days > 90); }
   		}
 	} 
 }
@@ -715,7 +723,7 @@ sub SubmitTime{
 	my $answer = '';
  	if ($daytime < .0006944) { $answer = int($daytime*86400) . " seconds ago";}
 # 	elsif ($daytime < .04167) { $answer = int($daytime * 1440 ) . " minute(s) ago"; }
-  elsif ($daytime < .04167) { $answer = "Recently\n";}
+  elsif ($daytime < .04167) { $answer = "Recently";}
 	elsif ($daytime < 1) { $answer = int($daytime * 24 ) . " hour(s) ago";}
 	elsif ($daytime >= 1) { $answer = int($daytime) . " day(s) ago";}
 	return $answer;
@@ -724,7 +732,7 @@ sub SubmitTime{
 #change nulls to "O"
 sub checkboxnull {
   local($checkboxnull) = shift(@_);
-	if (length($checkboxnull) == 0) { return(0); } 
+	if (length($checkboxnull) == 0 ) { return(0); } 
 	else {	return(1); }
 }
 
@@ -857,11 +865,19 @@ sub Make_CHK {
 # Updates the .chk file for a game
 	my($GameFile) = @_;
   # Stars! does not like forward slashes as command-line parameters
-  my($CheckGame) = $executable . ' -v ' . $WINE_Games . '\\\\' . $GameFile . '\\\\' . $GameFile . '.hst';
+  #my($CheckGame) = $executable . ' -v ' . $WINE_Games . '\\\\' . $GameFile . '\\\\' . $GameFile . '.hst';
+  my($CheckGame) = $executable . ' -v ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile" . '.hst';
   &LogOut(200, "Make_CHK: Running for $GameFile, $CheckGame", $LogFile);
-  chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
-  #system($CheckGame);
-  my $exit_status = system($CheckGame);
+  ##system($CheckGame);
+  #chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
+  #my $exit_status = system($CheckGame);
+  my $exit_status = &call_system($CheckGame,0);
+  my $chkfile = "$Dir_Games/$GameFile/$GameFile" . '.chk';
+  &LogOut(300, "Make_CHK: chmod for GameFile: $GameFile, ChkFile: $chkfile", $LogFile);
+  if (-f $chkfile) {
+    umask 0002; 
+    chmod 0664, $chkfile; 
+  }
   # print "Command failed with exit status: $exit_status\n";
 	#sleep 2;
 }
@@ -873,7 +889,7 @@ sub Read_CHK {
 	my $CHK_FILE = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.chk';
   &LogOut(200, "Read_CHK: Running for $CHK_FILE", $LogFile);
   # IF for some reason there's no .chk file, make one. 
-  unless (-f $CHK_FILE) { &Make_CHK($GameFile); }
+  unless (-e $CHK_FILE) { &Make_CHK($GameFile); }
   open (IN_CHK,$CHK_FILE) || &LogOut(0,"Read_CHK: Cannot open stupid .chk file $CHK_FILE for $GameFile",$ErrorLog);
   chomp (@CHK = <IN_CHK>);
  	close(IN_CHK);
@@ -886,7 +902,7 @@ sub Eval_CHK {
 	my($CHKFile) = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.chk'; 
   print "CHECK FILE: $CHKFile"; 
 	my($ToGenerate) = 'True';	
-	if (-e $CHKFile) { #Check to see if .CHK file is there.
+	if (-f $CHKFile) { #Check to see if .CHK file is there.
 		# Read in appropriate .CHK file
 		open (IN_CHK,$CHKFile) || &LogOut(0,'Eval_CHK: Cannot open .chk file $CHKFile',$ErrorLog);
 		my(@CHK) = <IN_CHK>;
@@ -988,41 +1004,9 @@ sub GenerateTurn { # Generate a turn and refresh files
 	# There is a Stars! bug when you generate this way from the command line with / the .x[n] file isn't deleted.
 	# So you have to use \ (eg d:\th\games instead of d:/th/games)
   # Because Stars! does the forcegen, there are no backups of the interim turns
-	my($GenTurn) = $executable . ' -g' . $NumberofTurns . ' ' . $WINE_Games . '\\\\' .  $GameFile . '\\\\' . $GameFile . '.hst';
-  chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
-	system($GenTurn);
-	sleep 4;
-
-# I can't find anywhere that actually uses this code anymore; everything is in the GameFile location
-# If for some reason this gets reimplemented, delete needs to be updated to remove files in the Download folder.   
-# 	# Copy files to the correct (safe) location for download
-#   # BXG: Why do we do this? 
-# 	my $turn_dir = $Dir_Games . '/' .  $GameFile . '/';
-# 	opendir(DIR, $turn_dir) or &LogOut(0,"GenerateTurn: Can\'t opendir $turn_dir for $GameFile",$ErrorLog); 
-# 	while (defined($file = readdir(DIR))) {
-# 		next unless (-f "$turn_dir/$file");
-# 		# Backup the log files, the turn files, the news file, and the .chk file
-#     # Except this backup is done earlier in the Game_backup sub?
-#     # BXG: 191204 Why exactly are we copying the files over to the download folder?
-#     # Some old design point I've forgotten about? 
-#     # Turns are currently downloaded from their native location.
-#     # BXG: The delete game function likely doesn't look in the download folder for cleanup.
-#     #  Download.pl looks in the actual game folder.
-#     #
-#     # Create the directory if it does not exist
-#     my $newdir = $Dir_Download . '/' . $GameFile;
-#     unless (-d  $newdir ) {  mkdir $newdir || &LogOut(0, "GenerateTurn: Cannot create $newdir, $userlogin", $ErrorLog); }
-# 		if ($file =~ /\.m|\.x|\.x|\.news|\.chk/) {
-# # 191204 If this is truly where things should download from, no need for the .chk And .x file
-# #		if ($file =~ /\.m|\.X|\.x/) {
-# 	 		my($Game_Source)= $Dir_Games . '/' . $GameFile . '/' . $file;  
-# 	 		my($Game_Destination)= $Dir_Download . '/' . $GameFile . '/' . $file;  
-# 			&LogOut(200,"GenerateTurn: copy $Game_Source > $Game_Destination",$LogFile);
-# 	 		copy($Game_Source, $Game_Destination);
-# 		} 
-# 	}
-# 	closedir(DIR);
-# 	&LogOut(200,"GenerateTurn: Turns for $GameFile moved to $turn_dir",$LogFile);
+	my($GenTurn) = $executable . ' -g' . $NumberofTurns . ' ' . "$Dir_WINE\\\\games\\\\$GameFile\\\\$GameFile" . '.hst';
+	my $exit_status = &call_system($GenTurn,2);
+	#sleep 4;
 }	
 
 sub Game_Backup {  # Backup the current game folder
@@ -1034,7 +1018,9 @@ sub Game_Backup {  # Backup the current game folder
 	my($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HST_File);
 	my $Game_Backup = $Game_Source . '/' . $turn; 
 	opendir(DIR, $Game_Source) or &LogOut(0,"<P>Game_Backup: Can\'t opendir $Game_Source for Backup",$ErrorLog); 
-	mkdir $Game_Backup;
+  my $call = "sudo -u $user mkdir $Game_Backup";
+  my $exit_code = system($call);  # Where 0 is success
+	#mkdir $Game_Backup;
   &LogOut(100,"Backup: $Game_Backup", $LogFile);
 	while (defined($file = readdir(DIR))) {
 		# Skip forward unless it's actually a file
@@ -1189,73 +1175,6 @@ sub ShowHolidays {
 	print "</table>\n";
 }
 
-# 220824 BUG I don't see the db_sql function used anywhere, and the only place that 
-# calls dbh_connect is db_sql.
-# They aren't even in the export of Totalhost.pm
-#
-# sub dbh_connect {
-# 	#Pull game information from the database.	$dsn = "TotalHost";
-# 	# If there's an error, say why
-# 	my $dsn_name = 'dbi:ODBC:' . $dsn;
-#     my ($dbh);
-#     $dbh = DBI->connect($dsn_name, $db_user, $db_pass, { PrintError => 0, AutoCommit => 1 });
-#     if (! defined($dbh) ) {
-# 		print "dbh_connect: Error connecting to DSN '$dsn_name'\n";
-#         print "Error was:\n";
-#         print "$DBI::errstr\n";         # $DBI::errstr is the error received from the SQL server
-#         return 0;
-#     }
-#     return $dbh;
-# }
-# 
-# sub db_sql {
-# 	my ($sql, $sth, $rc);
-#     $sql = shift;
-#     if (! ($sql) ) {
-# 		&LogOut(0, "db_sql: Must pass SQL statement to db_sql!",$ErrorLog);
-# 		return 0;
-# 	}
-# 	# Verify that we are connected to the database
-# 	if (! ($dbh) || ! ($sth = $dbh->prepare("GO") )) {
-# 		# Attempt to reconnect to the database
-# 		if (! dbh_connect() ) {
-# 			&LogOut(0, "db_sql: Unable to connect to database",$ErrorLog);
-# 			exit;   # Unable to reconnect, exit the script gracefully
-#         }
-#     } else {
-# 		$sth->execute;      # Execute the "GO" statement
-# 		$sth->finish;       # Tell the SQL server we are done
-# 	}
-# 	$sth = $dbh->prepare($sql);     # Prepare the SQL statement passed to db_sql
-# 	# Check that the statement prepared successfully
-# 	if(! defined($sth) || ! ($sth)) {
-# 		&LogOut(0, "db_sql: Failed to prepare SQL statement:$DBI::errstr",$ErrorLog);
-# #		print "$DBI::errstr\n";
-# 		# Check for a connection error -- should not occur
-# 		if ($DBI::errstr =~ /Connection failure/i) {
-# 			if (! dbh_connect() ) { &LogOut(0, "db_sql: Unable to connect to database.", $ErrorLog); exit; }
-# 			else {
-# 				&LogOut(0, "db_sql: Database connection re-established, attempting to prepare again.",$ErrorLog);
-# 				$sth = $dbh->prepare($sql);
-# 			}
-# 		}
-# 		# Check to see if we recovered
-#  		if ( ! defined( $sth ) || ! ($sth) ) {
-# 			&LogOut(0, "db_sql: Unable to prepare SQL statement: $sql", $ErrorLog);
-# 			return 0;
-# 		}
-# 	}
-# 	# Attempt to execute our prepared statement
-# 	$rc = $sth->execute;
-# 	if (! defined( $rc ) ) {
-# 		# We failed, print the error message for troubleshooting
-# 		&LogOut(0, "Unable to execute prepared SQL statement:$DBI::errstr $sql", $ErrorLog);
-# 		return 0;
-# 	}
-# 	# All is successful, return the statement handle
-# 	return $sth;
-# }
-
 sub show_race_block {
   # Displays Race attributes in TotalHost
   my ($RaceFile, $Player) = @_;
@@ -1264,7 +1183,7 @@ sub show_race_block {
   $filename = $RaceFile;
   
   # Validate that the file exists
-  unless (-e $filename) { &LogOut(0,"show_race_block: RaceFile $filename does not exist!", $ErrorLog); }
+  unless (-f $filename) { &LogOut(0,"show_race_block: RaceFile $filename does not exist!", $ErrorLog); }
   
   # Read in the binary Stars! file, byte by byte
   my $FileValues;
@@ -1292,10 +1211,12 @@ sub process_fix {
 	my $warningfile = $Dir_Games . '/' . $GameFile . '/' . "$GameFile" . '.warnings';
 	my $HSTFile = $Dir_Games . '/' . $GameFile . '/' . "$GameFile" . '.hst';
 	($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
-	if (!(-e $warningfile)) { # If there's no fix file, create one. 
+	if (!(-f $warningfile)) { # If there's no fix file, create one. 
   	open (OUT_FILE, ">$warningfile") || &LogOut (0,"process_fix: Failed to create $warningfile for $GameFile", $ErrorLog); 
   	print OUT_FILE "\n";
   	close(OUT_FILE);
+    umask 0002; 
+    chmod 0664, $warningfile;
 	}
 
 	# Read in the old fixes
@@ -1383,7 +1304,7 @@ sub process_game_status {
    	$sql = qq|UPDATE Games SET GameStatus = 0 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
     $GameValues{'GameStatus'} = 0; # When used later
     $state_set = 1;
-    &LogOut(0,$sql,$ErrorLog);
+    &LogOut(200,$sql,$LogFile);
   } elsif ($state eq 'Unlocked') {
     $sql = qq|UPDATE Games SET GameStatus = 7 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
     $GameValues{'GameStatus'} = 7; # When used later
@@ -1450,11 +1371,27 @@ sub process_game_status {
   }
 }
 
+# A sub function to wrap up the head call, since it's 
+# duplicated in LWP::Simple and GGI
+sub lwp_head {
+  require LWP::Simple;
+  return LWP::Simple::head(@_);
+}
+
 # Check if the Internet is up
 sub check_internet {
-  my $p = Net::Ping->new("icmp");
-  return $p->ping("$internet_site");  # Check against a reliable host
+  # Net::Ping requires root privs
+  #my $p = Net::Ping->new("icmp");
+  #return $p->ping("$internet_site");  # Check against a reliable host
+  require LWP::Simple;
+  my $url = "https://$internet_site";
+  if (lwp_head($url)) {
+    return 1;
+  } else {
+    return 0;
+  }
 }
+
 
 # Get the number of consecutive Internet "down" records
 sub get_internet_down_count {
@@ -1489,5 +1426,26 @@ sub clear_internet_log {
   close OUTFILE;
 }
 
+# A centralized place to make system calls
+sub call_system {
+  my ($call, $delay) = @_;  
+  chdir($WINE_path) or &LogOut(0,"Cannot change directory: $!",$ErrorLog);
+  #system($CheckGame);
+  #$call = "sudo -u $user " . $call;
+  #chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
+  # sudo -u www-data WINEDLLOVERRIDES="mscoree,mshtml=" perl /var/www/totalhost/scripts/TurnMake.pl 30a1997a
+  $call = qq|sudo -u www-data WINEDLLOVERRIDES="mscoree,mshtml=" |  . $call;
+   
+  my $exit_status = system($call);
+  # print "Command failed with exit status: $exit_status\n";
+	sleep $delay;
+  &LogOut(0, "call_system: call: $call, Exit Status: $exitstatus", $LogFile); 
+  return $exit_status;
+}
 
-
+# Return the current user context, mostly used for debug
+sub get_user {
+  my $user_id = $>; # Get effective user ID
+  my $user_info = getpwuid($user_id);  # Get user info
+  return $user_info;
+}
