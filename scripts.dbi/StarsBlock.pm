@@ -1250,16 +1250,16 @@ sub publicMessages {
   if (-d $inDir) {  
     # If a directory name was specified
     my $file;
-    opendir(BIN, $inDir) or &BlockLogOut(20,"publicMessages: Cannot open directory $inDir", $LogFile);
+    opendir(BIN, $inDir) or &BlockLogOut(20,"publicMessages: Cannot open directory $inDir", $ErrorLog);
     while (defined ($file = readdir BIN)) {
       next if $file =~ /^\.\.?$/; # skip . and ..
       next unless ($file =~  /^.*\.[Mm]\d*$/ ); #prefiltering for .m files
       push @mFiles, "$inDir/$file";
     }
-  } else {&BlockLogOut(20,"publicMessages: $inDir does not exist", $LogFile); }
+  } else {&BlockLogOut(20,"publicMessages: $inDir does not exist", $ErrorLog); }
 
   if (@mFiles == 0) { 
-    &BlockLogOut(20,"publicMessages: No .m files in $inDir", $LogFile);
+    &BlockLogOut(20,"publicMessages: No .m files in $inDir", $ErrorLog);
   } else {
   
     my $messagefile = "$inDir/$GameFile" . '.messages';
@@ -1270,7 +1270,7 @@ sub publicMessages {
       # Loop through for each .m file in the directory
       my $FileValues;
       my @fileBytes;
-      &BlockLogOut(20,"publicMessages: For File: $filename", $LogFile);
+      &BlockLogOut(200,"publicMessages: For File: $filename", $LogFile);
       open(StarFile, "<$filename" );
       # Read in the binary Stars! .m file, byte by byte
       binmode(StarFile);
@@ -1299,7 +1299,7 @@ sub publicMessages {
       print OUT_FILE $message;
     }
     close(OUT_FILE);
-    &BlockLogOut(50, "publicMessages: Created messages for $GameFile", $LogFile);
+    &BlockLogOut(300, "publicMessages: Created messages for $GameFile", $LogFile);
   }
 }
 

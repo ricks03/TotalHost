@@ -213,6 +213,7 @@ sub activate_user {
     $session->param("userid", $User_ID);
     $session->param("userlogin", $User_Login);
     $session->param("email", $User_Email);
+    $session->param("timezone", $User_Timezone);
     &LogOut(100,"Account Activated for $User_Login",$LogFile);
     # Get the serial number for this user
     # which will be the serial number of the line of the corresponding User ID. 
@@ -396,10 +397,10 @@ sub login {
   # Can only log in fron an active account
   #$sql = "SELECT * FROM User;";
   $db = &DB_Open($dsn);
-  $sql = "SELECT User_ID, User_Login, User_Password, User_Email FROM User WHERE User_Status > 0;";
+  $sql = "SELECT User_ID, User_Login, User_Password, User_Email, User_Timezone FROM User WHERE User_Status > 0;";
   if (my $sth = &DB_Call($db, $sql)) {
   	while (my @row = $sth->fetchrow_array()) {
-  	  ($User_ID, $User_Login, $User_Password, $User_Email) = @row;
+  	  ($User_ID, $User_Login, $User_Password, $User_Email, $User_Timezone) = @row;
       # Hashing the submitted password with the secret key
       $hash = $submit_hash . $secret_key;
       $passhash = sha1_hex($hash);
@@ -426,6 +427,7 @@ sub login {
       $session->param("userid", $User_ID);
       $session->param("userlogin", $User_Login);
       $session->param("email", $User_Email);
+      $session->param("timezone", $User_Timezone);
 #			$redirect =$WWW_Scripts . '/page.pl';
 #			$redirect = $WWW_HomePage . $WWW_Scripts . '/index.pl?lp=home';
 			$redirect = $WWW_Scripts . '/page.pl?lp=profile_game&cp=show_first_game';

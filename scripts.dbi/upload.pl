@@ -147,7 +147,7 @@ sub ValidateFileUpload {
           my $racefiledir = "$Dir_Races/$UserValues{'User_File'}";  
           # If the User Race folder doesn't exist, create it. 
           if (not(-e($racefiledir))) {
-            my $call = "sudo -u $user mkdir $racefiledir";
+            my $call = "mkdir $racefiledir";
             my $exit_code = system($call);  # Where 0 is success
             if ($exit_code) { &LogOut(0,"ValidateFileUpload: Failed to create Race Directory $racefiledir",$ErrorLog); }
             #unless (mkdir $racefiledir) { &LogOut(0,"ValidateFileUpload: Failed to create Race Directory $racefiledir",$ErrorLog); }
@@ -233,8 +233,8 @@ sub ValidateFileUpload {
     # Unless there was an error, move the file to the game folder
     unless ($err) { 
 			# Do whatever you would do with a valid change (.x) file
-		  &LogOut(100,"ValidateFileUpload: Valid Turn file $File_Loc, moving it to $Dir_Games/$GameFile", $LogFile);      
 			if (&Move_Turn($File, $file_prefix)) {
+        my $makeCHKrun = 0; # Let's not run MakeCHK more than we have to
 				$db = &DB_Open($dsn);
 				# update the Last Submitted Field
 				$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.LastSubmitted = | . time() . qq| WHERE GameUsers.GameFile=\'$file_prefix\' AND GameUsers.User_Login=\'$userlogin\';|;
@@ -266,27 +266,27 @@ sub ValidateFileUpload {
         }
  
         # If the game is AsAvailable, check to see if all Turns are in and whether we should generate. 
-   			$sql = "SELECT * FROM Games WHERE GameFile = \'$file_prefix\';";
+   			$sql = qq|SELECT * FROM Games WHERE GameFile = \'$file_prefix\';|;
  				# Load game values into the array
         if (my $sth = &DB_Call($db,$sql)) { 
           my $row = $sth->fetchrow_hashref(); %GameValues = %{$row}; 
           $sth->finish();
         } # Should return only one value
+				&DB_Close($db);
         if ($GameValues{'AsAvailable'} == 1 ) { # Don't immediately generate As Available if the file generated warnings
           if ($warning) {
             $err .= "Not immediately generating As Available game $file_prefix due to Warnings. Will generate on next turn check interval however.\n";
-            &LogOut(100, "Upload: AsAvailable $err for $GameFile $userlogin", $LogFile);
+            &LogOut(100, "upload: AsAvailable $err for $GameFile $userlogin", $LogFile);
           } else {
             # Run TurnMake for the game since TurnMake is currently not a function
             # TurnMake will handle for emails, .chk file, etc.
             #my $MakeTurn = "perl -I $Dir_Scripts $Dir_Scripts/TurnMake.pl $GameFile >/dev/null";
             my $MakeTurn = "$PerlLocation -I $Dir_Scripts $Dir_Scripts/TurnMake.pl $GameFile >/dev/null";
-            &call_system($MakeTurn,0); # Starting system with 1 makes it launch asynchronously, in case Stars! hangs
-            #&LogOut(100, "Upload: AsAvailable $MakeTurn", $LogFile);
+            my $exit_status = &call_system($MakeTurn,0); # Starting system with 1 makes it launch asynchronously, in case Stars! hangs
+            $makeCHKrun = 1;  # Since TurnMake.pl will run Make_CHK, no need to run it twice
           }
         }
-				&DB_Close($db);
-        &Make_CHK($file_prefix);   # User-input cleaned as best we can.
+        if  (!($makeCHKrun)) { &Make_CHK($file_prefix); } # Only run if we haven't already
 				return 1; 
 			} else { 
         # If the file failed to move, report and remove. 
