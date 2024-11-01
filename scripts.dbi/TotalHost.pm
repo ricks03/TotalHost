@@ -28,6 +28,8 @@ use Net::SMTP; # requires libcrypto-1_1_.dll
 use CGI qw(:standard);
 use CGI::Session qw/-ip-match/;
 use DBI;
+use DateTime;
+use DateTime::TimeZone;
 do 'config.pl';
 use StarStat; # eval'd at compile time
 use StarsBlock; # eval'd at compile time
@@ -375,6 +377,8 @@ sub LogOut {
   		open (LOGFILE, ">>$LogFileDate");
   		print LOGFILE "$PrintString\n\n";
   		close LOGFILE;
+      umask 0002; 
+      chmod 0664, $LogFileDate; 
     } else { print "$PrintString\n"; }
 	}
 
@@ -865,15 +869,14 @@ sub Make_CHK {
 # Updates the .chk file for a game
 	my($GameFile) = @_;
   # Stars! does not like forward slashes as command-line parameters
-  #my($CheckGame) = $executable . ' -v ' . $WINE_Games . '\\\\' . $GameFile . '\\\\' . $GameFile . '.hst';
-  my($CheckGame) = $executable . ' -v ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile" . '.hst';
-  &LogOut(200, "Make_CHK: Running for $GameFile, $CheckGame", $LogFile);
+  my($CheckGame) = $WINE_executable . ' -v ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile" . '.hst';
+
   ##system($CheckGame);
   #chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
   #my $exit_status = system($CheckGame);
-  my $exit_status = &call_system($CheckGame,0);
   my $chkfile = "$Dir_Games/$GameFile/$GameFile" . '.chk';
-  &LogOut(300, "Make_CHK: chmod for GameFile: $GameFile, ChkFile: $chkfile", $LogFile);
+  &LogOut(200, "Make_CHK: Running for $GameFile, $CheckGame, $chkfile", $LogFile);  
+  my $exit_status = &call_system($CheckGame,0);
   if (-f $chkfile) {
     umask 0002; 
     chmod 0664, $chkfile; 
@@ -900,7 +903,6 @@ sub Eval_CHK {
 # Evaluate the existing .CHK file for a game and determine if all turns are in.
 	my($GameFile) = @_;
 	my($CHKFile) = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.chk'; 
-  print "CHECK FILE: $CHKFile"; 
 	my($ToGenerate) = 'True';	
 	if (-f $CHKFile) { #Check to see if .CHK file is there.
 		# Read in appropriate .CHK file
@@ -940,7 +942,7 @@ sub Eval_CHKLine {
 sub UpdateNextTurn { #Update the database for the time that the next turn should generate.
 	my($db,$NextTurn, $GameFile, $LastTurn) = @_;
   # Fix Next Turn for DST
-  # 221110 Time is alerady fixed for DST earlier, so don't fix it again!
+  # 221110 Time is already fixed for DST earlier, so don't fix it again!
 	#$NextTurn = &FixNextTurnDST($NextTurn, $LastTurn, 0); 
 	my $upd = "UpdateNextTurn for $GameFile updated to $NextTurn: " . localtime($NextTurn);
 	&LogOut(50,$upd,$LogFile);
@@ -965,35 +967,81 @@ sub UpdateLastTurn {
 	else { return 0; }
 }
 
+# sub FixNextTurnDST {
+# 	# Check to see if the next turn is in a different time zone than the last one, 
+# 	# and adjust the value by one hour if necessary
+# 	# Display determines whether you're trying to display information that's already been 
+# 	# changed so it needs to be adjusted in the other direction.
+# 	# 
+# 	my ($NextTurn, $LastTurn, $Display) = @_;
+# 	my $NextTurnDST, $LastTurnDST; 
+# 	my ($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $IsDST); 
+# 	($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $LastTurnDST) = localtime($LastTurn); 
+# 	($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $NextTurnDST) = localtime($NextTurn); 
+# 
+# 	if ($Display) {
+# 		# If displaying the next turn time
+# 		if ($LastTurnDST == $NextTurnDST) { return $NextTurn; }
+# 		elsif ($LastTurnDST > $NextTurnDST) { return $NextTurn + 3600; }
+# 		elsif ($LastTurnDST < $NextTurnDST) { return $NextTurn - 3600; }
+# 		# If something went wrong, do nothing and just return what it was previously.
+# 		else { &LogOut(0, "FixNextTurnDST(1): Check_DST FAILED $Display", $ErrorLog); return $NextTurn; }
+# 
+# 	} else {
+# 		# If actually adjusting the next turn time
+# 		if ($LastTurnDST == $NextTurnDST) { return $NextTurn; }
+# 		elsif ($LastTurnDST < $NextTurnDST) { return $NextTurn + 3600; }
+# 		elsif ($LastTurnDST > $NextTurnDST) { return $NextTurn - 3600; }
+# 		# If something went wrong, do nothing and just return what it was previously.
+# 		else { &LogOut(0, "FixNextTurnDST(2): Check_DST FAILED $Display", $ErrorLog); return $NextTurn; }
+# 	}
+# }
+
 sub FixNextTurnDST {
-	# Check to see if the next turn is in a different time zone than the last one, 
-	# and adjust the value by one hour if necessary
-	# Display determines whether you're trying to display information that's already been 
-	# changed so it needs to be adjusted in the other direction.
-	# 
-	my ($NextTurn, $LastTurn, $Display) = @_;
-	my $NextTurnDST, $LastTurnDST; 
-	my ($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $IsDST); 
-	($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $LastTurnDST) = localtime($LastTurn); 
-	($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $NextTurnDST) = localtime($NextTurn); 
+    # Adjusts the next turn time if DST changes between turns
+    # Arguments:
+    #   $NextTurn - the timestamp of the next turn
+    #   $LastTurn - the timestamp of the last turn
+    #   $Display  - a flag to determine if this is for display purposes
+	  # Display determines whether you're trying to display information that's already been 
+	  # changed so it needs to be adjusted in the other direction.
 
-	if ($Display) {
-		# If displaying the next turn time
-		if ($LastTurnDST == $NextTurnDST) { return $NextTurn; }
-		elsif ($LastTurnDST > $NextTurnDST) { return $NextTurn + 3600; }
-		elsif ($LastTurnDST < $NextTurnDST) { return $NextTurn - 3600; }
-		# If something went wrong, do nothing and just return what it was previously.
-		else { &LogOut(0, "FixNextTurnDST(1): Check_DST FAILED $Display", $ErrorLog); return $NextTurn; }
+    my ($NextTurn, $LastTurn, $Display) = @_;
 
-	} else {
-		# If actually adjusting the next turn time
-		if ($LastTurnDST == $NextTurnDST) { return $NextTurn; }
-		elsif ($LastTurnDST < $NextTurnDST) { return $NextTurn + 3600; }
-		elsif ($LastTurnDST > $NextTurnDST) { return $NextTurn - 3600; }
-		# If something went wrong, do nothing and just return what it was previously.
-		else { &LogOut(0, "FixNextTurnDST(2): Check_DST FAILED $Display", $ErrorLog); return $NextTurn; }
-	}
+    # Create DateTime objects for LastTurn and NextTurn
+    my $dt_last = DateTime->from_epoch(epoch => $LastTurn, time_zone => $timezone);
+    my $dt_next = DateTime->from_epoch(epoch => $NextTurn, time_zone => $timezone);
+    
+    # Determine DST status for LastTurn and NextTurn
+    my $last_is_dst = $dt_last->is_dst;
+    my $next_is_dst = $dt_next->is_dst;
+
+    # Check and adjust based on DST difference
+    if ($Display) {
+        # If displaying the next turn time
+        if ($last_is_dst == $next_is_dst) {
+            return $NextTurn;  # No adjustment needed
+        } elsif ($last_is_dst && !$next_is_dst) {
+            return $NextTurn + 3600;  # DST -> standard time (add an hour)
+        } elsif (!$last_is_dst && $next_is_dst) {
+            return $NextTurn - 3600;  # standard time -> DST (subtract an hour)
+        }
+    } else {
+        # If actually adjusting the next turn time
+        if ($last_is_dst == $next_is_dst) {
+            return $NextTurn;  # No adjustment needed
+        } elsif (!$last_is_dst && $next_is_dst) {
+            return $NextTurn + 3600;  # standard time -> DST (add an hour)
+        } elsif ($last_is_dst && !$next_is_dst) {
+            return $NextTurn - 3600;  # DST -> standard time (subtract an hour)
+        }
+    }
+    
+    # Log error if something unexpected happens
+    &LogOut(0, "FixNextTurnDST: Unexpected DST status NextTurn: $NextTurn, LastTurn: $LastTurn", $ErrorLog);
+    return $NextTurn;
 }
+
 
 sub GenerateTurn { # Generate a turn and refresh files
 	use File::Copy;
@@ -1001,10 +1049,11 @@ sub GenerateTurn { # Generate a turn and refresh files
 	# Backup the existing Turn
 	if ($turn = &Game_Backup($GameFile)) { &LogOut(200,"GenerateTurn: Gamefile $GameFile Backed up for Turn: $turn",$LogFile); }
 	# Generate the actual Stars! turns
+  print "\tGenerating a turn for $GameFile\n";
 	# There is a Stars! bug when you generate this way from the command line with / the .x[n] file isn't deleted.
 	# So you have to use \ (eg d:\th\games instead of d:/th/games)
   # Because Stars! does the forcegen, there are no backups of the interim turns
-	my($GenTurn) = $executable . ' -g' . $NumberofTurns . ' ' . "$Dir_WINE\\\\games\\\\$GameFile\\\\$GameFile" . '.hst';
+	my($GenTurn) = $WINE_executable . ' -g' . $NumberofTurns . ' ' . "$Dir_WINE\\\\games\\\\$GameFile\\\\$GameFile" . '.hst';
 	my $exit_status = &call_system($GenTurn,2);
 	#sleep 4;
 }	
@@ -1018,7 +1067,7 @@ sub Game_Backup {  # Backup the current game folder
 	my($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HST_File);
 	my $Game_Backup = $Game_Source . '/' . $turn; 
 	opendir(DIR, $Game_Source) or &LogOut(0,"<P>Game_Backup: Can\'t opendir $Game_Source for Backup",$ErrorLog); 
-  my $call = "sudo -u $user mkdir $Game_Backup";
+  my $call = "mkdir $Game_Backup";
   my $exit_code = system($call);  # Where 0 is success
 	#mkdir $Game_Backup;
   &LogOut(100,"Backup: $Game_Backup", $LogFile);
@@ -1027,7 +1076,7 @@ sub Game_Backup {  # Backup the current game folder
  		next unless (-f "$Game_Source/$file");
 	 	my($Game_Source)= $Game_Source . '/' . $file;  #
 	 	my($Game_Destination)= $Game_Backup . '/' . $file;  #w
-		&LogOut(300,"Game_Backup: $Game_Source > $Game_Destination", $LogFile);
+		&LogOut(400,"Game_Backup: $Game_Source > $Game_Destination", $LogFile);
 	 	copy($Game_Source, $Game_Destination);
 	}
 	closedir(DIR);
@@ -1417,6 +1466,8 @@ sub internet_log_status {
   print OUTFILE "$timestamp - $status\n";
   print "$timestamp - $status\n";
   close OUTFILE;
+  umask 0002; 
+  chmod 0664, $internet_status_log;
 }
 
 # Clear the log file (used when Internet comes back up)
@@ -1424,6 +1475,8 @@ sub clear_internet_log {
   #open (OUTFILE, ">$internet_status_log") or do { print "Could not open $internet_status_log\n"; &LogOut(0,"Could not open $internet_status_log",$ErrorLog); die; }
   open (OUTFILE, ">$internet_status_log") or print "Could not open $internet_status_log: $!\n";
   close OUTFILE;
+  umask 0002; 
+  chmod 0664, $internet_status_log;
 }
 
 # A centralized place to make system calls
@@ -1431,15 +1484,14 @@ sub call_system {
   my ($call, $delay) = @_;  
   chdir($WINE_path) or &LogOut(0,"Cannot change directory: $!",$ErrorLog);
   #system($CheckGame);
-  #$call = "sudo -u $user " . $call;
+  #$call = "sudo -u $WINE_user " . $call;
   #chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
-  # sudo -u www-data WINEDLLOVERRIDES="mscoree,mshtml=" perl /var/www/totalhost/scripts/TurnMake.pl 30a1997a
-  $call = qq|sudo -u www-data WINEDLLOVERRIDES="mscoree,mshtml=" |  . $call;
-   
+  &LogOut(0,"call_system: Starting call: $call",$LogFile);
+  $call = qq|sudo -u $WINE_user $call|;
   my $exit_status = system($call);
   # print "Command failed with exit status: $exit_status\n";
+  &LogOut(0, "call_system: Ending call: $call, Exit Status: $exitstatus", $LogFile); 
 	sleep $delay;
-  &LogOut(0, "call_system: call: $call, Exit Status: $exitstatus", $LogFile); 
   return $exit_status;
 }
 

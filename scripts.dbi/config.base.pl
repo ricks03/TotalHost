@@ -60,9 +60,11 @@ $user = "totalhost";  # Linux user account
 $ENV{'DISPLAY'} = ':99';  
 $ENV{'WINEPREFIX'} = '/home/www-data/.wine';
 $ENV{'WINEDLLOVERRIDES'}="winex11.drv=b"; # Disable wine clipboard
+$WINEDLLOVERRIDES="WINEDLLOVERRIDES=\"$ENV{'WINEDLLOVERRIDES'}\"";
+#$executable= 'wine c:\\stars.exe';   
 #$executable= 'DISPLAY=:99 /usr/bin/wine c:\stars.exe'; 
 #$executable='sudo -u www-data /usr/bin/wine c:\stars.exe'; 
-$executable= '/usr/bin/wine c:\\stars.exe';   
+$WINE_executable = $WINEDLLOVERRIDES .' /usr/bin/wine c:\\stars.exe';   
 
 # Location of ImageMagic convert applications
 #$imagemagick = 'C:\Program Files\ImageMagick-6.8.3-Q16\convert';
@@ -90,6 +92,7 @@ $WINE_Races      = '\\races'; # Location of the actual race files used for game 
 $WINE_Games      = '\\games'; # Location of the actual game files used for game creation & turn gen
 
 # Email
+# Currently expects an localhost open relay
 $mail_present = 0;
 $mail_server = 'localhost';
 #$mail_user = 'user@example.com';
@@ -149,6 +152,13 @@ $user_style = qq|style="width:120px;height:24;"|;
 # my $encodesD       = "6789bcdfgjkmpquv";
 # my $encodesE       = "wxyz+-,!.?:;\'*%\$";
 
-my (@singularRaceName, @pluralRaceName);
+(@singularRaceName, @pluralRaceName);
 $singularRaceName[0] = 'Everyone';
+
+$timezone = 'America/New_York';
+my @timezones = (
+    'UTC', 'America/New_York', 'America/Chicago', 'America/Denver',
+    'America/Los_Angeles', 'Europe/London', 'Europe/Paris', 'Asia/Tokyo',
+    'Australia/Sydney'
+);
 

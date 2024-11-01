@@ -30,6 +30,8 @@ use CGI::Session;
 CGI::Session->name('TotalHost');
 $CGI::POST_MAX=1024 * 25;  # max 25K posts
 use DBI;
+use DateTime;
+use DateTime::TimeZone;
 do 'config.pl';
 use TotalHost;
 use StarStat; 
@@ -62,6 +64,7 @@ print $cgi->header();
 # Get the User ID and User Login from the Cookie.
 my $id = $session->param("userid");
 my $userlogin = $session->param("userlogin");
+my $timezone = $session->param("timezone");
 
 # API output for the Java client
 if ($in{'client'} eq 'java') {
@@ -136,13 +139,18 @@ if ($in{'lp'} eq 'profile') {
 # 				"2XInvite People"	=> "",
  				);
 } else { 
-%menu_left = 	(
- 				"1Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
- 				"2Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create",
- 				"3Reset Password" 	=> "$WWW_Scripts/index.pl?cp=reset_user",
- 				"4Logout" 			=> "$WWW_Scripts/index.pl?cp=logout",
- 				"5Erase" 			=> "$WWW_Scripts/index.pl?cp=logoutfull",
- 				);
+# %menu_left = 	(
+#  				"1Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
+#  				"2Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create",
+#  				"3Reset Password" 	=> "$WWW_Scripts/index.pl?cp=reset_user",
+#  				"4Logout" 			=> "$WWW_Scripts/index.pl?cp=logout",
+#  				"5Erase" 			=> "$WWW_Scripts/index.pl?cp=logoutfull",
+#  				);
+  if (!($userlogin)) { $menu_left{'1Log In'} = "$WWW_Scripts/index.pl?cp=login_page"; }
+  if (!($userlogin)) { $menu_left{'2Sign Up'} = "$WWW_Scripts/index.pl?cp=create"; }
+  $menu_left{'3Reset Password'} = "$WWW_Scripts/index.pl?cp=reset_user";
+  $menu_left{'4Logout'} = "$WWW_Scripts/index.pl?cp=logout";
+  $menu_left{'5Erase'} = "$WWW_Scripts/index.pl?cp=logoutfull";
 }
 
 &html_left(\%menu_left);
@@ -552,14 +560,14 @@ sub change_password {
 sub edit_profile {
 	my ($sql) = @_;     
 	my $id = $session->param("userid");
-  my ($User_ID, $User_Login, $User_First, $User_Last, $User_Email, $User_Bio, $EmailTurn, $EmailList);
+  my ($User_ID, $User_Login, $User_First, $User_Last, $User_Email, $User_Bio, $EmailTurn, $EmailList, $User_Timezone);
 
 	my $db = &DB_Open($dsn); 
 	print "<td>\n";
 	if (my $sth = &DB_Call($db,$sql)) {
     my $row = $sth->fetchrow_hashref();
        # Extract the desired columns
-    ($User_ID, $User_Login, $User_First, $User_Last, $User_Email, $User_Bio, $EmailTurn, $EmailList) =  ($row->{'User_ID'}, $row->{'User_Login'}, $row->{'User_First'}, $row->{'User_Last'}, $row->{'User_Email'}, $row->{'User_Bio'}, $row->{'EmailTurn'}, $row->{'EmailList'});
+    ($User_ID, $User_Login, $User_First, $User_Last, $User_Email, $User_Bio, $EmailTurn, $EmailList, $User_Timezone) =  ($row->{'User_ID'}, $row->{'User_Login'}, $row->{'User_First'}, $row->{'User_Last'}, $row->{'User_Email'}, $row->{'User_Bio'}, $row->{'EmailTurn'}, $row->{'EmailList'}, $row->{'User_Timezone'});
 #		$EmailTurn = &checkboxnull($EmailTurn);
 #		$EmailList = &checkboxnull($EmailList);
     $sth->finish();
@@ -577,6 +585,19 @@ print <<eof;
 <tr><td>Last Name:</td><td><input type=text name="User_Last" value="$User_Last" size=32 maxlength=32></td></tr>
 <tr><td>Email Address: </td><td><input type=text name="User_Email" value="$User_Email" size=32 maxlength=32></td></tr>  
 <tr><td>Bio: </td><td><textarea name="User_Bio" value="$User_Bio" cols="40" rows="5">$User_Bio</textarea></td></tr>
+<tr><td>TimeZone: </td>
+<td>
+<select name="User_Timezone" id="timezone">
+eof
+
+foreach my $t (@timezones) { 
+  if ($t eq $User_Timezone) {  print qq|<OPTION value="$User_Timezone" SELECTED>$User_Timezone</OPTION>|; }
+  else { print qq|<OPTION value="$t">$t</OPTION>\n|; } 
+}
+
+print <<eof;
+</select>
+</td></tr>
 </table>
 <INPUT type="Checkbox" name="EmailTurn" value=$EmailTurn $Checked[$EmailTurn]>Receive Turns via Email</P>
 <INPUT type="Checkbox" name="EmailList" value=$EmailList $Checked[$EmailList]>Receive New Game Notifications</P>
@@ -608,6 +629,7 @@ sub show_profile {
 	print qq|<tr><td><b>Email:</b></td><td>$Profile{'User_Email'}</td></tr>\n|;
 	print qq|<tr><td><b>Serial:</b></td><td>$Profile{'User_Serial'}</td></tr>\n|;
 	print qq|<tr><td><b>Bio:</b></td><td>$Profile{'User_Bio'}</td></tr>\n|;
+	print qq|<tr><td><b>Timezone:</b></td><td>$Profile{'User_Timezone'}</td></tr>\n|;
 	print qq|<tr><td><b>Receive Turns via Email:</b></td><td>$Checked_Display[$Profile{'EmailTurn'}]</td></tr>\n|;
 	print qq|<tr><td><b>Receive New Game Notifications:</b></td><td>$Checked_Display[$Profile{'EmailList'}]</td></tr>\n|;
 	print qq|<tr><td><b>Member Since:</b></td><td>$Profile{'User_Creation'}</td></tr>\n|;
@@ -635,18 +657,18 @@ sub update_profile {
 	my $User_ID = $in{'User_ID'};
 	my $User_First = $in{'User_First'};
 	my $User_Last = $in{'User_Last'};
-	my $username = $in{'User_First'} . " " . $in{'User_Last'};
 	my $User_Email = $in{'User_Email'};
   my $valid_email = Email::Valid->address($User_Email);
 	my $User_Bio =$in{'User_Bio'};
+  my $User_Timezone = $in{'User_Timezone'};
 	my $EmailTurn = &checkboxnull($in{'EmailTurn'}); 
 	my $EmailList = &checkboxnull($in{'EmailList'});
   if ($User_First && $User_Last && $User_Login && $User_Email && $valid_email && $User_ID) {
   	my $db = &DB_Open($dsn);
   	#my $sql = "UPDATE User SET User_Login='$User_Login', User_First='$User_First',  User_Last='$User_Last', User_Email='$User_Email', User_Bio='$User_Bio', EmailTurn = $EmailTurn, EmailList = $EmailList, User_Modified='$Date' WHERE User_ID=$userid;";
-  	my $sql = qq|UPDATE User SET User_First='$User_First',  User_Last='$User_Last', User_Email='$User_Email', User_Bio='$User_Bio', EmailTurn = $EmailTurn, EmailList = $EmailList, User_Modified='$Date' WHERE User_ID=$User_ID AND User_Login='$User_Login';|;
+  	my $sql = qq|UPDATE User SET User_First='$User_First',  User_Last='$User_Last', User_Email='$User_Email', User_Bio='$User_Bio', User_Timezone='$User_Timezone', EmailTurn = $EmailTurn, EmailList = $EmailList, User_Modified='$Date' WHERE User_ID=$User_ID AND User_Login='$User_Login';|;
   	if (my $sth = &DB_Call($db,$sql)) { 
-  		&LogOut(100,"User: User $User_ID updated",$LogFile); 
+  		&LogOut(100,"User: User $User_ID : $User_Login updated",$LogFile); 
 #  		$session->param("userlogin",$User_Login);
   		$session->param("email",$User_Email);
   		print "User Updated\n";
@@ -857,13 +879,15 @@ sub show_game {
   my $playeringame;   
   my $player_file;  
   my $playercount;
-  my @CHK;
+  my @CHK;  
   &LogOut(100,"Processing show_game for $GameFile",$LogFile);
+  # Set the user's timezone if valid
+  my $dtnow = DateTime->now(time_zone => 'UTC');  # Create a DateTime object with the current time in UTC
   
 	if ($GameFile) {
 		$db = &DB_Open($dsn);
 		# Get the values for the current game
-		$sql = qq|SELECT Games.*, User.User_Email FROM User INNER JOIN Games ON User.User_Login = Games.HostName WHERE Games.GameFile=\'$GameFile\';|;
+		$sql = qq|SELECT Games.*, User.User_Email, User.User_Timezone FROM User INNER JOIN Games ON User.User_Login = Games.HostName WHERE Games.GameFile=\'$GameFile\';|;
 		if (my $sth = &DB_Call($db,$sql)) {
       while (my $row = $sth->fetchrow_hashref()) {
         %GameValues = %{$row};  # Dereference the hash reference into %Profile
@@ -940,15 +964,27 @@ sub show_game {
     #Display Next Turn time
     if (($GameValues{'NextTurn'} > 0) && ($GameValues{'GameType'} == 1 || $GameValues{'GameType'} == 2) ) { 
 			# Fix the display time for DST
-			my $NextTurnDST = &FixNextTurnDST($GameValues{'NextTurn'},$GameValues{'LastTurn'},1);
+			#my $NextTurnDST = &FixNextTurnDST($GameValues{'NextTurn'},$GameValues{'LastTurn'},1);
 			if ($GameValues{'GameStatus'} == 4) {
 				print "<br><font color=red>[PAUSED]</font>\n";
 			} else {
 				if ($GameValues{'GameStatus'} != 9) {
-          my $time_difference =  $NextTurnDST - time();
-          my $hours = int($time_difference / 3600);                # Total hours
-          my $minutes = int(($time_difference % 3600) / 60);       # Remaining minutes
-					print "<br><b>Next turn due on or before: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($NextTurnDST)) . " ($hours hours, $minutes minutes)</b>\n";  #BUG Need to be using DailyTime from database
+#           my $time_difference = $NextTurnDST - time();
+#           my $hours = int($time_difference / 3600);                # Total hours
+#           my $minutes = int(($time_difference % 3600) / 60);       # Remaining minutes
+# 					print "<br><b>Next turn due on or before: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($NextTurnDST)) . " ($hours hours, $minutes minutes)</b>\n";  #BUG Need to be using DailyTime from database
+          my $next_turn_epoch = $GameValues{'NextTurn'};
+          my $dtnext = DateTime->from_epoch(epoch => $next_turn_epoch, time_zone => 'UTC');
+          if (DateTime::TimeZone->is_valid_name($timezone)) {
+            $dtnext->set_time_zone($timezone);
+            my $dtduration = $dtnext->epoch - $dtnow->epoch;           # Get hours and minutes until next turn
+            my $sign = ($dtduration < 0) ? '-' : '';  # Use '-' if in the past
+            my $dthours = int($dtduration / 3600);  # Calculate total hours
+            my $dtminutes = int(($dtduration % 3600) / 60);  # Calculate remaining minutes
+            print "<br><b>Next turn due on or before: " . $dtnext->strftime('%Y-%m-%d %H:%M:%S %Z') . " ($sign" . abs($dthours) . " hours, " . abs($dtminutes) . " minutes)</b>\n";
+          } else {
+            print "<br>Invalid timezone: $timezone\n";
+          }
           print "<br>\n";
 				}
 			}
@@ -956,11 +992,25 @@ sub show_game {
 
     #Display when the last turn was generated if it was.
     unless ($GameValues{'GameStatus'} == 7 || $GameValues{'GameStatus'} == 0 )  {
-  		if ($GameValues{'LastTurn'}) { print "<br>Last turn generation: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($GameValues{'LastTurn'})) . "\n";}
-  		else { print "<br>No turns have been generated yet.\n"; }
+  		if ($GameValues{'LastTurn'}) { 
+#         print "<br>Last turn generation: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($GameValues{'LastTurn'})) . "\n";
+         my $dtlast = DateTime->from_epoch(epoch => $GameValues{'LastTurn'}, time_zone => 'UTC');
+        if (DateTime::TimeZone->is_valid_name($timezone)) {
+          $dtlast->set_time_zone($timezone);
+          print "<br>Last turn generation: " . $dtlast->strftime('%Y-%m-%d %H:%M:%S %Z') . "\n";
+        } else {
+          print "<br>Invalid timezone: $timezone\n";
+        }
+      }	else { print "<br>No turns have been generated yet.\n"; }
     } 
     
-    print "<br>Now: ". strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time())); 
+#     print "<br>Now: ". strftime("%Y-%m-%d %H:%M:%S %Z", localtime(time())); 
+    if (DateTime::TimeZone->is_valid_name($timezone)) {
+      $dtnow->set_time_zone($timezone);
+      print "<br>Now: " . $dtnow->strftime('%Y-%m-%d %H:%M:%S %Z');
+    } else {
+      print "<br>Invalid timezone: $timezone\n";
+    }
     
 		# If next turn is undefined(0) AND it's a game in progress somehow, display that the 
 		# next generation will be immediate
@@ -1343,9 +1393,9 @@ sub show_client {
   my $players = 1; # Are there players in the game
   my @CHK;
   my $schedule;
-  my $status;
-  
+  my $status;  
   &LogOut(100,"Processing show_client for $GameFile",$LogFile);
+  my $dtnow = DateTime->now(time_zone => 'UTC');  # Create a DateTime object with the current time in UTC
   
 	if ($GameFile) {
 		$db = &DB_Open($dsn);
@@ -1391,27 +1441,45 @@ sub show_client {
     #Display Next Turn time
     if (($GameValues{'NextTurn'} > 0) && ($GameValues{'GameType'} == 1 || $GameValues{'GameType'} == 2) ) { 
 			# Fix the display time for DST
-			my $NextTurnDST = &FixNextTurnDST($GameValues{'NextTurn'},$GameValues{'LastTurn'},1);
+# 			my $NextTurnDST = &FixNextTurnDST($GameValues{'NextTurn'},$GameValues{'LastTurn'},1);
 			if ($GameValues{'GameStatus'} == 4) {
 				print "<br>next-gen=[PAUSED]\n";
 			} else {
 				if ($GameValues{'GameStatus'} != 9) {
-          my $time_difference =  $NextTurnDST - time();
-          my $hours = int($time_difference / 3600);                # Total hours
-          my $minutes = int(($time_difference % 3600) / 60);       # Remaining minutes
-					print "<br>next-gen-time=Next turn due on or before: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($NextTurnDST)) . "($hours hours, $minutes minutes)\n";  #BUG Need to be using DailyTime from database
+#           my $time_difference =  $NextTurnDST - time();
+#           my $hours = int($time_difference / 3600);                # Total hours
+#           my $minutes = int(($time_difference % 3600) / 60);       # Remaining minutes
+#					print "<br>next-gen-time=Next turn due on or before: " . $dtnext->strftime('%Y-%m-%d %H:%M:%S %Z') . " ($sign" . abs($dthours) . " hours, " . abs($dtminutes) . " minutes)</b>\n";
+          my $next_turn_epoch = $GameValues{'NextTurn'};
+          my $dtnext = DateTime->from_epoch(epoch => $next_turn_epoch, time_zone => 'UTC');
+          if (DateTime::TimeZone->is_valid_name($timezone)) {
+            $dtnext->set_time_zone($timezone);
+            my $dtduration = $dtnext->epoch - $dtnow->epoch;           # Get hours and minutes until next turn
+            my $sign = ($dtduration < 0) ? '-' : '';  # Use '-' if in the past
+            my $dthours = int($dtduration / 3600);  # Calculate total hours
+            my $dtminutes = int(($dtduration % 3600) / 60);  # Calculate remaining minutes
+            print "<br><b>next-gen-time=Next turn due on or before: " . $dtnext->strftime('%Y-%m-%d %H:%M:%S %Z') . " ($sign" . abs($dthours) . " hours, " . abs($dtminutes) . " minutes)</b>\n";
+          } else {
+            print "<br>next-gen-time=Invalid timezone: $timezone\n";
+          }
 				}
 			}
 		} elsif ( $GameValues{'GameType'} == 3 ) {
-    	print "<br>next-gen-time=Turns generated as Required. \n";
+    	print "<br>next-gen-time=Turns generated as Required.\n";
     } elsif ( $GameValues{'GameType'} == 4) {
     	print "<br>next-gen-time=Turns generated when all turns are in.\n";
     }
 
     #Display when the last turn was generated if it was.
     unless ($GameValues{'GameStatus'} == 7 || $GameValues{'GameStatus'} == 0 )  {
-  		if ($GameValues{'LastTurn'}) { print "<br>last-gen=" . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($GameValues{'LastTurn'})) . "\n";}
-  		else { print "<br>last-gen=No turns have been generated yet.\n"; }
+  		if ($GameValues{'LastTurn'}) { 
+#        print "<br>last-gen=" . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($GameValues{'LastTurn'})) . "\n";
+        my $dtlast = DateTime->from_epoch(epoch => $GameValues{'LastTurn'}, time_zone => 'UTC');
+        if (DateTime::TimeZone->is_valid_name($timezone)) {
+          $dtlast->set_time_zone($timezone);
+          print "<br>last-gen: " . $dtlast->strftime('%Y-%m-%d %H:%M:%S %Z') . "\n";
+        } else { print "<br>Invalid timezone: $timezone\n"; }
+  		} else { print "<br>last-gen=No turns have been generated yet.\n"; }
     } 
     
     # Get the time the game started by using the .xy file time stamp
@@ -1647,7 +1715,7 @@ sub process_game_launch {
 		# important if for some reasons Stars! hangs (like a corrupt race file).
     # If this just won't work, try rebooting the PC because Stars! is hung up somewhere (at least, fixed it once)
     # We need to add another slash here for the wine CLI
-  	my ($CreateGame) = $executable . ' -a ' . $Dir_WINE . "\\" . $WINE_Games . "\\\\$GameFile\\\\$GameFile.df2";   # Need the extra \\s
+  	my ($CreateGame) = $WINE_executable . ' -a ' . $Dir_WINE . "\\" . $WINE_Games . "\\\\$GameFile\\\\$GameFile.df2";   # Need the extra \\s
 		&LogOut(50, "Creating Game $CreateGame", $LogFile);
     #chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
 		#system(1,$CreateGame);
@@ -2616,7 +2684,7 @@ sub create_game_def {
 	else { #if not, make one
 		# Create the directory
 		my $HST_Location = $Dir_Games . '/' . $GameFile;
-    my $call = "sudo -u $user mkdir $HST_Location";
+    my $call = "mkdir $HST_Location";
     my $exit_code = system($call);  # Where 0 is success
     if ($exit_code) { &LogOut(0, "Cannot create $HST_Location, $userlogin", $ErrorLog); }
 		#mkdir $HST_Location || &LogOut(0, "Cannot create $HST_Location, $userlogin", $ErrorLog); 

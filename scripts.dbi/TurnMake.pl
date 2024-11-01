@@ -60,7 +60,8 @@ $reboot_file = $Dir_Root . '/reboot';
 if (-f $reboot_file) {
   my $Message, $Subject;
   print "Turn Generation paused from power outage. Delete $reboot_file to resume operations,\n";
-  $sql = qq|SELECT Games.GameFile, Games.GameStatus, Games.HostName from Games WHERE (Games.GameStatus = 2 OR Games.GameStatus=3)|;
+#  $sql = qq|SELECT Games.GameFile, Games.GameStatus, Games.HostName from Games WHERE (Games.GameStatus = 2 OR Games.GameStatus=3)|;
+  $sql = qq|SELECT * from Games WHERE (Games.GameStatus = 2 OR Games.GameStatus=3)|;
   if (my $sth = &DB_Call($db,$sql)) {
     while (my $row = $sth->fetchrow_hashref()) {
       ($User_ID, $User_Login, $User_First) =  ($row->{'$User_ID'}, $row->{'$User_Login'}, $row->{'$User_First'});
@@ -192,7 +193,7 @@ sub CheckandUpdate {
 
 	    #Game Type = Hourly
 			} elsif ($GameData[$LoopPosition]{'GameType'} == 2 && $CurrentEpoch > $GameData[$LoopPosition]{'NextTurn'}) { # GameType: set time to generate hourly
-				print "   " . $GameData[$LoopPosition]{'GameName'} . " is an hourly game\n";
+				print "   $GameData[$LoopPosition]{'GameName'} : $GameData[$LoopPosition]{'GameFile'} is an hourly game\n";
 				# Generate the next turn now + number of hours (sliding)
 				$NewTurn = $CurrentEpoch + ($GameData[$LoopPosition]{'HourlyTime'} *60 *60); 
 				# Make sure we're generating on a valid day
@@ -205,12 +206,12 @@ sub CheckandUpdate {
 				# If there are any delays set, then we need to clear them out, and reset the game status
 				# since if we're generating with a turn missing we've clearly hit the window past the delays.
 				if ($GameData[$LoopPosition]{'DelayCount'} > 0) {
-					$sql = "UPDATE Games SET DelayCount = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
+					$sql = qq|UPDATE Games SET DelayCount = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';|;
 					if (my $sth = &DB_Call($db,$sql)) { 
             &LogOut(50, "Checkandupdate: Delay reset to 0 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); 
             $sth->finish(); 
           }
-					$sql = "UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
+					$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';|;
 					if (my $sth = &DB_Call($db,$sql)) { 
             &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); 
             $sth->finish(); 
@@ -226,12 +227,11 @@ sub CheckandUpdate {
         # No need to check for delays
         
 	    # Generate as Available (assumes nothing else generated!)
-      # BUG: Needs to decrement delay? 
 			} elsif ($GameData[$LoopPosition]{'AsAvailable'} == 1 && (!(&Turns_Missing($GameData[$LoopPosition]{'GameFile'})))) { # only check Generate As Available ongoing game status if necessary, if not, then return false
 				$TurnReady = 'True';
 				# If the game is in a delay state, decrement the delay 
 				if ($GameData[$LoopPosition]{'DelayCount'} > 0 ) {
-					$sql = "UPDATE Games SET DelayCount = DelayCount -1 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
+					$sql = qq|UPDATE Games SET DelayCount = DelayCount -1 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';|;
 					if (my $sth = &DB_Call($db,$sql)) { 
             &LogOut(50, "Checkandupdate: Delay decremented for $GameData[$LoopPosition]{'GameFile'}", $LogFile); 
             $sth->finish(); 
@@ -239,7 +239,7 @@ sub CheckandUpdate {
 				}
         # And reset the game to active if it's time
         if ( $GameData[$LoopPosition]{'DelayCount'} == 1 ) { # which is now really 0
-  	   		$sql = "UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
+  	   		$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';|;
   				if (my $sth = &DB_Call($db,$sql)) { 
             &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile);
             $sth->finish();  
@@ -334,7 +334,6 @@ sub CheckandUpdate {
           }
         }	
       }
-            
 	    # If a turn is ready, generate it and process it through. 
 			if ($TurnReady eq 'True') {
 				&UpdateNextTurn($db, $NewTurn, $GameData[$LoopPosition]{'GameFile'}, $GameData[$LoopPosition]{'LastTurn'});		
@@ -349,14 +348,14 @@ sub CheckandUpdate {
 					$NumberofTurns = $GameData[$LoopPosition]{'ForceGenTurns'};
 					$NumberofTimes = $GameData[$LoopPosition]{'ForceGenTimes'} -1;
 					# Update NumberofTimes
-					$sql = "UPDATE Games SET ForceGenTimes = $NumberofTimes WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'";
+					$sql = qq|UPDATE Games SET ForceGenTimes = $NumberofTimes WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'|;
 					if (my $sth = &DB_Call($db,$sql)) {
             &LogOut(200,"Decremented ForceGenTimes for $GameData[$LoopPosition]{'GameFile'}",$LogFile);
             $sth->finish(); 
           }
 					else { &LogOut(200,"Failed to Decrement ForceGenTimes for $GameData[$LoopPosition]{'GameFile'}",$ErrorLog);}
 					if ($NumberofTimes <= 0) { #If the game is no longer forced, unforce game
-						$sql = "UPDATE Games SET ForceGen = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'";
+						$sql = qq|UPDATE Games SET ForceGen = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'|;
 						if (my $sth = &DB_Call($db,$sql)) { 
               &LogOut(200,"Forcegen set to 0 for $GameData[$LoopPosition]{'GameFile'}",$LogFile);
               $sth->finish(); 
@@ -380,7 +379,7 @@ sub CheckandUpdate {
         
 				# If Game was flagged as Delayed, once we generate it's not anymore
 				if ($GameData[$LoopPosition]{'GameStatus'} == 3 && $GameData[$LoopPosition]{'DelayCount'} <= 0) { 
-					$sql = "UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'";
+					$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'|;
 					if (my $sth = &DB_Call($db,$sql)) { 
             &LogOut(100, "TurnMake: Resetting Game Status for $GameData[$LoopPosition]{'GameFile'} to Active", $LogFile);
             $sth->finish(); 
@@ -393,7 +392,6 @@ sub CheckandUpdate {
         # BUG: Not going to work quite right if the player is in the game more than once. 
     		my($IdlePosition) = 3;
         my $IdleMessage = '';
-        &LogOut(300, 'TurnMake: STARTING AUTOIDLE', $LogFile);
         while ($CHK[$IdlePosition]) {  #read .m file lines
     			my ($CHK_Status, $CHK_Player) = &Eval_CHKLine($CHK[$IdlePosition]);
     			my($Player) = $IdlePosition -2;
@@ -422,7 +420,6 @@ sub CheckandUpdate {
    			  undef %PlayerValues; # Need to clear array to be ready for the next player
     			$IdlePosition++;
     		}
-        &LogOut(300, 'TurnMake: ENDING AUTOIDLE', $LogFile);
        
 				# Get the array into a format I can pass to the subroutine, which involves converting it to a direct hash.
 				# If you're confused about why you use an '@' there on a hash slice instead of a '%', think of it like this. 
@@ -445,10 +442,10 @@ sub CheckandUpdate {
 			else { print "\t2:Next turn for $GameData[$LoopPosition]{'GameFile'} gen on/after $GameData[$LoopPosition]{'NextTurn'}: " . localtime($GameData[$LoopPosition]{'NextTurn'}); }
 			if ($GameData[$LoopPosition]{'AsAvailable'} == 1) {	print ' or when all turns are in'; }		
 			print "\n";
-		}
-		$LoopPosition++;	#Now increment to check the next game
-  }
-	# Give the system a moment between each game, Stars! EXE is slow. 
+    } elsif ($GameData[$LoopPosition]{'GameFile'} == 4) { print "\tGame $GameData[$LoopPosition]{'GameFile'} Paused\n"; } 
+    $LoopPosition++;	#Now increment to check the next game
+  }   
+  # Give the system a moment between each game, Stars! EXE is slow. 
 	sleep 2;
 }
 
@@ -486,7 +483,7 @@ sub Turns_Missing {
 		} 
     $sth->finish(); 
 	}
-	if ($TurnsMissing) { &LogOut(200,"Turns_Missing: .x files are missing for $GameFile",$LogFile) } else { &LogOut(200,"All .x files are in for $GameFile",$LogFile); }
+	if ($TurnsMissing) { &LogOut(200,"Turns_Missing: $TurnsMissing : .x files are missing for $GameFile",$LogFile) } else { &LogOut(200,"All .x files are in for $GameFile",$LogFile); }
 	return $TurnsMissing;
 }
 
