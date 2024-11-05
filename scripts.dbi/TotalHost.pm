@@ -408,7 +408,7 @@ sub show_html {
 	print '<td>';
 	my ($File) = @_; 
 	if (-f $File) { #Check to see if file is there.
-		open (IN_FILE,$File) || die('Can\'t open file');
+		open (IN_FILE,$File) || &LogOut(0,"show_html: cannot open $File!", $ErrorLog); 
 		my(@File) = <IN_FILE>;
 		close(IN_FILE);
 		foreach my $key (@File) {
@@ -442,7 +442,7 @@ sub show_notes {
     $filename =~ s|.*/||;      # Remove the path
     $filename =~ s/\.[^.]+$//; # Remove the extension
     print "<P>$filename:\n";      
-    open my $fh, '<', $file; 
+    open my $fh, '<', $file || &LogOut(0,"show_notes: cannot open $file!", $ErrorLog);
     while (my $line = <$fh>) {
       print $line;  # Print each line of the file
     }
@@ -669,6 +669,8 @@ eof
 }
 
 sub html_footer {
+  use Cwd;
+  print "Working Dir:" . getcwd() . " Path: $ENV{'PATH'} PERL5LIB: $ENV{'PERL5LIB'}, Display: $ENV{'DISPLAY'}, WINE Prefix: $ENV{'WINEPREFIX'}, WINE Overrides: $ENV{'WINEDLLOVERRIDES'}";
 	print qq|\n<hr>\n<font size="-1"><table width=100%><tr><td width=200></td><td><a href="$WWW_Scripts/index.pl?cp=privacypolicy">Privacy Policy</a></td><td><a href="$WWW_Scripts/index.pl?cp=termsofuse">Terms of Use</a></td><td><A href="mailto:TH\@corwyn.net">Contact Us</A></td></font>\n|;
 }
 
@@ -869,14 +871,14 @@ sub Make_CHK {
 # Updates the .chk file for a game
 	my($GameFile) = @_;
   # Stars! does not like forward slashes as command-line parameters
-  my($CheckGame) = $WINE_executable . ' -v ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile" . '.hst';
+  my($CheckGame) = $WINE_executable . ' -v ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile\.hst";
 
   ##system($CheckGame);
   #chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
   #my $exit_status = system($CheckGame);
   my $chkfile = "$Dir_Games/$GameFile/$GameFile" . '.chk';
   &LogOut(200, "Make_CHK: Running for $GameFile, $CheckGame, $chkfile", $LogFile);  
-  my $exit_status = &call_system($CheckGame,0);
+  my $exit_status = &call_system($CheckGame,0); # Make_CHK
   if (-f $chkfile) {
     umask 0002; 
     chmod 0664, $chkfile; 
@@ -1049,12 +1051,15 @@ sub GenerateTurn { # Generate a turn and refresh files
 	# Backup the existing Turn
 	if ($turn = &Game_Backup($GameFile)) { &LogOut(200,"GenerateTurn: Gamefile $GameFile Backed up for Turn: $turn",$LogFile); }
 	# Generate the actual Stars! turns
-  print "\tGenerating a turn for $GameFile\n";
 	# There is a Stars! bug when you generate this way from the command line with / the .x[n] file isn't deleted.
 	# So you have to use \ (eg d:\th\games instead of d:/th/games)
   # Because Stars! does the forcegen, there are no backups of the interim turns
-	my($GenTurn) = $WINE_executable . ' -g' . $NumberofTurns . ' ' . "$Dir_WINE\\\\games\\\\$GameFile\\\\$GameFile" . '.hst';
-	my $exit_status = &call_system($GenTurn,2);
+  
+	my($GenTurn) = $WINE_executable . ' -g' . $NumberofTurns . ' ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile\.hst";
+  print "\tGenerating a turn for $GameFile\n";
+  &LogOut(200, "GenerateTurn: Generating a turn for $GameFile for $GenTurn", $LogFile);    
+	my $exit_status = &call_system($GenTurn,2); # GenerateTurn
+  &LogOut(200, "GenerateTurn: Done Generating a turn for $GameFile with $GenTurn", $LogFile);
 	#sleep 4;
 }	
 
@@ -1237,7 +1242,7 @@ sub show_race_block {
   # Read in the binary Stars! file, byte by byte
   my $FileValues;
   my @fileBytes;
-  open(StarFile, "<$filename");
+  open(StarFile, "<$filename") || &LogOut(0,"show_race_block: RaceFile $filename failed to open!", $ErrorLog);
   binmode(StarFile);
   while (read(StarFile, $FileValues, 1)) {
     push @fileBytes, $FileValues; 
@@ -1269,7 +1274,7 @@ sub process_fix {
 	}
 
 	# Read in the old fixes
-	open (IN_FILE,$warningfile) || &LogOut (0,"process_fix: Failed to read $warningfile for $GameFile", $ErrorLog);
+	open (IN_FILE, $warningfile) || &LogOut (0,"process_fix: Failed to read $warningfile for $GameFile", $ErrorLog);
 	@fixes = <IN_FILE>;
 	close(IN_FILE);
 	# Write out the fixes with the current news at the beginning (So the data is from new to old)
@@ -1472,7 +1477,6 @@ sub internet_log_status {
 
 # Clear the log file (used when Internet comes back up)
 sub clear_internet_log {
-  #open (OUTFILE, ">$internet_status_log") or do { print "Could not open $internet_status_log\n"; &LogOut(0,"Could not open $internet_status_log",$ErrorLog); die; }
   open (OUTFILE, ">$internet_status_log") or print "Could not open $internet_status_log: $!\n";
   close OUTFILE;
   umask 0002; 
@@ -1482,16 +1486,25 @@ sub clear_internet_log {
 # A centralized place to make system calls
 sub call_system {
   my ($call, $delay) = @_;  
-  chdir($WINE_path) or &LogOut(0,"Cannot change directory: $!",$ErrorLog);
-  #system($CheckGame);
-  #$call = "sudo -u $WINE_user " . $call;
-  #chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
+  # Detect if this is being called from CLI or apache2
+  # If running as apache, then it's already user www-data. Otherwise make it www-data
+  #if ($ENV{'GATEWAY_INTERFACE'}) {
+  if ($ENV{'REQUEST_METHOD'}) {
+    &LogOut(400,  "call_system: Running as CGI", $LogFile);
+  } else {
+    $call = "sudo -u $apache_user " . $call;
+    &LogOut(400, "call_system: Running from CLI",$LogFile);
+  }
   &LogOut(0,"call_system: Starting call: $call",$LogFile);
-  $call = qq|sudo -u $WINE_user $call|;
+
+  #system($CheckGame);
   my $exit_status = system($call);
   # print "Command failed with exit status: $exit_status\n";
-  &LogOut(0, "call_system: Ending call: $call, Exit Status: $exitstatus", $LogFile); 
+  &LogOut(0, "call_system: Ending call: $call, Exit Status: $exit_status", $LogFile); 
 	sleep $delay;
+  # When a command exits with status 1, Perl's system function returns 1 << 8, which is 256.
+  # The actual exit status of the command can be retrieved by shifting the returned value back 8 bits to the right.
+  # my $exit_code = $status >> 8;
   return $exit_status;
 }
 

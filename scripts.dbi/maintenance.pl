@@ -12,7 +12,7 @@
 # http://bytes.com/topic/perl/insights/857373-how-make-file-download-script-perl
 ##################################################################
 
-#     Copyright (C) 2012 Rick Steeves
+#     Copyright (C) 2024 Rick Steeves
 # 
 #     This file is part of TotalHost, a Stars! hosting utility.
 #     TotalHost is free software: you can redistribute it and/or modify
@@ -38,28 +38,49 @@ my $dh;
 # Get the data from the database;
 my $db = &DB_Open($dsn);
 
+print "\n";
+print "Working Dir:" . getcwd() . " Path: $ENV{'PATH'} PERL5LIB: $ENV{'PERL5LIB'}, Display: $ENV{'DISPLAY'}, WINE Prefix: $ENV{'WINEPREFIX'}, WINE Overrides: $ENV{'WINEDLLOVERRIDES'}";
+print "\n";
+
 # Compares Games in the DB and file system
-print "Games Compare:\n";
+print "Games Compare (Dirs <> DB):\n";
 $sql = qq|SELECT GameFile FROM Games;|;
-$db_ref = get_db($sql);
-$fs_folders_ref = get_fs_folders("$Dir_Games");
-compare_folders($db_ref, $fs_folders_ref, $Dir_Games);
+$games_ref = get_db($sql);
+$games_folders_ref = get_fs_folders("$Dir_Games");
+compare_folders($games_ref, $games_folders_ref, $Dir_Games);
 print "\n";
 
 # Compare race folders in the DB and file system
-print "Race Folders Compare:\n";
+print "Races Folders Compare (User Dirs <> DB):\n";
 $sql = qq|SELECT User_File FROM Races;|;
-$db_ref = get_db($sql);
-$fs_folders_ref = get_fs_folders("$Dir_Races");
-compare_folders($db_ref, $fs_folders_ref, $Dir_Races);
+$race_ref = get_db($sql);
+$races_folders_ref = get_fs_folders("$Dir_Races");
+compare_folders($race_ref, $races_folders_ref, $Dir_Races);
 print "\n";
 
 # Compare the race files themselves between the DB and file system
-print "Race Files Compare:\n";
+print "Races Files Compare (Files <> DB:\n";
 $sql = qq|SELECT RaceFile FROM Races;|;
-$db_ref = get_db($sql); # This is files not folders
+$racefile_ref = get_db($sql); # This is files not folders
+$race_files_ref = get_fs_files("$Dir_Races");
+compare_files($racefile_ref, $race_files_ref, $Dir_Races);
+print "\n";
+
+
+# Compare the entries in the GameUsers DB
+# Compare GameUsers games between DB and file system
+print "GameUsers Game Files Compare (Dirs <> DB):\n";
+$sql = qq|SELECT GameFile FROM GameUsers;|;
+$gameusersgames_ref = get_db($sql);
+compare_folders($gameusersgames_ref, $games_folders_ref, $Dir_Games);
+print "\n";
+
+# Compare the GameUsers Race Files themselves between the DB and file system
+print "GameUsers Race Files Compare (Files <> DB:\n";
+$sql = qq|SELECT RaceFile FROM Races;|;
+$gameusersrace_ref = get_db($sql); # This is files not folders
 $fs_files_ref = get_fs_files("$Dir_Races");
-compare_files($db_ref, $fs_files_ref, $Dir_Races);
+compare_files($gameusersrace_ref, $race_files_ref, $Dir_Races);
 print "\n";
 
 #find . -name "filename" -type f -exec rm -f {} \;
