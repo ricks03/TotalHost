@@ -20,10 +20,11 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#use warnings;
 #require 'cgi-lib.pl';
-use CGI qw(:standard);
+#use CGI qw(:standard);
 use Net::SMTP;
-use Net::Ping;
+# 241103 use Net::Ping;
 use DBI;
 do 'config.pl';   
 use TotalHost; # eval'd at compile time
@@ -38,6 +39,10 @@ my $commandline = $ARGV[0];
 # Get Time Information
 ($Second, $Minute, $Hour, $DayofMonth, $Month, $Year, $WeekDay, $WeekofMonth, $DayofYear, $IsDST, $CurrentDateSecs) = &GetTime; #So we have the time when we do the HTML
 $CurrentEpoch = time();
+
+my $environment = "Environment: PATH: $ENV{'PATH'}, DISPLAY: $ENV{'DISPLAY'}, PERL5LIB: $ENV{'PERL5LIB'}, WINEDLL: $ENV{'WINEDLLOVERRIDES'}";
+print "$environment\n";
+&LogOut (400, $environment, $LogFile);
 
 # Open the database
 $db = &DB_Open($dsn);
@@ -58,7 +63,7 @@ my @GameData = @$GameData;
 # Check if the system has been powered off. If so, pause all games
 $reboot_file = $Dir_Root . '/reboot';
 if (-f $reboot_file) {
-  my $Message, $Subject;
+  my ($Message, $Subject);
   print "Turn Generation paused from power outage. Delete $reboot_file to resume operations,\n";
 #  $sql = qq|SELECT Games.GameFile, Games.GameStatus, Games.HostName from Games WHERE (Games.GameStatus = 2 OR Games.GameStatus=3)|;
   $sql = qq|SELECT * from Games WHERE (Games.GameStatus = 2 OR Games.GameStatus=3)|;
@@ -82,7 +87,7 @@ if (-f $reboot_file) {
 	&LogOut(0,"Power restored, $mail_from, $reboot_file, $WWW_HomePage",$LogFile);
   if (-f $reboot_file) { unlink $reboot_file; }  # Delete the power on file now that we clearly have power
   &DB_Close($db); 
-  exit;   # Stop execution, since we have a changed game status state
+  exit -1;   # Stop execution, since we have a changed game status state
 } 
   
 # Check to see if there's internet connectivity
@@ -104,13 +109,17 @@ if ($internet_status) {
         internet_game_status('inactive');
     }
     &DB_Close($db);  # Need to close since we're jsut exiting
-    exit; # We have changed game state, so stop. 
+    exit -2; # We have changed game state, so stop. 
 }
 
 # If we got here the power hasn't gone out and the Internet is up.
-&CheckandUpdate;
+my $generated = &CheckandUpdate;
  
 &DB_Close($db);
+
+# Let us know whether a turn was generated
+if ($generated) { exit 1;}  # Turn generated, Make_CHK run
+else { exit 0;}   # Turn not generated
 
 #####################################################################################
 
@@ -128,7 +137,11 @@ sub CheckandUpdate {
 	my $LoopPosition = 0; #Start with the first game in the array.
   print "Starting to check games...  \n";
   #if ($#GameData <= 0) { print "\tNo games are currently active.\n"; }
-  if (scalar(@GameData == 0)) { print "\tNo games are currently active.\n"; exit; }
+  if (scalar(@GameData == 0)) { 
+    print "\tNo games are currently active.\n"; 
+    &LogOut(300, "CheckandUpdate: No games are currently active.", $LogFile); 
+    exit 0;  # As no work was done 
+  }
   
   # This would be massively more clear if I read all of this in as a hash, instead
   # of an array. If I just moved $LoopPosition out, and instead performed this
@@ -226,7 +239,7 @@ sub CheckandUpdate {
 				else { &LogOut(100,"   All turns are not in for $GameData[$LoopPosition]{'GameName'}",$LogFile); }
         # No need to check for delays
         
-	    # Generate as Available (assumes nothing else generated!)
+	    # Generate As Available (assumes nothing else generated!)
 			} elsif ($GameData[$LoopPosition]{'AsAvailable'} == 1 && (!(&Turns_Missing($GameData[$LoopPosition]{'GameFile'})))) { # only check Generate As Available ongoing game status if necessary, if not, then return false
 				$TurnReady = 'True';
 				# If the game is in a delay state, decrement the delay 
@@ -246,7 +259,7 @@ sub CheckandUpdate {
           }
         }
 
-				# Recalculate when the next turn is due
+				# Calculate when the next turn is due
 				# Next turn is incremented by the correct amount
         #Daily Game
 				if ($GameData[$LoopPosition]{'GameType'} == 1) { #New Turn time = This turn time for today + X days
@@ -362,9 +375,8 @@ sub CheckandUpdate {
             }
 						else { &LogOut(0,"Failed to set forcegen to 0 for $GameData[$LoopPosition]{'GameFile'}",$ErrorLog); }
 					}
-				}
-        # If running from the CLI, output that a turn is being generated
-        if ($commandline) { print "\tGenerating turn for $GameData[$LoopPosition]{'GameFile'}\n";}
+				}        
+        print "\tGenerating turn for $GameData[$LoopPosition]{'GameFile'}\n"; # If running from the CLI, output that a turn is being generated
         &GenerateTurn($NumberofTurns, $GameData[$LoopPosition]{'GameFile'}); 
         &updateList($GameData[$LoopPosition]{'GameFile'}, 1); # update List files for exploit detection
         &cleanFiles($GameData[$LoopPosition]{'GameFile'}); # Clean the .m files of player information
@@ -462,7 +474,7 @@ sub Turns_Missing {
 	# Determine the number of players in the .chk File
 	if (-f $CHKFile) { #Check to see if .chk file is there.
 		&LogOut(200,"Turns_Missing: Reading .chk File $CHKFile",$LogFile);
-		open (IN_CHK,$CHKFile) || &LogOut(0,"Cannot open .chk file $CHKFile", $ErrorLog);
+		open (IN_CHK,$CHKFile) || &LogOut(0,"Turns_Missing: Cannot open .chk file $CHKFile", $ErrorLog);
 		chomp((@CHK) = <IN_CHK>);
 	 	close(IN_CHK);
 		for (my $i=3; $i <= @CHK - 1; $i++) { # Skip over starting lines
@@ -476,10 +488,10 @@ sub Turns_Missing {
     while (my $row = $sth->fetchrow_hashref()) { 
       %Values = %{$row};  
 			if ((index($Status[$Values{'PlayerID'}], 'turned in') == -1) && (index($Status[$Values{'PlayerID'}], 'dead') == -1)) { 
-        &LogOut(300,"OUT $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile); 
+        &LogOut(300,"Turns_Missing: OUT $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile); 
         $TurnsMissing = 1; 
       }
-			else { &LogOut(300,"IN $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile);  }
+			else { &LogOut(300,"Turns_Missing: IN $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile);  }
 		} 
     $sth->finish(); 
 	}

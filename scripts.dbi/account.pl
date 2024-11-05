@@ -420,32 +420,21 @@ sub login {
   &DB_Close($db);	
   if ($id) {
     &LogOut(100,"$submit_user Logged In",$LogFile);
-      my $cgi = new CGI;
-      my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
-      $sessionid = $session->id unless $sessionid;
-      $session->param("logged-in", 1);
-      $session->param("userid", $User_ID);
-      $session->param("userlogin", $User_Login);
-      $session->param("email", $User_Email);
-      $session->param("timezone", $User_Timezone);
-#			$redirect =$WWW_Scripts . '/page.pl';
-#			$redirect = $WWW_HomePage . $WWW_Scripts . '/index.pl?lp=home';
-			$redirect = $WWW_Scripts . '/page.pl?lp=profile_game&cp=show_first_game';
-			&print_redirect($cgi,$sessionid,$redirect);
+    my $cgi = new CGI;
+    my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
+    $sessionid = $session->id unless $sessionid;
+    $session->param("logged-in", 1);
+    $session->param("userid", $User_ID);
+    $session->param("userlogin", $User_Login);
+    $session->param("email", $User_Email);
+    $session->param("timezone", $User_Timezone);
+		$redirect = $WWW_Scripts . '/page.pl?lp=profile_game&cp=show_first_game';
+		&print_redirect($cgi,$sessionid,$redirect);
   } else {
     &LogOut(100,"$submit_user failed to Log In",$LogFile);
     my $cgi = new CGI;
-#			my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
-#			$sessionid = $session->id unless $sessionid;
-#			$session->param("logged-in", 1);
-#			$session->param("userid", $User_ID);
-#			$session->param("userlogin", $User_Login);
-#			$session->param("email", $User_Email);
     print $cgi->redirect( -URL => "$WWW_Scripts/account.pl?action=login_fail");
-#			$redirect = $WWW_Scripts . '/index.pl';
-#			&print_redirect($cgi,$sessionid,$redirect);
   }
-#    }
 }
 
 sub logout { 

@@ -587,7 +587,7 @@ print <<eof;
 <tr><td>Bio: </td><td><textarea name="User_Bio" value="$User_Bio" cols="40" rows="5">$User_Bio</textarea></td></tr>
 <tr><td>TimeZone: </td>
 <td>
-<select name="User_Timezone" id="timezone">
+<select name="User_Timezone">
 eof
 
 foreach my $t (@timezones) { 
@@ -661,8 +661,12 @@ sub update_profile {
   my $valid_email = Email::Valid->address($User_Email);
 	my $User_Bio =$in{'User_Bio'};
   my $User_Timezone = $in{'User_Timezone'};
-	my $EmailTurn = &checkboxnull($in{'EmailTurn'}); 
+  print "TimeZone: $User_Timezone\n";
+  $session->param("timezone", $User_Timezone);  
+  $session->flush;  # This saves the changes to the session
 	my $EmailList = &checkboxnull($in{'EmailList'});
+	my $EmailTurn = &checkboxnull($in{'EmailTurn'});
+  
   if ($User_First && $User_Last && $User_Login && $User_Email && $valid_email && $User_ID) {
   	my $db = &DB_Open($dsn);
   	#my $sql = "UPDATE User SET User_Login='$User_Login', User_First='$User_First',  User_Last='$User_Last', User_Email='$User_Email', User_Bio='$User_Bio', EmailTurn = $EmailTurn, EmailList = $EmailList, User_Modified='$Date' WHERE User_ID=$userid;";
@@ -1222,7 +1226,7 @@ sub show_game {
           if ($userlogin eq $UserValues{'User_Login'}) {$table .= qq|<td>$UserValues{'RaceFile'}</td>|; }
           else { $table .= qq|<td><center>-----</center></td>|; }
   				if ($UserValues{'RaceID'}) { $table .= qq|<td>| . localtime($UserValues{'JoinDate'}) . qq|</td>\n|; }
-  				#Don't permit players to leave or be removed unless the game is still awaiting players.
+  				#Don't permit players to leave or be removed unless the game is still awaiting players or Locked
   				if ($GameValues{'GameStatus'} == 7 ) {  
             if ( $userlogin eq $GameValues{'HostName'} ) { #remove player as host
      					$table .= qq|$formPrefix<td><BUTTON $host_style type="submit" name="cp" value="Remove Player" | . &button_help("RemovePlayer") . qq|>Remove Player</BUTTON><input id="$UserValues{'PlayerID'}" type=hidden name="PlayerID" value="$UserValues{'PlayerID'}"></td>$formSuffix\n|; 
@@ -1667,7 +1671,7 @@ sub process_game_launch {
 		my $def_file = "$Dir_Games/$GameFile/$GameFile.def"; 
 		my @def_data = ();
 		if (-f $def_file) { #Check to see if .def file is there.
-			open (IN_FILE,$def_file);
+			open (IN_FILE,$def_file) || &LogOut(0,"process_game_launch: cannot open $def_file!", $ErrorLog);
 			chomp(@def_data = <IN_FILE>);
 			close(IN_FILE);
 
@@ -1715,11 +1719,11 @@ sub process_game_launch {
 		# important if for some reasons Stars! hangs (like a corrupt race file).
     # If this just won't work, try rebooting the PC because Stars! is hung up somewhere (at least, fixed it once)
     # We need to add another slash here for the wine CLI
-  	my ($CreateGame) = $WINE_executable . ' -a ' . $Dir_WINE . "\\" . $WINE_Games . "\\\\$GameFile\\\\$GameFile.df2";   # Need the extra \\s
+  	my ($CreateGame) = $WINE_executable . ' -a ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile\.df2";   # Need the extra \\s
 		&LogOut(50, "Creating Game $CreateGame", $LogFile);
     #chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
 		#system(1,$CreateGame);
-		my $exit_status = &call_system($CreateGame,0);
+		my $exit_status = &call_system($CreateGame,0); # Creating game
 
 		sleep 4; # Give Stars! time to create all the files
 
@@ -2447,7 +2451,7 @@ sub update_game {
   if (!($Exploit)) { 
     &updateList($in{'GameFile'}, 0); 
   } else {
-    open (EXPLOIT, ">$Dir_Games/$in{'GameFile'}/fix"); 
+    open (EXPLOIT, ">$Dir_Games/$in{'GameFile'}/fix") || &LogOut(0,"update_game: cannot open EXPLOIT $Dir_Games/$in{'GameFile'}/fix", $ErrorLog);
     print EXPLOIT time() . ": $in{'GameFile'}"; 
     close EXPLOIT; 
     umask 0002; 
@@ -2460,7 +2464,7 @@ sub update_game {
     my $clean = "$Dir_Games/$in{'GameFile'}/clean";
     if (-f $clean) { unlink $clean; } 
   } else {
-    open (SANITIZE, ">$Dir_Games/$in{'GameFile'}/clean"); 
+    open (SANITIZE, ">$Dir_Games/$in{'GameFile'}/clean") || &LogOut(0,"update_game: cannot open SANITIZE $Dir_Games/$in{'GameFile'}/clean", $ErrorLog); 
     print SANITIZE time(). ": $in{'GameFile'}"; 
     close SANITIZE; 
     umask 0002; 
@@ -2690,7 +2694,7 @@ sub create_game_def {
 		#mkdir $HST_Location || &LogOut(0, "Cannot create $HST_Location, $userlogin", $ErrorLog); 
 	
 		# Create the def file
-		open (DEFOUT, $GameDEFCreate) || &LogOut(0, "Cannot create $GameDEF file, $userlogin", $ErrorLog);
+		open (DEFOUT, $GameDEFCreate) || &LogOut(0, "create_game_def: Cannot create $GameDEF file $GameDEFCreate, $userlogin", $ErrorLog);
     $db = &DB_Open($dsn);
     # Get the name of the game
 		$sql = qq|SELECT * FROM Games WHERE GameFile = \'$GameFile\' AND HostName ='$userlogin';|;
@@ -2808,7 +2812,7 @@ sub read_def {
 	my $def_file = "$Dir_Games/$GameFile/$GameFile.def"; 
 	my @def_data = ();
 	if (-f $def_file) { #Check to see if file is there.
-		open (IN_FILE,$def_file);
+		open (IN_FILE,$def_file) || &LogOut(0, "read_def: Cannot create $GameFile Def: $def_file, $userlogin", $ErrorLog);
 		chomp(@def_data = <IN_FILE>);
 		close(IN_FILE);
 		my $GameName = $def_data[0]; 
@@ -3473,7 +3477,7 @@ sub submit_forcegen {
 	&DB_Close($db);
 	# Get the current gate status
 	my $HSTFile = "$Dir_Games/$GameFile/$GameFile.hst";
-	($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
+	($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile); # need HST_Turn
 
 	print "<H2>Force Generate Turns for: $GameValues{'GameName'}</H2>\n";
 	print "<P>Current Year: $HST_Turn\n";
