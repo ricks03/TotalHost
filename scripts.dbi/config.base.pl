@@ -56,15 +56,10 @@ $DB_HOST = 'localhost';
 $dsn = "DBI:mysql:database=$DB_NAME;host=$DB_HOST";
 
 # WINE config
-$user = "totalhost";  # Linux user account
 $ENV{'DISPLAY'} = ':99';  
-$ENV{'WINEPREFIX'} = '/home/www-data/.wine';
-$ENV{'WINEDLLOVERRIDES'}="winex11.drv=b"; # Disable wine clipboard
-$WINEDLLOVERRIDES="WINEDLLOVERRIDES=\"$ENV{'WINEDLLOVERRIDES'}\"";
-#$executable= 'wine c:\\stars.exe';   
-#$executable= 'DISPLAY=:99 /usr/bin/wine c:\stars.exe'; 
-#$executable='sudo -u www-data /usr/bin/wine c:\stars.exe'; 
-$WINE_executable = $WINEDLLOVERRIDES .' /usr/bin/wine c:\\stars.exe';   
+$ENV{'PERL5LIB'} = '/var/www/totalhost/scripts';
+$WINE_executable = '/usr/bin/wine c:\\stars.exe';  # Using Linux path for Stars! will fail.   
+$apache_user  = 'www-data';  # Linux user account
 
 # Location of ImageMagic convert applications
 #$imagemagick = 'C:\Program Files\ImageMagick-6.8.3-Q16\convert';

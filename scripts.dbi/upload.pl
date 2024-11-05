@@ -234,7 +234,7 @@ sub ValidateFileUpload {
     unless ($err) { 
 			# Do whatever you would do with a valid change (.x) file
 			if (&Move_Turn($File, $file_prefix)) {
-        my $makeCHKrun = 0; # Let's not run MakeCHK more than we have to
+        $makeCHKrun = 0; # Let's not run MakeCHK more than we have to
 				$db = &DB_Open($dsn);
 				# update the Last Submitted Field
 				$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.LastSubmitted = | . time() . qq| WHERE GameUsers.GameFile=\'$file_prefix\' AND GameUsers.User_Login=\'$userlogin\';|;
@@ -278,12 +278,16 @@ sub ValidateFileUpload {
             $err .= "Not immediately generating As Available game $file_prefix due to Warnings. Will generate on next turn check interval however.\n";
             &LogOut(100, "upload: AsAvailable $err for $GameFile $userlogin", $LogFile);
           } else {
-            # Run TurnMake for the game since TurnMake is currently not a function
-            # TurnMake will handle for emails, .chk file, etc.
+            # Run TurnMake for the game. TurnMake will handle for emails, .chk file, etc.
             #my $MakeTurn = "perl -I $Dir_Scripts $Dir_Scripts/TurnMake.pl $GameFile >/dev/null";
             my $MakeTurn = "$PerlLocation -I $Dir_Scripts $Dir_Scripts/TurnMake.pl $GameFile >/dev/null";
-            my $exit_status = &call_system($MakeTurn,0); # Starting system with 1 makes it launch asynchronously, in case Stars! hangs
-            $makeCHKrun = 1;  # Since TurnMake.pl will run Make_CHK, no need to run it twice
+            &LogOut(100, "upload.pl: Calling system for $MakeTurn", $LogFile);
+            # There's a recursion problem when calling TurnMake using call_system, because then TurnMake calls TurnMake.
+            # Don't need to use sudo, because this is being called by apache2, running as www-data
+            my $exit_status = system($MakeTurn); # Starting system with 1 makes it launch asynchronously, in case Stars! hangs
+            if ($exit_status > 0) { $makeCHKrun = 1; }  # Since TurnMake.pl could run Make_CHK, no need to run it twice
+            &LogOut(0, "upload: Ending call: $MakeTurn, Exit Status: $exit_status", $LogFile); 
+          	sleep 1;
           }
         }
         if  (!($makeCHKrun)) { &Make_CHK($file_prefix); } # Only run if we haven't already
