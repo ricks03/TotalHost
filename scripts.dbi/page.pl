@@ -943,14 +943,14 @@ sub show_game {
     # There should be no movie file unless the game is ended. 
     if ($GameValues{'GameStatus'} == 9) {
       # Display the animated gif file created with movie_starmapper.pl
-      my $movieFile = $Dir_Graphs . "/movies/movie_" . $GameValues{'GameFile'} . '.gif';
+      my $movieFile = $Dir_Graphs . "/movies/" . $GameValues{'GameFile'} . '.gif';
       if (-f $movieFile) {
-        print "<tr><td><img align=left src=\"/Downloads/movies/movie_" . $GameValues{'GameFile'} . ".gif\"></td></tr>\n";
+        print "<tr><td><img align=left src=\"/downloads/movies/" . $GameValues{'GameFile'} . ".gif\"></td></tr>\n";
       } else { print "<tr><td><i>No movie available</i></td></tr>\n"; }
       # Display the resources chart created with graph_score.pl
       my $graphFile = $Dir_Graphs . "/graphs/" . $GameValues{'GameFile'} . '.png';
       if (-f $graphFile) {
-        print "<tr><td><img align=left src=\"/Downloads/graphs/" . $GameValues{'GameFile'} . ".png\"></td></tr>\n";
+        print "<tr><td><img align=left src=\"/downloads/graphs/" . $GameValues{'GameFile'} . ".png\"></td></tr>\n";
       } else { print "<tr><td><i>No graph available</i></td></tr>\n"; }
     }
     
@@ -1226,7 +1226,7 @@ sub show_game {
           if ($userlogin eq $UserValues{'User_Login'}) {$table .= qq|<td>$UserValues{'RaceFile'}</td>|; }
           else { $table .= qq|<td><center>-----</center></td>|; }
   				if ($UserValues{'RaceID'}) { $table .= qq|<td>| . localtime($UserValues{'JoinDate'}) . qq|</td>\n|; }
-  				#Don't permit players to leave or be removed unless the game is still awaiting players or Locked
+  				#Don't permit players to leave or be removed unless the game is still awaiting players.
   				if ($GameValues{'GameStatus'} == 7 ) {  
             if ( $userlogin eq $GameValues{'HostName'} ) { #remove player as host
      					$table .= qq|$formPrefix<td><BUTTON $host_style type="submit" name="cp" value="Remove Player" | . &button_help("RemovePlayer") . qq|>Remove Player</BUTTON><input id="$UserValues{'PlayerID'}" type=hidden name="PlayerID" value="$UserValues{'PlayerID'}"></td>$formSuffix\n|; 
@@ -2213,22 +2213,22 @@ sub edit_game {
 	print qq|<td><SELECT name="HourlyTime">\n|;
   my $key_minutes;
 	foreach my $key (@HourlyTime) { 
-		if ($key == $GameValues{'HourlyTime'}) {
-      if ($key < 1) { $key_minutes = int(($key * 60) +.5) . ' minutes';}
-      else { $key_mintues = $key; }
-      print qq|<OPTION value=$key SELECTED>$key_minutes\n|; 
-    }
-		elsif ($type eq 'create' && $key eq '48') { print qq|<OPTION value=$key SELECTED>$key hours\n|; }
-		else { 
+  	if ($key == $GameValues{'HourlyTime'} && $key < 1 ) { 
+      $key_minutes = int(($key * 60) +.5);
+      print qq|<OPTION value=$key SELECTED>$key_minutes minutes\n|; 
+    } elsif ($key == $GameValues{'HourlyTime'} && $key >= 1 ) { print qq|<OPTION value=$key SELECTED>$key hours\n|; 
+  	} elsif ($type eq 'create' && $key == 48) { print qq|<OPTION value=$key SELECTED>$key hours\n|; 
+  	} else { 
       # Display minutes or hours as appropriate
       if ($key >= 1) {
         print qq|<OPTION value=$key>$key hours\n|;
       } elsif ($key < 1) {
         $key_minutes = int(($key * 60) +.5);
-        print qq|<OPTION value=$key> $key_minutes minutes\n|;
+        print qq|<OPTION value=$key>$key_minutes minutes\n|;
       }
     }
-	}
+  }
+  
 	print qq|</SELECT></td></tr></table>\n|;
 
 	print qq|<INPUT name="GameType" type="radio" value=3 | . &button_help("AsRequired") . qq| $Checked[$required]>As Required<BR>\n|;
@@ -2884,7 +2884,7 @@ sub read_game {
 	elsif ( $GameValues{'GameType'} == 2) { 
     # need to handle for the minutes interval
     my $hourly_result;
-     if ($GameValues{'HourlyTime'} < 1) { $hourly_result =  ($GameValues{'HourlyTime'} * 60) . " minutes"; }
+     if ($GameValues{'HourlyTime'} < 1) { $hourly_result =  int(($GameValues{'HourlyTime'} * 60)) . " minutes"; } # int for 10 minute 1.67
      else { $hourly_result =  $GameValues{'HourlyTime'} . " hours"; }
     push(@Values, "Hourly Turn Gen, $hourly_result");
   }

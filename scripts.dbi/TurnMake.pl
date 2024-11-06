@@ -40,7 +40,7 @@ my $commandline = $ARGV[0];
 ($Second, $Minute, $Hour, $DayofMonth, $Month, $Year, $WeekDay, $WeekofMonth, $DayofYear, $IsDST, $CurrentDateSecs) = &GetTime; #So we have the time when we do the HTML
 $CurrentEpoch = time();
 
-my $environment = "Environment: PATH: $ENV{'PATH'}, DISPLAY: $ENV{'DISPLAY'}, PERL5LIB: $ENV{'PERL5LIB'}, WINEDLL: $ENV{'WINEDLLOVERRIDES'}";
+my $environment = "Environment: PATH: $ENV{'PATH'}, DISPLAY: $ENV{'DISPLAY'}, PERL5LIB: $ENV{'PERL5LIB'}, WINEPREFIX $ENV{'WINEPREFIX'}";
 print "$environment\n";
 &LogOut (400, $environment, $LogFile);
 
