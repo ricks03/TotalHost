@@ -93,7 +93,7 @@ sub ValidateFileUpload {
 	# If it's not the right type of file at all, who cares about anything else; toss it but give the user a vague hint
 	unless (&Check_FileType($file_type)) { 
     # Don't give users the file location
-    $err .= "Invalid File Type for $File_Loc by $userlogin"; 
+    $err .= "Invalid File Type by $userlogin"; 
     &LogOut(0, "Invalid File Type for $File_Loc by $userlogin: $file_type $file_ext", $ErrorLog); 
     return 0;
   }   
@@ -282,6 +282,7 @@ sub ValidateFileUpload {
             #my $MakeTurn = "perl -I $Dir_Scripts $Dir_Scripts/TurnMake.pl $GameFile >/dev/null";
             my $MakeTurn = "$PerlLocation -I $Dir_Scripts $Dir_Scripts/TurnMake.pl $GameFile >/dev/null";
             &LogOut(100, "upload.pl: Calling system for $MakeTurn", $LogFile);
+            #chdir($WINE_path) or &LogOut(0,"Cannot change directory: $WINE_path",$ErrorLog);
             # There's a recursion problem when calling TurnMake using call_system, because then TurnMake calls TurnMake.
             # Don't need to use sudo, because this is being called by apache2, running as www-data
             my $exit_status = system($MakeTurn); # Starting system with 1 makes it launch asynchronously, in case Stars! hangs
