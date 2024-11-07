@@ -40,7 +40,7 @@ my $commandline = $ARGV[0];
 ($Second, $Minute, $Hour, $DayofMonth, $Month, $Year, $WeekDay, $WeekofMonth, $DayofYear, $IsDST, $CurrentDateSecs) = &GetTime; #So we have the time when we do the HTML
 $CurrentEpoch = time();
 
-my $environment = "Environment: PATH: $ENV{'PATH'}, DISPLAY: $ENV{'DISPLAY'}, PERL5LIB: $ENV{'PERL5LIB'}, WINEPREFIX $ENV{'WINEPREFIX'}";
+my $environment = "Environment: PATH: $ENV{'PATH'}, DISPLAY: $ENV{'DISPLAY'}, PERL5LIB: $ENV{'PERL5LIB'}, WINEPREFIX: $ENV{'WINEPREFIX'}";
 print "$environment\n";
 &LogOut (400, $environment, $LogFile);
 
@@ -385,7 +385,7 @@ sub CheckandUpdate {
 
 				# get updated current turn so you can put it in the email, can vary based on force gen.
 				($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
-				$GameData[$LoopPosition]{'NextTurn'} = $NewTurn; # BUG? What is NewTurn
+				$GameData[$LoopPosition]{'NextTurn'} = $NewTurn; 
 
 				my @CHK = &Read_CHK($GameData[$LoopPosition]{'GameFile'});
         
@@ -579,33 +579,3 @@ sub internet_game_status {
   }
 }
 
- 
-# In th.pm sorta
-# sub ValidTurnTime { #Determine whether submitted time is valid to generate a turn
-#   # BXG: (remarked out function): $loopposition is used to determine array location 
-#   # That's the real difference between this and the &ValidTurnTime in TurnMake
-#   # Better to just pass the relevant array values and merge the two functions
-# 	my($ValidTurnTimeTest, $WhentoTestFor, $LoopPosition) = @_;	
-# 	my($ValidTurnTimeTest, $WhentoTestFor, $Day, $Hour) = @_;	
-#   
-# 	&LogOut(100,"ValidTurnTimeTest: $ValidTurnTimeTest, WhentoTestfor: $WhentoTestFor",$LogFile);
-# 	my($Valid) = 'True';
-# 	#Check to see if it's a holiday
-# # 	if ($GameData[$LoopPosition]{'ObserveHoliday'}){ 
-# # 			local($Holiday) = &CheckHolidays($ValidTurnTimeTest,$db);  #BUG: How are we passing $db here? We don't have it.
-# # 			if ($Holiday eq 'True') { $Valid = 'False'; }
-# # 	}
-# 	my ($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST, $CSecOfDay) = &CheckTime($ValidTurnTimeTest);
-# 	#Check to see if it's a valid Day
-# #	my($DayFreq) = &ValidFreq($GameData[$LoopPosition]{'DayFreq'},$CWeekDay);
-# 	my($DayFreq) = &ValidFreq($Day,$CWeekDay);
-# 	if ($DayFreq eq 'False') { $Valid = 'False'; }
-# 	#Check to see if it's a valid hour
-# 	if (($WhentoTestFor) eq 'Hour') {
-# #		my($HourlyTime) = &ValidFreq($GameData[$LoopPosition]{'HourFreq'},$CHour);
-# 		my($HourlyTime) = &ValidFreq($Hour,$CHour);
-# 		if ($HourlyTime eq 'False') { $Valid = 'False'; }
-# 	}
-# 	&LogOut(200,"   Valid = $Valid ",$LogFile);
-# 	return($Valid);
-# }

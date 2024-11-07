@@ -50,8 +50,12 @@ if (!($inDir)) {
 #Validate directory existence
 unless (-d $inDir ) { print "Directory: $inDir does not exist!\n"; exit;  }
 
-# Fix if you leave the / off the directory
-if (substr($inDir,-1) ne '\\') {  $inDir = $inDir . '\\'; }
+# Fix if you leave the / off the directory, now OS aware
+if ($inDir =~ /\\/) {
+  if (substr($inDir,-1) ne '\\') {  $inDir = $inDir . '\\'; }
+} elsif ( $inDir =~ /\//) {
+  if (substr($inDir,-1) ne '/') {  $inDir = $inDir . '/'; }
+}
 
 # if a file is specified, check to see if it exists
 if ($inFile) {
@@ -70,6 +74,7 @@ while (defined(my $file = readdir(DIR))) {
     my @fileBytes;
     my $filename =  $inDir . $file;
 		next unless ($file =~ /^(\w+[\w.-]+\.[xX]\d{1,2})$/); # skip unless it's a .x[n] file
+    print "$filename\n";
     # This regexp skips the ARGV[1] value
     # index might be better here than regexp
     #next if ($inFile && $inFile =~ /$file/i); # Skip for the case-insensitive file we started with 
@@ -137,10 +142,9 @@ sub decrypt_Serials {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ($typeId, $size) = &parseBlock($FileValues, $offset);
-    # BUG 211101: I could increase performance by not defining @data AND @block
+    # increased performance by not defining @data AND @block by shift'ing it twice
     #    true across all the copies of this function
-    # shift'ing it twice would do it I think. 
-    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    #@data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
     if ($typeId == 8) { # File Header Block, never encrypted
@@ -148,7 +152,10 @@ sub decrypt_Serials {
       ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
     } else {
       # Everything else needs to be decrypted
-      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
+       shift @block; # Drop the first two entries so we wouldn't need @data;
+       shift @block; # and instead could use @block
+      #($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
+      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@block, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 9) {

@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# graph_score.pl
+# StarsGraph.pl
 # Stars Resource Graph
 # Rick Steeves th@corwyn.net
 # 200602
@@ -22,7 +22,7 @@
 
 # Graph the resource scores for a Stars! Game
 #
-# Creates graph_gamename.   png
+# Creates graph_gamename.png
 # Assumes that the stars turn files are available in some structure 
 # (currently <whatever>\<year>)
 
@@ -40,9 +40,9 @@ my $dirname; # individual directory name
 #########################################        
 my $filename = $ARGV[0]; # input file
 if (!($filename)) { 
-  print "\n\nUsage: graph_score.pl <game file prefix>\n\n";
+  print "\n\nUsage: StarsGraph.pl <game file prefix>\n\n";
   print "Please enter the game file name. Example: \n";
-  print "  graph_score.pl abdd466g\n\n";
+  print "  StarsGraph.pl abdd466g\n\n";
   print "Creates a graph of a game\'s resources:\n";
   print "A new file will be created: <filename>.png\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
