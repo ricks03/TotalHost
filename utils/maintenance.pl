@@ -31,18 +31,27 @@
 use DBI;
 use File::Find;
 use File::Basename;
+use File::Copy;
 do 'config.pl';
-use TotalHost;
+use TotalHost;  # For DB Calls
 
 my $commandline = $ARGV[0];
+
+print "\n";
+
+# Validate the directories
+die "The directory '$Dir_Games' does not exist.\n" unless -d $Dir_Games;
+die "The directory '$Dir_Races' does not exist.\n" unless -d $Dir_Races;
+
+# Convert the Games files to lower-case
+find(\&lowercase_filenames, $Dir_Games);
+#Convert the Races files to lower-case
+find(\&lowercase_filenames, $Dir_Races);
 
 my $sql;
 my $dh;
 # Get the data from the database;
 my $db = &DB_Open($dsn);
-
-print "\n";
-
 # Compares Games in the DB and file system
 print "Games Compare ($DB_NAME, $Dir_Games):\n";
 $sql = qq|SELECT GameFile FROM Games;|;
@@ -221,4 +230,30 @@ sub remove_file_extensions {
     push @files_without_ext, "$path$name";  # Rebuild path without extension
   }
   return \@files_without_ext;  # Return an array reference of modified paths
+}
+
+sub lowercase_filenames {
+    my $item = $File::Find::name;
+
+    # Skip if current item is . or ..
+    return if ($item =~ m|/\.\.?$|);
+
+    # Get the directory and filename
+    my $dir  = dirname($item);
+    my $file = basename($item);
+
+    # Create lowercase name
+    my $lowercase_file = lc $file;
+
+    # If the file name needs to be changed to lowercase
+    if ($file ne $lowercase_file) {
+        my $new_path = "$dir/$lowercase_file";
+
+        # Rename the file or directory
+        if (move($item, $new_path)) {
+            print "Renamed: $item -> $new_path\n";
+        } else {
+            warn "Could not rename $item to $new_path: $!\n";
+        }
+    }
 }
