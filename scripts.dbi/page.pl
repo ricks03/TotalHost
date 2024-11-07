@@ -357,7 +357,7 @@ if ($in{'cp'} eq 'edit_profile') {
 		print "<td>"; &show_delay($in{'GameFile'}); print "</td>";
 } elsif ($in{'cp'} eq 'Process Delay') {
 		print "<td>"; 
-    &process_delay($in{'GameFile'}, $in{'delay_turns'}); 
+    &process_delay($in{'GameFile'}, $in{'delay_turns'}, $in{'PlayerID'}); 
     &display_warning;
     &show_game($in{'GameFile'}); print "</td>"; 
 } elsif (($in{'cp'} eq 'Go Idle') || ($in{'cp'} eq 'Go Active')) {
@@ -973,10 +973,6 @@ sub show_game {
 				print "<br><font color=red>[PAUSED]</font>\n";
 			} else {
 				if ($GameValues{'GameStatus'} != 9) {
-#           my $time_difference = $NextTurnDST - time();
-#           my $hours = int($time_difference / 3600);                # Total hours
-#           my $minutes = int(($time_difference % 3600) / 60);       # Remaining minutes
-# 					print "<br><b>Next turn due on or before: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($NextTurnDST)) . " ($hours hours, $minutes minutes)</b>\n";  #BUG Need to be using DailyTime from database
           my $next_turn_epoch = $GameValues{'NextTurn'};
           my $dtnext = DateTime->from_epoch(epoch => $next_turn_epoch, time_zone => 'UTC');
           if (DateTime::TimeZone->is_valid_name($timezone)) {
@@ -2180,13 +2176,18 @@ sub edit_game {
 	print qq|<TD>Game Description: </TD>\n|;
 	print qq|<TD><TEXTAREA name=GameDescrip | . &button_help("GameDescrip") . qq| type=Text value="$GameValues{'GameDescrip'}">$GameValues{'GameDescrip'}</TEXTAREA></TD>\n|;
 	print qq|</TR><TR>\n|;
-  # print the player number options
-	print qq|<TD>Max Players: </TD>\n|;
-  print qq|<td><SELECT name="MaxPlayers"> | . &button_help("MaxPlayers") . qq|\n|;
- 	if ($GameValues{'MaxPlayers'}) { print qq|<OPTION value=$GameValues{'MaxPlayers'} SELECTED>$GameValues{'MaxPlayers'}\n|; }
-  else { print qq|<OPTION value=16 SELECTED>16\n|; }
- 	foreach (my $i=1; $i <= 16; $i++) { print qq|<OPTION value=$i>$i\n|; }
- 	print qq|</SELECT></td></tr><tr>\n|;
+  
+  
+  # print the player number options when the game isn't started
+  if ($GameValues{'GameStatus'} =~ /^[067]$/) { 
+  	print qq|<TD>Max Players: </TD>\n|;
+    print qq|<td><SELECT name="MaxPlayers"> | . &button_help("MaxPlayers") . qq|\n|;
+   	if ($GameValues{'MaxPlayers'}) { print qq|<OPTION value=$GameValues{'MaxPlayers'} SELECTED>$GameValues{'MaxPlayers'}\n|; }
+    else { print qq|<OPTION value=16 SELECTED>16\n|; }
+   	foreach (my $i=1; $i <= 16; $i++) { print qq|<OPTION value=$i>$i\n|; }
+   	print qq|</SELECT></td></tr><tr>\n|;
+  } else { print qq|<input type=hidden name="MaxPlayers" value="$GameValues{'MaxPlayers'}">\n|; }  
+  
   # Type of Game options
   print qq|<TD>Type of Game:</TD>\n|;
 	print qq|</TR><TR><TD>\n|;
@@ -2206,7 +2207,9 @@ sub edit_game {
 		elsif ($type eq 'create' && $i == 21) { print qq|<OPTION value=\"| . $i . qq|\" SELECTED>| . &fixdate($i) .  qq|:00</OPTION>\n|; }
 		else { print qq|<OPTION value=\"| . $i . qq|\">| . &fixdate($i) .  qq|:00</OPTION>\n|; }
 	}
-	print qq|</SELECT></td></tr>|;
+  my $dt = DateTime->now(time_zone => 'America/New_York');
+  $timezone_abbreviation = $dt->strftime('%Z');
+  print qq|</SELECT> $timezone_abbreviation</td></tr>|;
 
 	# print all the hourly options 
 	print qq|<tr><td align=left><INPUT name="GameType" type="radio" value=2 | . &button_help("Hourly") . qq| $Checked[$hourly]>Hourly</td>\n|;
@@ -2402,7 +2405,6 @@ sub delete_game {
 
 sub update_game {
 #180312	my ($GameFile) = @_;
-#BUG?: Does not update the next turn time if you change the game type/times.
 	$in{'GameName'} = &clean($in{'GameName'});
 	$in{'GameDescrip'} = &clean($in{'GameDescrip'});
   my $GameFile =  &clean($in{'GameFile'});
@@ -2941,7 +2943,7 @@ sub show_restore {
 	my $BackupDir = $Dir_Games . '/' . $GameFile;
 	# Read in all the directories to build the options
 	opendir(DIRS, $BackupDir) || die("Cannot open $BackupDir\n"); 
-	@AllDirs = readdir(DIRS);
+	@AllDirs = sort readdir(DIRS);
 	closedir(DIRS);
 	$db = &DB_Open($dsn);
   $sql = qq|SELECT * FROM Games WHERE GameFile = '$GameFile';|;
@@ -2959,6 +2961,7 @@ sub show_restore {
  	foreach $name (@AllDirs) {
  		if ($name =~ /\./) {  next; } # No need to display the .
  		if ($name =~ /^BACKUP.*/) {  next; }   # No need to display the singular Backup folder
+ 		if ($name =~ /^backup.*/) {  next; }   # No need to display the singular Backup folder
  		$bck = $BackupDir . '/' . $name;
  		if (-d $bck) { print qq|<OPTION value=$name>$name</OPTION>\n|; }
  	}
@@ -3115,120 +3118,131 @@ sub show_delay {
 	($GameFile) = @_;
 	my $sql;
 	my %GameValues;
+  my $unique_player_ids; # For storing if the smae player is in the game more than once. 
+	my $pass = 0;
+  
 	# make sure the user actually has a delay available
 	# probably need to know type of game? 
 	$sql = qq|SELECT Games.GameName, Games.GameFile, Games.GameType, Games.LastTurn, Games.NextTurn, Games.DayFreq, Games.HourFreq, Games.HourlyTime, Games.DailyTime, Games.NumDelay, Games.AsAvailable, Games.MinDelay, Games.NewsPaper, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.DelaysLeft FROM Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE (((Games.GameFile)='$GameFile') AND ((GameUsers.User_Login)='$userlogin') AND ((GameUsers.PlayerID) Is Not Null));|;
 	# Provide an interface for the user to select their delay
 	print "<td>";
 	$db = &DB_Open($dsn);
-	my $counter =0;
 	if (my $sth = &DB_Call($db,$sql)) {
-		while (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row}; $counter++;
+		while (my $row = $sth->fetchrow_hashref()) { 
+      %GameValues = %{$row};
+      # So we can track if there's more than one player ID.
+      $unique_player_ids{$GameValues{'PlayerID'}} = 1;  # The value here is irrelevant, we just care about the key
 #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
-    $sth->finish();
+      # We need to print a bunch of this only once if the same player is in the same game more than once
+    	unless ($pass) { # Print this only once, even of the player is in the game more than once. 
+        print "<H2>Submit a delay for: $GameValues{'GameName'}</H2>\n";
+      	if ($GameValues{'GameType'} == 3) { print "Turns generated only when all turns are in.\n"; } 
+        	elsif ($GameValues{'GameType'} == 4) { print " Turns generated manually.\n"; }
+        	elsif ($GameValues{'GameType'} == 2) { 
+            if ($GameValues{'HourlyTime'} >=1) {
+        		  print " Turns generated every $GameValues{'HourlyTime'} hours"; 
+            } elsif ($HourlyTime < 1) {
+              my $minutes = int(($GameValues{'HourlyTime'} * 60) + .5);
+              print " Turns generated every $minutes minutes";
+            }
+      		if ($GameValues{'AsAvailable'}) { print " or when all turns are in"; }
+      		print ".";
+      		print "<table border=1><tr>\n";
+      		for (my $i=0; $i < 7; $i++) { print "<th>$WeekDays[$i]</th>\n"; }
+      		print "</tr><tr>\n";
+      		for (my $i=0; $i < 7; $i++) {
+      	 		my $day = substr($GameValues{'DayFreq'}, $i, 1);
+      	 		if ($day) { print "<td align=center>Yes</td>\n"; }
+      	 		else { print "<td align=center>No</td>\n"; }
+      		}
+      		print "</tr></table>\n";
+      		print "Hours Turns can Generate:\n";
+      		print "<table border=1><tr>\n";
+      		for (my $i=0; $i <=23; $i++) { 
+      			if ($i/12 == int($i/12)) { print "</tr><tr>\n"; }
+      		 		my $hour = substr($GameValues{'HourFreq'}, $i, 1);
+      		 		if ($hour) { print "<td align=center>$i:00</td>\n"; }
+      		 		else { print "<td align=center><strike>$i:00<strike></td>\n"; }
+      			}
+      			print "</tr></table>\n";
+      	}	elsif ($GameValues{'GameType'} == 1) {
+      		print " Turns generated daily"; 
+      		if ($GameValues{'AsAvailable'}) { print " or when all turns are in"; }
+      		print ".";
+
+      		print "<table border=1><tr>\n";
+      		for (my $i=0; $i < 7; $i++) { print "<th>$WeekDays[$i]</th>\n"; }
+      		print "</tr><tr>\n";
+      		for (my $i=0; $i < 7; $i++) {
+      	 		my $day = substr($GameValues{'DayFreq'}, $i, 1);
+      	 		my $gen_time = &fixdate($GameValues{'DailyTime'}) . ':00'; 
+      	 		if ($day) { print "<td align=center>$gen_time</td>\n"; }
+      	 		else { print "<td align=center>-</td>\n"; }
+      		} 
+      		print "</tr></table>\n";
+        } else { print "What kind of game IS this? \n"; &LogOut(0,"show_delay GameType Fail for $GameFile, $GameValues{'GameType'}", $ErrorLog);}
+      	if ($GameValues{'LastTurn'} > 0) { print "<br>Last turn generation: " . localtime($GameValues{'LastTurn'}) ."\n"; }
+      	else { print "<br>A turn has never been generated for this game.\n"; }
+      	if ($GameValues{'NextTurn'} > 0 ) { print "<P>Next turn currently due " . localtime($GameValues{'NextTurn'}) . "\n"; }
+      	else { print "Turns are due immediately.\n"; }
+        $pass++;
+      }
+      # Repeat this section for each player ID
+      print "<hr>\n";
+    	if ($GameValues{'DelaysLeft'} > 1 ) {print qq|<P>You have $GameValues{'DelaysLeft'} delays left for this game as Player $GameValues{'PlayerID'}. Your available delays will restore to $GameValues{'NumDelay'} if the sum across all players drops below $GameValues{'MinDelay'}.\n|; }
+    	elsif ($GameValues{'DelaysLeft'} == 1 ) { print qq|<P>You have $GameValues{'DelaysLeft'} delay left in this game as Player $GameValues{'PlayerID'}. Use wisely!\n|; }
+    	else { print qq|<P>You have no delays left in this game as Player $GameValues{'PlayerID'}. Hope that they reset soon!\n|; }
+      # If the player has delays left, display the option to select them
+      if ($GameValues{'DelaysLeft'} > 0) {
+       	print qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod>\n|;
+      	print qq|<input type=hidden name="lp" value="profile_game">\n|;
+      	if (&checkbox($GameValues{'NewsPaper'})) { print qq|<input type=hidden name="rp" value="show_news">\n|; }
+       	print qq|<INPUT type=\"hidden\" name=\"GameFile\" value =\"$GameFile\">\n|;
+       	print qq|<INPUT type=\"hidden\" name=\"PlayerID\" value =\"$GameValues{'PlayerID'}\">\n|;
+      	print qq|<table><tr>\n|;
+      	print qq|<td>Delay Turn</td>\n|;
+       	print qq|<td><SELECT name="delay_turns">\n|;
+      	for (my $i=1; $i<=$GameValues{'DelaysLeft'}; $i++) {
+      		print qq|<OPTION value=$i>$i\n|;
+      	}
+      	print qq|</SELECT> interval.</td>\n|;
+      	print qq|</tr><tr>\n|;
+      	print qq|<td><INPUT type="submit" name="cp" value="Process Delay" onMouseOver="Help( \'GameDelay\' )" onMouseOut="Help( \'blank\' )"></td>\n|;
+      	print qq|</tr></table>\n|;
+        print qq|</form>\n|;
+      }
 		}
+    $sth->finish();
 	}
 	&DB_Close($db);
-	print "<H2>Submit a delay for: $GameValues{'GameName'}</H2>\n";
-	if ($GameValues{'GameType'} == 3) { print "Turns generated only when all turns are in.\n"; } 
-  	elsif ($GameValues{'GameType'} == 4) { print " Turns generated manually.\n"; }
-  	elsif ($GameValues{'GameType'} == 2) { 
-      if ($GameValues{'HourlyTime'} >=1) {
-  		  print " Turns generated every $GameValues{'HourlyTime'} hours"; 
-      } elsif ($HourlyTime < 1) {
-        my $minutes = int(($GameValues{'HourlyTime'} * 60) + .5);
-        print " Turns generated every $minutes minutes";
-      }
-		if ($GameValues{'AsAvailable'}) { print " or when all turns are in"; }
-		print ".";
-		print "<table border=1><tr>\n";
-		for (my $i=0; $i < 7; $i++) { print "<th>$WeekDays[$i]</th>\n"; }
-		print "</tr><tr>\n";
-		for (my $i=0; $i < 7; $i++) {
-	 		my $day = substr($GameValues{'DayFreq'}, $i, 1);
-	 		if ($day) { print "<td align=center>Yes</td>\n"; }
-	 		else { print "<td align=center>No</td>\n"; }
-		}
-		print "</tr></table>\n";
-		print "Hours Turns can Generate:\n";
-		print "<table border=1><tr>\n";
-		for (my $i=0; $i <=23; $i++) { 
-			if ($i/12 == int($i/12)) { print "</tr><tr>\n"; }
-		 		my $hour = substr($GameValues{'HourFreq'}, $i, 1);
-		 		if ($hour) { print "<td align=center>$i:00</td>\n"; }
-		 		else { print "<td align=center><strike>$i:00<strike></td>\n"; }
-			}
-			print "</tr></table>\n";
-	}	elsif ($GameValues{'GameType'} == 1) {
-		print " Turns generated daily"; 
-		if ($GameValues{'AsAvailable'}) { print " or when all turns are in"; }
-		print ".";
-
-		print "<table border=1><tr>\n";
-		for (my $i=0; $i < 7; $i++) { print "<th>$WeekDays[$i]</th>\n"; }
-		print "</tr><tr>\n";
-		for (my $i=0; $i < 7; $i++) {
-	 		my $day = substr($GameValues{'DayFreq'}, $i, 1);
-	 		my $gen_time = &fixdate($GameValues{'DailyTime'}) . ':00'; 
-	 		if ($day) { print "<td align=center>$gen_time</td>\n"; }
-	 		else { print "<td align=center>-</td>\n"; }
-		} 
-		print "</tr></table>\n";
-  } else { print "What kind of game IS this? \n"; &LogOut(0,"show_delay GameType Fail for $GameFile, $GameValues{'GameType'}", $ErrorLog);}
-	if ($GameValues{'LastTurn'} > 0) { print "<br>Last turn generation: " . localtime($GameValues{'LastTurn'}) ."\n"; }
-	else { print "<br>A turn has never been generated for this game.\n"; }
-	if ($GameValues{'NextTurn'} > 0 ) { print "<P>Next turn currently due " . localtime($GameValues{'NextTurn'}) . "\n"; }
-	else { print "Turns are due immediately.\n"; }
-
-	if ($GameValues{'DelaysLeft'} > 1 ) {print qq|<P>You have $GameValues{'DelaysLeft'} delays left for this game. Your available delays will restore to $GameValues{'NumDelay'} if the sum across all players drops below $GameValues{'MinDelay'}.\n|; }
-	elsif ($GameValues{'DelaysLeft'} == 1 ) { print qq|<P>You have $GameValues{'DelaysLeft'} delay left in this game. Use wisely!\n|; }
-	else { print qq|<P>You have no delays left in this game. Hope that they reset soon!\n|; }
-  # If the player has delays left, display the option to select them
-  if ($GameValues{'DelaysLeft'} > 0) {
-   	print qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod>\n|;
-  	print qq|<input type=hidden name="lp" value="profile_game">\n|;
-  	if (&checkbox($GameValues{'NewsPaper'})) { print qq|<input type=hidden name="rp" value="show_news">\n|; }
-   	print qq|<INPUT type=\"hidden\" name=\"GameFile\" value =\"$GameFile\">\n|;
-  	print qq|<table><tr>\n|;
-  	print qq|<td>Delay Turn</td>\n|;
-   	print qq|<td><SELECT name="delay_turns">\n|;
-  	for (my $i=1; $i<=$GameValues{'DelaysLeft'}; $i++) {
-  		print qq|<OPTION value=$i>$i\n|;
-  	}
-  	print qq|</SELECT> interval.</td>\n|;
-  	print qq|</tr><tr>\n|;
-  	print qq|<td><INPUT type="submit" name="cp" value="Process Delay" onMouseOver="Help( \'GameDelay\' )" onMouseOut="Help( \'blank\' )"></td>\n|;
-  	print qq|</tr></table>\n|;
-    print qq|</form>\n|;
-  }
 }
 
 sub process_delay {
 	# Edit the game turn and add a delay
-	my ($GameFile, $delay_turns) = @_;
+	my ($GameFile, $delay_turns, $PlayerID) = @_;
 	my ($sql, $NextTurn, $CurrentDateSecs, $SecOfDay);
 	my ($FirstDayToAdd, $SecondDayToAdd, $NextDayOfWeek);
 	my $ToDelay = 0;
 	my ($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $IsDST);
 	my %GameValues;
 	my $db = &DB_Open($dsn);
-	$sql = qq|SELECT Games.GameName, Games.GameFile, Games.DailyTime, Games.NextTurn, Games.LastTurn, Games.GameType, Games.NumDelay, Games.MinDelay, Games.DayFreq, Games.HourFreq, Games.HourlyTime, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.DelaysLeft FROM Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE (((Games.GameFile)='$GameFile') AND ((GameUsers.User_Login)='$userlogin') AND ((GameUsers.PlayerID) Is Not Null));|;
+	$sql = qq|SELECT Games.GameName, Games.GameFile, Games.DailyTime, Games.NextTurn, Games.LastTurn, Games.GameType, Games.NumDelay, Games.MinDelay, Games.DayFreq, Games.HourFreq, Games.HourlyTime, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.DelaysLeft FROM Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE (((Games.GameFile)='$GameFile') AND ((GameUsers.User_Login)='$userlogin') AND ((GameUsers.PlayerID)=$PlayerID));|;
 	# make sure the user actually has a delay available, and get other game-related values
-	  #BUG: If the player is in the game twice, it's going to decrement for one of them at random 
   if (my $sth = &DB_Call($db,$sql)) { 
     my $row = $sth->fetchrow_hashref(); %GameValues = %{$row}; 	
     $sth->finish();
   }
 
-  &LogOut(200, "process_delay: DELAYSLEFT: $GameValues{'DelaysLeft'}",$LogFile);
+  &LogOut(200, "process_delay: $GameFile, $delay_turns, $PlayerID DELAYSLEFT: $GameValues{'DelaysLeft'}",$LogFile);
 	if ($GameValues{'DelaysLeft'} >= $delay_turns) {
 		#decrement the user's number of delays
 		if ( $delay_turns == 0) { $delay = 1; } else { $delay = $delay_turns; }
     # Note if all the same player, the delays will get reset, drop below the limit
     # and then get restored to full. 
-		$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.DelaysLeft = [GameUsers.DelaysLeft]-$delay WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.User_Login)=\'$userlogin\') AND ((GameUsers.PlayerID) Is Not Null));|;
+	  #$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.DelaysLeft = [GameUsers.DelaysLeft]-$delay WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.User_Login)=\'$userlogin\') AND ((GameUsers.PlayerID)=$PlayerID));|;
+    $sql = qq|UPDATE Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile SET GameUsers.DelaysLeft = GameUsers.DelaysLeft - $delay WHERE Games.GameFile = \'$GameFile\' AND GameUsers.User_Login = \'$userlogin\' AND GameUsers.PlayerID = $PlayerID;|;
 		if (my $sth = &DB_Call($db,$sql)) { 
-			&LogOut(100, "$userlogin delays decreased by $delay for $GameValues{'GameFile'}.",$LogFile); 
+			&LogOut(100, "process_delay: $userlogin delays decreased by $delay for $GameValues{'GameFile'}.",$LogFile); 
       $sth->finish(); 
 			#	Set Game Status to Player Delay [3] / Flag game as player timeout/delayed (so we can display it). 
 			$sql = qq|UPDATE Games SET GameStatus = 3 WHERE GameFile = \'$GameFile\'|;
@@ -3272,7 +3286,7 @@ sub process_delay {
  					# Get the weekday of the new turn so we can see if it's ok
  					($CSecond, $CMinute, $CHour, $CDayofMonth, $CMonth, $CYear, $CWeekDay, $CDayofYear, $CIsDST, $CSecOfDay) = localtime($NextTurn);
  					# Move to the next available hour
- 					print "New Weekday: $CWeekDay   timeFreq = $GameValues{'HourlyTime'}\n";
+ 					#print "New Weekday: $CWeekDay   timeFreq = $GameValues{'HourlyTime'}\n";
  					$NextTurn = $NextTurn + $GameValues{'HourlyTime'}*60*60;
  					print "<P>Next Turn" . localtime($NextTurn);
  				}
@@ -3280,7 +3294,7 @@ sub process_delay {
 		}
 		# And then delay by that much
 		if (&UpdateNextTurn($db,$NextTurn,$GameFile,$GameValues{'LastTurn'})) {
-			my $log =  "process_delay: $userlogin delayed $GameFile $delay_turns from " . localtime($GameValues{'NextTurn'}) . " ($GameValues{'NextTurn'}) to " . localtime($NextTurn) . " ($NextTurn)";
+			my $log =  "process_delay: $userlogin delayed $GameFile $delay_turns turns from " . localtime($GameValues{'NextTurn'}) . " ($GameValues{'NextTurn'}) to " . localtime($NextTurn) . " ($NextTurn)";
 			&LogOut(100, $log,$LogFile);
 			# EMail all the players that the game has been delayed
 			$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Turn Delay|;
