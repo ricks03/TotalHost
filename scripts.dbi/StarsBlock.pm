@@ -426,7 +426,6 @@ sub encryptBytes {
     ($newRandom, $seedX, $seedY) = &nextRandom($seedX, $seedY);
     $encryptedChunk = $chunk ^ $newRandom;
     # Write out the decrypted data, swapped back
-    # BUG: This line was different than the 211006 version, which broke re-encryption
     $encryptedBytes = chr ($encryptedChunk        & 0xFF);
     push @encryptedBytes, $encryptedBytes;
     $encryptedBytes = chr(($encryptedChunk >> 8)  & 0xFF);
