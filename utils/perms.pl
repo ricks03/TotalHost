@@ -1,17 +1,8 @@
 #!/usr/bin/perl
 # perms.pl
-# validate current file status
+# set correct file permissions
 # Rick Steeves th@corwyn.net
 # 241026
-
-##################################################################
-# File Filter    Version 1.0                                     #
-# Created 04/15/2010 by Rick Steeves    Last Modified 01/22/10   #
-# Used to provide file access while authenticating users         #
-# used notes from 															                 #
-# http://bytes.com/topic/perl/insights/857373-how-make-file-download-script-perl
-##################################################################
-
 #     Copyright (C) 2012 Rick Steeves
 # 
 #     This file is part of TotalHost, a Stars! hosting utility.
