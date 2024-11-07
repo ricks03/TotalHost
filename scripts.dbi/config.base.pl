@@ -58,6 +58,7 @@ $dsn = "DBI:mysql:database=$DB_NAME;host=$DB_HOST";
 # WINE config
 $ENV{'DISPLAY'} = ':99';  
 $ENV{'PERL5LIB'} = '/var/www/totalhost/scripts';
+$PERL5LIB =  "PERL5LIB=$ENV{'PERL5LIB'}";
 $WINE_executable = '/usr/bin/wine c:\\stars.exe';  # Using Linux path for Stars! will fail.   
 $apache_user  = 'www-data';  # Linux user account
 
@@ -138,14 +139,6 @@ $width_news = 300;
 # Add all the Host and game related buttons
 $host_style = qq|style="color:red;width:120px;height:24;"|;
 $user_style = qq|style="width:120px;height:24;"|;
-# 
-# # Block variables
-# #$hexDigits      = "0123456789ABCDEF";
-# my $encodesOneByte = " aehilnorst";
-# my $encodesB       = "ABCDEFGHIJKLMNOP";
-# my $encodesC       = "QRSTUVWXYZ012345";
-# my $encodesD       = "6789bcdfgjkmpquv";
-# my $encodesE       = "wxyz+-,!.?:;\'*%\$";
 
 (@singularRaceName, @pluralRaceName);
 $singularRaceName[0] = 'Everyone';

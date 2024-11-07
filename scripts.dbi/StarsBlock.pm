@@ -132,6 +132,7 @@ our @EXPORT = qw(
   cleanFiles
   adjustFleetCargo tallyFleet 
   publicMessages decryptMessages
+  getScores decryptScores
 );  
 
 my $debug = 1;
@@ -463,7 +464,7 @@ sub read8 {
 	return $b & 0xFF;
 }
 
-#BUG: this was here when I merged all the new functions, which means likely commenting this
+#this was here when I merged all the new functions, which means likely commenting this
 # out breaks any other functions calling it, as they're different. In particular, StarsPWD.
 # sub read16 {
 #   # For a given offset, determine the block size and blocktype
@@ -954,7 +955,7 @@ sub nibbleToChar {
 }
 
 sub charToNibble {
-  # BUG: Untested
+  # Untested. This is never called anywehre.
   my ($ch) = @_; # this is sent as a 4-bit nibble, 0 to 15
 	if (ord($ch) >= ord('0') && ord($ch) <= ord('9')) { return (ord($ch) - ord('0')); }
   if (ord($ch) >= ord('A') && ord($ch) <= ord('F')) { return (ord($ch) - ord('A') + 10); }
@@ -2426,7 +2427,6 @@ sub checkSerials {
   while (defined(my $file = readdir(DIR))) {  
     my $filename =  $Dir_Games .'/' . $file_prefix . '/' . $file;
     next unless ($file =~ /^(\w+[\w.-]+\.[xX]\d{1,2})$/); # skip unless it's a .x[n] file
-    # BUG: index might be better here than regexp?
     if ($inFile =~ /$file/i) { next; } # Skip if .x file present/uploaded previously 
 
     # Read in the file
@@ -2481,10 +2481,9 @@ sub decryptSerials {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ($typeId, $size) = &parseBlock($FileValues, $offset);
-    # BUG 211101: I could increase performance by not defining @data AND @block
-    #    true across all the copies of this function
-    # shift'ing it twice would do it I think. 
-    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    # Increased performance by not defining @data AND @block
+    # and instead shifting @block twice
+    #@data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
     if ($typeId == 8) { # File Header Block, never encrypted
@@ -2492,7 +2491,10 @@ sub decryptSerials {
       ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
     } else {
       # Everything else needs to be decrypted
-      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
+      #($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB);
+      shift @block; # or shift @array for 1..2;
+      shift @block; 
+      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@block, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 9) {
@@ -2657,10 +2659,6 @@ sub adjustFleetCargo { #
 
 sub decryptFix {
   # Exploit check .hst and .x files
-  # $filename needs to be the full file path and name of file checked
-  #   so we know what file_type we're checking (.x, .m, or .hst)
-  # BUG: NOT TRUE Directory and file name are split as TH .x files are in a different place than the .hst files
-  #   when they are scanned
   my ($gameDir, $filename, $fileBytes, $fleetList, $queueList, $designList, $waypointList, $lastPlayer) = @_;
   @fileBytes = @$fileBytes;
   %fleetList  = %$fleetList;
@@ -2709,6 +2707,7 @@ sub decryptFix {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset]; # invert the pair of header bytes
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    # Could increase performance by shifting @block twice
     @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
@@ -4059,6 +4058,7 @@ sub decryptMessages {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    # could icnrease performance by shifting @block twice
     @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
@@ -4136,7 +4136,93 @@ sub decryptMessages {
   return \@messages;
 }
 
+sub getScores {
+  my ($HST) = @_;
+  # Read in the binary Stars! file, byte by byte
+  my $FileValues;
+  my @fileBytes;
+  #@fileBytes = ();
+  my @singularRaceNames;
+  open(StarFile, "<$HST" );
+  binmode(StarFile);
+  while ( read(StarFile, $FileValues, 1)) {
+    push @fileBytes, $FileValues; 
+  }
+  close(StarFile);
+  # Decrypt the data, block by block
+  my ($singularRaceNames, $score, $turn, $player) = &decryptScores(@fileBytes);
+  @singularRaceNames = @{$singularRaceNames};
+  return \@singularRaceNames, $score, $turn, $player;
+}
 
+sub decryptScores {
+  my (@fileBytes) = @_;
+  my @block;
+  my @data;
+  my ($decryptedData, $encryptedBlock, $padding);
+  my @decryptedData;
+  my @encryptedBlock;
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ($random, $seedA, $seedB, $seedX, $seedY );
+  my ( $FileValues, $typeId, $size );
+  my $offset = 0; #Start at the beginning of the file
+  my @singularRaceNames;
+  my $score;
+  my $resources;
+  while ($offset < @fileBytes) {
+    # Get block info and data
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
+    #if ($debug > 1) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+    #if ($debug > 1) { print 'BLOCK RAW: Size ' . @block . ":\n" . join ("", @block), "\n"; }
+    
+     if ($typeId == 8 ) { # FileHeaderBlock, never encrypted
+      # We always have this data before getting to block 6, because block 8 is first
+      # If there are two (or more) block 8s, the seeds reset for each block 8
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+      ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+      $seedX = $seedA; # Used to reverse the decryption
+      $seedY = $seedB; # Used to reverse the decryption
+      #push @outBytes, @block;
+      
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+    } else {
+      # Everything else needs to be decrypted
+      @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
+      @decryptedData = @{ $decryptedData };  
+      # WHERE THE MAGIC HAPPENS
+      if ($typeId == 6 ) {  #PlayerBlock
+        my $playerId = $decryptedData[0] & 0xFF;
+        my $fullDataFlag = ($decryptedData[6] & 0x04);
+        my $index = 8;
+        if ($fullDataFlag) { 
+          # The player names are at the end which is not a fixed length
+          $index = 112;
+          my $playerRelationsLength = $decryptedData[112]; 
+          $index = $index + $playerRelationsLength + 1;
+        } 
+        my $singularNameLength = $decryptedData[$index] & 0xFF;
+        my $singularMessageEnd = $index + $singularNameLength;
+        my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+        push @singularRaceNames, $singularRaceName;
+      } elsif ($typeId == 45) { # PlayerScoresBlock
+         
+        my $playerId     = ($decryptedData[0] >> 0) & 0x0F; 
+        $score        = &read32(\@decryptedData, 4);  # Not exactly the same
+        $resources    = &read32(\@decryptedData, 8); # Not EXACTLY the same
+        
+        #print "PlayerId: $playerId, Res: $resources\n";
+        if ($Player == $playerId) { $score = $resources; }
+      }
+    }
+    # END OF MAGIC
+    $offset = $offset + (2 + $size); 
+  }
+  return \@singularRaceNames, $score, $turn, $Player;
+} 
 
 # CSV position 18 is fuel
 # 1,1,"Stargate 100/250",1,0,0,5,5,0,0,0,400,100,40,40,144,100,250,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

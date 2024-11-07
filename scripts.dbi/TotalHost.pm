@@ -62,6 +62,7 @@ our @EXPORT = qw(
   process_fix process_game_status
   lwp_head check_internet get_internet_down_count internet_log_status clear_internet_log
   call_system  get_user
+  create_graph
 );
 # Remarked out functions: FileData FixTime MakeGameStatus checkboxes checkboxnull
 #  showCategory
@@ -221,10 +222,15 @@ sub Email_Turns { #email turns out to the appropropriate players
 	my ($GameFile, $GameVs, $Attach) = @_;
 	my %GameVals = %$GameVs;
 	my $Message;
+  my @CHK;
+  my @CHK_Status;
+  my @CHK_Player;
 #	while ( my ($key, $value) = each(%GameVals) ) { print "<P>$key => $value\n"; }
-	# If you're emailing attachments, only do so to people who have requested it
+	# If you're emailing, only do so to people who have requested it
 	# Otherwise mail the active people. 
-	my $sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerStatus)=1)) ORDER BY GameUsers.PlayerID;|;
+  # This expects to get all the players. Filtering it by status is bad. 
+  #my $sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerStatus)=1)) ORDER BY GameUsers.PlayerID;|;
+	my $sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') ) ORDER BY GameUsers.PlayerID;|;
 	my ($User_Login, $Email, $PlayerID, $EmailTurn) = &Load_EmailAddresses($GameFile, $sql);
 	my @User_Login = @$User_Login;
 	my @Email      = @$Email; 
@@ -232,10 +238,21 @@ sub Email_Turns { #email turns out to the appropropriate players
 	my @EmailTurn  = @$EmailTurn;
   my $user_count =  @User_Login;
 	&LogOut(201, "Email_Turns: User Count $user_count for $GameFile", $LogFile); 
+
+  @CHK = &Read_CHK($GameFile); # Get the current game values looking for deceased players
+ 	my($Position) = '3';
+ 	while (@CHK[$Position]) {  # read in CHK File
+ 		($CHK_Status, $CHK_Player) = &Eval_CHKLine(@CHK[$Position]);
+#     if ($CHK_Status eq 'Deceased') { $del = '<del>'; $del2 = '</del>';}
+    push @CHK_Status, $CHK_Status; # Note starts at 0;
+    push @CHK_Player, $CHK_Player; # Note starts at 0;
+     $Position++; 
+   }
+  
   # User count is number of players, but the values are in an array
   # So we need to adjust user count to make the range 0 to end of array
 	for (my $i = 0; $i <= ($user_count-1); $i++) {
-		&LogOut(201, "Email_Turns: Starting Loop to email $Email[$i] for $GameFile", $LogFile); 
+		&LogOut(201, "Email_Turns: Starting Loop to email i: $i, Email: $Email[$i], $CHK_Status[$i], $CHK_Player[$i] for $GameFile", $LogFile); 
 		$Message = '';
 		# This subject line is here because it has the player information that 
 		# isn't available until you get to here. 
@@ -258,19 +275,37 @@ sub Email_Turns { #email turns out to the appropropriate players
 			$Message .= ".\n";
 		}
 		&LogOut(200, "Email_Turns: Message: $Message", $LogFile);
-		if ($Attach && $EmailTurn[$i] == 1) { # If player has email and attach enabled
-			&LogOut(200,"Email_Turns: Emailing player w attach: T: $Email[$i], F: $mail_from, G: $GameVals{'GameFile'}, P: $PlayerID[$i], T: $GameVals{'HST_Turn'}",$LogFile);
-			&MailAttach($Email[$i], $mail_from, $Subject, $Message, $GameFile, $PlayerID[$i], $GameVals{'HST_Turn'});
-		} elsif ( $PlayerID == 0 ) { # If this is email to the host
+# 		if ($Attach && $EmailTurn[$i] == 1 && $CHK_Status[$i] ne 'Deceased') { # If player has email and attach enabled and isn't dead
+# 			&LogOut(200,"Email_Turns: Emailing player w attach: T: $Email[$i], F: $mail_from, G: $GameVals{'GameFile'}, P: $PlayerID[$i], T: $GameVals{'HST_Turn'}",$LogFile);
+# 			&MailAttach($Email[$i], $mail_from, $Subject, $Message, $GameFile, $PlayerID[$i], $GameVals{'HST_Turn'});
+# 		} elsif ( $PlayerID == 0 ) { # If this is email to the host
+#      	&LogOut(200,"Email_Turns: Emailing host: T: $Email[$i], F: $mail_from, G: $GameVals{'GameFile'}, P: $PlayerID[$i], T: $GameVals{'HST_Turn'}",$LogFile);
+# 			&Mail_Send($smtp, $Email[$i], $mail_from, $Subject, $Message);
+# 			&Mail_Close($smtp);
+# 		} else {
+# 			$smtp = &Mail_Open;
+# 			&LogOut(200,"Email_Turns: Emailing player: $Email[$i], $mail_from, $Subject, $Message",$LogFile);
+# 			&Mail_Send($smtp, $Email[$i], $mail_from, $Subject, $Message);
+# 			&Mail_Close($smtp);
+# 		}
+    
+		if ( $PlayerID == 0 ) { # If this is email to the host
      	&LogOut(200,"Email_Turns: Emailing host: T: $Email[$i], F: $mail_from, G: $GameVals{'GameFile'}, P: $PlayerID[$i], T: $GameVals{'HST_Turn'}",$LogFile);
 			&Mail_Send($smtp, $Email[$i], $mail_from, $Subject, $Message);
 			&Mail_Close($smtp);
-		} else {
-			$smtp = &Mail_Open;
-			&LogOut(200,"Email_Turns: Emailing player: $Email[$i], $mail_from, $Subject, $Message",$LogFile);
-			&Mail_Send($smtp, $Email[$i], $mail_from, $Subject, $Message);
-			&Mail_Close($smtp);
-		}
+    } elsif ($CHK_Status[$i] ne 'Deceased') {
+		  if ($EmailTurn[$i] == 1 ) {
+        if ($Attach) { # If player has email and attach enabled and isn't dead
+    			&LogOut(200,"Email_Turns: Emailing player w attach: T: $Email[$i], F: $mail_from, G: $GameVals{'GameFile'}, P: $PlayerID[$i], T: $GameVals{'HST_Turn'}",$LogFile);
+    			&MailAttach($Email[$i], $mail_from, $Subject, $Message, $GameFile, $PlayerID[$i], $GameVals{'HST_Turn'});
+    		} else {
+    			$smtp = &Mail_Open;
+    			&LogOut(200,"Email_Turns: Emailing player: $Email[$i], $mail_from, $Subject, $Message",$LogFile);
+    			&Mail_Send($smtp, $Email[$i], $mail_from, $Subject, $Message);
+    			&Mail_Close($smtp);
+    		}
+      }
+    }
 	}
 }
 
@@ -295,12 +330,11 @@ sub Load_EmailAddresses {
     $sth->finish();
   }	
 
-  #BUG: A player in the game more than once will be in the list more than once. 
   # Only add the host if they're not in the game
   if (!grep { $_ eq $Host{'HostName'} } @User_Login) {
     push @User_Login, $Host{'HostName'};
     push @Email, $Host{'User_Email'};
-    push @PlayerID, 0;  # The host doesnt have a player ID
+    push @PlayerID, 0;  # The host doesn't have a player ID
     push @EmailTurn, $Host{'EmailTurn'}; # Use Host turn value to whether they get emailed
   }
 	&DB_Close($db);
@@ -1332,7 +1366,6 @@ sub process_game_status {
 			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
 		} elsif ($GameValues{'GameType'} == 2) { # Hourly game
 			# Determine when the next possible time is that turns are due
-      # BUG: This doesn't include the calculation from FixNextTimeDST
       # Generate the next turn now + number of hours (sliding)
       $NewTurn = time() + ($GameValues{'HourlyTime'} *60 *60); 
       #221110 Fixing for DST
@@ -1343,8 +1376,12 @@ sub process_game_status {
       while (&ValidTurnTime($NewTurn,'Hour',$GameValues{'DayFreq'}, $GameValues{'HourFreq'}) ne 'True') { $NewTurn = $NewTurn + 3600; } 
 			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
 		} else {
-      # BUG: Is there an issue here for DST?
-      $NewTurn = time()+86400;  # There really is no time the next turn will be due. Add a day so there's a buffer.
+      # There really is no time the next turn will be due. Add a day so there's a buffer.
+      my $epoch_now = time();
+      # Convert epoch time to a DateTime object in the desired time zone
+      my $dt = DateTime->from_epoch(epoch => $epoch_now, time_zone => 'America/New_York');      
+      $dt->add(days => 1); # Add one day, taking DST into account
+      $NewTurn = $dt->epoch();  # Convert back to epoch time
 			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
     }
     $GameValues{'GameStatus'} = 2; # When used later
@@ -1371,6 +1408,8 @@ sub process_game_status {
     $state_set = 1;
     # Back up the last turn. Useful for how movie making works, as it reads the backed up turns
 	  if (my $turn = &Game_Backup($GameValues{'GameFile'})) { &LogOut(200,"Ended: Gamefile $GameValues{'GameFile'} Backed up for Turn: $turn",$LogFile); }
+    # create the graph of the game score
+    &graph_score($GameValues{'GameFile'});
   } elsif ($state eq 'Restart') {
     $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\' AND GameStatus = 9;|;
     $GameValues{'GameStatus'} = 4; # When used later
@@ -1511,4 +1550,123 @@ sub get_user {
   my $user_id = $>; # Get effective user ID
   my $user_info = getpwuid($user_id);  # Get user info
   return $user_info;
+}
+
+# Graph a games current score
+sub graph_score {
+  my ($GameFile) = @_;
+  use GD;      # for font names
+  use GD::Graph::lines;
+
+  my @singularRaceNames;
+  my @AllDirs; # The list of all directories
+  my $dirname; # individual directory name
+
+  #########################################        
+  # Name of the Game (the prefix for the .xy file)
+  my $sourcedir = "$Dir_Games/$GameFile";
+  unless (-d $sourcedir) { 
+    &LogOut(0, "graph_score: Directory $sourcedir does not exist", $ErrorLog);
+    die "Directory $sourcedir does not exist!\n"; 
+  }
+  # Where final image will live
+  my $graphPath = "$Dir_Graphs/graphs/$GameFile.png";
+
+  # Get all of the years from the backup subdirectories
+  # Expectation is folder structure is turn/year
+  opendir(DIRS, $sourcedir) || die("Cannot open $sourcedir\n"); 
+  @AllDirs = readdir(DIRS);
+  closedir(DIRS);
+
+  # Get the race names, and resource count
+  # Loop through all of the directories 
+  # On the first pass through, grab the player names
+  my $firstPass = 1;
+  my %score; 
+  my $lastturn;
+  my $highscore=0;
+  my @turns;
+  foreach $dirname (@AllDirs) {
+    next if $dirname =~ /^\.\.?$/; # skip . and ..
+    if ($dirname =~ /BACKUP/) {  next; }  # Skip the default stars Backup folder(s)
+    unless ($dirname =~ /[0-9][0-9][0-9][0-9]/) {  next; }  # Skip if not a year folder
+    my $isdir = "$sourcedir/$dirname";
+    unless (-d $isdir) { next; } # Skip if the directory is a file
+    # print "Year: $dirname\n";
+    push @turns, $dirname;
+    opendir (DIR, "$sourcedir/$dirname") or die "can\'t open directory $sourcedir/$dirname\n";
+    while (defined($filename = readdir (DIR))) {
+      next if $filename =~ /^\.\.?$/; # skip . and ..
+      # Grab the race names from the first .hst file
+      if ($firstPass) {
+        $firstPass = 0; # Don't do this again
+        my $HST = "$sourcedir/$dirname/" . $GameFile . '.hst';
+        if (-f $HST) {
+          ($singularRaceNames, $score) = &getScores($HST);
+          @singularRaceNames = @{$singularRaceNames};
+          # print "Singular: @singularRaceNames\n";
+        } else { 
+          &LogOut(0, "graph_score: .hst file $HST not found", $ErrorLog);
+          die ".hst file $HST not found\n"; 
+        }
+      }
+      # Only for the .m files
+      # Score blocks aren't in the .hst File. 
+      if ($filename =~ /^(\w+[\w.-]+\.[Mm]\d{1,2})$/) { 
+        $lastturn = $dirname;
+        my $MFile = "$sourcedir/$dirname/$filename";
+        my ($singularRaceNames, $score, $turn, $player) = &getScores($MFile);
+        if ($dirname eq '2400') { $score = 0; }
+        #print "\tPlayer: $player\tScore: $score\tFile: $MFile \n";
+        $score{$player}{$turn} = $score;
+        if ($score > $highscore) { $highscore = $score; }
+      }
+    }
+    closedir(DIR);
+  }
+  $highscore = $highscore+1000; # Just makes it graph better. 
+
+  # Determine the race names 
+  # Race names must be the Singular
+  #@numbers = (1.. scalar @singularRaceNames);
+
+  push @data, \@turns; # put turns into data array
+
+  foreach my $playerId (sort keys %score) {
+    my @pscore;
+    # print "Player: $playerId\t";
+    foreach my $turn (sort {$score{$playerId}{$a} <=> $score{$playerId}{$b}} keys %{ $score{$playerId} }) {
+      push @pscore,$score{$playerId}{$turn};
+    }
+    # print "score: @pscore\n";
+    push @data, \@pscore; # adds each player score array to the data array
+  }
+
+  my $graph = new GD::Graph::lines( );
+
+  $graph->set(
+          title             => "$GameFile",
+          x_label           => 'Year',
+          y_label           => 'Resources',
+          y_max_value       => $highscore,
+          x_tick_number     => 'auto',
+          y_tick_number     => 10,
+          x_all_ticks       => 1,
+          y_all_ticks       => 0,
+          y_label_skip      => 3,
+          y_number_format   => '%d',
+          transparent       => 0,
+          bgclr             => 'white',
+      );
+
+  $graph->set_legend_font(GD::gdFontTiny);
+  $graph->set_legend(@singularRaceNames);
+
+  my $gd = $graph->plot( \@data );
+
+  open OUT, ">$graphPath" or die "Couldn't open for output: $!";
+  binmode(OUT);
+  print OUT $gd->png( );
+  close OUT;
+  &LogOut(200, "graph_score: Graph file created at: $graphPath", $LogFile);
 }
