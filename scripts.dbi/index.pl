@@ -48,15 +48,16 @@ $cookie = $cgi->cookie(TotalHost);
 $id = $session->param('userid');
 $userlogin = $session->param('userlogin');
 
-# BUG: This should be enabled and work, just didn't last I thinkered with it. 
 # If the user happens to be logged in, redirect them to the first game page
-# &LogOut(0,"ID = $id, Login = $userlogin",$ErrorLog); 
-# if ($userlogin) {  
-# 	$redirect =  $WWW_HomePage . $WWW_Scripts . '/page.pl?lp=game&cp=show_first_game';
-# 	print $cgi->redirect( -URL => "$redirect");
-# #	&print_redirect($cgi,$sessionid,$redirect);
-# 	&LogOut(0, "redirect: $redirect", $ErrorLog); 
-# }
+&LogOut(0,"ID = $id, Login = $userlogin",$ErrorLog); 
+if ($userlogin) {  
+	$redirect =  $WWW_HomePage . $WWW_Scripts . '/page.pl?lp=game&cp=show_first_game';
+	#print $cgi->redirect( -URL => "$redirect");
+##	&print_redirect($cgi,$sessionid,$redirect);
+	&LogOut(0, "redirect: $redirect", $ErrorLog); 
+  print "Location: $redirect\n\n";
+  exit;
+}
 
 print $cgi->header();
 &html_top($cgi, $session, $note);

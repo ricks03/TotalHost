@@ -40,7 +40,7 @@ my $commandline = $ARGV[0];
 ($Second, $Minute, $Hour, $DayofMonth, $Month, $Year, $WeekDay, $WeekofMonth, $DayofYear, $IsDST, $CurrentDateSecs) = &GetTime; #So we have the time when we do the HTML
 $CurrentEpoch = time();
 
-my $environment = "Environment: PATH: $ENV{'PATH'}, DISPLAY: $ENV{'DISPLAY'}, PERL5LIB: $ENV{'PERL5LIB'}, WINEPREFIX: $ENV{'WINEPREFIX'}";
+my $environment = "TurnMake: Environment: PATH: $ENV{'PATH'}, DISPLAY: $ENV{'DISPLAY'}, PERL5LIB: $ENV{'PERL5LIB'}, WINEPREFIX: $ENV{'WINEPREFIX'}";
 print "$environment\n";
 &LogOut (400, $environment, $LogFile);
 
@@ -163,9 +163,10 @@ sub CheckandUpdate {
 		#	print $WeekDay . " is a good day\n";
 		#}
     
-    # Don't bother checking if the game is no longer active. BUG: Shouldn't this be filtered out by SQL?
-		if (($GameData[$LoopPosition]{'GameStatus'} != 9) && (&inactive_game($GameData[$LoopPosition]{'GameFile'}))) { # don't gen, and Pause the game
-	  } elsif ($GameData[$LoopPosition]{'GameStatus'} == 2 || $GameData[$LoopPosition]{'GameStatus'} == 3) { # if it's an active game 		
+    # Don't bother checking if the game is no longer active. 
+#		if (($GameData[$LoopPosition]{'GameStatus'} != 9) && (&inactive_game($GameData[$LoopPosition]{'GameFile'}))) { # don't gen, and Pause the game
+#	  } elsif ($GameData[$LoopPosition]{'GameStatus'} == 2 || $GameData[$LoopPosition]{'GameStatus'} == 3) { # if it's an active game 		
+    if (&active_game($GameData[$LoopPosition]{'GameFile'})) { # Only if activity. SQL filtered for status 2 or 3,.
 	    #Game Type = Daily
 			if ($GameData[$LoopPosition]{'GameType'} == 1 && $CurrentEpoch > $GameData[$LoopPosition]{'NextTurn'}) { # GameType: turn set to daily
 				$TurnReady = 'True';
@@ -184,9 +185,6 @@ sub CheckandUpdate {
 					#220717 $NewTurn = $NewTurn + &DaysToAdd($GameData[$LoopPosition]{'DayFreq'},$CWeekDay);
 					$NewTurn = $NewTurn + ($DaysToAdd * 86400);
 				}
-				# and just to be sure, make sure today is ok to generate before we approve everything
-        # BUG: Why are we checking to confirm it's a valid day? What if we miss the valid day?  ? ?  
-#				if (&ValidTurnTime($CurrentEpoch, 'Day', $GameData[$LoopPosition]{'DayFreq'}, $GameData[$LoopPosition]{'HourFreq'}) eq 'True') { $TurnReady = 'True'; }
 				&LogOut(100,"#####New Turn : $NewTurn  TurnReady = $TurnReady",$LogFile);
 				# If there are any delays set, then we need to clear them out, and reset the game status
 				# since if we're generating with a turn missing we've clearly hit the window past the delays.
@@ -399,38 +397,42 @@ sub CheckandUpdate {
 					else { &LogOut(0, "TurnMake: Failed to Reset Game Status for $GameData[$LoopPosition]{'GameFile'} to Active", $ErrorLog); }
 				}
         
-        # Decide whether to set player to Idle
+        # Decide whether to set player to Inactive
         # Read in the game and player information from the .chk File
-        # BUG: Not going to work quite right if the player is in the game more than once. 
-    		my($IdlePosition) = 3;
-        my $IdleMessage = '';
-        while ($CHK[$IdlePosition]) {  #read .m file lines
-    			my ($CHK_Status, $CHK_Player) = &Eval_CHKLine($CHK[$IdlePosition]);
-    			my($Player) = $IdlePosition -2;
+    		my($InactivePosition) = 3;
+        my $InactiveMessage = '';
+        while ($CHK[$InactivePosition]) {  #read .m file lines
+    			my ($CHK_Status, $CHK_Player) = &Eval_CHKLine($CHK[$InactivePosition]);
+    			my($Player) = $InactivePosition -2;  # Since the first two lines are other information
      			my $MFile = $Dir_Games . '/' . $GameData[$LoopPosition]{'GameFile'} . '/' . $GameData[$LoopPosition]{'GameFile'} . '.m' . $Player;
           &LogOut(300, "TurnMake: .m File: $MFile", $LogFile);
           # Get the Turn Year information for the player
     			($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($MFile);
-    			$TurnYears = $HST_Turn -$turn +1; 
+    			$TurnYears = $HST_Turn - $turn + 1; 
           &LogOut(299, "TurnMake: Player: $Player Status: $CHK_Status  TurnYears: $TurnYears Player: $CHK_Player", $LogFile);
     			# Get the Player Status values for the current player
           $GameFile = $GameData[$LoopPosition]{'GameFile'};
+          # Get the player informaton for this player on this row
     			$sql = qq|SELECT Games.GameFile, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, _PlayerStatus.PlayerStatus_txt FROM _PlayerStatus INNER JOIN (User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON _PlayerStatus.PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerID)=$Player));|;
-    			if (my $sth = &DB_Call($db,$sql)) { while (my $row = $sth->fetchrow_hashref()) { %PlayerValues = %{$row}; } }
-    			# If the player is active, AND the number of turns missed is greater than AutoIdle, set the player to Idle
-          &LogOut(300, "TurnMake: Player Status: $PlayerValues{'PlayerStatus'}   AutoIdle: $GameData[$LoopPosition]{'AutoIdle'}  TurnYears: $TurnYears ", $LogFile); 
-    			if (($PlayerValues{'PlayerStatus'} == 1) && ($GameData[$LoopPosition]{'AutoIdle'}) && ($TurnYears >= $GameData[$LoopPosition]{'AutoIdle'})) {
-            &LogOut(300, "TurnMake: Need to set Player $Player to Idle", $LogFile);  
+    			if (my $sth = &DB_Call($db,$sql)) { 
+            my $row = $sth->fetchrow_hashref(); 
+            %PlayerValues = %{$row}; 
+            $sth->finish();
+          } 
+    			# If the player is active, AND the number of turns missed is greater than AutoInactive, set the player to Inactive
+          &LogOut(300, "TurnMake: Player: $Player, Player Status: $PlayerValues{'PlayerStatus'}, AutoInactive: $GameData[$LoopPosition]{'AutoInactive'}, TurnYears: $TurnYears ", $LogFile); 
+    			if (($PlayerValues{'PlayerStatus'} == 1) && ($GameData[$LoopPosition]{'AutoInactive'}) && ($TurnYears >= $GameData[$LoopPosition]{'AutoInactive'})) {
+            &LogOut(300, "TurnMake: Need to set Player $Player to Inactive", $LogFile);  
             $sql = qq|UPDATE GameUsers SET PlayerStatus=4 WHERE PlayerID = $Player AND GameFile = '$GameFile';|;
           	if (my $sth = &DB_Call($db,$sql)) { 
-              &LogOut(100,"TurnMake: Player $Player Status updated to Idle for $GameFile having missed $TurnYears turns", $LogFile); 
+              &LogOut(100,"TurnMake: Player $Player Status updated to Inactive for $GameFile having missed $TurnYears turns", $LogFile); 
               # Create the message for the email
-              $IdleMessage .= $IdleMessage . "Player $Player Status changed to Idle. No turns submitted for $TurnYears turn(s).\n";
+              $InactiveMessage .= $InactiveMessage . "Player $Player Status changed to Inactive. No turns submitted for $TurnYears turn(s).\n";
               $sth->finish(); 
-            } else { &LogOut(0, "TurnMake: Player $Player Status failed to update to Idle for $GameFile", $ErrorLog); }
+            } else { &LogOut(0, "TurnMake: Player $Player Status failed to update to Inactive for $GameFile", $ErrorLog); }
           } else { }  # no need to do anything otherwise 
    			  undef %PlayerValues; # Need to clear array to be ready for the next player
-    			$IdlePosition++;
+    			$InactivePosition++;
     		}
        
 				# Get the array into a format I can pass to the subroutine, which involves converting it to a direct hash.
@@ -442,7 +444,7 @@ sub CheckandUpdate {
 				%GameValues = %$GameValues;
 				$GameValues{'Message'} = "New turn available at $WWW_HomePage\n\n";
         # If any player(s) were set idle, add that to the email notification
-        $GameValues{'Message'} .= $IdleMessage; 
+        $GameValues{'Message'} .= $InactiveMessage; 
 				$GameValues{'HST_Turn'} = $HST_Turn;
 				# Adjust the display value of next turn in case there's DST
 				# Since we've updated last turn, we need to use the original
@@ -499,16 +501,16 @@ sub Turns_Missing {
 	return $TurnsMissing;
 }
 
-sub inactive_game {
+sub active_game {
 	my ($GameFile) = @_;
 	# Determine when the last game turn was submitted
 	my $UserCounter = 0;
-	my $sql = qq|SELECT * FROM GameUsers WHERE GameFile = \'$GameFile\';|;
 	my %UserValues;
 	my $LastSubmitted = -1;
 
 	my $db = &DB_Open($dsn);
 	# Read in all the user data for the game.
+	my $sql = qq|SELECT * FROM GameUsers WHERE GameFile = \'$GameFile\';|;
 	if (my $sth = &DB_Call($db,$sql)) { 	
     while (my $row = $sth->fetchrow_hashref()) { 
       my %UserValues = %{$row};
@@ -530,14 +532,14 @@ sub inactive_game {
 		# End/Pause the game
 		$sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameFile\'|;
 		if (my $sth = &DB_Call($db,$sql)) {
-			&LogOut(100, "inactive_game: $GameFile Ended/Paused. $log", $LogFile);
+			&LogOut(100, "active_game: $GameFile Ended/Paused. $log", $ErrorLog);
       print "$log\n";
       $sth->finish(); 
 		} else {
-			&LogOut(0, "inactive_game: $GameFile Failed to end $log, $sql", $ErrorFile);
+			&LogOut(0, "active_game: $GameFile Failed to end $log, $sql", $ErrorFile);
 		}
-		return 1; 
-	} else { return 0; }
+		return 0; 
+	} else { return 1; }
 	&DB_Close($db); 
 }
 

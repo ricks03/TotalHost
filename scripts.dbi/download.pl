@@ -86,7 +86,7 @@ my $sql;
 if ($file =~ /^(\w+[\w.-]+\.xy)$/) { 
   $download_ok = 1; 
   $filetype='xy';  
-  $outputfile = "$Dir_Games/$gamefile/$file"; # BUG: gamefile not fully sanitized
+  $outputfile = "$Dir_Games/$gamefile/$file"; 
 # if it's a .m[n] file, validate who wants it before they get it
 } elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2})$/) { 
 	$filetype='m';
@@ -231,8 +231,9 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
       $messageFile =  $gamelocation . '/' . $GameFile  . '.msg';
       if (-f $messageFile && $hostAccess) { unlink $messageFile; }
       unless ($hostAccess) { 
-        $messageFile .= $id;
-        if (-f $messageFile) { unlink $messageFile; } # BUG: I think in the case that the player is in the game more than one it leaves behind a file
+        #$unlinkFile .=  $messageFile . $id;
+        $unlinkFile .=  $messageFile;
+        if (-f  $unlinkFile) { unlink  $unlinkFile; } 
       }
     }
     $sth->finish();
