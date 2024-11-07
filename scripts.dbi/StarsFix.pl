@@ -251,19 +251,3 @@ if ($needsFixing && $fixFiles > 1) {
 #     public static int SLOT_START_INDEX = 16;
 #     public static int ENGINE_COUNT_INDEX = 17;
 #     public static int SLOT_COUNT_INDEX = 48;
-
-# sub deleteCargo { 
-#   my ($cargo, $cargoCapacity, $fuelCapacity, $cargoRatio, $fuelRatio, $mass) = @_;
-#   # Adjust the cargo for the deleted design
-#   # BUG: The calculation for the cargo and fuel post design deletion will be +- 1 occasionally. 
-#   # BUG: Should also be for split fleets, duplicate code.
-#   my @cargo = split( chr(31), $cargo);
-#     for (my $k=0; $k <=3; $k++ ){
-#       $cargo[$k] = int(.5 + ($cargo[$k] * $cargoRatio)); # adjust the cargo based on the deleted design
-#       $mass += $cargo[$k]; 
-#     }
-#   $cargo[4] = int(.5 + ($cargo[4] * $fuelRatio));
-#   
-#   return join(chr(31), @cargo), $mass; 
-# }
-

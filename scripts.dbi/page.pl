@@ -252,7 +252,7 @@ if ($in{'cp'} eq 'edit_profile') {
 	if ($First{'GameFile'}) {
     unless ($First{'GameStatus'} == 7) { &show_game($First{'GameFile'});}
     else { &show_game($First{'GameFile'}); }
-	} else {	print "No active games found for your ID.\n"; $in{'rp'} eq 'games'; }         # BUG: Why is this not showing games in rp
+	} else {	 $in{'rp'} eq 'games'; print "No active games found for your ID.\n"; $in{'rp'} = 'games'; }
 	print "</td>";
 } elsif ($in{'cp'} eq 'show_new') { 
 	my $sql = qq|SELECT * FROM Games WHERE GameStatus=7 OR GameStatus=0;|;
@@ -432,10 +432,6 @@ if ($in{'cp'} eq 'edit_profile') {
 		print "<td>"; &delete_confirm($in{'GameFile'}); print "</td>";
 } elsif ($in{'cp'} eq 'welcome') {
 		&show_html($welcome);
-} elsif ($in{'cp'} eq 'DeactivateProfile') {
-		# Deactivate a user's profile. 
-    # BUG: Not enabled yet
-    #my $sql = qq|SELECT * FROM User WHERE User_Login = \'| . $session->param("userlogin") . qq|\';|;
 } else {	
 	print "<td>\n"; 
 	$in{'Type'} = 'Table';
@@ -606,7 +602,6 @@ print <<eof;
 <form>
 eof
 
-#print qq|<BUTTON $host_style type="submit" name="cp" value="Deactivate Profile" | . &button_help('DeactivateProfile') .  qq|>Deactivate Profile</BUTTON>\n|; $button_count = &button_check($button_count);
 print "</form></td>\n";
 }
 
@@ -1641,7 +1636,6 @@ sub process_game_launch {
     $sth->finish();
 	}
 
-  
   # Get Game Values
 	my $sql = qq|SELECT * FROM Games WHERE GameFile = '$GameFile';|;
 	if (my $sth = &DB_Call($db,$sql)) {
@@ -1658,7 +1652,6 @@ sub process_game_launch {
 		# based on the sort order from the random Player IDs
 		for (my $i=1; $i <=$counter; $i++) {
       # Attempt to make the SQL query unique. 
-      # BUG (Minor): Will fail if the same user joined twice with the same race in the same second.
 			$sql = 	qq|UPDATE GameUsers SET PlayerID = $i WHERE PlayerID = $GameUserData[$i]{'PlayerID'} AND GameFile = '$GameFile' AND JoinDate = $GameUserData[$i]{'JoinDate'} AND RaceID = $GameUserData[$i]{'RaceID'};|;
 			my $sth = &DB_Call($db,$sql);
       $sth->finish(); 
@@ -2273,8 +2266,8 @@ sub edit_game {
 	print qq|<INPUT type="checkbox" name="GameDelay" | . &button_help("GameDelay") . qq| $Checked[$GameValues{'GameDelay'}]>Players can Delay turn\n|;
 	print qq|<INPUT name="NumDelay" size=3 | . &button_help("NumDelay") . qq| value=$GameValues{'NumDelay'}> times.\n|;
 	print qq|Delays reset when the sum drops below <INPUT name="MinDelay" size=3 | . &button_help("MinDelay") . qq| value=$GameValues{'MinDelay'}>.\n|;
-	unless ($GameValues{'AutoIdle'}) { if ($type eq 'create') { $GameValues{'AutoIdle'} = 0; }}
-	print qq|<P>Players will automatically go Idle after missing <INPUT name="AutoIdle" size=2 | . &button_help("AutoIdle") . qq| value=$GameValues{'AutoIdle'}> turns ("0" is disabled).\n|;
+	unless ($GameValues{'AutoInactive'}) { if ($type eq 'create') { $GameValues{'AutoInactive'} = 0; }}
+	print qq|<P>Players will automatically go Inactive after missing <INPUT name="AutoInactive" size=2 | . &button_help("AutoInactive") . qq| value=$GameValues{'AutoInactive'}> turns ("0" is disabled).\n|;
   print qq|<P><TABLE><TR><TD>\n|;
 	if ($type eq 'create') { $GameValues{'HostMod'} = 1; }
 	print qq|<b><INPUT type="checkbox" name="HostMod" | . &button_help("HostMod") . qq| $Checked[$GameValues{'HostMod'}]>Host can Modify Game Settings</b>\n|;
@@ -2425,10 +2418,10 @@ sub update_game {
     if ($ForceGenTurns > 10) { $ForceGenTurns = 10; }
     if ($ForceGenTimes > 50) { $ForceGenTime = 50; }
   }
-  my $AutoIdle = $in{'AutoIdle'}; 
-  # Validate AutoIdle
-  $AutoIdle = &clean($AutoIdle);
-  if ($AutoIdle =~ /^\d+\z/) {} else { $AutoIdle = 0; };
+  my $AutoInactive = $in{'AutoInactive'}; 
+  # Validate AutoInactive
+  $AutoInactive = &clean($AutoInactive);
+  if ($AutoInactive =~ /^\d+\z/) {} else { $AutoInactive = 0; };
 	my $HostMod = &checkboxnull($in{'HostMod'}); 
 	my $HostForceGen = &checkboxnull($in{'HostForceGen'}); 
 	my $NoDuplicates = &checkboxnull($in{'NoDuplicates'});
@@ -2482,7 +2475,6 @@ sub update_game {
 
  	my $db = &DB_Open($dsn);
 	if ($in{'type'} eq 'edit') {
-    # AutoInactive is, deceptively, the AutoIdle feature
     # in order to avoid a DB update
     my @Values;
    	my $sql = qq|UPDATE Games  SET 
@@ -2515,7 +2507,7 @@ sub update_game {
 								PublicMessages = '$PublicMessages',
 								Notes = '$in{'Notes'}', 
 								MaxPlayers = $MaxPlayers, 
-								AutoInactive = $AutoIdle
+								AutoInactive = $AutoInactive 
 								WHERE GameFile = '$in{'GameFile'}' AND HostName = '$userlogin';|;
                 
     # Store new game conditions
@@ -2911,7 +2903,7 @@ sub read_game {
 	if ($GameValues{'SharedM'}) { push (@Values, "Shared M Files"); }
 	if ($GameValues{'HostAccess'}) { push (@Values, "Host Access"); }
 	if ($GameValues{'PublicMessages'}) { push (@Values, "Public Messages"); }
-	if ($GameValues{'AutoIdle'}) { push (@Values, "AutoIdle after $GameValues{'AutoIdle'} turns missed"); }
+	if ($GameValues{'AutoInactive'}) { push (@Values, "AutoInactive after $GameValues{'AutoInactive'} turns missed"); }
 	if ($GameValues{'MaxPlayers'}) { push (@Values, "Max $GameValues{'MaxPlayers'} players allowed to join"); }
   if (-f "$Dir_Games/$GameValues{'GameFile'}/fix" ) {
     if ($fixFiles < 2) { push (@Values, "Exploit Detection configured"); }
@@ -3312,7 +3304,7 @@ sub process_delay {
 
     # If we're too low on delays, reset everyone
 		if ($SumOfDelaysLeft < $MinDelay) { 
-			$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.DelaysLeft = [NumDelay] WHERE (((Games.GameFile)=\'$GameFile\'));|;
+			$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.DelaysLeft = $GameValues{'NumDelay'} WHERE (((Games.GameFile)=\'$GameFile\'));|;
 			if (my $sth = &DB_Call($db,$sql)) { 
 				$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Turn Delays reset|;
 				$GameValues{'Message'} = qq|A recent player for the $GameValues{'GameName'} game has delayed the game, causing a reset of the number of player delays available. You can now delay the game $GameValues{'NumDelay'} times.|;

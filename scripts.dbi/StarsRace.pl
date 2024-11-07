@@ -349,7 +349,7 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         if ($fullDataFlag) {
         # https://sourceforge.net/p/stars-nova/svn/HEAD/tree/trunk/Common/RaceDefinition/RaceAdvantagePointCalculator.cs#l22
         # https://sourceforge.net/p/freestars/code/HEAD/tree/trunk/Server/Race.cpp#l141
-        # BUG: Not done integrating supernova/freestars yet.
+        # BUG: Not done integrating supernova/freestars point calculations yet.
         my $points = 1650; 
         my @scienceCost = ( 150, 330, 540, 780, 1050, 1380 );
         my @LRT=&LRT($LRT,0); 
