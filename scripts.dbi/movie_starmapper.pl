@@ -66,7 +66,7 @@ if (!($GameFile)) {
   print "\n\nUsage: movie_starmapper.pl <game file prefix>\n\n";
   print "Please enter the game file name. Example: \n";
   print "  movie_starmapper.pl abdd466g\n\n";
-  print "Creates a graph of a game\'s resources:\n";
+  print "Creates a map of a game\'s play:\n";
   print "A new file will be created: <filename>.mov\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
@@ -93,8 +93,10 @@ dircopy($sourcedir, $destdir);
 # Get all of the years  from the backup subdirectories
 # Expectation is folder is turn/year
 opendir(DIRS, $destdir) || die("Cannot open $destdir\n"); 
-@AllDirs = readdir(DIRS);
+@AllDirs = sort readdir(DIRS);
 closedir(DIRS);
+# Include only directories with exactly four digits in their names
+@AllDirs = grep { /^\d{4}$/ } @AllDirs;
 
 # Get the race names, and remove passwords
 # Loop through all of the directories to reset the passwords on the .m files
@@ -103,16 +105,17 @@ my $firstPass = 1;
 foreach $dirname (@AllDirs) {
   next if $dirname =~ /^\.\.?$/; # skip . and ..
   if ($dirname =~ /BACKUP/) {  next; }  # Skip the default stars Backup folder(s)
-  my $isdir = "$destdir\\$dirname";
+  my $isdir = "$destdir/$dirname";
+  print "isdir: $isdir\n";
   unless (-d $isdir) { next; } # Skip if the directory is a file
-  
-  opendir (DIR, "$destdir\\$dirname") or die "can't open directory $destdir\\$dirname\n";
+  print "IsDir = $isdir\n";
+  opendir (DIR, "$destdir/$dirname") or die "can't open directory $destdir/$dirname\n";
   while (defined($filename = readdir (DIR))) {
     next if $filename =~ /^\.\.?$/; # skip . and ..
     # Grab the race names from the first ..hst file
     if ($firstPass) {
       $firstPass = 0; # Don't do this again
-      my $HST = "$destdir\\$dirname\\" . $GameFile . '.hst';
+      my $HST = "$destdir/$dirname/" . $GameFile . '.hst';
       if (-e $HST) {
         @singularRaceNames = &getRaceNames($HST);
         print "Singular Race Names: @singularRaceNames" . "\n";
@@ -120,7 +123,7 @@ foreach $dirname (@AllDirs) {
     }
     # Only for the .m files
     if ($filename =~ /^(\w+[\w.-]+\.[Mm]\d{1,2})$/) { 
-      my $MFile = "$destdir\\$dirname\\$filename";
+      my $MFile = "$destdir/$dirname/$filename";
       print "\tRemoving Password: $MFile\n";
       # Remove the password
       &StarsPWD($MFile);
@@ -138,14 +141,15 @@ foreach $dirname (@AllDirs) {
 #   Generate the .map file (need only one)
 #   Stars! -dm mygame.m1    <-- Dump the universe definition and exit
 my $map;
-$map = $executable;
-$map .= ' -dm ' . $destdir . '\\2400\\' . $GameFile . '.m' . $numbers[0];
-print "map: $map\n";
-system ($map);
+$map = $WINE_executable . ' -dm ' .  "$Dir_WINE\\$WINE_Games\\\\$GameFile\.mov" . "\\\\2400\\\\$GameFile" . '.m' . $numbers[0];
+
+print "DM: $map\n";
+
+my $exit_status = &call_system ($map);
 # copy out the map file. You need only one
-$file1 = $destdir . '\\2400\\' . $GameFile . '.map';
-$file2 = $destdir . '\\' .$GameFile . '.map';
-print "$file1 > $file2\n";
+$file1 = $destdir . '/2400/' . $GameFile . '.map';
+$file2 = $destdir . '/' .$GameFile . '.map';
+print "Copy $file1 > $file2\n";
 copy("$file1","$file2") or die "Copy MAP failed: $!";
 # Wait patiently, Stars! doesn't like to be launched over and over.
 sleep 2;
@@ -153,7 +157,8 @@ sleep 2;
 #   Generate the .pla files
 #   Stars! -dp mygame.m1    <-- Dump player 1's planets and exit
 # Assumes only directories with turn files
-foreach $dirname (@AllDirs) {
+print "Moving on to PLA files\n";
+foreach $dirname (@AllDirs) { # Dirname is the year value
   my $pla;
 	# Skip all . directories
 	if ($dirname =~ /\./) {  next; }
@@ -161,15 +166,21 @@ foreach $dirname (@AllDirs) {
 	if ($dirname =~ /BACKUP/) {  next; }
 
 	foreach $number (@numbers) {
-		$pla = $executable;
-		$pla .= ' -dp ' . $destdir . '\\' . $dirname . '\\' . $GameFile . '.m' . $number;
-		$file1 = $destdir . '\\' . $dirname . '\\' . $GameFile . '.p' . $number;
-    $file2 = $destdir . '\\' . $GameFile . ' ' . $dirname . '.p' . $number;
+  
+#   	$pla = $executable;
+# 		$pla .= ' -dp ' . $destdir . '\\' . $dirname . '\\' . $GameFile . '.m' . $number;
+# 		$file1 = $destdir . '\\' . $dirname . '\\' . $GameFile . '.p' . $number;
+#     $file2 = $destdir . '\\' . $GameFile . ' ' . $dirname . '.p' . $number;  
+
+		$pla = $WINE_executable . " -dp  $Dir_WINE\\$WINE_Games\\\\$GameFile\.mov\\\\$dirname\\\\$GameFile" . '.m' . $number;
+    print "DP: $pla\n";
+		$file1 = "$destdir/$dirname/$GameFile" . '.p' . $number;
+    $file2 = "$destdir/$GameFile $dirname" . '.p' . $number;
 		#print "pla: $pla\n";
     unless (-e $file2) {  # If the file is already there, no need to create
-  		system ($pla);
+  		my $exit_status = &call_system($pla);
   		# and move/rename the file to the format/location for starmapper
-  		print "$file1 > $file2\n";
+  		print "PLA CP: $file1 > $file2\n";
   		copy($file1,$file2) or die "Copy PLA failed for $file1, $file2: $!";
   		# Wait patiently, Stars! doesn't like to be launched over and over.
   		sleep 2;
@@ -178,7 +189,7 @@ foreach $dirname (@AllDirs) {
 }
 
 # configure the Starmapper ini file
-$DataOutFile = $destdir . '\\' . $GameFile . '.ini';
+$DataOutFile = $destdir . '/' . $GameFile . '.ini';
 open (INIFILE, ">$DataOutFile");
 print INIFILE "; Starmapper ini file for $GameFile\n";
 print INIFILE "[players]\n";
@@ -226,25 +237,26 @@ print INIFILE "\n";
 close INIFILE;
 
 # configure the Starmapper command file
-$DataOutFile = $destdir . '\\' . 'starmapper_' . $GameFile . '.bat';
+$DataOutFile = $destdir . '/' . 'starmapper_' . $GameFile . '.bat';
 open (MAPFILE, ">$DataOutFile");
 my $mapfile = $starmapper . " $GameFile";
 foreach $number (@numbers) { $mapfile .= " $number"; }
 print MAPFILE $mapfile . "\n";
 close MAPFILE;
 chdir $destdir;
-system($DataOutFile);
+
+$exit_status = &call_system($DataOutFile); # Run starmapper
 
 # Initialize the Image command file
-$DataOutFile = $destdir . '\\image_' . $GameFile . '.bat';
+$DataOutFile = $destdir . '/image_' . $GameFile . '.bat';
 open (IMGFILE, ">$DataOutFile");
 # Create an animated gif from the Starmapper .PCX files.
-print IMGFILE "\"" . $imagemagick . "\"" . " -loop 1 -delay 100 " . " \"$destdir\\$GameFile *.PCX\" $moviePath" . '\\movie_' . "$GameFile.gif\n";
+print IMGFILE "\"" . $imagemagick . "/" . " -loop 1 -delay 100 " . " \"$destdir/$GameFile *.PCX\" $moviePath" . '/movie_' . "$GameFile.gif\n";
 close IMGFILE;
-system($DataOutFile);
+$exit_status = &call_system($DataOutFile);  # Run imagemagic (requires successful starmapper)
 
 die "Done! Delete the folder $destdir\n";
-if ($destdir) { rmtree($destdir) or die "$!: for directory $destdir\n"; }
+#if ($destdir) { rmtree($destdir) or die "$!: for directory $destdir\n"; }
 
 ##########################################
 ##########################################

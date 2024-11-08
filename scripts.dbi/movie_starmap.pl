@@ -26,7 +26,7 @@
 
 
 # Name of the Game (the prefix for the .xy file)
-$GameFile = "dark";  
+$GameFile = $ARGV[0]; # input file
 
 # Stars EXE
 $executable= "E:\\Stars!\\stars26j\\stars.exe";
