@@ -904,16 +904,20 @@ sub LoadGamesInProgress {
 sub Make_CHK { 
 # Updates the .chk file for a game
 	my($GameFile) = @_;
+	my $HST_FILE = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.hst';
   # Stars! does not like forward slashes as command-line parameters
-  my($CheckGame) = $WINE_executable . ' -v ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile\.hst";
+  # Don't run if there's no HST file
+  if (-e $HST_FILE) {
+    my($CheckGame) = $WINE_executable . ' -v ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile\.hst";
 
-  my $chkfile = "$Dir_Games/$GameFile/$GameFile" . '.chk';
-  &LogOut(200, "Make_CHK: Running for $GameFile, $CheckGame, $chkfile", $LogFile);  
-  my $exit_status = &call_system($CheckGame,0); # Make_CHK
-  if (-f $chkfile) {
-    umask 0002; 
-    chmod 0664, $chkfile; 
-  }
+    my $chkfile = "$Dir_Games/$GameFile/$GameFile" . '.chk';
+    &LogOut(200, "Make_CHK: Running for $GameFile, $CheckGame, $chkfile", $LogFile);  
+    my $exit_status = &call_system($CheckGame,0); # Make_CHK
+    if (-f $chkfile) {
+      umask 0002; 
+      chmod 0660, $chkfile; 
+    }
+  } else { &LogOut(400, "Make_CHK: no HST file $HST_FILE", $LogFile); }
   # print "Command failed with exit status: $exit_status\n";
 	#sleep 2;
 }
@@ -923,12 +927,15 @@ sub Read_CHK {
 	my($GameFile) = @_;
 	my @CHK;
 	my $CHK_FILE = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.chk';
+	my $HST_FILE = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.hst';
   &LogOut(200, "Read_CHK: Running for $CHK_FILE", $LogFile);
+  if (-e $HST_FILE) {
   # IF for some reason there's no .chk file, make one. 
-  unless (-e $CHK_FILE) { &Make_CHK($GameFile); }
+  unless (-e $CHK_FILE ) { &Make_CHK($GameFile); } # Onlt execute if CHK_FILE does not exi
   open (IN_CHK,$CHK_FILE) || &LogOut(0,"Read_CHK: Cannot open stupid .chk file $CHK_FILE for $GameFile",$ErrorLog);
   chomp (@CHK = <IN_CHK>);
  	close(IN_CHK);
+  } else { &LogOut(400, "Read_CHK: no HST file $HST_FILE", $LogFile); }
  	return @CHK;
 }
 
@@ -958,8 +965,8 @@ sub Eval_CHKLine {
 # Evaluate one of the lines from a .chk file
 	my ($ChkResult) = @_;
 	my $ChkStatus, $ChkPlayer = '';
-	# Possible results: turned in, still out, not in the right game, dead, not on the right year, error
-	foreach $key (keys(%TurnResult)) {
+	# Possible results: turned in, still out, not in the right game, dead, not on the right year, error, hack (hacked race)
+	foreach $key (keys(%TurnResult)) {  # This should be declared locally
 		if (index($ChkResult, $key) >= 0 ) { $ChkStatus = $TurnResult{$key}; }
 	}
 	$ChkPlayer = $ChkResult;
@@ -1571,12 +1578,13 @@ sub graph_score {
   }
   # Where final image will live
   my $graphPath = "$Dir_Graphs/graphs/$GameFile.png";
-
+  &LogOut(400, "graph_score: graphPath = $graphPath\n", $LogFile);
   # Get all of the years from the backup subdirectories
   # Expectation is folder structure is turn/year
-  opendir(DIRS, $sourcedir) || die("Cannot open $sourcedir\n"); 
+  opendir(DIRS, $sourcedir) || die("Cannot open $sourcedir"); 
   @AllDirs = readdir(DIRS);
   closedir(DIRS);
+  &LogOut(400, "graph_score: sourcedir = $sourcedir", $LogFile);
 
   # Get the race names, and resource count
   # Loop through all of the directories 
@@ -1625,7 +1633,6 @@ sub graph_score {
     closedir(DIR);
   }
   $highscore = $highscore+1000; # Just makes it graph better. 
-
   # Determine the race names 
   # Race names must be the Singular
   #@numbers = (1.. scalar @singularRaceNames);
@@ -1641,9 +1648,7 @@ sub graph_score {
     # print "score: @pscore\n";
     push @data, \@pscore; # adds each player score array to the data array
   }
-
   my $graph = new GD::Graph::lines( );
-
   $graph->set(
           title             => "$GameFile",
           x_label           => 'Year',
@@ -1663,7 +1668,6 @@ sub graph_score {
   $graph->set_legend(@singularRaceNames);
 
   my $gd = $graph->plot( \@data );
-
   open OUT, ">$graphPath" or die "Couldn't open for output: $!";
   binmode(OUT);
   print OUT $gd->png( );

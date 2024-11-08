@@ -2394,7 +2394,6 @@ sub checkRaceCorrupt {
 }
 
 sub checkSerials {
-  # Check a Stars Block and return results of analysis. 
   # Currently only for the .x Block 9 serial/hardware hash 
   # Stand-alone code is in StarsSecure.pl
   
