@@ -177,7 +177,7 @@ if ($in{'cp'} eq 'edit_profile') {
 	&edit_game('edit'); 
   if ($GameValues{'NewsPaper'}) { $in{'rp'} = 'show_news'; }
 } elsif ($in{'cp'} eq 'Update Game') { 
-	print "<td>"; 
+	print "<td>";
 	&update_game($in{'GameFile'}); 
   if ($GameValues{'NewsPaper'}) { $in{'rp'} = 'show_news'; }
 	# send the user back to the right page, either new game or otherwise
@@ -1055,6 +1055,7 @@ sub show_game {
 
   			print qq|<tr>\n|;
   			if (($CHK_Status eq 'Out') && $del ) { print qq|<td><img src="$TurnBall{Idle}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|;} 
+        # BUG: WHat does this do for a result of a hacked race file
   			else { print qq|<td><img src="$TurnBall{$CHK_Status}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|; }  
   			if ($PlayerValues{'User_Login'} eq $userlogin ) { print qq|<td style="border-width: 1px;padding: 1px;border-style: dotted;border-color: gray;">$del|;} 
   			else { 	print "<td>$del"; }
@@ -1118,6 +1119,7 @@ sub show_game {
           elsif ($PlayerValues{'PlayerStatus'} == 3) { print ' (Banned)'; }
           elsif ($PlayerValues{'PlayerStatus'} == 2) { print ' (Inactive-Housekeeping AI)'; }
           if ($CHK_Status eq 'Deceased') { print " -Deceased"; }
+          if (@CHK[$Position] =~ /HACKER/) { print ' (HACKED FILE)'; }; # Hacked race file
           print "</td>\n";
         }
         
@@ -2043,7 +2045,7 @@ print <<eof;
 eof
 print qq|	<TABLE>\n|;
 print qq|		<TR>\n<TD>Race Name:</TD> <TD><INPUT type="text" | . &button_help("RaceName") . qq|name="RaceName" size="30"> (Mandatory)</TD>\n</TR> \n|;
-print qq|		<TR>\n<TD>Race Description:</TD> <TD><TEXTAREA name="RaceDescrip" | . &button_help("RaceDescrip") . qq| rows="4" cols="50"></TEXTAREA></TD>\n</TR>  \n|;
+print qq|		<TR>\n<TD>Race Description:</TD> <TD><TEXTAREA name="RaceDescrip" | . &button_help("RaceDescrip") . qq| rows="4" cols="50" maxlength="50"></TEXTAREA></TD>\n</TR>  \n|;
 print qq|		<TR>\n<TD>File:</TD> <TD><INPUT type="file" name="File" size="30"></TD>\n</TR>        \n|;
 print qq|	</TABLE>       \n|;
 print qq|<INPUT type="submit" name="submit" value="Upload Race">  \n|;
@@ -2172,14 +2174,16 @@ sub edit_game {
   
   
   # print the player number options when the game isn't started
-  if ($GameValues{'GameStatus'} =~ /^[067]$/) { 
+  if ($GameValues{'GameStatus'} =~ /^[23459]$/ ) { print qq|<input type=hidden name="MaxPlayers" value="$GameValues{'MaxPlayers'}">\n|; 
+  } else {
   	print qq|<TD>Max Players: </TD>\n|;
     print qq|<td><SELECT name="MaxPlayers"> | . &button_help("MaxPlayers") . qq|\n|;
    	if ($GameValues{'MaxPlayers'}) { print qq|<OPTION value=$GameValues{'MaxPlayers'} SELECTED>$GameValues{'MaxPlayers'}\n|; }
     else { print qq|<OPTION value=16 SELECTED>16\n|; }
    	foreach (my $i=1; $i <= 16; $i++) { print qq|<OPTION value=$i>$i\n|; }
    	print qq|</SELECT></td></tr><tr>\n|;
-  } else { print qq|<input type=hidden name="MaxPlayers" value="$GameValues{'MaxPlayers'}">\n|; }  
+    # BUG doesn't display at game gen, and $Gamevalues is null at that point so errors
+  }  
   
   # Type of Game options
   print qq|<TD>Type of Game:</TD>\n|;
@@ -2402,7 +2406,7 @@ sub update_game {
 	$in{'GameDescrip'} = &clean($in{'GameDescrip'});
   my $GameFile =  &clean($in{'GameFile'});
   # set boundaries on MaxPlayers
-  if ($in{'MaxPlayers'} < 0 | $in{'MaxPlayers'} > 16) { $in{'MaxPlayers'} = 16;}
+  if ($in{'MaxPlayers'} < 1 | $in{'MaxPlayers'} > 16) { $in{'MaxPlayers'} = 16;}
   else { $MaxPlayers = $in{'MaxPlayers'}; }
 	my $DayFreq = &MakeDayFreq; #defaults to Sunday
 	my $HourFreq = &MakeHourFreq; 
@@ -2418,10 +2422,8 @@ sub update_game {
     if ($ForceGenTurns > 10) { $ForceGenTurns = 10; }
     if ($ForceGenTimes > 50) { $ForceGenTime = 50; }
   }
-  my $AutoInactive = $in{'AutoInactive'}; 
-  # Validate AutoInactive
-  $AutoInactive = &clean($AutoInactive);
-  if ($AutoInactive =~ /^\d+\z/) {} else { $AutoInactive = 0; };
+  my $AutoInactive = &clean($in{'AutoInactive'});   
+  if ($AutoInactive =~ /^\d+\z/) {} else { $AutoInactive = 0; }; # Validate AutoInactive
 	my $HostMod = &checkboxnull($in{'HostMod'}); 
 	my $HostForceGen = &checkboxnull($in{'HostForceGen'}); 
 	my $NoDuplicates = &checkboxnull($in{'NoDuplicates'});
@@ -2433,11 +2435,12 @@ sub update_game {
 	my $MinDelay = &checknull($in{'MinDelay'});
 	my $ObserveHoliday = &checkboxnull($in{'ObserveHoliday'});
 	my $NewsPaper = &checkboxnull($in{'Newspaper'});
+  my $newsfile = "$Dir_Games/$in{'GameFile'}/$in{'GameFile'}.news";
   if ($NewsPaper) { # If there's no news file, create one. 
-    if (!(-f "$Dir_Games/$in{'GameFile'}/$in{'GameFile'}.news")) { 
-  		&create_news("$Dir_Games/$in{'GameFile'}/$in{'GameFile'}.news");
-  	}
+    if (!(-f $newsfile)) { &create_news($newsfile); }  # Create news file
+  } else { if (-f $newsfile) { unlink ($newsfile); } # remove news file
   }
+  
 	my $SharedM = &checkboxnull($in{'SharedM'});
 	my $HostAccess = &checkboxnull($in{'HostAccess'});
 	$in{'Notes'} = &clean($in{'Notes'});
@@ -2450,7 +2453,7 @@ sub update_game {
     print EXPLOIT time() . ": $in{'GameFile'}"; 
     close EXPLOIT; 
     umask 0002; 
-    chmod 0664, "$Dir_Games/$in{'GameFile'}/fix";
+    chmod 0660, "$Dir_Games/$in{'GameFile'}/fix";
     &updateList($in{'GameFile'}, 1);
   } 
   # Update the clean file for whether enabled or disabled
@@ -2463,7 +2466,7 @@ sub update_game {
     print SANITIZE time(). ": $in{'GameFile'}"; 
     close SANITIZE; 
     umask 0002; 
-    chmod 0664, "$Dir_Games/$in{'GameFile'}/clean";
+    chmod 0660, "$Dir_Games/$in{'GameFile'}/clean";
 
   }
   # If messages have been disabled, delete the .messages file
@@ -2545,7 +2548,7 @@ sub update_game {
       foreach my $setting (@Values) { $GameValues{'Message'} .= "$setting" . ',';  }
       chop $GameValues{'Message'}; # Get rid of the trailing comma
       
-     	&Email_Turns($GameFile, \%GameValues, 0);
+     	&Email_Turns($GameFile, \%GameValues, 0); # calls Read_CHK
       $sth->finish(); 
     } else { 
        print "Game Update failed\n"; 

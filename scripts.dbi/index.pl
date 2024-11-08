@@ -54,7 +54,6 @@ if ($userlogin) {
 	$redirect =  $WWW_HomePage . $WWW_Scripts . '/page.pl?lp=game&cp=show_first_game';
 	#print $cgi->redirect( -URL => "$redirect");
 ##	&print_redirect($cgi,$sessionid,$redirect);
-	&LogOut(0, "redirect: $redirect", $ErrorLog); 
   print "Location: $redirect\n\n";
   exit;
 }
