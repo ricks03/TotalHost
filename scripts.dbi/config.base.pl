@@ -8,6 +8,7 @@ $debug=0;
 
 $WWW_HomePage = 'https://www.example.com'; #Must match site URL
 $WWW_Image = '/images/';
+$WWW_Banner = 'StarsTotalHost.jpg';
 $WWW_Notes = '/Notes/';
 $WWW_Scripts = '/scripts';
 $Location_Index = $WWW_HomePage . $WWW_Scripts . '/index.pl';
@@ -66,7 +67,8 @@ $apache_user  = 'www-data';  # Linux user account
 #$imagemagick = 'C:\Program Files\ImageMagick-6.8.3-Q16\convert';
 $imagemagick = '/usr/bin/convert';
 # Location of the starmapper executable (Java)
-$starmapper = 'd:\th\utils\starmapper\starmapper121\starmapper.bat';
+#$starmapper = 'd:\utils\starmapper\starmapper121\Starmapper.bat';
+$starmapper = '/home/beta/utils/starmapper/starmapper121/Starmapper.sh';
 
 $FormMethod      = 'Post'; # Method used for forms, Post or Get
 
@@ -105,9 +107,9 @@ $min_players = 2; # The minimum number of players to create/launch a game
 
 $secret_key = 'secret_key';
 %TurnResult = ("turned in" => "In", "still out" => "Out", "right game" => "Wrong Game", "dead" => "Deceased", "right year" => "Wrong Year", "file corrupt" => "Corrupt");
-%TurnBall = ("In" => "$WWW_Image"  . "greenball.gif", "Out" => "$WWW_Image"  . "yellowball.gif", "Wrong Game" => "$WWW_Image"  . "redball.gif", "Deceased" => "$WWW_Image"  . "blackball.gif", "Wrong Year" => "$WWW_Image"  . "redball.gif", "Corrupt" => "$WWW_Image"  . "redball.gif", "Error" => "$WWW_Image"  . "redball.gif", "Idle" => "$WWW_Image"  . "grayball.gif", "Abandoned" => "$WWW_Image"  . "grayball.gif");
-%StatusBall = ("Finished" => "$WWW_Image"  . "blackball.gif", "Awaiting Players" => "$WWW_Image"  . "yellowball.gif", "In Progress" => "$WWW_Image"  . "greenball.gif", "Delayed" => "$WWW_Image"  . "blueball.gif", "Active" => "$WWW_Image"  . "greenball.gif", "Idle" => "$WWW_Image"  . "greyball.gif", "Creation in Progress" => "$WWW_Image"  . "yellowball.gif", "Pending Start" => "$WWW_Image"  . "yellowball.gif", "Paused" => "$WWW_Image"  . "yellowball.gif");
-@WeekDays = qw(Sun. Mon. Tues. Wed. Thurs. Fri. Sat.);
+%TurnBall = ("In" => "$WWW_Image"  . "greenball.gif", "Out" => "$WWW_Image"  . "yellowball.gif", "Wrong Game" => "$WWW_Image"  . "redball.gif", "Deceased" => "$WWW_Image"  . "blackball.gif", "Wrong Year" => "$WWW_Image"  . "redball.gif", "Corrupt" => "$WWW_Image"  . "redball.gif", "Error" => "$WWW_Image"  . "redball.gif", "Idle" => "$WWW_Image"  . "purpleball.gif", "Banned" => "$WWW_Image"  . "grayball.gif", "AI" => "$WWW_Image"  . "orangeball.gif");
+%StatusBall = ("Finished" => "$WWW_Image"  . "blackball.gif", "Awaiting Players" => "$WWW_Image"  . "goldball.gif", "In Progress" => "$WWW_Image"  . "greenball.gif", "Delayed" => "$WWW_Image"  . "babyblueball.gif", "Active" => "$WWW_Image"  . "greenball.gif", "Idle" => "$WWW_Image"  . "grayball.gif", "Creation in Progress" => "$WWW_Image"  . "animball.gif", "Pending Start" => "$WWW_Image"  . "blueball.gif", "Paused" => "$WWW_Image"  . "blueball.gif");
+@WeekDays = qw(Sun. Mon. Tue. Wed. Thu. Fri. Sat.);
 @GameStatus = ('Pending Start', 'Pending Closed', 'Active','Delayed','Paused','Need Replacement','Creation in Progress','Awaiting Players','','Finished');
 @HourlyTime = qw(.167 .25 .5 1 2 3 4 6 8 12 24 36 42 48 56 72 84 96 120 144 168 240 336);
 # Defaults for new games

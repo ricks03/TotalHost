@@ -119,7 +119,7 @@ sub decryptBlock {
     if ($typeId == 8) { # File Header Block
       my ($unshiftedData, $padding) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
-      &processData(\@unshiftedData,$typeId,$offset,$size);
+      &processData(\@unshiftedData,$typeId,$offset,$size, $inBlock);
 
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
@@ -131,15 +131,15 @@ sub decryptBlock {
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
       my ($unshiftedData, $padding) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
-      &processData(\@unshiftedData,$typeId,$offset,$size);
-      
+      &processData(\@unshiftedData,$typeId,$offset,$size, $inBlock);
+
       push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
-      &processData(\@decryptedData,$typeId,$offset,$size);
+      &processData(\@decryptedData,$typeId,$offset,$size, $inBlock);
 #      }
       # END OF MAGIC
       #my $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
@@ -190,27 +190,4 @@ sub decryptBlock {
   }
   return \@outBytes;
 }
-
-#################################
-
-sub processData {
-  # Display the byte information
-  my ($decryptedData,$typeId,$offset,$size)  = @_;
-  my @decryptedData = @{ $decryptedData };
-
-  if ($inBlock == $typeId || $inBlock eq -1) {
-  print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t";
-  print "\nDATA DECRYPTED:\n" . join (" ", @decryptedData), "\n"; 
-
-  if ($inBin) {
-    if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
-    my $counter =0;
-    foreach my $key ( @decryptedData ) { 
-      print "byte  $counter:\t$key\t" . &dec2bin($key); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
-      $counter++;
-    }  
-    print "\n";    
-   }
-  }
-}
-
+      
