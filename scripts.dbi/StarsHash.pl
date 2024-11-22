@@ -126,7 +126,7 @@ sub decryptBlock {
       if ($typeId == 9) {
         if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
         if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-        &processData(\@decryptedData,$typeId,$offset,$size);
+        &processHash(\@decryptedData,$typeId,$offset,$size);
       }
       # END OF MAGIC
     }
@@ -135,7 +135,7 @@ sub decryptBlock {
   return \@outBytes;
 }
 
-sub processData {
+sub processHash {
   # Display the byte information
   my ($decryptedData,$typeId,$offset,$size)  = @_;
   my @decryptedData = @{ $decryptedData };

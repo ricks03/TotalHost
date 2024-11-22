@@ -199,7 +199,7 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
  	} else {	
     $download_ok = 1; 
     umask 0002; 
-    chmod 0664, $outputfile;
+    chmod 0660, $outputfile;
   }
     
 # Message file download
@@ -265,7 +265,7 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
       }
       close MESSAGEFILE;
       umask 0002; 
-      chmod 0664, $messageFile;
+      chmod 0660, $messageFile;
     }
   }
   # Change the default name of the file to be player-specific

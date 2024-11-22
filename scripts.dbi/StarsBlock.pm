@@ -29,7 +29,7 @@
 
 # StarsPWD and StarsRace are both integrated into TotalHost
 # StarsClean implemented in TotalHost (clean .m files)
-# StarsMsg not implemented in TotalHost
+# StarsMsg implemented in TotalHost (display player messages)
 # StarsFix implemented (fox .x files exploits)
 
 # Here is a list of blocks and their types I found so far. I've never met several of them in any game file, which I can access to, but you can try to find them in your own game files using this small command line tool (there is no decryption code, since block headers are never encrypted), and please if you find them let me know:
@@ -83,8 +83,6 @@
 # 46	SaveAndSubmitBlock
 
 package StarsBlock;
-# 220824 Don't think this is ever called from StarsBlock. Fix for required SSL from SMTP library for block applications
-#use TotalHost; # eval'd at compile time
 do 'config.pl';
 use StarStat;  # eval'd at compile time
 
@@ -133,24 +131,20 @@ our @EXPORT = qw(
   adjustFleetCargo tallyFleet 
   publicMessages decryptMessages
   getScores decryptScores
+  getRaceNames decryptNameBlock
+  processData
 );  
 
 my $debug = 1;
 
 #############################################
 sub StarsPWD {
-#  my ($GameFile, $Player) = @_;
   my ($File) = @_;   # .m File is full file path
   use File::Copy;
   #Stars random number generator class used for encryption
   
-#  my $MFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.m' . $Player;
   &BlockLogOut(300, "Password Reset Started for : $File", $LogFile);
-#   # Backup the current .m file
-# 	my $Backup_Destination_File   = $MFile . '.PWD';
-# 	copy($MFile, $Backup_Destination_File);
-# 	&BlockLogOut(100,"Copy $MFile to $Backup_Destination_File",$LogFile);
-   
+
   # Read in the binary Stars! file, byte by byte
   my $FileValues = '';
   my @fileBytes=();
@@ -319,20 +313,19 @@ sub initDecryption {
   # * An analysis of the stars EXE with a hex editor
 	# * also shows a primes table with 279.  Fun!  
   my @primes = ( 
-                  3, 5, 7, 11, 13, 17, 19, 23, 
-                  29, 31, 37, 41, 43, 47, 53, 59,
-                  61, 67, 71, 73, 79, 83, 89, 97,
-                  101, 103, 107, 109, 113, 127, 131, 137,
-                  139, 149, 151, 157, 163, 167, 173, 179,
-                  181, 191, 193, 197, 199, 211, 223, 227,
-                  229, 233, 239, 241, 251, 257, 263, 279,
-#                  271, 277, 281, 283, 293, 307, 311, 313
-                  271, 277, 281, 283, 293, 307, 311, 313,
-                  317,331,337,347,349,353,359,367,373,379,383,389,397,401,409,419,
-                  421,431,433,439,443,449,457,461,463,467,479,487,491,499,503,509,
-                  521,523,541,547,557,563,569,571,577,587,593,599,601,607,613,617,
-                  619,631,641,643,647,653,659,661,673,677,683,691,701,709,719,727
-          );
+      3, 5, 7, 11, 13, 17, 19, 23, 
+      29, 31, 37, 41, 43, 47, 53, 59,
+      61, 67, 71, 73, 79, 83, 89, 97,
+      101, 103, 107, 109, 113, 127, 131, 137,
+      139, 149, 151, 157, 163, 167, 173, 179,
+      181, 191, 193, 197, 199, 211, 223, 227,
+      229, 233, 239, 241, 251, 257, 263, 279,
+      271, 277, 281, 283, 293, 307, 311, 313,
+      317,331,337,347,349,353,359,367,373,379,383,389,397,401,409,419,
+      421,431,433,439,443,449,457,461,463,467,479,487,491,499,503,509,
+      521,523,541,547,557,563,569,571,577,587,593,599,601,607,613,617,
+      619,631,641,643,647,653,659,661,673,677,683,691,701,709,719,727
+  );
 
   # Convert fileBytes back to an array. Use two prime numbers as random seeds.
 	# First one comes from the lower 5 bits of the salt
@@ -608,7 +601,7 @@ sub decryptPWD {
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
       @encryptedBlock = @ { $encryptedBlock };
-      &BlockLogOut(400, "BLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), $LogFile); 
+      # &BlockLogOut(400, "BLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), $LogFile); 
       push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
@@ -735,7 +728,7 @@ sub getMTPartName {
  	return '';
 }
 
-sub displayBlockRace { # mostly a duplicate of decryptBlockRace
+sub displayBlockRace { # mostly a lesser duplicate of decryptBlockRace
   my (@fileBytes) = @_;
   my @block;
   my @data;
@@ -794,7 +787,8 @@ sub displayBlockRace { # mostly a duplicate of decryptBlockRace
         my $checkBoxes; 
         my ($expensiveTechStartsAt3, $factoriesCost1LessGerm);
         my $MTItems;
-
+        my @MTItems=();
+        
         $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
         $shipDesigns = $decryptedData[1] & 0xFF;  # Always 0 in race file
         $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); # Always 0 in race file
@@ -906,6 +900,7 @@ sub displayBlockRace { # mostly a duplicate of decryptBlockRace
           # for the player relations values
           # so the result here CAN be 0.
 
+          @MTItems = &showMTItems($MTItems);
           print "<img src=\"$WWW_Image" . 'logo' . $logo . ".png\">\n";
           print "<P><u>Race Name</u>: $singularRaceName : $pluralRaceName\n"; 
           print '<P><u>Spend Leftover Points</u>: ' . &showLeftoverPoints($spendLeftoverPoints) . "\n";
@@ -1617,7 +1612,7 @@ sub StarsList {
       print LISTFILE "$lastPlayer"; 
       close (LISTFILE);
       umask 0002; 
-      chmod 0664,"$listPrefix.hst.last";
+      chmod 0660,"$listPrefix.hst.last";
     }
     &BlockLogOut(100, "StarsList: Done writing out List files for $listPrefix", $LogFile)
   } else { &BlockLogOut (0,"TurnMake: Directory $Dir_Games Missing for $listPrefix", $ErrorLog); }
@@ -1806,7 +1801,7 @@ sub decryptAI {
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
-      my $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
+        my $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
         if ($PlayerAI == $playerId) {
           if (($NewStatus eq 'Active' || $NewStatus eq 'Idle')  && $decryptedData[7] == 227 ) {
             $action = 1;
@@ -2557,7 +2552,7 @@ sub writeList {
   }
   close LISTFILE;
   umask 0002; 
-  chmod 0664, $File;
+  chmod 0660, $File;
 }
 
 #print List hash
@@ -4221,6 +4216,105 @@ sub decryptScores {
   }
   return \@singularRaceNames, $score, $turn, $Player;
 } 
+
+# This is probably overkill when we can get it from a CHK file or StarStat.
+sub getRaceNames {
+  my ($HST) = @_;
+  # Read in the binary Stars! file, byte by byte
+  my $FileValues;
+  my @fileBytes;
+  my @singularRaceNames;
+  open(StarFile, "<$HST" );
+  binmode(StarFile);
+  while ( read(StarFile, $FileValues, 1)) {
+    push @fileBytes, $FileValues; 
+  }
+  close(StarFile);
+  # Decrypt the data, block by block
+  @singularRaceNames = &decryptNameBlock(@fileBytes);
+  #@singularRaceNames = &decryptNameBlock();
+  @$singularRaceNames = $singular;
+  return @singularRaceNames;
+}
+
+# This is probably overkill when we can get it from a CHK file or StarStat (see sub getRaceNames)  
+sub decryptNameBlock {
+  my (@fileBytes) = @_;
+  my @block;
+  my @data;
+  my ($decryptedData, $encryptedBlock, $padding);
+  my @decryptedData;
+  my @encryptedBlock;
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ($random, $seedA, $seedB, $seedX, $seedY );
+  my ( $FileValues, $typeId, $size );
+  my $offset = 0; #Start at the beginning of the file
+  my @singularRaceNames;
+  my $debug = 0;
+  while ($offset < @fileBytes) {
+    # Get block info and data
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
+    if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
+    # FileHeaderBlock, never encrypted
+    if ($typeId == 8 ) {
+      # We always have this data before getting to block 6, because block 8 is first
+      # If there are two (or more) block 8s, the seeds reset for each block 8
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+      ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+    } elsif ($typeId == 6 ) { #PlayerBlock
+      # Everything else needs to be decrypted
+      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
+      @decryptedData = @{ $decryptedData };  
+      # WHERE THE MAGIC HAPPENS
+      my $playerId = $decryptedData[0] & 0xFF;
+      my $fullDataFlag = ($decryptedData[6] & 0x04);
+      my $index = 8;
+      if ($fullDataFlag) { 
+        # The player names are at the end which is not a fixed length
+        $index = 112;
+        my $playerRelationsLength = $decryptedData[112]; 
+        $index = $index + $playerRelationsLength + 1;
+      } 
+      my $singularNameLength = $decryptedData[$index] & 0xFF;
+      my $singularMessageEnd = $index + $singularNameLength;
+      my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+      print "Singular Race Name: $singularRaceName\n";
+      push @singularRaceNames, $singularRaceName;
+      # END OF MAGIC
+    }
+    $offset = $offset + (2 + $size); 
+  }
+  return @singularRaceNames;
+}
+
+sub processData {
+  # Display the byte information
+  my ($decryptedData,$typeId,$offset,$size, $inBlock)  = @_;
+  my @decryptedData = @{ $decryptedData };
+
+  if ($inBlock == $typeId || $inBlock == -1) {
+    if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
+    if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
+    
+    if ($inBin) {
+      if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
+      my $counter =0;
+      foreach my $key ( @decryptedData ) { 
+        #print "byte  $counter:\t$key\t" . &dec2bin($key); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
+        print "byte $counter:\t$key\t" . substr(&dec2bin($key),8,8); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
+        $counter++;
+      }  
+      print "\n";    
+    } else {
+#      print "\t" . join ( "\t", @decryptedData ), "\n";
+    }
+  }
+}
 
 # CSV position 18 is fuel
 # 1,1,"Stargate 100/250",1,0,0,5,5,0,0,0,400,100,40,40,144,100,250,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

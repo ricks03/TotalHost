@@ -311,7 +311,7 @@ sub reset_password {
 	if ($id) {
 print <<eof;
 <td>
-<form name="login" method=POST action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">
+<form name="login" method="$FormMethod" action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">
 <input type=hidden name="action" value="reset_password2">
 <input type=hidden name="User_Login" value="$User_Login">
 <br>Enter new password: <input type=text id="pass_temp">

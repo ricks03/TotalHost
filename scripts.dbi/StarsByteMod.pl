@@ -171,7 +171,7 @@ sub decryptBlock {
        # Convert the nonencrypted Block 8 data
        my ($unshiftedData, $padding) = &unshiftBytes(\@data); 
        my @unshiftedData = @{ $unshiftedData };
-      &processData(\@unshiftedData,$typeId,$offset,$size);
+      &processData(\@unshiftedData,$typeId,$offset,$size, $inBlock);
 
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
@@ -192,14 +192,14 @@ sub decryptBlock {
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
        my ($unshiftedData, $padding) = &unshiftBytes(\@data); 
        my @unshiftedData = @{ $unshiftedData };
-      &processData(\@unshiftedData,$typeId,$offset,$size);
+      &processData(\@unshiftedData,$typeId,$offset,$size, $inBlock);
       push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
-      &processData(\@decryptedData,$typeId,$offset,$size);
+      &processData(\@decryptedData,$typeId,$offset,$size, $inBlock);
       # END OF MAGIC
  #     unless ($typeId == 30) {
       $decryptedBlock[$blockCounter]{block} = \@block;
@@ -222,23 +222,3 @@ sub decryptBlock {
   }
   return \@outBytes, \@decryptedBlock;
 }
-
-sub processData {
-  # Display the byte information
-  my ($decryptedData,$typeId,$offset,$size)  = @_;
-  my @decryptedData = @{ $decryptedData };
-  if ($inBlock == $typeId || $inBlock == -1) {
-    if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
-    if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-    if ($inBin) {
-      if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
-      my $counter =0;
-      foreach my $key ( @decryptedData ) { 
-        print "byte  $counter:\t$key\t" . &dec2bin($key); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
-        $counter++;
-      }  
-      print "\n";    
-    }
-  }
-}
-

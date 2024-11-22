@@ -207,6 +207,15 @@ if ($in{'cp'} eq 'edit_profile') {
     &create_game_size($GameFile, $in{'GameName'}); # update_game either passes along GameFile, or creates a hash to use as the GameFile
   }
 	print "</td>";
+} elsif ($in{'cp'} eq 'Upload Zip') { 
+	print "<td>"; 
+  # If the Game File isn't set, set it at random
+  if ($in{'GameFile'}) { $GameFile = $in{'GameFile'}  }
+  else { $GameFile = &update_game();} # Modified to always create a random game file
+  print "<h2>Upload a Game Zip File for $in{'GameName'} ($GameFile)</h2>\n";
+  print "<P>You can upload a .zip file from a pre-created game to be hosted on TH. This file must include the .xy, .hst, and all associated .m files.</P>\n";	
+  &show_upload ($in{'GameName'},$GameFile,1); 
+	print "</td>";
 } elsif ($in{'cp'} eq 'create_game_size') { 
 	print "<td>"; 
 	$GameFile = $in{'GameFile'}; 
@@ -275,7 +284,7 @@ if ($in{'cp'} eq 'edit_profile') {
 # And the CANCEL button uses the value of "show_games"
 } elsif ($in{'cp'} eq 'show_games' || $in{'cp'} eq 'CANCEL') {
 	my $sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip, Games.HostName, Games.NewsPaper FROM Games ORDER BY Games.GameStatus, Games.NextTurn DESC;|;
-	print "<td>"; &list_games($sql, 'All Games'); print "</td>";
+	print "<td>"; &list_games($sql, 'All Games'); &print_legend(4, 0, %StatusBall); print "</td>";
 } elsif ($in{'cp'} eq 'show_my_games_inprogress') {
 	my $sql = qq|SELECT Games.GameFile, Games.GameName, Games.GameStatus, Games.GameDescrip, Games.HostName, Games.NewsPaper FROM Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE GameUsers.User_Login='$userlogin' AND Games.GameStatus>1 AND Games.GameStatus<6 ORDER BY Games.GameStatus;|;
 	print "<td>"; &list_games($sql, 'My Games In Progress'); print "</td>";
@@ -416,7 +425,9 @@ if ($in{'cp'} eq 'edit_profile') {
 		print "<td>"; 
     &display_warning; 
     &process_switch_player($in{'GameFile'}, $in{'PlayerID'}, $in{'ReplaceName'});
-    # Don't need to rebuild the .chk file
+    # Don't need to rebuild the .chk 
+    # Redirect back to the Replace Player panel for ease for zip uploads
+    $in{'cp'} = 'Replace Player';
     &show_game($in{'GameFile'});
     print "</td>";
 } elsif ($in{'cp'} eq 'Reset Password') {
@@ -570,7 +581,7 @@ sub edit_profile {
   } else { &LogOut(10,"ERROR: Finding edit_profile",$ErrorLog); }
 	&DB_Close($db);
 print <<eof;
-<form name="login" method=$FormMethod action="$WWW_Scripts/page.pl">
+<form name="login" method="$FormMethod" action="$WWW_Scripts/page.pl">
 <input type=hidden name="lp" value="profile">
 <input type=hidden name="cp" value="update_profile">
 <input type=hidden name="rp" value="">
@@ -599,10 +610,9 @@ print <<eof;
 <INPUT type="Checkbox" name="EmailList" value=$EmailList $Checked[$EmailList]>Receive New Game Notifications</P>
 <input type=submit name="Submit" value="Update">
 </form>
-<form>
-eof
+</td>
 
-print "</form></td>\n";
+eof
 }
 
 sub show_profile {
@@ -1031,7 +1041,7 @@ sub show_game {
       my ($del, $del2); # html delete tag
       # Display player status, one line for each player in the .chk file
   		while (@CHK[$Position]) {  #Write .m file lines
-  			my ($CHK_Status, $CHK_Name) = &Eval_CHKLine(@CHK[$Position]);    
+  			my ($CHK_Status, $CHK_Name) = &Eval_CHKLine(@CHK[$Position]); # Return the status and race name    
         # If an error is reported in the .chk file (like Host File Locked) report it and then move on.
         if ($CHK_Status =~ /Error/) { print qq|<tr><td colspan="5">$CHK_Status</td></tr>|; $Position++; next; }
         $Player++;
@@ -1047,28 +1057,33 @@ sub show_game {
         }
 
   			# Modify display based on player status. If the player isn't active indicate such
-  			if ($PlayerValues{'PlayerStatus'} == 1) { $del = ''; $del2 = ''; 
-        } elsif ($PlayerValues{'PlayerStatus'} == 4) { $del = '<i>'; $del2 = '</i>';
-        } elsif ($PlayerValues{'PlayerStatus'} == 3) { $del = '<small>'; $del2 = '</small>';
-        } elsif ($PlayerValues{'PlayerStatus'} == 2) { $del = '<del>'; $del2 = '</del>';}
+        # These are TH values, not Stars! values
+  			if ($PlayerValues{'PlayerStatus'} == 1) { $del = ''; $del2 = '';  # Active
+        } elsif ($PlayerValues{'PlayerStatus'} == 2) { $del = '<del>'; $del2 = '</del>'; #Inactive
+        } elsif ($PlayerValues{'PlayerStatus'} == 3) { $del = '<del style=\"color: red;\">'; $del2 = '</del>'; # Banned
+        } elsif ($PlayerValues{'PlayerStatus'} == 4) { $del = '<i>'; $del2 = '</i>'; # Idle
+        }
         if ($CHK_Status eq 'Deceased') { $del = '<del>'; $del2 = '</del>';}
 
+        # Set display for player status and chk status
   			print qq|<tr>\n|;
-  			if (($CHK_Status eq 'Out') && $del ) { print qq|<td><img src="$TurnBall{Idle}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|;} 
-        # BUG: WHat does this do for a result of a hacked race file
+        #if (($CHK_Status eq 'Out') && ($PlayerValues{'PlayerStatus'} == 3)) { print qq|<td>$del<img src="$TurnBall{Banned}" alt='Status' border="0" name="$CHK_Status"></a>$del2</td>\n|; }
+        if ($PlayerValues{'PlayerStatus'} == 2 ) { print qq|<td><img src="$TurnBall{AI}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|;} 
+        elsif (($CHK_Status eq 'Out') && $PlayerValues{'PlayerStatus'} == 4 ) { print qq|<td><img src="$TurnBall{Idle}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|;} 
   			else { print qq|<td><img src="$TurnBall{$CHK_Status}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|; }  
+        
+        # Print the user name if appropriate
   			if ($PlayerValues{'User_Login'} eq $userlogin ) { print qq|<td style="border-width: 1px;padding: 1px;border-style: dotted;border-color: gray;">$del|;} 
   			else { 	print "<td>$del"; }
-        
         if (!($GameValues{'AnonPlayer'} ) || ($PlayerValues{'User_Login'} eq $userlogin) || ($GameValues{'GameStatus'} == 9 ) || ($GameValues{'HostName'} eq $userlogin && $GameValues{'HostAccess'})) { print "$PlayerValues{'User_Login'}</td>"; }
         else { print "Player $Player: </td>"; }
         
-        print "<td>$del$CHK_Name$del2</td>";
+        print "<td>$del$CHK_Name$del2</td>"; # The race name
         
         # Display the .m file link
         if (-f $MFile) { # Only show if the file is present)
-          if ($del) {
-            # no link if the player is dead
+          if ($CHK_Status eq 'Deceased' || $PlayerValues{'PlayerStatus'} == 3 || $PlayerValues{'PlayerStatus'} == 2) {
+            # no link if the player is dead, banned, being edited, or AI
             print "<td>.m$Player</td>\n";
           } elsif ($GameValues{'SharedM'} ) { # Don't if game over
             # Always display link if .m files are shared
@@ -1117,16 +1132,16 @@ sub show_game {
           
           if ($PlayerValues{'PlayerStatus'} == 4) { print ' (Idle)'; }
           elsif ($PlayerValues{'PlayerStatus'} == 3) { print ' (Banned)'; }
-          elsif ($PlayerValues{'PlayerStatus'} == 2) { print ' (Inactive-Housekeeping AI)'; }
+          elsif ($PlayerValues{'PlayerStatus'} == 2) { print ' (Housekeeping AI)'; }
           if ($CHK_Status eq 'Deceased') { print " -Deceased"; }
-          if (@CHK[$Position] =~ /HACKER/) { print ' (HACKED FILE)'; }; # Hacked race file
+          if (@CHK[$Position] =~ /HACKER/) { print '<span style="color: red;"> (HACKED FILE) </span>'; }; # Hacked race file
           print "</td>\n";
         }
         
         # Display the Remove Password button if applicable
         if ($in{'cp'} eq 'Remove PWD' && $session->param("userlogin") eq $GameValues{'HostName'}) {
           print qq|<td align=center>|;
-          print "<form>\n";
+          print qq|<FORM method="$FormMethod" action="$WWW_Scripts/page.pl" name="my_form">\n|;
           print qq|<BUTTON $host_style type="submit" name="Reset Password" value="Reset Password" | . &button_help('RemovePWD') .  qq|>Reset Password</BUTTON>\n|;
           print qq|<input type=hidden name="Reset Password" value="Reset Password">\n|;
           print qq|<input type=hidden name="lp" value="profile_game">\n|;
@@ -1142,7 +1157,7 @@ sub show_game {
         # Display the Replace Player Button if applicable
         if ($in{'cp'} eq 'Replace Player' && $session->param("userlogin") eq $GameValues{'HostName'}) {
       		# Get the User List
-	        print qq|<td valign="bottom"><form><SELECT name=\"ReplaceName\">|;
+	        print qq|<td valign="bottom"><FORM method="$FormMethod" action="$WWW_Scripts/page.pl" name="my_form">\n<SELECT name=\"ReplaceName\">\n|;
           # Sort and limit to active players
         	$sql = "SELECT * FROM User WHERE User_Status=1 ORDER BY User_Login;";
         	if (my $sth = &DB_Call($db,$sql)) {
@@ -1162,7 +1177,7 @@ sub show_game {
           print qq|<input type=hidden name="GameFile" value="$GameValues{'GameFile'}">\n|;
           print qq|<input type=hidden name="GameName" value="$GameValues{'GameName'}">\n|;
           print qq|<input type=hidden name="PlayerID" value="$Player">\n|;
-          print "</form>\n";
+          print "</FORM>\n";
           print qq|</td>|;
         }
 
@@ -1181,7 +1196,7 @@ sub show_game {
   
   		# Only show the ability to upload to an active player in an active game
   		if (($GameValues{'GameStatus'} =~ /^[234]$/) && ($current_player eq $userlogin)) {
-  	  		&show_upload($GameValues{'GameName'},$GameFile);
+  	  		&show_upload($GameValues{'GameName'},$GameFile,0);
   		} 
     } else {
       # Display Data for New Games 
@@ -1190,7 +1205,7 @@ sub show_game {
 #   		print qq|<input type=hidden name="rp" value="my_games">\n|;
 #   		print qq|<input type=hidden name="GameFile" value="$GameValues{'GameFile'}">\n|;
 #   		print qq|<input type=hidden name="GameName" value="$GameValues{'GameName'}">\n|;
-      my $formPrefix = qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod><input type=hidden name="lp" value="profile_game"><input type=hidden name="rp" value="my_games"><input type=hidden name="GameFile" value="$GameValues{'GameFile'}"><input type=hidden name="GameName" value="$GameValues{'GameName'}">|;
+      my $formPrefix = qq|<FORM action="$WWW_Scripts/page.pl" method="$FormMethod"><input type=hidden name="lp" value="profile_game"><input type=hidden name="rp" value="my_games"><input type=hidden name="GameFile" value="$GameValues{'GameFile'}"><input type=hidden name="GameName" value="$GameValues{'GameName'}">|;
       my $formSuffix = qq|</FORM>|;
   		# Display user information for unstarted games
   		my $UserLogin;
@@ -1281,7 +1296,7 @@ sub show_game {
     print "<P>\n";
     # Display the Buttons
     # Add all the Host and game related buttons
-		print qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod>\n|;
+		print qq|<FORM action="$WWW_Scripts/page.pl" method="$FormMethod">\n|;
 		print qq|<input type=hidden name="lp" value="profile_game">\n|;
 		print qq|<input type=hidden name="rp" value="my_games">\n|;
 		print qq|<input type=hidden name="GameFile" value="$GameValues{'GameFile'}">\n|;
@@ -1298,6 +1313,8 @@ sub show_game {
 		if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '7') { print qq|<BUTTON $host_style type="submit" name="cp" value="Lock Game" | . &button_help('LockGame') . qq|>Lock Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Unlock the game 
 		if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '0') { print qq|<BUTTON $host_style type="submit" name="cp" value="Unlock Game" | . &button_help('UnlockGame') . qq|>Unlock Game</BUTTON>\n|; $button_count = &button_check($button_count);}
+		# Upload Zip file
+		#if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '6') { print qq|<BUTTON $host_style type="submit" name="cp" value="Upload Zip" | . &button_help('UploadZip') . qq|>Upload Zip</BUTTON>\n|; $button_count = &button_check($button_count);}
     # Submit a news article by player or host
 		if ($GameValues{'NewsPaper'} && ($current_player eq $userlogin || $GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} ne '9'))	{ print qq|<BUTTON $user_style type="submit" name="cp" value="Report News" | . &button_help("NewsPaper") . qq|>Report News</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Delay the game
@@ -1345,6 +1362,9 @@ sub show_game {
 		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[9]$/) && (not -f $movieFile) && (-d $animateFile) && (-f $imagemagick) && (-e $starmapper)) 	{print qq|<BUTTON $host_style type="submit" name="cp" value="Movie" | . &button_help('Animate') .  qq|>Animate</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Set the DEF File
 		if ($GameValues{'HostName'} eq $userlogin && ($GameValues{'GameStatus'} eq '6' )) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="DEF File" | . &button_help('DEFFile') .  qq|>DEF File</BUTTON>\n|; $button_count = &button_check($button_count);}
+    # Set the Zip Upload File
+    # We have $GameValues{'GameFile'}
+    print qq|<BUTTON $host_style type="submit" name="cp" value="Upload Zip" | . &button_help('UploadZip') . qq|>Upload Zip</BUTTON>\n|; $button_count = &button_check($button_count);
 		print qq|</FORM>\n|;
 		&DB_Close($db); 
     
@@ -1356,8 +1376,11 @@ sub show_game {
       &show_fix($GameFile); 
     }
   
-		print qq|<hr><P>|;  
+      
 		if ($GameValues{'Notes'}) { print qq|<table border=1 width=100%><tr><td><b>Game Notes</b>: $GameValues{'Notes'}</td></tr></table>\n|; }
+		else { print qq|<hr>|; }
+    
+    &print_legend(5,1,%TurnBall);
 
 		# Display the TH game parameters
 		&read_game($GameFile);
@@ -1573,7 +1596,7 @@ sub button_form {
 # moved to config
 #	my $host_style = qq|style="color:red;width:120px;height:24;"|;
 #	my $user_style = qq|style="width:120px;height:24;"|;
-	print qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod>\n|;
+	print qq|<FORM action="$WWW_Scripts/page.pl" method="$FormMethod">\n|;
 	print qq|<input type=hidden name="lp" value="profile_game">\n|;
 	print qq|<input type=hidden name="rp" value="my_games">\n|;
 	print qq|<input type=hidden name="GameFile" value="$GameFile">\n|;
@@ -1601,7 +1624,7 @@ sub submit_news {
 
 	print "<td>\n";
 	print "Submit an article to the Galactic News!\n";
-	print qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod>\n|;
+	print qq|<FORM action="$WWW_Scripts/page.pl" method="$FormMethod">\n|;
 	print qq|<TEXTAREA name="NewsPaper" rows=4 cols=40 maxlength="250" onFocus="Help( 'NewsPaper' )" type=Text></TEXTAREA><br>\n|;
 	print qq|<input type=hidden name="GameFile" value="$GameFile">\n|;
 	print qq|<input type=hidden name="lp" value="profile_game">\n|;
@@ -1696,7 +1719,7 @@ sub process_game_launch {
 			}
 			close OUT_FILE; 
       umask 0002; 
-      chmod 0664, $def_file_races;
+      chmod 0660, $def_file_races;
 		} else { 
 			print "Game Definition File for $GameFile not found!\n"; 
 			&LogOut(0,"Game Definition File $def_file not found at launch",$ErrorLog);
@@ -1782,7 +1805,7 @@ sub show_fix {
   	open (OUT_FILE, ">$warningfile") || &LogOut(100, "show_fix: could not create $warningfile", $ErrorLog); 
   	close(OUT_FILE);
     umask 0002; 
-    chmod 0664, $warningfile;
+    chmod 0660, $warningfile;
 
 	} 
   open (IN_FILE,$warningfile) || &LogOut(100, "show_fix: could not open $warningfile", $ErrorLog);
@@ -1900,13 +1923,13 @@ sub show_news {
 	if (!(-f $newsfile)) { # Create the new file
 		&create_news($newsfile);
 	} else { open (IN_FILE,$newsfile) || &LogOut (0,"Can\'t open news file $newsfile", $ErrorLog);
-		print qq|<i>Gal News: News fit to print or not.</i><p>|; 
+		print qq|<i style="color: black;">Gal News: News fit to print or not.</i><p>|; 
 		@news = <IN_FILE>;
 		close(IN_FILE);
 		foreach my $key (@news) {
 	 		($id, $secs, $turn, $story) = split('\t', $key);
 	 		if ($secs) { $l_time = localtime($secs); }
-	 		print "<P><b>$turn</b>: $story\n\n";
+	 		print qq|<p style="color: black;"><b>$turn</b>: $story\n\n|;
 		}
 	}
 }
@@ -2021,7 +2044,7 @@ eof
 &show_race_block("$racepath/$RaceValues{'RaceFile'}");
 
 print <<eof;
-<form name="login" method=$FormMethod action="$WWW_Scripts/page.pl">
+<form name="login" method="$FormMethod" action="$WWW_Scripts/page.pl">
 <input type="hidden" name="lp" value="profile_race">
 <input type="hidden" name="cp" value="delete_race">
 <input type="hidden" name="rp" value="my_races">
@@ -2038,7 +2061,7 @@ eof
 sub upload_race {
 print <<eof;
 <td>
-<FORM method=$FormMethod action="$WWW_Scripts/upload.pl" name="my_form" enctype="multipart/form-data">
+<FORM method="$FormMethod" action="$WWW_Scripts/upload.pl" name="my_form" enctype="multipart/form-data">
 <input type="hidden" name="lp" value="profile_race">
 <input type="hidden" name="cp" value="process_race">
 <input type="hidden" name="rp" value="my_races">
@@ -2134,7 +2157,7 @@ sub edit_game {
 		}
 	}
 
-	print qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod>\n|;
+	print qq|<FORM action="$WWW_Scripts/page.pl" method="$FormMethod">\n|;
 	print qq|<TABLE><TR>\n|;
 	print qq|		<TD>Game Name:</TD>\n|;
   if ($type eq 'create') {
@@ -2320,7 +2343,8 @@ sub edit_game {
 	}
 	else { 
 		print qq|<input type=hidden name="type" value="create">\n|; 
-		print qq|<P><BUTTON $host_style type="submit" name="cp" value="Create Game">Create Game</BUTTON>\n|;
+		print qq|<P><BUTTON $host_style type="submit" name="cp" value="Create Game" | . &button_help('CreateGame') . qq|>Create Game</BUTTON>\n|;
+    print qq|<BUTTON $host_style type="submit" name="cp" value="Upload Zip" | . &button_help('UploadZip') . qq|>Upload Zip</BUTTON>\n|; $button_count = &button_check($button_count);
 	}
  	print qq|</form></td>\n|;
 }
@@ -2340,7 +2364,7 @@ sub delete_confirm {
 	&DB_Close($db);
 
   print qq|<H1>Delete Game: $GameValues{'GameName'}</H1>|;
-	print qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod>\n|;
+	print qq|<FORM action="$WWW_Scripts/page.pl" method="$FormMethod">\n|;
 	print qq|Confirm you want to delete \"$GameValues{'GameName'}\", Game ID: $GameFile\n|;
 	print qq|<input type=hidden name="GameFile" value="$GameValues{'GameFile'}">\n|; 
 	print qq|<P><BUTTON $host_style type="submit" name="cp" value="delete_game">DELETE</BUTTON>\n|;
@@ -2577,7 +2601,7 @@ sub create_game_size {
 	my ($GameFile, $GameName) = @_;
 	print <<eof;
 <H2>Game Parameters For $GameName</H2>
-<FORM action="$WWW_Scripts/page.pl" method=$FormMethod>
+<FORM action="$WWW_Scripts/page.pl" method="$FormMethod">
 	<TABLE cellpadding="2">
 		<TR><TH>Size</TH><TH>Position</TH><TH>Density</TH><TH></TH></TR>
 		<TR>
@@ -2668,6 +2692,7 @@ eof
 	print qq|<P><INPUT type="Checkbox" name="NotifyList" | . &button_help("NotifyList") . qq|>Notify Email List for New Game Notification\n|;
   #
 	print qq|<P><BUTTON $host_style type="submit" name="cp" value="Create DEF File">Create DEF File</BUTTON>\n|; 
+  
 	print qq|</FORM>\n|;
 }
 
@@ -2738,7 +2763,7 @@ sub create_game_def {
 		# Close file
 		close (DEFOUT);
     umask 0002; 
-    chmod 0664, $GameDEF;
+    chmod 0660, $GameDEF;
 
 		# update the database to reflect that the def file is created for this game
 		my $sql = qq|UPDATE Games SET GameStatus = 7 WHERE GameFile = \'$GameFile\' AND HostName ='$userlogin';|;
@@ -2859,8 +2884,10 @@ sub read_def {
 		}	
 		print qq|</tr></table>\n|;
 	} else { 
-		print "<P>Game Definition File $def_file not found!\n"; 
-		&LogOut(0,"read_def: Game Definition File $def_file not found for $userlogin",$ErrorLog);
+    # Note: No game def files for zip games
+    # BUG: Decode the .xy file to be able to build a def file from a hst file. 
+		#print "<P>Game Definition File not found!\n"; 
+		#&LogOut(0,"read_def: Game Definition File $def_file not found for $userlogin",$ErrorLog);
 	}
   return ''; # Return blank to avoid getting values
 }
@@ -2917,7 +2944,7 @@ sub read_game {
     elsif ($cleanFiles == 2) { push (@Values, "File Sanitization enabled"); }
   }  
 	my $c = 0;
-	my $col=4;
+	my $col = 4;
 	print "<P><B>TotalHost Settings:</B>\n";
 	print qq|<table border=1 width=100% style="font-size:0.8em;">|;
 	print qq|<tr>|;
@@ -2925,6 +2952,7 @@ sub read_game {
 		print "<td>$key</td>"; $c++;
 		if ($c/$col == int($c/$col)) { print qq|</tr><tr>|; }
 	}
+  
 	print qq|</tr></table>\n|;
   
 # 	211028 return @Values;
@@ -2948,7 +2976,7 @@ sub show_restore {
   }
 	&DB_Close($db);
   print qq|<h2>Restore Game for: $GameValues{'GameName'}</h2>\n|;
- 	print qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod>\n|;
+ 	print qq|<FORM action="$WWW_Scripts/page.pl" method="$FormMethod">\n|;
 	print qq|<input type=hidden name="lp" value="profile_game">\n|;
 	print qq|<table><tr>\n|;
 	print qq|<td>Restore to Game Year</td>\n|;
@@ -3189,7 +3217,7 @@ sub show_delay {
     	else { print qq|<P>You have no delays left in this game as Player $GameValues{'PlayerID'}. Hope that they reset soon!\n|; }
       # If the player has delays left, display the option to select them
       if ($GameValues{'DelaysLeft'} > 0) {
-       	print qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod>\n|;
+       	print qq|<FORM action="$WWW_Scripts/page.pl" method="$FormMethod">\n|;
       	print qq|<input type=hidden name="lp" value="profile_game">\n|;
       	if (&checkbox($GameValues{'NewsPaper'})) { print qq|<input type=hidden name="rp" value="show_news">\n|; }
        	print qq|<INPUT type=\"hidden\" name=\"GameFile\" value =\"$GameFile\">\n|;
@@ -3324,11 +3352,15 @@ sub process_delay {
 
 # Display File Upload
 sub show_upload { # Uses $GameName and $GameFile
-	my($GameName,$GameFile) = @_;
+	my($GameName,$GameFile, $UploadType) = @_;   # Zip=1  or not.
 	print qq|<FORM method="$FormMethod" action="$WWW_Scripts/upload.pl" name="my_form" enctype="multipart/form-data">\n|;
-	print qq|<table>\n<tr>\n|;
+	print qq|<table border=1>\n<tr>\n|;
 	print qq|<td><INPUT type="file" name="File" size="30"></td>\n|;
-	print qq|<td><INPUT type="submit" name="submit" value="Upload Turn" | . &button_help('SendFile') . qq|></td>\n|;
+  if ($UploadType) {
+    print qq|<td><INPUT type="submit" name="submit" value="Upload File" | . &button_help('SendZip') . qq|></td>\n|;
+  } else {
+    print qq|<td><INPUT type="submit" name="submit" value="Upload Turn" | . &button_help('SendTurn') . qq|></td>\n|;  
+  }
 	print qq|</tr>\n</table>\n|;
 	# send GameName
 	print qq|<INPUT type="hidden" name="GameName" value="$GameName">\n|;
@@ -3372,7 +3404,7 @@ sub show_player_status {
   	my $LoopPosition = 0; #Start with the first player in the array.
   	while ($LoopPosition <= ($#PlayerData)) { # work the way through the array
 		print "<tr>\n";
- 		print qq|<FORM action="$WWW_Scripts/page.pl" method=$FormMethod>\n|;
+ 		print qq|<FORM action="$WWW_Scripts/page.pl" method="$FormMethod">\n|;
 		print qq|<input type=hidden name="lp" value="profile_game">\n|;
 		print qq|<input type=hidden name="rp" value="my_games">\n|;
 		print qq|<input type=hidden name="User_File" value="$PlayerData[$LoopPosition]{'User_File'}">\n|;
@@ -3401,7 +3433,7 @@ sub show_player_status {
 	}
 	print "</table>\n";
   print qq|<P>Idle ignores turn submission status for turn generation.|;
-  print qq|<P>Inactive alters the HST status to "Human (Inactive)" and enables the housekeeping AI.|;
+  print qq|<P>Inactive alters the .hst status to "Human (Inactive)" and enables the housekeeping AI.|;
   print qq|<P>Banned prevents the player from downloading turns. |;
   print qq|<P><P>Setting a player to inactive (or active) changes the .hst file. A turn will have to pass before the .m file is updated.|; 
   print qq| If you want access to the .m file sooner, reset the password on the .m file.|;
@@ -3490,7 +3522,7 @@ sub submit_forcegen {
 
 	print "<H2>Force Generate Turns for: $GameValues{'GameName'}</H2>\n";
 	print "<P>Current Year: $HST_Turn\n";
-	print qq|<form method=$FormMethod action="$WWW_Scripts/page.pl">\n|;
+	print qq|<form method="$FormMethod" action="$WWW_Scripts/page.pl">\n|;
 	print qq|<input type="hidden" name="GameFile" value="$GameFile">\n|;
 	print qq|<input type="hidden" name="lp" value="profile_game">\n|;
 	print qq|<input type="hidden" name="cp" value="force_gen">\n|;
@@ -3630,7 +3662,7 @@ sub show_email {
 print <<eof;
 <td>
 <H2>Send Email to all players in: $GameName  </H2>
-<FORM method=$FormMethod action="$WWW_Scripts/page.pl" name="my_form">
+<FORM method="$FormMethod" action="$WWW_Scripts/page.pl" name="my_form">
 <input type="hidden" name="lp" value="game">
 <input type="hidden" name="GameFile" value="$GameFile">
 <input type="hidden" name="GameName" value="$GameName">
@@ -3712,12 +3744,15 @@ sub process_switch_player {
       &LogOut(50, qq|switch_player: Player $PlayerID updated to $ReplaceName by $session->param("userlogin")|, $LogFile);
       $sth->finish(); 
     }
+    # If this isn't a brand new game (for the zip switch player function) then 
     # Email all the players of the change
-    $GameValues{'Subject'} = $mail_prefix . "$GameValues{'GameName'} Player Change";
-    $GameValues{'Message'} = "\n\nIn $GameValues{'GameName'} ($GameValues{'GameFile'}), the host has replaced Player $PlayerID with $ReplaceName.\n";
-    &Email_Turns($GameFile, \%GameValues, 0);
+    unless (($GameValues{'LastTurn'} == 0) && ($GameValues{'LastTurn'} == 0)) {
+      $GameValues{'Subject'} = $mail_prefix . "$GameValues{'GameName'} Player Change";
+      $GameValues{'Message'} = "\n\nIn $GameValues{'GameName'} ($GameValues{'GameFile'}), the host has replaced Player $PlayerID with $ReplaceName.\n";
+      &Email_Turns($GameFile, \%GameValues, 0);
+    }
     # Log the events
-   	&LogOut(200,qq|switch_player: $session->param("userlogin") swapped $PlayerID to $ReplaceName|,$LogFile);
-  } else { &LogOut(50, qq|switch_player: $session->param("userlogin") attempted to swap $PlayerID to $ReplaceName|, $ErrorLog);}  
+   	&LogOut(200,qq|switch_player: $session->param("userlogin") swapped Player $PlayerID to $ReplaceName|,$LogFile);
+  } else { &LogOut(50, qq|switch_player: $session->param("userlogin") attempted to swap Player $PlayerID to $ReplaceName|, $ErrorLog);}  
   &DB_Close($db);
 }
