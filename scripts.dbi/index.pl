@@ -49,14 +49,14 @@ $id = $session->param('userid');
 $userlogin = $session->param('userlogin');
 
 # If the user happens to be logged in, redirect them to the first game page
-&LogOut(0,"ID = $id, Login = $userlogin",$ErrorLog); 
-if ($userlogin) {  
-	$redirect =  $WWW_HomePage . $WWW_Scripts . '/page.pl?lp=game&cp=show_first_game';
-	#print $cgi->redirect( -URL => "$redirect");
-##	&print_redirect($cgi,$sessionid,$redirect);
-  print "Location: $redirect\n\n";
-  exit;
-}
+# &LogOut(0,"ID = $id, Login = $userlogin",$ErrorLog); 
+# if ($userlogin) {  
+# 	$redirect =  $WWW_HomePage . $WWW_Scripts . '/page.pl?lp=game&cp=show_first_game';
+# 	#print $cgi->redirect( -URL => "$redirect");
+# ##	&print_redirect($cgi,$sessionid,$redirect);
+#   print "Location: $redirect\n\n";
+#   exit;
+# }
 
 print $cgi->header();
 &html_top($cgi, $session, $note);
@@ -160,7 +160,7 @@ sub login_page {
 #	$id = $session->param('userid');
 	print qq|<td>\n|;
 #	print qq|<h2>Log In</h2>\n|;
-	print qq|<form name="login" method=POST action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">\n|;
+	print qq|<FORM name="login" method="$FormMethod" action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">\n|;
 	print qq|<input type=hidden name="action" value="login">\n|;
 	print qq|<table>\n|;
 	print qq|<tr><td>User ID: </td><td><input type=text name="User_Login" value="$id" size=10 maxlength=32></td></tr>\n|;
@@ -168,21 +168,21 @@ sub login_page {
 	print qq|<tr><td>\n|;
 	print qq|</td></tr>\n|;
 	print qq|<tr><td><input type=submit name="Submit" value="Log In"></td></tr>\n|;
-	print qq|</table></form></td>\n|;
+	print qq|</table></FORM></td>\n|;
 }
 
 sub reset_user {
 print <<eof;
 <td>
 <h2>Reset Password</h2>
-<form method=POST action="$WWW_Scripts/account.pl">
+<FORM method="$FormMethod" action="$WWW_Scripts/account.pl">
 <input type=hidden name="action" value="reset_user">
 <table>
 <tr><td>User ID: </td><td><input type=text name="User_Login" value=""></td></tr>
 <tr><td>Email: </td><td><input type=text name="User_Email" value=""></td></tr>
 <tr><td><input type=submit name="Submit" value="Reset Password"></td></tr>
 </table>
-</form>
+</FORM>
 </td>
 eof
 }

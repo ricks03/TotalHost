@@ -232,6 +232,9 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         
         if ($fullDataFlag) { 
           $homeWorld = &read16(\@decryptedData, 8); # no homeworld in race file
+          # BUG: the references say this is two bytes, but I don't think it is.
+          # That means I don't know what byte 11 is tho. 
+          # Maybe in universes with more planets?
           $rank = &read16(\@decryptedData, 10); # Always 0 in race file. Not in game file.
           # Bytes 12..15 are the password;
           # The password inverts when the player is set to Human(inactive) mode (the bits are flipped).

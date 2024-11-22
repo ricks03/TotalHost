@@ -62,7 +62,7 @@ our @EXPORT = qw(
   process_fix process_game_status
   lwp_head check_internet get_internet_down_count internet_log_status clear_internet_log
   call_system  get_user
-  create_graph
+  create_graph print_legend
 );
 # Remarked out functions: FileData FixTime MakeGameStatus checkboxes checkboxnull
 #  showCategory
@@ -161,7 +161,7 @@ sub Mail_Open {
 		if (!($smtp)) { 
 			&LogOut(0, "Mail_Open: ERROR: Failed to Connect to SMTP for $mail_server", $ErrorLog); 
 		} else {
-			&LogOut(201, "Mail_Open: SMTP $mail_server open", $LogFile); 
+			&LogOut(400, "Mail_Open: SMTP $mail_server open", $LogFile); 
 		}
 		return $smtp;
 	}
@@ -171,7 +171,7 @@ sub Mail_Close  {
 	($smtp) = @_;
 	if ($mail_present) {
 		#$smtp->quit;	
-		&LogOut(201, "Mail_Close: Closing mail", $LogFile); 
+		&LogOut(400, "Mail_Close: Closing mail", $LogFile); 
 	}
 }
 
@@ -179,7 +179,7 @@ sub MailAttach {
 # Sends mail to the listed user, with the associated values (to:, Subject, Message)
 	my ($MailTo, $MailFrom, $Subject, $Message, $GameFile, $PlayerID, $Turn) = @_;
   my $Path;
-	&LogOut(200,"MailAttach: $MailTo, $MailFrom, $GameFile, $PlayerID, $Turn",$LogFile);
+	&LogOut(300,"MailAttach: $MailTo, $MailFrom, $GameFile, $PlayerID, $Turn",$LogFile);
 	use MIME::Lite;
 	### Create the multipart container
 	my $msg = MIME::Lite->new (
@@ -237,7 +237,7 @@ sub Email_Turns { #email turns out to the appropropriate players
 	my @PlayerID   = @$PlayerID;
 	my @EmailTurn  = @$EmailTurn;
   my $user_count =  @User_Login;
-	&LogOut(201, "Email_Turns: User Count $user_count for $GameFile", $LogFile); 
+	&LogOut(301, "Email_Turns: User Count $user_count for $GameFile", $LogFile); 
 
   @CHK = &Read_CHK($GameFile); # Get the current game values looking for deceased players
  	my($Position) = '3';
@@ -260,7 +260,7 @@ sub Email_Turns { #email turns out to the appropropriate players
     } elsif ( $PlayerID == 0 ) { # If this is a host message
       $Subject = qq|$mail_prefix New Turns for $GameFile - Year $GameVals{'HST_Turn'}|;
  		} else { $Subject = qq|$mail_prefix New Turn for $GameFile.m$PlayerID[$i] - Year $GameVals{'HST_Turn'}|; }
-		&LogOut(200, "Email_Turns: Subject: $Subject", $LogFile);
+		&LogOut(400, "Email_Turns: Subject: $Subject", $LogFile);
 		$Message = $GameVals{'Message'} . "\n\n";
     # If there's a next turn scheduled, and the game isn't over
 		if ($GameVals{'NextTurn'} > 0 && $GameVals{'GameStatus'} != 9 && $GameVals{'GameStatus'} != 4 && $GameVals{'GameType'} != 3 && $GameVals{'GameType'} != 4 ) {
@@ -274,7 +274,7 @@ sub Email_Turns { #email turns out to the appropropriate players
 			if ($GameVals{'HST_Turn'} eq '2400' || $GameVals{'HST_Turn'} eq '2401' ) { $Message .= ' not including years 2400 and 2401, which will generate only one year'; }
 			$Message .= ".\n";
 		}
-		&LogOut(200, "Email_Turns: Message: $Message", $LogFile);
+		&LogOut(400, "Email_Turns: Message: $Message", $LogFile);
 # 		if ($Attach && $EmailTurn[$i] == 1 && $CHK_Status[$i] ne 'Deceased') { # If player has email and attach enabled and isn't dead
 # 			&LogOut(200,"Email_Turns: Emailing player w attach: T: $Email[$i], F: $mail_from, G: $GameVals{'GameFile'}, P: $PlayerID[$i], T: $GameVals{'HST_Turn'}",$LogFile);
 # 			&MailAttach($Email[$i], $mail_from, $Subject, $Message, $GameFile, $PlayerID[$i], $GameVals{'HST_Turn'});
@@ -296,11 +296,11 @@ sub Email_Turns { #email turns out to the appropropriate players
     } elsif ($CHK_Status[$i] ne 'Deceased') {
 		  if ($EmailTurn[$i] == 1 ) {
         if ($Attach) { # If player has email and attach enabled and isn't dead
-    			&LogOut(200,"Email_Turns: Emailing player w attach: T: $Email[$i], F: $mail_from, G: $GameVals{'GameFile'}, P: $PlayerID[$i], T: $GameVals{'HST_Turn'}",$LogFile);
+    			&LogOut(400,"Email_Turns: Emailing player w attach: T: $Email[$i], F: $mail_from, G: $GameVals{'GameFile'}, P: $PlayerID[$i], T: $GameVals{'HST_Turn'}",$LogFile);
     			&MailAttach($Email[$i], $mail_from, $Subject, $Message, $GameFile, $PlayerID[$i], $GameVals{'HST_Turn'});
     		} else {
     			$smtp = &Mail_Open;
-    			&LogOut(200,"Email_Turns: Emailing player: $Email[$i], $mail_from, $Subject, $Message",$LogFile);
+    			&LogOut(400,"Email_Turns: Emailing player: $Email[$i], $mail_from, $Subject, $Message",$LogFile);
     			&Mail_Send($smtp, $Email[$i], $mail_from, $Subject, $Message);
     			&Mail_Close($smtp);
     		}
@@ -412,7 +412,7 @@ sub LogOut {
   		print LOGFILE "$PrintString\n\n";
   		close LOGFILE;
       umask 0002; 
-      chmod 0664, $LogFileDate; 
+      chmod 0660, $LogFileDate; 
     } else { print "$PrintString\n"; }
 	}
 
@@ -491,7 +491,9 @@ sub html_top {
 	($cgi, $session) = @_;
 	print "<html>\n";
 	&html_head;
-	print "<body>\n";
+  print "<body>\n";
+  # for black background                                                                                                                   
+	#print "<body BACKGROUND=\"/images/bkgstar.gif\" BGCOLOR=\"#000000\" TEXT=\"#FFFFFF\" LINK=\"#FFFFFF\" ALINK=\"#FF0000\" VLINK=\"#FFFFFF\">\n";
 	&html_banner($cgi, $session);
 	&html_menu;
 }
@@ -566,10 +568,6 @@ borderize(source4,"white")
 }
 }
 </script>
-<script type="text/javascript" src="/sha1.js"></script>
-<script type="text/javascript">
-     hash = hex_sha1("string");
-</script>
 
 <script>
 function Help( name ) {
@@ -592,8 +590,7 @@ sub html_banner {
 	$id = $session->param("userid");
 	$login = $session->param("userlogin");
 	print qq|<table width=100%>\n|;
-	print qq|<tr height=50>\n<td width=20% align=left><a href="/"><img src=$WWW_Image| . qq|TotalHost.jpg alt="Total Host" border=0></a></td>\n|;
-#	print qq|<td name=notes><iframe id ="ifr" src="$WWW_Notes| . qq|blank.htm" name="your_name" marginwidth=0 marginheight=0 width="400" height="25" frameborder="0" scrolling="auto"></iframe></td>|;
+	print qq|<tr height=50>\n<td width=20% align=left><a href="/"><img src=$WWW_Image| . qq|$WWW_Banner alt="Total Host" border=0></a></td>\n|;
 	print qq|<td name="notes"></td>|;
 
 #	if ( $cookie ) { print qq|<td width=30%>ID: $id Login: $login</td>\n|;}
@@ -629,7 +626,11 @@ sub html_left {
 	print qq|<P><hr>\n|;
 	print qq|<iframe id = "ifr" src="$WWW_Notes| . qq|blank.htm" name="your_name" marginwidth=0 marginheight=0 width="$lp_width" height="$height_help" frameborder="0" scrolling="auto"></iframe>\n|;
 	print qq|<table border=0>\n|;
+  # fro black background
+#  print qq|<table border="0" style="color: white; background: '/images/bkgstar.gif';">\n|; # Ensure the table is styled
 	print qq|<tr>\n<td id="help" align=left>\n|;
+# fro black background
+#  print qq|<tr>\n<td id="help" align="left" style="color: white; background-color: black;">\n|; # Set inline styles for black background and white text
 	print qq|</td>\n</tr>\n|;
 	print qq|</table>\n|;
 }
@@ -834,7 +835,10 @@ sub list_games {
 	if (my $sth = &DB_Call($db,$sql)) {
     while (my $row = $sth->fetchrow_hashref()) {
       $countgames++;
-    	($GameName, $GameFile, $GameStatus, $GameDescrip, $HostName, $NewsPaper) = ($row->{'GameName'}, $row->{'GameFile'}, $row->{'GameStatus'}, $row->{'GameDescrip'}, $row->{'HostName'}, $row->{'NewsPaper'}); 
+    	($GameName, $GameFile, $GameStatus, $GameDescrip, $HostName, $NewsPaper) = ($row->{'GameName'}, $row->{'GameFile'}, $row->{'GameStatus'}, $row->{'GameDescrip'}, $row->{'HostName'}, $row->{'NewsPaper'});
+      
+      #if ($GameStatus == 6) { next; }  # Don't need to display games being created.
+       
       if ($NewsPaper) { $rp = 'show_news'; } else { $rp = 'my_games'; } # The URL should only include news if there's news.
  			print qq|<tr>|;
 			# Display Game Status
@@ -931,7 +935,7 @@ sub Read_CHK {
   &LogOut(200, "Read_CHK: Running for $CHK_FILE", $LogFile);
   if (-e $HST_FILE) {
   # IF for some reason there's no .chk file, make one. 
-  unless (-e $CHK_FILE ) { &Make_CHK($GameFile); } # Onlt execute if CHK_FILE does not exi
+  unless (-e $CHK_FILE ) { &Make_CHK($GameFile); } # Only execute if CHK_FILE does not exist
   open (IN_CHK,$CHK_FILE) || &LogOut(0,"Read_CHK: Cannot open stupid .chk file $CHK_FILE for $GameFile",$ErrorLog);
   chomp (@CHK = <IN_CHK>);
  	close(IN_CHK);
@@ -967,14 +971,13 @@ sub Eval_CHKLine {
 	my $ChkStatus, $ChkPlayer = '';
 	# Possible results: turned in, still out, not in the right game, dead, not on the right year, error, hack (hacked race)
 	foreach $key (keys(%TurnResult)) {  # This should be declared locally
-		if (index($ChkResult, $key) >= 0 ) { $ChkStatus = $TurnResult{$key}; }
+		if (index($ChkResult, $key) >= 0 ) { $ChkStatus = $TurnResult{$key}; } # If the string includes the index value from %TurnResult
 	}
 	$ChkPlayer = $ChkResult;
 	$ChkPlayer =~ s/(.*: )(\")(.*)(\")(.*)/$3/;
 	if ($ChkStatus) { return $ChkStatus, $ChkPlayer; }
 	else { 
     &LogOut(0,"Eval_CHKLine: Fail for no \$ChkResult in TurnResult array, $ChkResult",$ErrorLog);
-    #return "Error";
     return "Error: $ChkResult"; 
   }
 }
@@ -1308,7 +1311,7 @@ sub process_fix {
   	print OUT_FILE "\n";
   	close(OUT_FILE);
     umask 0002; 
-    chmod 0664, $warningfile;
+    chmod 0660, $warningfile;
 	}
 
 	# Read in the old fixes
@@ -1515,7 +1518,7 @@ sub internet_log_status {
   print "$timestamp - $status\n";
   close OUTFILE;
   umask 0002; 
-  chmod 0664, $internet_status_log;
+  chmod 0660, $internet_status_log;
 }
 
 # Clear the log file (used when Internet comes back up)
@@ -1524,7 +1527,7 @@ sub clear_internet_log {
   open (OUTFILE, ">$internet_status_log") or print "Could not open $internet_status_log: $!\n";
   close OUTFILE;
   umask 0002; 
-  chmod 0664, $internet_status_log;
+  chmod 0660, $internet_status_log;
 }
 
 # A centralized place to make system calls
@@ -1673,4 +1676,41 @@ sub graph_score {
   print OUT $gd->png( );
   close OUT;
   &LogOut(200, "graph_score: Graph file created at: $graphPath", $LogFile);
+}
+
+sub print_legend {
+  my ($num_columns, $player_status, %hash) = @_;
+  if (!%hash) { return;  }  
+  # num_columns: The number of columns to output
+  # player_status: display the _Player Status values
+  # hash: the array of status balls
+  
+  # Start the legend table
+#  print qq|<table border="0" cellspacing="0" cellpadding="0" style="border: 1px solid black;">\n|;
+  print qq|<table border="0" cellspacing="5" cellpadding="0" style=\"text-align: left; font-size: smaller;\">\n|;
+  print qq|<tr><th>Legend:</th></tr>\n|;
+  
+  my $c = 0;
+	print qq|<tr>|;
+	foreach my $key (sort keys %hash) { 
+#    print qq|<td style=\"padding: 2px; text-align: left; font-size: smaller;\">|;
+    print qq|<td>|;
+    print qq|<img src=\"$hash{$key}\" alt=\"$key\" style=\"vertical-align: middle;\"> $key|;
+    print qq|</td>\n|;
+    $c++;
+		if ($c/$num_columns == int($c/$num_columns)) { print qq|</tr>\n<tr>|; }
+	}
+  
+  #Add the _Player Status values to the legend
+  # BUG: I only want these for TurnBall 
+  if ($player_status) {
+  print qq|<td><i>TH Idle</i></td>|; 
+  $c++; if ($c/$num_columns == int($c/$num_columns)) { print qq|</tr>\n<tr>|; }
+  print qq|<td><del style=\"color: red;\">TH Banned</del></td>|;
+  $c++; if ($c/$num_columns == int($c/$num_columns)) { print qq|</tr>\n<tr>|; }
+  print qq|<td ><del>Inactive (AI)</del><td>|;
+  }
+  
+	print qq|</tr>\n|;
+  print qq|</table>\n|;
 }

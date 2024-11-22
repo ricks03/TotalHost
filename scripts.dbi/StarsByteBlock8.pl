@@ -117,7 +117,7 @@ sub decryptBlock {
       # Convert the nonencrypted Block 8 data
       my ($unshiftedData) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
-      &processData(\@unshiftedData,$typeId,$offset,$size);
+      &processData(\@unshiftedData,$typeId,$offset,$size, $inBlock);
       
 # 2 bytes: Header    
 # 4 bytes: (0/3): Magic
@@ -172,14 +172,14 @@ sub decryptBlock {
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
       my ($unshiftedData) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
-      &processData(\@unshiftedData,$typeId,$offset,$size);
+      &processData(\@unshiftedData,$typeId,$offset,$size, $inBlock);
       push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
-      &processData(\@decryptedData,$typeId,$offset,$size);
+      &processData(\@decryptedData,$typeId,$offset,$size, $inBlock);
       # END OF MAGIC
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
@@ -190,27 +190,4 @@ sub decryptBlock {
     $offset = $offset + (2 + $size); 
   }
   return \@outBytes;
-}
-
-sub processData {
-  # Display the byte information
-  my ($decryptedData,$typeId,$offset,$size)  = @_;
-  my @decryptedData = @{ $decryptedData };
-
-  if ($inBlock == $typeId || $inBlock == -1) {
-    if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
-    if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-    if ($inBin) {
-      if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
-      my $counter =0;
-      foreach my $key ( @decryptedData ) { 
-        #print "byte  $counter:\t$key\t" . &dec2bin($key); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
-        print "$counter:$key\t" . substr(&dec2bin($key),8,8); if ($inBin ==1 || $inBin ==2 ) { print "\n"; }
-        $counter++;
-      }  
-      print "\n";    
-    } else {
-#      print "\t" . join ( "\t", @decryptedData ), "\n";
-    }
-  }
 }

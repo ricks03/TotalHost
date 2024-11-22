@@ -148,7 +148,7 @@ print "DM: $map\n";
 my $exit_status = &call_system ($map);
 # copy out the map file. You need only one
 $file1 = $destdir . '/2400/' . $GameFile . '.map';
-$file2 = $destdir . '/' .$GameFile . '.map';
+$file2 = $destdir . '/' . uc($GameFile) . '.MAP';
 print "Copy $file1 > $file2\n";
 copy("$file1","$file2") or die "Copy MAP failed: $!";
 # Wait patiently, Stars! doesn't like to be launched over and over.
@@ -180,7 +180,7 @@ foreach $dirname (@AllDirs) { # Dirname is the year value
     unless (-e $file2) {  # If the file is already there, no need to create
   		my $exit_status = &call_system($pla);
   		# and move/rename the file to the format/location for starmapper
-  		print "PLA CP: $file1 > $file2\n";
+  		print "$file1 > $file2\n";
   		copy($file1,$file2) or die "Copy PLA failed for $file1, $file2: $!";
   		# Wait patiently, Stars! doesn't like to be launched over and over.
   		sleep 2;
@@ -189,6 +189,7 @@ foreach $dirname (@AllDirs) { # Dirname is the year value
 }
 
 # configure the Starmapper ini file
+#$DataOutFile = $destdir . '\\' . $GameFile . '.ini';
 $DataOutFile = $destdir . '/' . $GameFile . '.ini';
 open (INIFILE, ">$DataOutFile");
 print INIFILE "; Starmapper ini file for $GameFile\n";
@@ -237,23 +238,33 @@ print INIFILE "\n";
 close INIFILE;
 
 # configure the Starmapper command file
-$DataOutFile = $destdir . '/' . 'starmapper_' . $GameFile . '.bat';
-open (MAPFILE, ">$DataOutFile");
+# my $starmapper = 'd:\th\utils\starmapper\starmapper121\starmapper.bat';
+#$DataOutFile = $destdir . '\\' . 'starmapper_' . $GameFile . '.bat';
+$MapOutFile = $destdir . '/' . 'Starmapper_' . $GameFile . '.sh';
+open (MAPFILE, ">$MapOutFile");
 my $mapfile = $starmapper . " $GameFile";
 foreach $number (@numbers) { $mapfile .= " $number"; }
 print MAPFILE $mapfile . "\n";
 close MAPFILE;
+chmod 0770, $MapOutFile;
 chdir $destdir;
-
-$exit_status = &call_system($DataOutFile); # Run starmapper
+$exit_status = &call_system($MapOutFile); # Run starmapper
 
 # Initialize the Image command file
-$DataOutFile = $destdir . '/image_' . $GameFile . '.bat';
-open (IMGFILE, ">$DataOutFile");
-# Create an animated gif from the Starmapper .PCX files.
-print IMGFILE "\"" . $imagemagick . "/" . " -loop 1 -delay 100 " . " \"$destdir/$GameFile *.PCX\" $moviePath" . '/movie_' . "$GameFile.gif\n";
-close IMGFILE;
-$exit_status = &call_system($DataOutFile);  # Run imagemagic (requires successful starmapper)
+if (-f $MapOutFile) {
+  $ImgOutFile = $destdir . '/image_' . $GameFile . '.sh';
+  open (IMGFILE, ">$ImgOutFile");
+  # Create an animated gif from the Starmapper .PCX files.
+  # my $imagemagick = 'C:\Program Files\ImageMagick-6.8.3-Q16\convert';
+  #print IMGFILE "\"" . $imagemagick . "\"" . " -loop 1 -delay 100 " . " \"$destdir\\$GameFile *.PCX\" $moviePath" . '\\movie_' . "$GameFile.gif\n";
+  print IMGFILE $imagemagick . " -loop 1 -delay 100 " . " \"$destdir/$GameFile *.pcx\" $moviePath" . "/$GameFile.gif\n";
+  close IMGFILE;
+  chmod 0770, $ImgOutFile;
+  $exit_status = &call_system($ImgOutFile);  # Run imagemagic (requires successful starmapper)
+  $GifFile = "$Dir_Graphs/movies/$GameFile.gif";
+  chmod 0440, $GifFile; 
+} else { print "Can\'t create $ImgOutFile, because $MapOutFile is missing"; }
+
 
 die "Done! Delete the folder $destdir\n";
 #if ($destdir) { rmtree($destdir) or die "$!: for directory $destdir\n"; }
@@ -267,77 +278,5 @@ sub fixlen {
 	return $len;
 }
 
-sub getRaceNames {
-  my ($HST) = @_;
-  # Read in the binary Stars! file, byte by byte
-  my $FileValues;
-  my @fileBytes;
-  my @singularRaceNames;
-  open(StarFile, "<$HST" );
-  binmode(StarFile);
-  while ( read(StarFile, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
-  close(StarFile);
-  # Decrypt the data, block by block
-  @singularRaceNames = &decryptNameBlock(@fileBytes);
-  #@singularRaceNames = &decryptNameBlock();
-  @$singularRaceNames = $singular;
-  return @singularRaceNames;
-}
-  
-################################################################
-sub decryptNameBlock {
-  my (@fileBytes) = @_;
-  my @block;
-  my @data;
-  my ($decryptedData, $encryptedBlock, $padding);
-  my @decryptedData;
-  my @encryptedBlock;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
-  my ($random, $seedA, $seedB, $seedX, $seedY );
-  my ( $FileValues, $typeId, $size );
-  my $offset = 0; #Start at the beginning of the file
-  my @singularRaceNames;
-  my $debug = 0;
-  while ($offset < @fileBytes) {
-    # Get block info and data
-    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
-    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
-    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
-    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
-    if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
-    # FileHeaderBlock, never encrypted
-    if ($typeId == 8 ) {
-      # We always have this data before getting to block 6, because block 8 is first
-      # If there are two (or more) block 8s, the seeds reset for each block 8
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
-      ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
-    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
-    } elsif ($typeId == 6 ) { #PlayerBlock
-      # Everything else needs to be decrypted
-      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
-      @decryptedData = @{ $decryptedData };  
-      # WHERE THE MAGIC HAPPENS
-      my $playerId = $decryptedData[0] & 0xFF;
-      my $fullDataFlag = ($decryptedData[6] & 0x04);
-      my $index = 8;
-      if ($fullDataFlag) { 
-        # The player names are at the end which is not a fixed length
-        $index = 112;
-        my $playerRelationsLength = $decryptedData[112]; 
-        $index = $index + $playerRelationsLength + 1;
-      } 
-      my $singularNameLength = $decryptedData[$index] & 0xFF;
-      my $singularMessageEnd = $index + $singularNameLength;
-      my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
-      print "Singular Race Name: $singularRaceName\n";
-      push @singularRaceNames, $singularRaceName;
-      # END OF MAGIC
-    }
-    $offset = $offset + (2 + $size); 
-  }
-  return @singularRaceNames;
-}
 
