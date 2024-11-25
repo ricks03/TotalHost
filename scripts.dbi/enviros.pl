@@ -3,7 +3,7 @@
 use CGI;
 use CGI qw(:standard);
 
-my $cgi = new CGI;    
+my $cgi = CGI->new;   
 print $cgi->header();
 
 print "<html><body>";

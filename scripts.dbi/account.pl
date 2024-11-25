@@ -39,9 +39,9 @@ foreach my $field (param()) {
    $in{$field} = clean($value);  # Clean and assign to %in hash
 }
 
-#my $cgi = new CGI;      
-#my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
-#$cookie = $cgi->cookie(TotalHost);
+#my $cgi = CGI->new;   
+#my $cookie = $cgi->cookie('TotalHost');
+#my $session = CGI::Session->new("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
 # Doesn't need to validate, because everything in here doesn't require auth.
 #&validate($cgi,$session);
 #$id = $session->param("userid");
@@ -50,19 +50,19 @@ foreach my $field (param()) {
 
 if ($in{'action'} eq 'login') { &login; die;
 } elsif ($in{'action'} eq 'logout' || $in{'action'} eq 'logoutfull') { 
-	my $cgi = new CGI;
-	my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
-	$sessionid = &get_cookie($cgi);
-	$sessionid = $session->id unless $sessionid;
+	my $cgi = CGI->new;
+	my $cookie = &get_cookie($cgi);
+	my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
+	$cookie = $session->id unless $cookie;
 	if ($in{'action'} eq 'logout') { &logout($cgi,$session); die;}
 	elsif ($in{'action'} eq 'logoutfull') { &logoutfull($cgi,$session); die;
 	} else { &LogOut(10,"ERROR: How did we get here 1",$ErrorLog);
 	}
 }
 
-my $cgi = new CGI;      
-my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
-$cookie = $cgi->cookie(TotalHost);
+my $cgi = CGI->new;   
+my $cookie = $cgi->cookie('TotalHost');
+my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
 print $cgi->header();
 
 &html_top($cgi, $session, $note);
@@ -206,8 +206,9 @@ sub activate_user {
   }
 	
   if ($id ne '') {
-    my $cgi = new CGI;
-    my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
+    my $cgi = CGI->new;
+    my $cookie = $cgi->cookie('TotalHost');  # Get the cookie information
+    my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
     $sessionid = $session->id unless $sessionid;
     $session->param("logged-in", 1);
     $session->param("userid", $User_ID);
@@ -311,14 +312,14 @@ sub reset_password {
 	if ($id) {
 print <<eof;
 <td>
-<form name="login" method="$FormMethod" action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">
-<input type=hidden name="action" value="reset_password2">
-<input type=hidden name="User_Login" value="$User_Login">
+<FORM name="login" method="$FormMethod" action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">
+<input type="hidden" name="action" value="reset_password2">
+<input type="hidden" name="User_Login" value="$User_Login">
 <br>Enter new password: <input type=text id="pass_temp">
-<input type=hidden name="User_Password" id="User_Password">
-<input type=hidden name="Old_Password" value="$User_Password">
+<input type="hidden" name="User_Password" id="User_Password">
+<input type="hidden" name="Old_Password" value="$User_Password">
 <input type=submit name="Submit" value="Reset Password">
-</form>
+</FORM>
 </td>
 eof
 	} else {
@@ -420,9 +421,10 @@ sub login {
   &DB_Close($db);	
   if ($id) {
     &LogOut(100,"$submit_user Logged In",$LogFile);
-    my $cgi = new CGI;
-    my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
-    $sessionid = $session->id unless $sessionid;
+    my $cgi = CGI->new;
+    my $cookie = $cgi->cookie('TotalHost');  # Get the cookie information
+    my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
+    my $sessionid = $session->id unless $sessionid;
     $session->param("logged-in", 1);
     $session->param("userid", $User_ID);
     $session->param("userlogin", $User_Login);
@@ -432,7 +434,7 @@ sub login {
 		&print_redirect($cgi,$sessionid,$redirect);
   } else {
     &LogOut(100,"$submit_user failed to Log In",$LogFile);
-    my $cgi = new CGI;
+    my $cgi = CGI->new;
     print $cgi->redirect( -URL => "$WWW_Scripts/account.pl?action=login_fail");
   }
 }
