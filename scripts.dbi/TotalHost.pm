@@ -586,14 +586,13 @@ eof
 sub html_banner {
 	($cgi, $session) = @_;
 	$hello = 'User: ' . $session->param("userlogin");
-	$cookie = $cgi->cookie(TotalHost);
+	$cookie = $cgi->cookie('TotalHost');
 	$id = $session->param("userid");
 	$login = $session->param("userlogin");
 	print qq|<table width=100%>\n|;
 	print qq|<tr height=50>\n<td width=20% align=left><a href="/"><img src=$WWW_Image| . qq|$WWW_Banner alt="Total Host" border=0></a></td>\n|;
 	print qq|<td name="notes"></td>|;
 
-#	if ( $cookie ) { print qq|<td width=30%>ID: $id Login: $login</td>\n|;}
 	if ( $cookie && $debug) { print qq|<td width=20%>Cookie: $cookie</td>\n|;}
  	if ( $session->param("logged-in") ) {
 		print qq|<td width=10%>$hello</td>\n|;
@@ -732,14 +731,31 @@ sub get_cookie {
 }
 
 sub print_cookie {
+  # unused except for debug
   ($cgi) = @_;
-  $cookie = $cgi->cookie
+  my $cookie = $cgi->cookie
     (-NAME	=>	'TotalHost', 
 	 -VALUE	=>	"$sessionid", 
      -PATH => '/',
 	 -EXPIRES=>	"+6M",
 	 );
    print $cgi->header(-cookie=> [$cookie]);
+#   my $cookie = $cgi->cookie('TotalHost'); 
+#   # Check if the cookie exists
+#   if (defined $cookie) {
+#     # If the cookie is a single value (string)
+#     print "Cookie value: $cookie\n";
+#     
+#     # If the cookie contains multiple key-value pairs
+#     if (ref $cookie eq 'HASH') {
+#     print "Cookie contains the following values:\n";
+#       foreach my $key (keys %$cookie) {
+#         print "$key => $cookie->{$key}\n";
+#       }
+#     }
+#     } else {
+#       print "No cookie named 'TotalHost' found.\n";
+#     }
 }
 
 sub print_redirect {
