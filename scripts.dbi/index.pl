@@ -23,12 +23,11 @@
 
 use CGI qw(:standard);
 use CGI::Session;
+CGI::Session->name('TotalHost');
 use CGI::Carp qw(fatalsToBrowser);
 use DBI;
 do 'config.pl';
 use TotalHost;
-
-CGI::Session->name('TotalHost');
 
 #%in = &parse_input(*in);
 #foreach my $field (param()) { $in{$field} = &clean(param($field)); }
@@ -37,11 +36,11 @@ foreach my $field (param()) {
    $in{$field} = clean($value);  # Clean and assign to %in hash
 }
 
-my $cgi = new CGI;      
-my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
-#$sessionid = $session->id unless $sessionid;
-$sessionid = $session->id;
-$cookie = $cgi->cookie(TotalHost);
+my $cgi = CGI->new;      
+my $cookie = $cgi->cookie('TotalHost');
+my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
+my $sessionid = $session->id unless $sessionid;
+#$sessionid = $session->id;
 
 # Doesn't need to validate, because everything in here doesn't require auth.
 #&validate($cgi,$session);
@@ -159,12 +158,11 @@ sub login_page {
 # duplicate since base value set at beginning.
 #	$id = $session->param('userid');
 	print qq|<td>\n|;
-#	print qq|<h2>Log In</h2>\n|;
 	print qq|<FORM name="login" method="$FormMethod" action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">\n|;
-	print qq|<input type=hidden name="action" value="login">\n|;
+	print qq|<input type="hidden" name="action" value="login">\n|;
 	print qq|<table>\n|;
 	print qq|<tr><td>User ID: </td><td><input type=text name="User_Login" value="$id" size=10 maxlength=32></td></tr>\n|;
-	print qq|<tr><td>Password: </td><td><input type=password id="pass_temp" size=10></td><input type=hidden name="User_Password" id="User_Password"></tr>\n|;
+	print qq|<tr><td>Password: </td><td><input type=password id="pass_temp" size=10></td><input type="hidden" name="User_Password" id="User_Password"></tr>\n|;
 	print qq|<tr><td>\n|;
 	print qq|</td></tr>\n|;
 	print qq|<tr><td><input type=submit name="Submit" value="Log In"></td></tr>\n|;
@@ -176,7 +174,7 @@ print <<eof;
 <td>
 <h2>Reset Password</h2>
 <FORM method="$FormMethod" action="$WWW_Scripts/account.pl">
-<input type=hidden name="action" value="reset_user">
+<input type="hidden" name="action" value="reset_user">
 <table>
 <tr><td>User ID: </td><td><input type=text name="User_Login" value=""></td></tr>
 <tr><td>Email: </td><td><input type=text name="User_Email" value=""></td></tr>
@@ -205,18 +203,18 @@ sub account_create {
 print <<eof;
 <td>
 <h2>Create Account</h2>
-<form name="login" method=POST action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">
-<input type=hidden name="action" value="add_user">
+<FORM name="login" method=POST action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">
+<input type="hidden" name="action" value="add_user">
 <table>
 <tr><td>First Name: </td><td><input type=text name="User_First" value="" size=32 maxlength=32></td></tr>
 <tr><td>Last Name: </td><td><input type=text name="User_Last" value="" size=32 maxlength=32></td></tr>
 <tr><td>User ID: </td><td><input type=text name="User_Login" value="" size=32 maxlength=32></td></tr>
 <tr><td>Email Address: </td><td><input type=text name="User_Email" value="" size=32 maxlength=32></td></tr>
 <tr><td>Password: </td><td><input type=password name="pass_temp" id="pass_temp"></td></tr>
-<tr><td><input type=hidden name="User_Password" id="User_Password"><input type=submit name="Submit" value="add"></td></tr>
+<tr><td><input type="hidden" name="User_Password" id="User_Password"><input type=submit name="Submit" value="add"></td></tr>
 </table>
-<input type=hidden name="cp" value="">
-</form>
+<input type="hidden" name="cp" value="">
+</FORM>
 </td>
 eof
 }

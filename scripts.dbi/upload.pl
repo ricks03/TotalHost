@@ -21,6 +21,8 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use CGI qw/:standard/;
+use CGI::Session qw/-ip-match/;
+CGI::Session->name('TotalHost');
 use File::Basename;
 use DBI;
 do 'config.pl';
@@ -50,9 +52,11 @@ my $err = '';
 my $valid_file = 0; # assume the file is not a valid file
 my $client_ip = $ENV{'REMOTE_ADDR'};
 
-my $cgi = new CGI; # Create the new CGI Session     
-my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
-$cookie = $cgi->cookie(TotalHost);  # Get the cookie information
+my $cgi = CGI->new; # Create the new CGI Session     
+my $cookie = $cgi->cookie('TotalHost');  # Get the cookie information
+my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
+my $sessionid = $session->id unless $sessionid;
+
 # make the user values handy and easy to use
 my $id = $session->param("userid");
 my $userlogin = $session->param("userlogin");
@@ -154,8 +158,9 @@ sub ValidateFileUpload {
             #unless (mkdir $racefiledir) { &LogOut(0,"ValidateFileUpload: Failed to create Race Directory $racefiledir",$ErrorLog); }
           }
           #write out the race name to where it is supposed to go.
+          $File = lc($File);
    		    my $Race_Destination = "$racefiledir/$File"; 
-   				if (not(-d $Race_Destination)) { #if the file does not already exist
+   				if (not(-f $Race_Destination)) { #if the file does not already exist
 						if (&Move_Race($File_Loc, $Race_Destination)) { # move the race to its final location
 							$err .= "Race File $File Uploaded.\n";
 							&LogOut(200,"ValidateFileUpload: $File $File_Loc moved to $Race_Destination for $userlogin: $err", $LogFile);

@@ -40,8 +40,11 @@ use StarsBlock;
 
 $CGI::POST_MAX=1024 * 50;  # max 50K posts
 $CGI::DISABLE_UPLOADS = 1;
-my $cgi = new CGI;
-my $session = new CGI::Session("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
+my $cgi = CGI->new;
+my $cookie = $cgi->cookie('TotalHost');  # Get the cookie information
+my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
+my $sessionid = $session->id unless $sessionid;
+
 &validate($cgi, $session);
 
 $userlogin = $session->param("userlogin");
