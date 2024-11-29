@@ -40,15 +40,16 @@ use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
 my $debug = 1;
 my $display = 1;
-
+ 
 my $ownerId;
         
 my $filename = $ARGV[0]; # input file
 my $inBin = $ARGV[1]; # Desired block Type
+my $inBin = 1;
 
 if (!($filename)) { 
   print "\n\nUsage: StarsPlanet.pl <input file>\n\n";
-  print "Please enter the input file (.xy|.m|.hst|.H). Example: \n";
+  print "Please enter the input file (.xy|.m|.hst|.h|.x). Example: \n";
   print "  StarsPlanet.pl c:\\games\\test.m1\n\n";
   print "Add a 2nd command-line parameter of 1 for binary output.\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
@@ -64,7 +65,7 @@ $dir  = dirname($filename);         # c:\stars
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
 
 # There is not planet information in these files
-#if ($ext =~ /[xX]/ || uc($ext) =~ /\.H\d/ ) { print "This file does not include race information\n"; exit; }
+#if ($ext =~ /[xX]/ || uc($ext) =~ /\.h\d/ ) { print "This file does not include race information\n"; exit; }
 if ($ext =~ /[rR]/ ) { print "Race files do not include planet information\n"; exit; }
 
 # Read in the binary Stars! file, byte by byte
@@ -77,11 +78,17 @@ while (read(StarFile, $FileValues, 1)) {
 }
 close(StarFile);
 
+# Read in all the planet data
+open(PlanetFile, "</home/beta/strings_planets.txt");
+my @planet_names = <PlanetFile>;
+close(PlanetFile);
+chomp(@planet_names); # Remove the newlines
+
 # Decrypt the data, block by block
 my ($outBytes) = &decryptBlockPlanet(@fileBytes);
 
 ################################################################
-sub decryptBlockPlanet { #
+sub decryptBlockPlanet { 
   my (@fileBytes) = @_;
   my @block;
   my @data;
@@ -93,7 +100,8 @@ sub decryptBlockPlanet { #
   my ( $seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
-  
+  my $block7Found = 0;
+  my %GameValues;
   my ($planetId, $ownerId);    
 
   while ($offset < @fileBytes) {
@@ -137,9 +145,9 @@ sub decryptBlockPlanet { #
       } 
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
+      
       } elsif ( $typeId == 35 ) { # Planet Change Block  (.x)
         #define rtChgPlanetLong 35  // Log    Changes to vars like fNoResearch and mdIdleBuild
-
   
         # Remember to update in StarsBlock.pm
         #$planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
@@ -160,28 +168,93 @@ sub decryptBlockPlanet { #
         $output .= "\n";
         if ($display) { print $output; }
 ##
-      } elsif ( $typeId == 7 ) { # Planets Block  (.xy), create.c
-        my $numPlayers;
-        my $numPlanets;
-      #define rtGame           7  // xy     Game identification
-#         case rtGame:
-# 				printf("\n%04lx:     lid:  %08lx\n", lOff, prtGame->lid);
-# 				printf("     Uni Size: %d        Density: %d\n", prtGame->mdSize*400+800, prtGame->mdDensity);
-# 				printf(" # of Players: %d   # of Planets: %d\n", prtGame->cPlayer, prtGame->cPlanMax);
-# 				printf("Starting Dist: %d      Dirty Bit: %d\n", prtGame->mdStartDist, prtGame->fDirty);
-# 				printf("   Extra Fuel: %s      Slow Tech: %s\n", YesNo(prtGame->fExtraFuel), YesNo(prtGame->fSlowTech));
-# 				printf("   Single Plr: %s       Tutorial: %s\n", YesNo(prtGame->fSinglePlr), YesNo(prtGame->fTutorial));
-# 				printf("     Ais Band: %s       BBS Play: %s\n", YesNo(prtGame->fAisBand), YesNo(prtGame->fBBSPlay));
-# 				printf("No Random Evt: %s  Public Scores: %s\n", YesNo(prtGame->fNoRandom), YesNo(prtGame->fVisScores));
-# 				printf("       Turn #: %d      Game Name: %s\n", prtGame->turn, prtGame->szName);
-# 				printf("         wGen: %u\n", prtGame->wGen);
-        $planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
-        $ownerId = ($decryptedData[1] & 0xF8) >> 3;  # BUG: Why would there be an ownerID in the XY file?
-        if ($ownerId == 31) { $ownerId = -1; }
-        if ($display) { print "Planet ID: $planetId, Owner ID: $ownerId\n"; }
-        $numPlayers = $decryptedData[8] & 0b00011111;  # Correct, first 5 bits at least, as it uses an actual "16".
-        $numPlanets = &read16(\@decryptedData, 10);
-        print "Players: $numPlayers, Planets: $numPlanets\n";
+      } elsif ($typeId == 7) { # Planets block (.xy file)  , create.c
+        my ($mdSize, $mdDensity, $mdStartDest, $wCrap); 
+        my @Params; 
+        my @rgvc;
+        my @GameSize       = ('Tiny','Small','Medium','Large','Huge');
+        my @GameDensity    = ('Sparse','Normal','Dense','Packed');
+        my @GamePositions  = ('Close','Moderate','Farther','Distant');
+        my @GameParameters = ('Beginner: Max Minerals', 'Slower Tech Advances','Single Player', 'Tutorial', 'Computer Players Form Alliances', 'Accelerated BBS Play','Public Player Scores','No Random Events','Galaxy Clumping','wGen','unused');
+        my @GameVictory    = ('Owns x of all planets','Attains Tech x','in x Tech Fields', 'Exceeds score of x','Exceeds second place score by x','Has production capacity of x thousand','Owns x capital ships','Has the highest score after x years','Must meet x criteria', 'At least x years');
+        $block7Found = 1; 
+        
+        $GameValues{'UniverseId'} = &read32(\@decryptedData, 0); #lid
+        $mdSize = &read16(\@decryptedData,4); #mdSize
+        $GameValues{'UniverseSize'} =  $GameSize[$mdSize];
+        $GameValues{'GalaxyXY'}= ($mdSize *400) + 400; #dGal    
+        $mdDensity = &read16(\@decryptedData,6);
+        $GameValues{'Density'} = $GameDensity[$mdDensity]; #$mdDensity
+  	    $GameValues{'NumPlayers'} = $decryptedData[8] & 0b00011111;  # Correct, first 5 bits at least, as it uses an actual "16". $cPlayer
+        $GameValues{'NumPlanets'} = &read16(\@decryptedData, 10);  # planetsSize cPlanet = cPlanMax; 
+        $mdStartDest = &read16(\@decryptedData, 12);  #mdStartDest
+        $GameValues{'StartingPositions'} = $GamePositions[$mdStartDest];
+        $GameValues{'fDirty'} = &read16(\@decryptedData,14); # Typically 4 bytes, but 2 in this case
+        $wCrap = &read16(\@decryptedData, 16); 
+        # Extract 1-bit field
+        $Params[0]  = ($wCrap >> 0) & 0x1;  # $fExtraFuel
+        $Params[1]  = ($wCrap >> 1) & 0x1;  # $fSlowTech
+        $Params[2]  = ($wCrap >> 2) & 0x1;  # $fSinglePlr
+        $Params[3]  = ($wCrap >> 3) & 0x1;  # $fTutorial
+        $Params[4]  = ($wCrap >> 4) & 0x1;  # $fAisBand
+        $Params[5]  = ($wCrap >> 5) & 0x1;  # $fBBSPlay
+        $Params[6]  = ($wCrap >> 6) & 0x1;  # $fVisScores
+        $Params[7]  = ($wCrap >> 7) & 0x1;  # $fNoRandom
+        $Params[8]  = ($wCrap >> 8) & 0x1;  # $fClumping
+        $Params[9]  = ($wCrap >> 9) & 0x7;  # $wGen , number from 0-7 determined randomly, 	else if (prtBOF->wGen != game.wGen) {  FileError(idsNotCurrentGame); }
+        $Params[10] = ($wCrap >> 12) & 0xF; # $unused
+        
+        $GameValues{'turn'} = &read16(\@decryptedData, 18);  #turn, 2 bytes
+        @rgvc         = @decryptedData[20..31]; # 12 bytes  
+#         my $vcPlanetControl = $rgvc[0];  #   $vcPlanetControl decryptedData[20] 
+#         my $vcTechLevel     = $rgvc[1];  #   $vcTechLevel     decryptedData[21]
+#         my $vcTechFields    = $rgvc[2];  #   $vcTechFields    decryptedData[22]
+#         my $vcScore         = $rgvc[3];  #   $vcScore         decryptedData[23]
+#         my $vcScoreExcess   = $rgvc[4];  #   $vcScoreExcess   decryptedData[24]
+#         my $vcProduction    = $rgvc[5];  #   $vcProduction    decryptedData[25]
+#         my $vcLargeShips    = $rgvc[6];  #   $vcLargeShips    decryptedData[26]
+#         my $vcTurns         = $rgvc[7];  #   $vcTurns         decryptedData[27]
+#         my $vcMustMeet      = $rgvc[8];  #   $vcMustMeet      decryptedData[28]
+#         my $vcLeastYears    = $rgvc[9];  #                    decryptedData[29]
+
+        $GameValues{'GameName'} = join('', map { chr($_) } @decryptedData[32..63]);  
+
+        # Print out the values        
+        foreach my $key (sort keys %GameValues) { print "Univ: $key, $GameValues{$key}\n";  }
+        for my $i (0..10) { print  "Game: $Params[$i]: $GameParameters[$i]\n"; }
+        my $vcMustMeet; 
+        for my $i (0..9)  { 
+          my $active = ($rgvc[$i] & 0x80) ? 1 : 0;
+          if ($active) { $vcMustMeet++; }
+          my $rawValue = $rgvc[$i] & 0x7F;
+          my $value = &decode_victory_conditions($i,$rawValue); 
+          print  "Victory: Active: $active, Value: $rawValue, $GameVictory[$i]: $value\n"; 
+        }
+        
+        # The planet info is now unencrypted, and the test of the file sans the footer. 
+        #my @planets =  @fileBytes[$index .. scalar(@fileBytes)-4]; # The rest of the .xy file  sans footer
+        my $index = 84; # the first 20 bytes is the header, and then 64 bytes in block 7        
+        my $x = 1000;
+        my $planetId = 1;
+        my $end_index = $index + $GameValues{'NumPlanets'} * 4;
+        my @planetBytes = @fileBytes[$index .. $end_index];
+        @fileBytes = map { ord($_) } @fileBytes;  # see also unshiftBytes   
+        if ($end_index > scalar(@fileBytes)) { die "Not enough bytes in file to read all planet data!"; }
+        for (my $i = $index; $i < $end_index; $i+=4) {
+          my $record = &read32(\@fileBytes, $i);  # These values are not encrypted.
+          my $name_id = ($record >> 22) & 0x3FF;          
+          my $x_coord = ($record & 0x3FF) + $x; # Decode X coordinate (bits 0-9)
+          $x = $x_coord;  # Update the delta X          
+          my $y_coord = ($record >> 10) & 0xFFF; # Decode Y coordinate (bits 10-21)
+          print "Planet ID:  $planetId, x: $x_coord, y: $y_coord, NameID: $name_id, Planet Name: $planet_names[$name_id]\n";
+          $planetId++;
+        }
+       
+        push @outBytes, @block;
+        # need to deal with the "extra" planetBytes since we dealt with them out of band.
+        $offset = $offset + ($GameValues{'NumPlanets'} * 4) + 4; 
+        push @outBytes, @planetBytes; 
+        
       } elsif ( $typeId == 13 || $typeId == 14 || $typeId == 15 ) { # Planet Block  .hst, .m, .h (only 14)
         #define rtPlanetA       13  // Turn   Planet with full info    .m
         #define rtPlanetB       14  // Turn   Planet with partial info .H
@@ -202,15 +275,41 @@ sub decryptBlockPlanet { #
         my ($idRoute);
         my ($isb, $turnDiscovered);
         
-        $planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
-        $ownerId = ($decryptedData[1] & 0xF8) >> 3;  # left 5 bits
+        # Struct.h for _rtplanet
+        #$planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
+        #$ownerId = ($decryptedData[1] & 0xF8) >> 3;  # left 5 bits
+        my $tmp = &read16 (\@decryptedData, 0); 
+        $planetId = ($tmp >> 5) & 0x7FF;
+        $ownerId = $tmp & 0x1F;
+        #$planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
+        #$ownerId = ($decryptedData[1] & 0xF8) >> 3;  # left 5 bits
         if ($ownerId == 31) { $ownerId = -1; }
         elsif ($ownerId >= 16) { die "Unexpected owner: $ownerId"; }
 
-        my $det = ($decryptedData[2] & 0x7F);   #Detail: detNone=0, detMinimal 1, detObscure 2, detSome 3, detMore 4, detAll 7
-        my @det = qw (detNone detMinimal detObscure detSome detMore error error detAll);
- 
         my $flags = &read16(\@decryptedData, 2);         # 0x01  - 0x40 are $det
+        my $det = ($flags >> 9) & 0x7F;  # 0x7F is 01111111 (7 bits)
+        #my $det = ($decryptedData[2] & 0x7F);   #Detail: detNone=0, detMinimal 1, detObscure 2, detSome 3, detMore 4, detAll 7
+        my @det = qw (detNone detMinimal detObscure detSome detMore error error detAll);
+# struct.h        
+# # Extract fHomeworld (1 bit), this is the next bit (bit 8)
+# my $fHomeworld = ($flags >> 8) & 0x1;  # 0x1 is 00000001 (1 bit)
+# # Extract fInclude (1 bit), bit 7
+# my $fInclude = ($flags >> 7) & 0x1;
+# # Extract fStarbase (1 bit), bit 6
+# my $fStarbase = ($flags >> 6) & 0x1;
+# # Extract fIncEVO (1 bit), bit 5
+# my $fIncEVO = ($flags >> 5) & 0x1;
+# # Extract fIncImp (1 bit), bit 4
+# my $fIncImp = ($flags >> 4) & 0x1;
+# # Extract fIsArtifact (1 bit), bit 3
+# my $fIsArtifact = ($flags >> 3) & 0x1;
+# # Extract fIncSurfMin (1 bit), bit 2
+# my $fIncSurfMin = ($flags >> 2) & 0x1;
+# # Extract fRouting (1 bit), bit 1
+# my $fRouting = ($flags >> 1) & 0x1;
+# # Extract fFirstYear (1 bit), bit 0
+# my $fFirstYear = $flags & 0x1;        
+#         
 	      if (($flags & 0x0100) != 0x0100) { die "Unexpected planet flags 100: $flags"; }
         if (($flags & 0x0078) != 0) {  die "Unexpected planet flags 78: $flags";  }
 
@@ -400,6 +499,7 @@ sub decryptBlockPlanet { #
         }
           
       print "\n"; 
+      } else { # Block type not found
       }
       # END OF MAGIC
     } 
@@ -407,3 +507,46 @@ sub decryptBlockPlanet { #
   } 
 } # end sub
 
+
+ sub decode_victory_conditions {
+    my ($id, $setting) = @_;
+    my $active = ($setting & 0x80) ? 1 : 0;
+    my $value = $setting & 0x7F;
+    
+    # Apply special logic based on the victory condition index (i)
+    if ($id == 0) {  # vcPlanetControl
+      $value = 20 + $value * 5;
+    }
+    elsif ($id == 1) {  # vcTechLevel
+      $value = 8 + $value;
+    }
+    elsif ($id == 2) {  # vcTechFields
+      $value = 2 + $value;
+    }
+    elsif ($id == 3) {  # vcScore
+      $value = 1000 + $value * 1000;
+    }
+    elsif ($id == 4) {  # vcScoreExcess
+      $value = 20 + $value * 10;
+    }
+    elsif ($id == 5) {  # vcProduction
+      $value = 10 + $value * 10;
+    }
+    elsif ($id == 6) {  # vcLargeShips
+      $value = 10 + $value * 10;
+    }
+    elsif ($id == 7) {  # vcTurns
+      $value = 30 + $value * 10;
+    }
+    elsif ($id == 8) {  # vcTurns
+    
+    }
+    elsif ($id == 9) {  # vcTurns
+      $value = 30 + $value * 10;
+    }
+    #       elsif ($i == 8) {  # vcMustMeet
+    #           my $count = grep { $_ & 0x80 } @rgvc;  # Count active VCs
+    #           $decoded_value = $count < $value ? $count : $value;
+    #       }
+    return $value;
+}

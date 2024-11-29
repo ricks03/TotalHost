@@ -88,6 +88,7 @@ $Dir_WWWRoot     = $Dir_Root;
 $Dir_Scripts     = $Dir_Root . '/scripts';
 $WINE_Races      = '\\races'; # Location of the actual race files used for game creation 
 $WINE_Games      = '\\games'; # Location of the actual game files used for game creation & turn gen
+$File_Planets    = $Dir_User . '/strings_planets.txt'; # Planet name file
 
 # Email
 # Currently expects an localhost open relay
@@ -146,9 +147,14 @@ $user_style = qq|style="width:120px;height:24;"|;
 $singularRaceName[0] = 'Everyone';
 
 $timezone = 'America/New_York';
-my @timezones = (
+@timezones = (
     'UTC', 'America/New_York', 'America/Chicago', 'America/Denver',
     'America/Los_Angeles', 'Europe/London', 'Europe/Paris', 'Asia/Tokyo',
     'Australia/Sydney'
 );
 
+@GameSize       = ('Tiny','Small','Medium','Large','Huge');
+@GameDensity    = ('Sparse','Normal','Dense','Packed');
+@GamePositions  = ('Close','Moderate','Farther','Distant');
+@GameParameters = ('Beginner: Max Minerals', 'Slower Tech Advances','Single Player', 'Tutorial', 'Computer Players Form Alliances', 'Accelerated BBS Play','Public Player Scores','No Random Events','Galaxy Clumping','wGen','unused');
+@GameVictory    = ('Owns x of all planets','Attains Tech x','in x Tech Fields', 'Exceeds score of x','Exceeds second place score by x','Has production capacity of x thousand','Owns x capital ships','Has the highest score after x years','Must meet x criteria', 'At least x years');

@@ -43,7 +43,8 @@ my $inName;
 my $filename; 
 $inName = $ARGV[0]; # input file
 $inBlock = $ARGV[1]; # Desired block Type
-$inBin = $ARGV[2]; # Desired block Type
+$inBin = $ARGV[2]; # Display in Binary
+$inBin = 1;
 unless ($inBlock) { $inBlock = -1;}
 $filename = $inName;
 
