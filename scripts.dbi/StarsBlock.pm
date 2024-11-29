@@ -4300,7 +4300,7 @@ sub processData {
   if ($inBlock == $typeId || $inBlock == -1) {
     if ($debug) { print "BLOCK:$typeId,Offset:$offset,Bytes:$size\t"; }
     if ($debug) { print "DATA DECRYPTED:" . join (" ", @decryptedData), "\n"; }
-    
+   
     if ($inBin) {
       if ($inBin ==1 || $inBin ==2 ){ print "\n"; }
       my $counter =0;
