@@ -428,7 +428,7 @@ if ($in{'cp'} eq 'edit_profile') {
     &show_game($in{'GameFile'}); 
     print "</td>\n";
 } elsif (($in{'cp'} eq 'Go Idle') || ($in{'cp'} eq 'Go Active')) { # From the Go Active/Go Idle button from Change Status
-  my ($playerstatus, $newplayerstate);
+  my ($playerstatus, $newplayerstatus);
 	if ($in{'cp'} eq 'Go Idle') { $playerstatus = 4; $newplayerstatus = 'Idle';}
 	elsif ($in{'cp'} eq 'Go Active') { $playerstatus = 1; $newplayerstatus = 'Active'; }
   &process_player_status($in{'GameFile'}, $in{'User_File'}, $newplayerstatus, $playerstatus, $in{'PlayerID'}); 
@@ -1346,7 +1346,7 @@ sub show_game {
       #my $formSuffix = $cgi->hidden(-name => 'form_token', -value => $current_token) . qq|</FORM>|;
       #my $formSuffix = $cgi->hidden(-name => 'form_token', -value => $session->param('form_token'));) . qq|</FORM>|;
   		# Display user information for unstarted games
-  		my $UserLogin;
+ 		my $UserLogin;
   		my $table;
       #my $sql = qq|SELECT Races.RaceName, Races.RaceID, * FROM GameUsers LEFT JOIN Races ON (GameUsers.User_Login = Races.User_Login) AND (GameUsers.RaceID = Races.RaceID)  WHERE (((GameUsers.GameFile)='$GameFile')) ORDER BY GameUsers.JoinDate;|;
       my $sql = qq|SELECT Races.RaceName, Races.RaceID, GameUsers.* FROM GameUsers LEFT JOIN Races ON (GameUsers.User_Login = Races.User_Login) AND (GameUsers.RaceID = Races.RaceID)  WHERE (((GameUsers.GameFile)='$GameFile')) ORDER BY GameUsers.JoinDate;|;
@@ -2160,7 +2160,7 @@ sub list_races {
 
 sub show_race {
 	my ($sql) = @_;
-  use StarsBlock;
+  require StarsBlock;
 	my %RaceValues;
 	my $c=0; 
   if ($sql) {
@@ -2973,13 +2973,39 @@ sub MakeHourFreq { #Make the hour turn frequency
 
 sub read_def {
 	my ($GameFile) = @_;
-	my @Universe;
-  my @Victory;
 	my @Universe_Size = qw(Tiny Small Medium Large Huge);
 	my @Density = qw(Sparse Normal Dense Packed);
 	my @Positions = qw(Close Moderate Farther Distant);
-	my $def_file = "$Dir_Games/$GameFile/$GameFile.def"; 
+	my $def_file = "$Dir_Games/$GameFile/$GameFile.df2"; 
+  my $xy_file = "$Dir_Games/$GameFile/$GameFile.xy"; 
 	my @def_data = ();
+  
+  # The def file might not exist because this is a zip game that came with no def file. 
+  # If so, create the def file
+  if (!-f $def_file) {
+    if (-f $xy_file) {
+      use StarsBlock;
+      # read in the .xy file
+      my $FileValues;
+      my @fileBytes;
+      open(StarFile, "<$xy_file");
+      binmode(StarFile);
+      while (read(StarFile, $FileValues, 1)) { 
+        push @fileBytes, $FileValues;
+      }
+      close(StarFile);
+      
+      # decrypt the xy file
+      my @GameValues = &decryptGameInfo(@fileBytes);
+
+      # Append the game name in win format
+      push @GameValues, "$Dir_WINE$WINE_Games\\$GameFile\\$GameFile.xy";
+      # export a new  . .df2 file
+      open(my $fh, '>', "$def_file") or &LogOut(0, "Cannot open file: $!", $ErrorLog);
+      foreach my $value (@GameValues) { print $fh "$value\n"; }
+      close($fh);
+    }
+  }
 	if (-f $def_file) { #Check to see if file is there.
 		open (IN_FILE,$def_file) || &LogOut(0, "read_def: Cannot create $GameFile Def: $def_file, $userlogin", $ErrorLog);
 		chomp(@def_data = <IN_FILE>);
@@ -3002,7 +3028,7 @@ sub read_def {
 		push (@Vals, "$Universe_Size[$univ_size] Universe");
 	 	push (@Vals, "$Density[$univ_dense] Density");
 		push (@Vals, "$Positions[$univ_start] Players");
-		# I don't really want to display this!
+		# I don't really want to display this to players!
 	#	if ($univ_random) { push(@Vals, "Game Seed: $univ_random"); }
 	 	if ($univ_mins) { push (@Vals, 'Max Mins'); }
 	 	if ($univ_slowtech) { push (@Vals, 'Slow Tech'); }
@@ -3031,10 +3057,8 @@ sub read_def {
 		}	
 		print qq|</tr></table>\n|;
 	} else { 
-    # Note: No game def files for zip games
-    # BUG: Decode the .xy file to be able to build a def file from a hst file. 
-		#print "<P>Game Definition File not found!\n"; 
-		#&LogOut(0,"read_def: Game Definition File $def_file not found for $userlogin",$ErrorLog);
+		print "<P>Game Definition File not found!\n"; 
+		&LogOut(0,"read_def: Game Definition File $def_file not found for $userlogin",$ErrorLog);
 	}
   return ''; # Return blank to avoid getting values
 }
@@ -3289,7 +3313,7 @@ sub show_delay {
 	($GameFile) = @_;
 	my $sql;
 	my %GameValues;
-  my $unique_player_ids; # For storing if the smae player is in the game more than once. 
+  my %unique_player_ids; # For storing if the same player is in the game more than once. 
 	my $pass = 0;
   
 	# make sure the user actually has a delay available
@@ -3772,8 +3796,8 @@ sub process_forcegen {
 
 sub process_remove_password {
   my ($GameFile, $PlayerID) = @_;
-  use StarsBlock;  
-  use File::Copy;
+  require StarsBlock;  
+  require File::Copy;
   # Get the relevant Game Data
  	my $sql = qq|SELECT * FROM Games WHERE HostName = \'$userlogin\' AND GameFile = \'$GameFile\';|;
   my $db = &DB_Open($dsn);

@@ -160,6 +160,73 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
+#       # Function to parse the PLAYER structure translated from struct.c by chatGPT
+# sub parse_player {
+#     my ($data_ref) = @_;
+# 
+#     my $player = {};
+# 
+#     # Access values directly by position
+#     $player->{iPlayer}       = $data_ref->[0];
+#     $player->{cShDef}        = $data_ref->[1];
+#     $player->{cPlanet}       = read16($data_ref, 2);
+#     
+#     # Reading the bitfields for WORD cFleet:12 and cshdefSB:4
+#     my $cFleetAndSB          = read16($data_ref, 4);
+#     $player->{cFleet}        = $cFleetAndSB & 0x0FFF;         # Lower 12 bits
+#     $player->{cshdefSB}      = ($cFleetAndSB >> 12) & 0x000F; # Upper 4 bits
+# 
+#     # Reading union with WORD fields
+#     my $unionWord            = read16($data_ref, 6);
+#     $player->{det}           = $unionWord & 0x0007;           # Lower 3 bits
+#     $player->{iPlrBmp}       = ($unionWord >> 3) & 0x001F;    # Next 5 bits
+#     $player->{fInclude}      = ($unionWord >> 8) & 0x0001;    # 1 bit
+#     $player->{mdPlayer}      = ($unionWord >> 9) & 0x007F;    # Remaining 7 bits
+# 
+#     $player->{idPlanetHome}  = read16($data_ref, 8);
+#     $player->{wScore}        = read16($data_ref, 10);
+#     $player->{lSalt}         = read32($data_ref, 12);
+# 
+#     # Reading arrays and strings
+#     $player->{rgEnvVar}      = [ @{$data_ref}[16..18] ];
+#     $player->{rgEnvVarMin}   = [ @{$data_ref}[19..21] ];
+#     $player->{rgEnvVarMax}   = [ @{$data_ref}[22..24] ];
+#     $player->{pctIdealGrowth}= $data_ref->[25];
+#     $player->{rgTech}        = [ @{$data_ref}[26..31] ];
+#     $player->{rgResSpent}    = [ 
+#         read32($data_ref, 32), 
+#         read32($data_ref, 36), 
+#         read32($data_ref, 40), 
+#         read32($data_ref, 44), 
+#         read32($data_ref, 48), 
+#         read32($data_ref, 52)
+#     ];
+#     $player->{pctResearch}   = $data_ref->[56];
+#     $player->{iTechCur}      = $data_ref->[57];
+#     $player->{lResLastYear}  = read32($data_ref, 58);
+#     $player->{rgAttr}        = [ @{$data_ref}[62..(62 + $rsMax - 1)] ]; # rsMax is assumed to be known
+#     my $attr_start = 62 + $rsMax;
+#     $player->{grbitAttr}     = read32($data_ref, $attr_start);
+#     $player->{grbitTrader}   = read16($data_ref, $attr_start + 4);
+# 
+#     # Reading bitfields for WORD flags
+#     my $flags                = read16($data_ref, $attr_start + 6);
+#     $player->{fDead}         = $flags & 0x0001;
+#     $player->{fCrippled}     = ($flags >> 1) & 0x0001;
+#     $player->{fCheater}      = ($flags >> 2) & 0x0001;
+#     $player->{fLearned}      = ($flags >> 3) & 0x0001;
+#     $player->{fHacker}       = ($flags >> 4) & 0x0001;
+# 
+#     # ZIPPRODQ1 and szName (assuming sizes are known)
+#     my $zpq1_start           = $attr_start + 8;
+#     $player->{zpq1}          = [ @{$data_ref}[$zpq1_start..($zpq1_start + $zpq1_size - 1)] ];
+#     $player->{rgmdRelation}  = [ @{$data_ref}[($zpq1_start + $zpq1_size)..($zpq1_start + $zpq1_size + $iPlayerMax - 1)] ];
+#     my $name_start           = $zpq1_start + $zpq1_size + $iPlayerMax;
+#     $player->{szName}        = join('', map { chr } @{$data_ref}[$name_start..($name_start + 31)]);
+#     $player->{szNames}       = join('', map { chr } @{$data_ref}[($name_start + 32)..($name_start + 63)]);
+# 
+#     return $player;
+# }
         my $playerId; 
         my ($shipDesigns, $planets , $fleets, $starbaseDesigns, $logo);
         my ($aiEnabled, $aiRace, $aiSkill);
@@ -186,11 +253,11 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         my @MTItems=();
         
         $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
-        $shipDesigns = $decryptedData[1] & 0xFF; # Always 0 in race file
+        $shipDesigns = $decryptedData[1] & 0xFF; # Always 0 in race file, // for players other than the current player this is based on the number
         $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); # Always 0 in race file
         $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8); # Always 0 in race file
         $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); # Always 0 in race file
-        $logo = (($decryptedData[6] & 0xFF) >> 3);
+        $logo = (($decryptedData[6] & 0xFF) >> 3); # iPlrBmp  :5,     // What picture have they chosen?
         $fullDataFlag = ($decryptedData[6] & 0x04); # Always true in race file
         # Byte 7 as 76543210
         #   Bit 0 is always 1, Bit 1 defines whether an AI is enabled :  0:off ,  1:on

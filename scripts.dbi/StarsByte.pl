@@ -138,7 +138,23 @@ sub decryptBlock {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
+      
+      
+      
+      if ($typeId == 13 || $typeId == 14) {
+      my $flags = &read16(\@decryptedData, 2);         # 0x01  - 0x40 are $det
+      #my $det = ($flags >> 9) & 0x7F;  # 0x7F is 01111111 (7 bits)
+      my $det = $flags & 0x7F; # Mask the lowest 7 bits (0x7F = 01111111 in binary)
+      print "det: $det\t";
+      }
+     
+     
+
       &processData(\@decryptedData,$typeId,$offset,$size, $inBlock);
+      
+      
+      
+
       # END OF MAGIC
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
