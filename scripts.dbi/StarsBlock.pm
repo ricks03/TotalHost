@@ -95,7 +95,7 @@ our @EXPORT = qw(
   nextRandom StarsRandom
   initDecryption getFileHeaderBlock getFileFooterBlock getFileFooter
   encryptBytes decryptBytes
-  read8 read16 read32 readN write16 parseBlock
+  read8 read16 read32 read64 readN write16 parseBlock
   dec2bin bin2dec
   encryptBlock decryptPWD
   stripPadding addPadding
@@ -133,6 +133,7 @@ our @EXPORT = qw(
   getScores decryptScores
   getRaceNames decryptNameBlock
   processData
+  decryptGameInfo decode_victory_conditions
 );  
 
 my $debug = 1;
@@ -490,6 +491,15 @@ sub read32 {
 				&read8($data[$offset+2]) << 16 | 
 				&read8($data[$offset+1]) << 8 | 
 				&read8($data[$offset]);
+}
+
+# Read a 64-bit little-endian integer from a byte array (using two read32 calls)
+sub read64 {
+    my ($data, $offset) = @_;
+    my @data = @{$data};
+    my $low  = ($data[$offset + 3] << 24) | ($data[$offset + 2] << 16) | ($data[$offset + 1] << 8) | $data[$offset];
+    my $high = ($data[$offset + 7] << 24) | ($data[$offset + 6] << 16) | ($data[$offset + 5] << 8) | $data[$offset + 4];
+    return ($high << 32) | $low; # Combine high and low 32-bit words into 64 bits
 }
 
 sub readN {
@@ -984,6 +994,26 @@ sub showHab {
     $centerFixed = ($value * $habIncrement[$type]) + $habBase[$type];
     return "$centerFixed"; 
   } else {return "$gravity_table[$value]"; }  # Because gravity is weird. 
+  
+# sub calculate_gravity {
+#     my ($raw_value) = @_;
+#     return 'Invalid Gravity' if $raw_value < 0 || $raw_value > 100;
+#     my $d = abs($raw_value - 50);
+#     my $iVal = $d <= 25 ? 100 + 4 * $d : 200 + ($d - 25) * 24;
+#     $iVal = $raw_value < 50 ? 10000 / $iVal : $iVal;
+#     return sprintf("%.2fg", $iVal / 100);
+# }
+# 
+# sub calculate_temperature {
+#     # Calculate and format temperature
+#     my ($raw_value) = @_;
+#     return sprintf("%d°C", (4 * $raw_value) - 200);  # Apply the formula and format
+# }
+# 
+# sub calculate_radiation {
+#     my ($raw_value) = @_;
+#     return $raw_value;  # Radiation is raw
+# }
 }
 
 sub showLeftoverPoints {
@@ -1522,6 +1552,20 @@ sub decryptClean {
             }
           # Packet
           } elsif (&isPacketOrSalvage($type)) {
+          
+# Struct: THPACK
+# This struct represents a "mineral packet" in Stars!. Below is the byte mapping for its fields:
+# 
+# Field Name	 Type	Size (Bytes)	                    Offset(Bytes)	    Description
+# idPlanet	   unsigned short:10	 2 (10 bits used)	  0	                Planet destination ID (10 bits).
+# iWarp	       unsigned short:4	   2 (4 bits used)	  0 (overlapping)	  Warp speed (next 4 bits).
+# fMoved	     unsigned short:1	   2 (1 bit used)	    0 (overlapping)	  Movement flag (next 1 bit).
+# fInclude	   unsigned short:1	   2 (1 bit used)	    0 (overlapping)	  Inclusion flag (final bit).
+# rgwtMin	     int[3]	             12	                2	                Mineral quantities (3 integers, 4 bytes each).
+# wtMax	       unsigned short:14	 2 (14 bits used)	 14	                Maximum weight (14 bits).
+# iDecayRate	 unsigned short:2	   2 (2 bits used)	 14 (overlapping)	  Decay rate (2 bits).
+# Total Block Size: 16 bytes
+          
             $x = &read16(\@decryptedData, 2);
             $y = &read16(\@decryptedData, 4);
             $targetAndSpeed = &read16(\@decryptedData, 6);
@@ -3786,15 +3830,25 @@ sub decryptFix {
       elsif ( $typeId == 35) { # Planet Change block
         # Planet Route orders, either NoResearch, iWarpfling, OR idRoute
         # Max planets = 945
-        $planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
-        $ownerId = ($decryptedData[1] & 0xF8) >> 3;
-        my $fNoResearch =   $decryptedData[2] & 0x01;  # 0000000x
-        my $iWarpFling =   (($decryptedData[3] & 0x7f ) >> 3);  # 0xxxx000
-        my $warpSpeed = $iWarpFling + 4;
-        my $idFling =  (&read16(\@decryptedData, 2) >> 1) & 0b1111111111; # bytes 2 & 3, 10 bits shifted 1 to the right.
-        # I need one bit from byte 3, all of byte 4, and 1 bit from byte 5  (10 bits)              
-        my $byte1 = $decryptedData[3] >> 7; # Extracting the first bit of $byte1      
-        my $idRoute = ($decryptedData[5] & 0x01) << 9 | ($decryptedData[4] << 1) | $byte1 & 0x01; #move 4 one to the left, and then get the first bit of byte 5
+#         $planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
+#         $ownerId = ($decryptedData[1] & 0xF8) >> 3;
+#         my $fNoResearch =   $decryptedData[2] & 0x01;  # 0000000x
+#         my $iWarpFling =   (($decryptedData[3] & 0x7f ) >> 3);  # 0xxxx000
+#         my $warpSpeed = $iWarpFling + 4;
+#         my $idFling =  (&read16(\@decryptedData, 2) >> 1) & 0b1111111111; # bytes 2 & 3, 10 bits shifted 1 to the right.
+#         # I need one bit from byte 3, all of byte 4, and 1 bit from byte 5  (10 bits)              
+#         my $byte1 = $decryptedData[3] >> 7; # Extracting the first bit of $byte1      
+#         my $idRoute = ($decryptedData[5] & 0x01) << 9 | ($decryptedData[4] << 1) | $byte1 & 0x01; #move 4 one to the left, and then get the first bit of byte 5
+
+        $planetId = &read16(\@decryptedData, 0); # from 0-whatever, meaning add 1 for UI
+        my $ul = read32(\@decryptedData, 2);
+        # Decode bitfields from ul
+        $fNoResearch = ($ul >> 0) & 0x1;              # Extract the 1st bit
+        $idFling     = ($ul >> 1) & 0x3FF;            # Extract the next 10 bits
+        $iWarpFling  = ($ul >> 11) & 0xF;             # Extract the next 4 bits
+        $warpSpeed = $iWarpFling + 4;
+        $idRoute     = ($ul >> 15) & 0x3FF;           # Extract the next 10 bits, not 0.. but 1.. so no need to change
+        my $unused      = ($ul >> 25) & 0x7F;            # Extract the final 7 bits
 
       }
       elsif ($typeId == 37) {  # Fleet Merge block
@@ -4121,7 +4175,6 @@ sub decryptMessages {
           }
         } 
       } 
-      #return @decryptedData;
       # END OF MAGIC
     }
     $offset = $offset + (2 + $size); 
@@ -4216,6 +4269,115 @@ sub decryptScores {
   }
   return \@singularRaceNames, $score, $turn, $Player;
 } 
+
+sub decryptGameInfo { # from the .xy file
+  my (@fileBytes) = @_;
+  my @block;
+  my ($decryptedData, $encryptedBlock, $padding);
+  my @decryptedData;
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ($random, $seedA, $seedB, $seedX, $seedY );
+  my ( $FileValues, $typeId, $size );
+
+  my $offset = 0; #Start at the beginning of the file
+  while ($offset < @fileBytes) {
+    # Get block info and data
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+    if ($typeId == 8 ) { # FileHeaderBlock, never encrypted
+      # We always have this data before getting to block 6, because block 8 is first
+      # If there are two (or more) block 8s, the seeds reset for each block 8
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+      ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+    } else {  # Everything else needs to be decrypted
+      shift @block; # or shift @array for 1..2;
+      shift @block; 
+      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@block, $seedA, $seedB ); 
+      @decryptedData = @{ $decryptedData };  
+      # WHERE THE MAGIC HAPPENS
+      if ($typeId == 7) { # Planets block (.xy file), create.c  
+        my ($mdSize, $mdDensity, $mdStartDest, $wCrap, $mdPlayers); 
+        my @GameValues;
+        my @Params; 
+        my @rgvc;
+
+        $GameValues[0] = join('', map { chr($_) } @decryptedData[32..63]);  
+        $mdSize = &read16(\@decryptedData,4); 
+        $mdDensity = &read16(\@decryptedData,6);
+        $mdStartDest = &read16(\@decryptedData, 12); 
+        push @GameValues, "$mdSize $mdDensity $mdStartDest";  # Line 1
+
+        $wCrap = &read16(\@decryptedData, 16); 
+        # Extract 1-bit fields and store in GameValues array
+        $Params[0]  = ($wCrap >> 0) & 0x1;  # $fExtraFuel
+        $Params[1]  = ($wCrap >> 1) & 0x1;  # $fSlowTech
+        $Params[2]  = ($wCrap >> 5) & 0x1;  # $fBBSPlay
+        $Params[3]  = ($wCrap >> 7) & 0x1;  # $fNoRandom
+        $Params[4]  = ($wCrap >> 4) & 0x1;  # $fAisBand
+        $Params[5]  = ($wCrap >> 6) & 0x1;  # $fVisScores
+        $Params[6]  = ($wCrap >> 8) & 0x1;  # $fClumping
+        push @GameValues, join(' ', @Params);  # Line 2
+        
+        $mdPlayers = $decryptedData[8] & 0b00011111;  # Correct, first 5 bits at least, as it uses an actual "16". $cPlayer
+        push @GameValues, $mdPlayers; # Line 3
+        # Fill up the player lines with blanks. Lines 4 .. mdPlayers
+        for my $i (1..$mdPlayers) {  push @GameValues, 'zip player';}
+
+        @rgvc         = @decryptedData[20..31]; # 12 bytes, left as rgvc sop as to not rewrite decode_victory_conditions  
+#         my $vcPlanetControl = $rgvc[0];  #   $vcPlanetControl decryptedData[20] 
+#         my $vcTechLevel     = $rgvc[1];  #   $vcTechLevel     decryptedData[21]
+#         my $vcTechFields    = $rgvc[2];  #   $vcTechFields    decryptedData[22]
+#         my $vcScore         = $rgvc[3];  #   $vcScore         decryptedData[23]
+#         my $vcScoreExcess   = $rgvc[4];  #   $vcScoreExcess   decryptedData[24]
+#         my $vcProduction    = $rgvc[5];  #   $vcProduction    decryptedData[25]
+#         my $vcLargeShips    = $rgvc[6];  #   $vcLargeShips    decryptedData[26]
+#         my $vcTurns         = $rgvc[7];  #   $vcTurns         decryptedData[27]
+#         my $vcMustMeet      = $rgvc[8];  #   $vcMustMeet      decryptedData[28]
+#         my $vcLeastYears    = $rgvc[9];  #                    decryptedData[29]
+
+        # Add the victory condition values, which is a little tricky since they aren't 
+        # all stored/used quite the same way. 
+        # But it's ok to have extra values if the first is a 0
+        my $push_value;
+        for my $i (0..9)  { 
+          my $active = ($rgvc[$i] & 0x80) ? 1 : 0;
+          my $value = &decode_victory_conditions($i,$rgvc[$i] & 0x7F); 
+          if ($i == 0 || $i == 3 || $i == 4 || $i == 5 || $i == 6 || $i == 7) { 
+            $push_value = "$active $value";
+          } elsif ($i == 1) { $push_value = "$active $value"; next; 
+          } elsif ($i == 2) { $push_value .= " $value";
+          } elsif ($i == 8) { $push_value = "$value"; next;
+          } elsif ($i == 9) { $push_value .= " $value";
+          }
+          push @GameValues, $push_value; 
+        }
+        # We don't have Gamefile here, will add it later       
+        return @GameValues;   # Since block 7 data will exist only once, we can return.
+      }
+    }
+    # END OF MAGIC
+    $offset = $offset + (2 + $size); 
+  }
+} 
+
+sub decode_victory_conditions {
+    my ($id, $setting) = @_;
+    my $active = ($setting & 0x80) ? 1 : 0;
+    my $value = $setting & 0x7F;
+    # Apply special logic based on the victory condition index (i)
+    if ($id == 0) {   $value = 20 + $value * 5; } # vcPlanetControl
+    elsif ($id == 1) {  $value = 8 + $value; } # vcTechLevel
+    elsif ($id == 2) { $value = 2 + $value; } # vcTechFields
+    elsif ($id == 3) {  $value = 1000 + $value * 1000; } # vcScore
+    elsif ($id == 4) { $value = 20 + $value * 10; } # vcScoreExcess
+    elsif ($id == 5) { $value = 10 + $value * 10;  } # vcProduction
+    elsif ($id == 6) { $value = 10 + $value * 10; } # vcLargeShips
+    elsif ($id == 7) {  $value = 30 + $value * 10; } # vcTurns
+    elsif ($id == 8) { } # vcTurns   
+    elsif ($id == 9) { $value = 30 + $value * 10;  } # vcTurns
+    return $value;
+}
 
 # This is probably overkill when we can get it from a CHK file or StarStat.
 sub getRaceNames {
