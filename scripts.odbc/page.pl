@@ -895,7 +895,11 @@ sub show_game {
           my $time_difference =  $NextTurnDST - time();
           my $hours = int($time_difference / 3600);                # Total hours
           my $minutes = int(($time_difference % 3600) / 60);       # Remaining minutes
-					print "<br><b>Next turn due on or before: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($NextTurnDST)) . " ($hours hours, $minutes minutes)</b>\n";  #BUG Need to be using DailyTime from database
+          if ($NextTurnDST > time()) {
+					  print "<br><b>Next turn due on or before: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($NextTurnDST)) . " ($hours hours, $minutes minutes)</b>\n";  #BUG Need to be using DailyTime from database
+          } else {
+					  print "<br><b>Turn Generation IMMINENT!</b>\n";  #BUG Need to be using DailyTime from database
+          }
           print "<br>\n";
 				}
 			}
@@ -946,7 +950,7 @@ sub show_game {
   			if (&DB_Call($db,$sql)) { while ($db->FetchRow()) { %PlayerValues = $db->DataHash(); } }
   			# Modify display based on player status. If the player isn't active indicate such
   			if ($PlayerValues{'PlayerStatus'} == 1) { $del = ''; $del2 = ''; 
-        } elsif ($PlayerValues{'PlayerStatus'} == 4) { $del = '<i>'; $del2 = '</del>';
+        } elsif ($PlayerValues{'PlayerStatus'} == 4) { $del = '<i>'; $del2 = '</i>';
         } elsif ($PlayerValues{'PlayerStatus'} == 3) { $del = '<small>'; $del2 = '</small>';
         } elsif ($PlayerValues{'PlayerStatus'} == 2) { $del = '<del>'; $del2 = '</del>';}
         if ($CHK_Status eq 'Deceased') { $del = '<del>'; $del2 = '</del>';}
@@ -3066,7 +3070,7 @@ sub process_delay {
 		if (&DB_Call($db,$sql)) { $db->FetchRow(); ($SumOfDelaysLeft, $MinDelay) = $db->Data("SumOfDelaysLeft", "MinDelay"); }
 		# If we're too low on delays, reset everyone
 		if ($SumOfDelaysLeft < $MinDelay) { 
-			$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.DelaysLeft = [NumDelay] WHERE (((Games.GameFile)=\'$GameFile\'));|;
+			$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.DelaysLeft = $GameValues{'NumDelay'} WHERE (((Games.GameFile)=\'$GameFile\'));|;
 			if (&DB_Call($db,$sql)) { 
 				$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Turn Delays reset|;
 				$GameValues{'Message'} = qq|A recent player for the $GameValues{'GameName'} game has delayed the game, causing a reset of the number of player delays available. You can now delay the game $GameValues{'NumDelay'} times.|;
