@@ -1080,7 +1080,12 @@ sub show_game {
             my $sign = ($dtduration < 0) ? '-' : '';  # Use '-' if in the past
             my $dthours = int($dtduration / 3600);  # Calculate total hours
             my $dtminutes = int(($dtduration % 3600) / 60);  # Calculate remaining minutes
-            print "<br><b>Next turn due on or before: " . $dtnext->strftime('%Y-%m-%d %H:%M:%S %Z') . " ($sign" . abs($dthours) . " hours, " . abs($dtminutes) . " minutes)</b>\n";
+            #print "<br><b>Next turn due on or before: " . $dtnext->strftime('%Y-%m-%d %H:%M:%S %Z') . " ($sign" . abs($dthours) . " hours, " . abs($dtminutes) . " minutes)</b>\n";
+            if ($dtnext->epoch > $dtnow->epoch) {
+					   print "<br><b>Next turn due on or before: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($NextTurnDST)) . " ($hours hours, $minutes minutes)</b>\n";  #BUG Need to be using DailyTime from database
+            } else {
+					   print "<br><b>Turn Generation IMMINENT!</b>\n";  
+            }
           } else {
             print "<br>Invalid timezone: $timezone\n";
           }
@@ -1433,6 +1438,9 @@ sub show_game {
     print "<P>\n";
     # Display the Buttons
     # Add all the Host and game related buttons
+    # Determine if we have admin
+    if (defined $user_admin && defined $session->param("userlogin") && $user_admin ne '' && $session->param("userlogin") ne '' && $user_admin eq $session->param("userlogin")) { $admin = 1; } else { $admin = 0; }
+    
 		print qq|<FORM action="$WWW_Scripts/page.pl" method="$FormMethod">\n|;
 		print qq|<input type="hidden" name="lp" value="profile_game">\n|;
 		print qq|<input type="hidden" name="rp" value="my_games">\n|;
@@ -1444,67 +1452,67 @@ sub show_game {
     # Display Refresh Button
     if ($GameValues{'GameStatus'} =~ /^[2347]$/) { print qq|<BUTTON $user_style type="submit" name="cp" value="Refresh" | . &button_help('Refresh') . qq|>Refresh</BUTTON>\n|; $button_count = &button_check($button_count);}
     # Start Game Display Start Button
-    if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '0' && $playercount > 0) { print qq|<BUTTON $host_style type="submit" name="cp" value="Start Game" | . &button_help('StartGame') . qq|>Start Game</BUTTON>\n|; $button_count = &button_check($button_count);}
+    if (($GameValues{'HostName'} eq $userlogin || $admin ) && $GameValues{'GameStatus'} eq '0' && $playercount > 0) { print qq|<BUTTON $host_style type="submit" name="cp" value="Start Game" | . &button_help('StartGame') . qq|>Start Game</BUTTON>\n|; $button_count = &button_check($button_count);}
     # Lock the game and prepare to start
 #		if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '7' && $playeringame) { print qq|<BUTTON $host_style type="submit" name="cp" value="Lock Game" | . &button_help('LockGame') . qq|>Lock Game</BUTTON>\n|; $button_count = &button_check($button_count);}
-		if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '7') { print qq|<BUTTON $host_style type="submit" name="cp" value="Lock Game" | . &button_help('LockGame') . qq|>Lock Game</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $userlogin || $admin ) && $GameValues{'GameStatus'} eq '7') { print qq|<BUTTON $host_style type="submit" name="cp" value="Lock Game" | . &button_help('LockGame') . qq|>Lock Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Unlock the game 
-		if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '0') { print qq|<BUTTON $host_style type="submit" name="cp" value="Unlock Game" | . &button_help('UnlockGame') . qq|>Unlock Game</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $userlogin || $admin ) && $GameValues{'GameStatus'} eq '0') { print qq|<BUTTON $host_style type="submit" name="cp" value="Unlock Game" | . &button_help('UnlockGame') . qq|>Unlock Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Upload Zip file
 		#if ($GameValues{'HostName'} eq $userlogin && $GameValues{'GameStatus'} eq '6') { print qq|<BUTTON $host_style type="submit" name="cp" value="Upload Zip" | . &button_help('UploadZip') . qq|>Upload Zip</BUTTON>\n|; $button_count = &button_check($button_count);}
     # Submit a news article by player or host
-		if ($GameValues{'NewsPaper'} && ($current_player eq $userlogin || $GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} ne '9'))	{ print qq|<BUTTON $user_style type="submit" name="cp" value="Report News" | . &button_help("NewsPaper") . qq|>Report News</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if ($GameValues{'NewsPaper'} && ($current_player eq $userlogin || $GameValues{'HostName'} eq $session->param("userlogin") || $admin) && ($GameValues{'GameStatus'} ne '9'))	{ print qq|<BUTTON $user_style type="submit" name="cp" value="Report News" | . &button_help("NewsPaper") . qq|>Report News</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Delay the game
 		if ($GameValues{'GameDelay'} && ($GameValues{'GameType'} ne '3') && ($GameValues{'GameStatus'} ne '9') && ($current_player eq $userlogin))	{ print qq|<BUTTON $user_style type="submit" name="cp" value="Delay Turn" | . &button_help('GameDelay') . qq|>Delay Turn</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Force generate turns
-		if ($GameValues{'HostName'} eq $session->param("userlogin") && $GameValues{'HostForce'} && ($GameValues{'GameStatus'} ne '9')) 		{ print qq|<BUTTON $host_style type="submit" name="cp" value="Force Gen" | . &button_help('ForceGen') . qq|>Force Gen</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $session->param("userlogin") || $admin) && $GameValues{'HostForce'} && ($GameValues{'GameStatus'} ne '9')) 		{ print qq|<BUTTON $host_style type="submit" name="cp" value="Force Gen" | . &button_help('ForceGen') . qq|>Force Gen</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Restore the game from backup
-		if ($GameValues{'GameRestore'} && $GameValues{'HostName'} eq $session->param("userlogin") && ($GameValues{'GameStatus'} ne '9') && ($GameValues{'GameStatus'} ne '0') && ($HST_Turn > 2400)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Restore Game" | . &button_help('GameRestore') . qq|>Restore Game</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if ($GameValues{'GameRestore'} && ($GameValues{'HostName'} eq $session->param("userlogin") || $admin) && ($GameValues{'GameStatus'} ne '9') && ($GameValues{'GameStatus'} ne '0') && ($HST_Turn > 2400)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Restore Game" | . &button_help('GameRestore') . qq|>Restore Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Edit the game
-		if ($GameValues{'HostName'} eq $session->param("userlogin") && $GameValues{'HostMod'} ) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Edit Game" | . &button_help('EditGame') .  qq|>Edit Game</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $session->param("userlogin") && $GameValues{'HostMod'}) || $admin ) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Edit Game" | . &button_help('EditGame') .  qq|>Edit Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Change the player status
-		if ($GameValues{'HostName'} eq $session->param("userlogin")  && ($GameValues{'GameStatus'} =~ /^[234]$/)) 		{ print qq|<BUTTON $host_style type="submit" name="cp" value="Player Status" | . &button_help('PlayerStatus') . qq|>Player Status</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $session->param("userlogin") || $admin )  && ($GameValues{'GameStatus'} =~ /^[234]$/)) 		{ print qq|<BUTTON $host_style type="submit" name="cp" value="Player Status" | . &button_help('PlayerStatus') . qq|>Player Status</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Pause/Unpause the game
 		# Must be hosting the game, or in the game if the game permits
 		if ($GameValues{'GamePause'} && $current_player eq $userlogin) { $pause_style = $user_style; } else { $pause_style = $host_style; }
-		if (($GameValues{'GameStatus'} eq '4') && (($GameValues{'HostName'} eq $session->param("userlogin")) || (&checkbox($GameValues{'GamePause'}) && $current_player eq $userlogin))) { print qq|<BUTTON $pause_style type="submit" name="cp" value="UnPause Game"| . &button_help('GameUnPause') . qq|>UnPause Game</BUTTON>|; print qq|<input type="hidden" name="GamePause" value="$GameValues{'GamePause'}">\n|; $button_count = &button_check($button_count);} 
-		if (($GameValues{'GameStatus'} =~ /^[235]$/) && (($GameValues{'HostName'} eq $session->param("userlogin")) || (&checkbox($GameValues{'GamePause'}) && $current_player eq $userlogin))) { print qq|<BUTTON $pause_style type="submit" name="cp" value="Pause Game" | . &button_help('GamePause') . qq|>Pause Game</BUTTON>|; print qq|<input type="hidden" name="GamePause" value="$GameValues{'GamePause'}">\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'GameStatus'} eq '4') && (($GameValues{'HostName'} eq $session->param("userlogin") || $admin ) || (&checkbox($GameValues{'GamePause'}) && $current_player eq $userlogin))) { print qq|<BUTTON $pause_style type="submit" name="cp" value="UnPause Game"| . &button_help('GameUnPause') . qq|>UnPause Game</BUTTON>|; print qq|<input type="hidden" name="GamePause" value="$GameValues{'GamePause'}">\n|; $button_count = &button_check($button_count);} 
+		if (($GameValues{'GameStatus'} =~ /^[235]$/) && (($GameValues{'HostName'} eq $session->param("userlogin") || $admin ) || (&checkbox($GameValues{'GamePause'}) && $current_player eq $userlogin))) { print qq|<BUTTON $pause_style type="submit" name="cp" value="Pause Game" | . &button_help('GamePause') . qq|>Pause Game</BUTTON>|; print qq|<input type="hidden" name="GamePause" value="$GameValues{'GamePause'}">\n|; $button_count = &button_check($button_count);}
 		# End the game
-		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[234]$/)) { print qq|<BUTTON $host_style type="submit" name="cp" value="End Game" | . &button_help('EndGame') . qq|>End Game</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $session->param("userlogin") || $admin ) && ($GameValues{'GameStatus'} =~ /^[234]$/)) { print qq|<BUTTON $host_style type="submit" name="cp" value="End Game" | . &button_help('EndGame') . qq|>End Game</BUTTON>\n|; $button_count = &button_check($button_count);}
     # Restart Game
-		if ($GameValues{'HostName'} eq $session->param("userlogin") && $GameValues{'GameStatus'} eq '9') { print qq|<BUTTON $host_style type="submit" name="cp" value="Restart Game" | . &button_help('RestartGame') . qq|>Restart Game</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $session->param("userlogin") || $admin ) && $GameValues{'GameStatus'} eq '9') { print qq|<BUTTON $host_style type="submit" name="cp" value="Restart Game" | . &button_help('RestartGame') . qq|>Restart Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Change personal game state from active to Idle and vice versa.
 #		if (($current_player eq $userlogin) && ($player_status == 1) && ($GameValues{'GameStatus'} ne '9')) { print qq|<BUTTON $user_style type="submit" name="cp" value="Go Idle" | . &button_help('GoIdle') . qq|>Go Idle</BUTTON>\n|; $button_count = &button_check($button_count);}
 #		if (($current_player eq $userlogin) && ($player_status == 4) && ($GameValues{'GameStatus'} ne '9')) { print qq|<BUTTON $user_style type="submit" name="cp" value="Go Active" | . &button_help('GoActive') . qq|>Go Active</BUTTON>\n|; $button_count = &button_check($button_count);}
 		if (($current_player eq $userlogin) && (($player_status == 4) || ($player_status == 1)) && ($GameValues{'GameStatus'} ne '9')) { print qq|<BUTTON $user_style type="submit" name="cp" value="Change Status" | . &button_help('ChangeStatus') . qq|>Change Status</BUTTON>\n|; $button_count = &button_check($button_count);}
 		
     # Email Players
-		if ($GameValues{'HostName'} eq $session->param("userlogin") && $players) { print qq|<BUTTON $host_style type="submit" name="cp" value="Email Players" | . &button_help('EmailPlayers') . qq|>Email Players</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $session->param("userlogin") || $admin ) && $players) { print qq|<BUTTON $host_style type="submit" name="cp" value="Email Players" | . &button_help('EmailPlayers') . qq|>Email Players</BUTTON>\n|; $button_count = &button_check($button_count);}
  		# Download the zip file. Don't bother displaying zip file option when there IS no history.
-		if (($HST_Turn > 2400) && ($current_player eq $userlogin) ) { print qq|<BUTTON $user_style type="button" name="Download" | . &button_help('GetHistory') . qq| onClick = window.open("$WWW_Scripts/download.pl?file=$GameValues{'GameFile'}.zip")>Get History</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($HST_Turn > 2400) && ($current_player eq $userlogin || $admin ) ) { print qq|<BUTTON $user_style type="button" name="Download" | . &button_help('GetHistory') . qq| onClick = window.open("$WWW_Scripts/download.pl?file=$GameValues{'GameFile'}.zip")>Get History</BUTTON>\n|; $button_count = &button_check($button_count);}
  		# Download messages from .m and .x
-		if (($current_player eq $userlogin) && ($HST_Turn >=2400))  { print qq|<BUTTON $user_style type="button" name="Messages" | . &button_help('Messages')   . qq| onClick = window.open("$WWW_Scripts/download.pl?file=$GameValues{'GameFile'}.msg")>Messages</BUTTON>\n|; $button_count = &button_check($button_count);}
-		elsif (($GameValues{'HostName'} eq $session->param("userlogin") ) && ($HST_Turn >=2400) && $GameValues{'HostAccess'} ) { print qq|<BUTTON $host_style type="button" name="Messages" | . &button_help('Messages') . qq| onClick = window.open("$WWW_Scripts/download.pl?file=$GameValues{'GameFile'}.msg")>Messages</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($current_player eq $userlogin || $admin ) && ($HST_Turn >=2400))  { print qq|<BUTTON $user_style type="button" name="Messages" | . &button_help('Messages')   . qq| onClick = window.open("$WWW_Scripts/download.pl?file=$GameValues{'GameFile'}.msg")>Messages</BUTTON>\n|; $button_count = &button_check($button_count);}
+		elsif (($GameValues{'HostName'} eq $session->param("userlogin") || $admin ) && ($HST_Turn >=2400) && $GameValues{'HostAccess'} ) { print qq|<BUTTON $host_style type="button" name="Messages" | . &button_help('Messages') . qq| onClick = window.open("$WWW_Scripts/download.pl?file=$GameValues{'GameFile'}.msg")>Messages</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Delete the game
     # Give me admin access to delete all of them, but the delete function requires game name and Host ID to match
     # And I don't have host id when I get there because I'm matching on user to be more secure.
 		#if (($GameValues{'HostName'} eq $session->param("userlogin") || $userlogin eq 'rsteeves') && ($GameValues{'GameStatus'} =~ /^[04679]$/)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Delete Game" | . &button_help('DeleteGame') .  qq|>Delete Game</BUTTON>\n|; $button_count = &button_check($button_count);}
-		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[04679]$/)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Delete Game" | . &button_help('DeleteGame') .  qq|>Delete Game</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $session->param("userlogin") || $admin ) && ($GameValues{'GameStatus'} =~ /^[04679]$/)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Delete Game" | . &button_help('DeleteGame') .  qq|>Delete Game</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Remove Password
-		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[23459]$/)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Remove PWD" | . &button_help('RemovePWD') .  qq|>Remove PWD</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $session->param("userlogin") || $admin ) && ($GameValues{'GameStatus'} =~ /^[23459]$/)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Remove PWD" | . &button_help('RemovePWD') .  qq|>Remove PWD</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Replace Player
-		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[23459]$/)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Replace Player" | . &button_help('ReplacePlayer') .  qq|>Replace Player</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $session->param("userlogin") || $admin ) && ($GameValues{'GameStatus'} =~ /^[23459]$/)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Replace Player" | . &button_help('ReplacePlayer') .  qq|>Replace Player</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Add a delay for a player
-		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[2345]$/)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Add Delay" | . &button_help('AddDelay') .  qq|>Add Delay</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $session->param("userlogin") || $admin ) && ($GameValues{'GameStatus'} =~ /^[2345]$/)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Add Delay" | . &button_help('AddDelay') .  qq|>Add Delay</BUTTON>\n|; $button_count = &button_check($button_count);}
 		#Movies
     my $movieFile = $Dir_Graphs . "/movies/movie_$GameFile.gif";
     # Don't provide button if there's already a movie. 
     my $animateFile = "$Dir_Games/$GameValues{'GameFile'}/2400"; 
-		if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[9]$/) && (not -f $movieFile) && (-d $animateFile) && (-f $imagemagick) && (-e $starmapper)) 	{print qq|<BUTTON $host_style type="submit" name="cp" value="Movie" | . &button_help('Animate') .  qq|>Animate</BUTTON>\n|; $button_count = &button_check($button_count);}
+		if (($GameValues{'HostName'} eq $session->param("userlogin") || $admin ) && ($GameValues{'GameStatus'} =~ /^[9]$/) && (not -f $movieFile) && (-d $animateFile) && (-f $imagemagick) && (-e $starmapper)) 	{print qq|<BUTTON $host_style type="submit" name="cp" value="Movie" | . &button_help('Animate') .  qq|>Animate</BUTTON>\n|; $button_count = &button_check($button_count);}
 		# Set the DEF File
 		if ($GameValues{'HostName'} eq $userlogin && ($GameValues{'GameStatus'} eq '6' )) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="DEF File" | . &button_help('DEFFile') .  qq|>DEF File</BUTTON>\n|; $button_count = &button_check($button_count);}
     # Set the Zip Upload File
-    if (($GameValues{'HostName'} eq $session->param("userlogin")) && ($GameValues{'GameStatus'} =~ /^[06]$/)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Upload Zip" | . &button_help('UploadZip') . qq|>Upload Zip</BUTTON>\n|; $button_count = &button_check($button_count);}
+    if (($GameValues{'HostName'} eq $session->param("userlogin") || $admin ) && ($GameValues{'GameStatus'} =~ /^[06]$/)) 	{ print qq|<BUTTON $host_style type="submit" name="cp" value="Upload Zip" | . &button_help('UploadZip') . qq|>Upload Zip</BUTTON>\n|; $button_count = &button_check($button_count);}
     #print$cgi->hidden(-name => 'form_token', -value => $session->param('form_token'));
 		print qq|</FORM>\n|;
 		&DB_Close($db); 
@@ -2976,11 +2984,12 @@ sub read_def {
 	my @Universe_Size = qw(Tiny Small Medium Large Huge);
 	my @Density = qw(Sparse Normal Dense Packed);
 	my @Positions = qw(Close Moderate Farther Distant);
-	my $def_file = "$Dir_Games/$GameFile/$GameFile.df2"; 
+	my $def_file = "$Dir_Games/$GameFile/$GameFile.def"; 
+	#my $def_file = "$Dir_Games/$GameFile/$GameFile.df2"; 
   my $xy_file = "$Dir_Games/$GameFile/$GameFile.xy"; 
 	my @def_data = ();
   
-  # The def file might not exist because this is a zip game that came with no def file. 
+  # The .def file might not exist because this is a zip game that came with no .def file. 
   # If so, create the def file
   if (!-f $def_file) {
     if (-f $xy_file) {
@@ -3000,7 +3009,7 @@ sub read_def {
 
       # Append the game name in win format
       push @GameValues, "$Dir_WINE$WINE_Games\\$GameFile\\$GameFile.xy";
-      # export a new  . .df2 file
+      # export a new  .def file
       open(my $fh, '>', "$def_file") or &LogOut(0, "Cannot open file: $!", $ErrorLog);
       foreach my $value (@GameValues) { print $fh "$value\n"; }
       close($fh);
