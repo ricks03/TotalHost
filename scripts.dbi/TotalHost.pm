@@ -132,11 +132,10 @@ sub DB_Call {
 
 sub Mail_Send { # Sends mail to the listed user, with the associated values (to:, Subject, Message)
 	my ($smtp, $MailTo, $MailFrom, $Subject, $Message) = @_;
-	&LogOut(10,"sending mail: $MailTo, $MailFrom, $Subject, $Message", $LogFile);
+	&LogOut(10,qq|sending mail: $MailTo, $MailFrom, $Subject, $Message|, $LogFile);
 	if ($mail_present) {
 		$smtp->mail( "$MailFrom" ); 
   	$smtp->to( "$MailTo" ); 
-    #$smtp->recipient($recipi);    
   	#Prepare for sending data
 		$smtp->data();
 		# Set headers
@@ -151,7 +150,7 @@ sub Mail_Send { # Sends mail to the listed user, with the associated values (to:
 		# End message
 		$smtp->dataend();  # Bug the last person's email will have a . in it. 
 	} else {
-    &LogOut(0,"Mail not present: Would send mail: $smtp, $MailTo, $MailFrom, $Subject, $Message", $ErrorLog);
+    &LogOut(0,qq|Mail not present: Would send mail: $MailTo, $MailFrom, $Subject, $Message|, $ErrorLog);
   }
 }
 
