@@ -64,6 +64,6 @@ JRC4 Fix caveat: Mineral transfers must be done by hand, not as a waypoint task.
 
 <P><u>WARNING in TOTALHOST: 32k Ship Limit Per Fleet</u>: There is a limit of 32k of any one type of ship in a fleet (32,767 to be precise). If you try and merge two fleets together which would push the ship count over this limit (i.e. a fleet with 25k chaff and another with 10k), Stars! has a few problems. If done manually, the ship type will disappear from the fleet readout, but re-appear in the next generation (you will only lose ships in excess of the 32k). But if done using the "merge with fleet" waypoint order, all the ships of that type will disappear. This is because when the integer (16 bit - signed) holding the number of ships goes over the 32k limit it becomes negative, and as you can't have a negative number of ships, it reads as 0.
 
-
+<P><u>.def AI in Player 1</u>: You can add an AI to a .def file, and it doesn't have to be last. But if you add it as the 1st player Stars! will error and not create the game. In One sense this makes sense, as yo can't create an all AI game.
 </body>
 </html>
