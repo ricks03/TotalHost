@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # StarsHash.pl
 # Deals with Block 9 File Hash Block
 #

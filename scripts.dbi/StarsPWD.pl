@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # StarsPWD.pl
 # Strips the passwords off of Stars! files
 #

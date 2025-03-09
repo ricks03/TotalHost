@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # StarsByteMod.pl
 # Displays Stars! Block Data
 #
