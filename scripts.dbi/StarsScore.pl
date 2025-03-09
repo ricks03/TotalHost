@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # StarsScore.pl
 #
 # Rick Steeves

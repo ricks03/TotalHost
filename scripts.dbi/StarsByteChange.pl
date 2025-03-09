@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # StarsByteChange.pl
 # Change Bytes in a StarsFile
 #

@@ -285,7 +285,7 @@ if ($in{'cp'} eq 'edit_profile') {
   if ($in{'GameFile'}) { $GameFile = $in{'GameFile'}  }
   else { $GameFile = &update_game();} # Modified to always create a random game file
   print "<h2>Upload a Game Zip File for $in{'GameName'} ($GameFile)</h2>\n";
-  print "<P>You can upload a .zip file from a pre-created game to be hosted on TH. This file must include the .xy, .hst, and all associated .m files.</P>\n";	
+  print "<P>You can upload a .zip file from a pre-created game to be hosted on TH. This file must include the .xy, .hst, all associated .m files, and no OTHER FILES OR DIRECTORIES.</P>\n";	
   &show_upload ($in{'GameName'},$GameFile,1); 
 	print "</td>";
 } elsif ($in{'cp'} eq 'create_game_size') { 
@@ -699,9 +699,9 @@ print <<eof;
 <INPUT type="Checkbox" name="EmailTurn" value=$EmailTurn $Checked[$EmailTurn]>Receive Turns via Email</P>
 <INPUT type="Checkbox" name="EmailList" value=$EmailList $Checked[$EmailList]>Receive New Game Notifications</P>
 <input type=submit name="Submit" value="Update">
-#print$cgi->hidden(-name => 'form_token', -value => $session->param('form_token'));
 
 eof
+#print$cgi->hidden(-name => 'form_token', -value => $session->param('form_token'));
 #print$cgi->hidden(-name => 'form_token', -value => $session->param('form_token'));
 print qq|</FORM></td>\n|;
 }
@@ -1075,15 +1075,21 @@ sub show_game {
           my $next_turn_epoch = $GameValues{'NextTurn'};
           my $dtnext = DateTime->from_epoch(epoch => $next_turn_epoch, time_zone => 'UTC');
           if (DateTime::TimeZone->is_valid_name($timezone)) {
-            $dtnext->set_time_zone($timezone);
+            # Default time zone if none are selected    
+            my $valid_timezone = DateTime::TimeZone->is_valid_name($timezone) ? $timezone : 'UTC';
+            $dtnext->set_time_zone($valid_timezone);
+            #$dtnext->set_time_zone($timezone);
             my $dtduration = $dtnext->epoch - $dtnow->epoch;           # Get hours and minutes until next turn
             my $sign = ($dtduration < 0) ? '-' : '';  # Use '-' if in the past
             my $dthours = int($dtduration / 3600);  # Calculate total hours
             my $dtminutes = int(($dtduration % 3600) / 60);  # Calculate remaining minutes
             #print "<br><b>Next turn due on or before: " . $dtnext->strftime('%Y-%m-%d %H:%M:%S %Z') . " ($sign" . abs($dthours) . " hours, " . abs($dtminutes) . " minutes)</b>\n";
             if ($dtnext->epoch > $dtnow->epoch) {
-					   print "<br><b>Next turn due on or before: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($NextTurnDST)) . " ($hours hours, $minutes minutes)</b>\n";  #BUG Need to be using DailyTime from database
+					   #print "<br><b>Next turn due on or before: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($NextTurnDST)) . " ($hours hours, $minutes minutes)</b>\n";  #BUG Need to be using DailyTime from database
+					   #print "<br><b>Next turn due on or before: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($GameValues{'NextTurn'})) . " ($dthours hours, $dtminutes minutes)</b>\n";  #BUG Need to be using DailyTime from database
+					   print "<br><b>Next turn due on or before: " . $dtnext->strftime('%Y-%m-%d %H:%M:%S %Z') . " ($dthours hours, $dtminutes minutes)</b>\n";  #BUG Need to be using DailyTime from database
             } else {
+            # If the next turn will generate the next time we check.
 					   print "<br><b>Turn Generation IMMINENT!</b>\n";  
             }
           } else {
@@ -1096,9 +1102,9 @@ sub show_game {
 
     #Display when the last turn was generated if it was.
     unless ($GameValues{'GameStatus'} == 7 || $GameValues{'GameStatus'} == 0 )  {
-  		if ($GameValues{'LastTurn'}) { 
+  		if ($GameValues{'LastTurn'} && $GameValues{'LastTurn'} > 0) { 
 #         print "<br>Last turn generation: " . strftime("%Y-%m-%d %H:%M:%S %Z", localtime($GameValues{'LastTurn'})) . "\n";
-         my $dtlast = DateTime->from_epoch(epoch => $GameValues{'LastTurn'}, time_zone => 'UTC');
+        my $dtlast = DateTime->from_epoch(epoch => $GameValues{'LastTurn'}, time_zone => 'UTC');
         if (DateTime::TimeZone->is_valid_name($timezone)) {
           $dtlast->set_time_zone($timezone);
           print "<br>Last turn generation: " . $dtlast->strftime('%Y-%m-%d %H:%M:%S %Z') . "\n";
@@ -1142,7 +1148,7 @@ sub show_game {
   		while (@CHK[$Position]) {  #Write .m file lines
   			my ($CHK_Status, $CHK_Name) = &Eval_CHKLine(@CHK[$Position]); # Return the status and race name    
         # If an error is reported in the .chk file (like Host File Locked) report it and then move on.
-        if ($CHK_Status =~ /Error/) { print qq|<tr><td colspan="5">$CHK_Status</td></tr>|; $Position++; next; }
+        if ($CHK_Status =~ /Error/) { print qq|<tr><td colspan="5">CHK File error: $CHK_Status</td></tr>|; $Position++; $Player++; next; }
         $Player++;
   			my $XFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.x' . $Player;
   			my $MFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.m' . $Player;
@@ -1161,6 +1167,8 @@ sub show_game {
         } elsif ($PlayerValues{'PlayerStatus'} == 2) { $del = '<del>'; $del2 = '</del>'; #Inactive
         } elsif ($PlayerValues{'PlayerStatus'} == 3) { $del = '<del style=\"color: red;\">'; $del2 = '</del>'; # Banned
         } elsif ($PlayerValues{'PlayerStatus'} == 4) { $del = '<i>'; $del2 = '</i>'; # Idle
+        } elsif ($PlayerValues{'PlayerStatus'} == '') { $del = ''; $del2 = ''; # AI
+        
         }
         if ($CHK_Status eq 'Deceased') { $del = '<del>'; $del2 = '</del>';}
 
@@ -1168,13 +1176,16 @@ sub show_game {
   			print qq|<tr>\n|;
         #if (($CHK_Status eq 'Out') && ($PlayerValues{'PlayerStatus'} == 3)) { print qq|<td>$del<img src="$TurnBall{Banned}" alt='Status' border="0" name="$CHK_Status"></a>$del2</td>\n|; }
         if ($PlayerValues{'PlayerStatus'} == 2 ) { print qq|<td><img src="$TurnBall{AI}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|;} 
+        # Display the AI ball for the Computer AI
+        elsif ($PlayerValues{'PlayerID'} eq '') { print qq|<td><img src="$TurnBall{AI}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|;} 
         elsif (($CHK_Status eq 'Out') && $PlayerValues{'PlayerStatus'} == 4 ) { print qq|<td><img src="$TurnBall{Idle}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|;} 
   			else { print qq|<td><img src="$TurnBall{$CHK_Status}" alt='Status' border="0" name="$CHK_Status"></a></td>\n|; }  
         
         # Print the user name if appropriate
   			if ($PlayerValues{'User_Login'} eq $userlogin ) { print qq|<td style="border-width: 1px;padding: 1px;border-style: dotted;border-color: gray;">$del|;} 
   			else { 	print "<td>$del"; }
-        if (!($GameValues{'AnonPlayer'} ) || ($PlayerValues{'User_Login'} eq $userlogin) || ($GameValues{'GameStatus'} == 9 ) || ($GameValues{'HostName'} eq $userlogin && $GameValues{'HostAccess'})) { print "$PlayerValues{'User_Login'}</td>"; }
+        if ($PlayerValues{'PlayerID'} eq '') { print "Computer</td>"; }  # If there's no player ID, it must be a Computer AI player
+        elsif (!($GameValues{'AnonPlayer'} ) || ($PlayerValues{'User_Login'} eq $userlogin) || ($GameValues{'GameStatus'} == 9 ) || ($GameValues{'HostName'} eq $userlogin && $GameValues{'HostAccess'})) { print "$PlayerValues{'User_Login'}</td>"; }
         else { print "Player $Player: </td>"; }
         
         print "<td>$del$CHK_Name$del2</td>"; # The race name
@@ -1232,13 +1243,15 @@ sub show_game {
           if ($PlayerValues{'PlayerStatus'} == 4) { print ' (Idle)'; }
           elsif ($PlayerValues{'PlayerStatus'} == 3) { print ' (Banned)'; }
           elsif ($PlayerValues{'PlayerStatus'} == 2) { print ' (Housekeeping AI)'; }
+          elsif ($PlayerValues{'PlayerID'} eq '') { print ' (Computer AI)'; }
           if ($CHK_Status eq 'Deceased') { print " -Deceased"; }
           if (@CHK[$Position] =~ /HACKER/) { print '<span style="color: red;"> (HACKED FILE) </span>'; }; # Hacked race file
           print "</td>\n";
         }
         
         # Display the Remove Password button if applicable
-        if ($in{'cp'} eq 'Remove PWD' && $session->param("userlogin") eq $GameValues{'HostName'}) {
+        # Don't permit placing the password for a Computer AI player
+        if ($in{'cp'} eq 'Remove PWD' && $session->param("userlogin") eq $GameValues{'HostName'} && $PlayerValues{'PlayerID'} ne '') {
           print qq|<td align=center>|;
           print qq|<FORM method="$FormMethod" action="$WWW_Scripts/page.pl" name="my_form">\n|;
           print qq|<BUTTON $host_style type="submit" name="Reset Password" value="Reset Password" | . &button_help('RemovePWD') .  qq|>Reset Password</BUTTON>\n|;
@@ -1254,9 +1267,12 @@ sub show_game {
           print qq|</td>|;
         }
         
-        # Display the Replace Player Button if applicable
-        if ($in{'cp'} eq 'Replace Player' && $session->param("userlogin") eq $GameValues{'HostName'}) {
+        # Display the Replace Player Button if applicable. 
+        # Don't permit switching a Computer AI player
+        # BUG: This doesn't work on upload of a zip with AIs because it's setting the player ID to userlogin
+        if ($in{'cp'} eq 'Replace Player' && $session->param("userlogin") eq $GameValues{'HostName'} && $PlayerValues{'PlayerID'} ne '') {
       		# Get the User List
+          # BUG: We really only need to run this SQL query once
 	        print qq|<td valign="bottom"><FORM method="$FormMethod" action="$WWW_Scripts/page.pl" name="my_form">\n<SELECT name=\"ReplaceName\">\n|;
           # Sort and limit to active players
         	$sql = "SELECT * FROM User WHERE User_Status=1 ORDER BY User_Login;";
@@ -1267,7 +1283,7 @@ sub show_game {
             $sth->finish();
         	}
         	print qq|</SELECT>|;
-          print qq|<BUTTON $host_style type="submit" name="Switch" value="Switch" | . &button_help('Switch') .  qq|>Switch</BUTTON>\n|;
+          print qq|<BUTTON $host_style type="submit" name="Switch" value="Switch" | . &button_help('Switch') .  qq|>Switch</BUTTON>\n|; 
           print qq|<input type="hidden" name="Switch" value="Switch">\n|;
           print qq|<input type="hidden" name="lp" value="profile_game">\n|;
           print qq|<input type="hidden" name="rp" value="my_games">\n|;
@@ -1281,7 +1297,8 @@ sub show_game {
         }
                 
         # Add player delays if applicable
-        if ($in{'cp'} eq 'Add Delay' && $session->param("userlogin") eq $GameValues{'HostName'}) {
+        # Don't permit adding delays to Computer AI player
+        if ($in{'cp'} eq 'Add Delay' && $session->param("userlogin") eq $GameValues{'HostName'} && $PlayerValues{'PlayerID'} ne '') {
 	        print qq|<td valign="bottom"><FORM method="$FormMethod" action="$WWW_Scripts/page.pl" name="my_form">\n|;
           # Display current avalable delays
           print qq|Delays: $PlayerValues{'DelaysLeft'} |;
@@ -1351,7 +1368,7 @@ sub show_game {
       #my $formSuffix = $cgi->hidden(-name => 'form_token', -value => $current_token) . qq|</FORM>|;
       #my $formSuffix = $cgi->hidden(-name => 'form_token', -value => $session->param('form_token'));) . qq|</FORM>|;
   		# Display user information for unstarted games
- 		my $UserLogin;
+ 		  my $UserLogin;
   		my $table;
       #my $sql = qq|SELECT Races.RaceName, Races.RaceID, * FROM GameUsers LEFT JOIN Races ON (GameUsers.User_Login = Races.User_Login) AND (GameUsers.RaceID = Races.RaceID)  WHERE (((GameUsers.GameFile)='$GameFile')) ORDER BY GameUsers.JoinDate;|;
       my $sql = qq|SELECT Races.RaceName, Races.RaceID, GameUsers.* FROM GameUsers LEFT JOIN Races ON (GameUsers.User_Login = Races.User_Login) AND (GameUsers.RaceID = Races.RaceID)  WHERE (((GameUsers.GameFile)='$GameFile')) ORDER BY GameUsers.JoinDate;|;
@@ -2957,9 +2974,9 @@ sub MakeDayFreq { #Make the day turn frequency
   #Needs to Build turn freq here
   $Sunday = &checkboxnull($in{'Sun.'});
   $Monday = &checkboxnull($in{'Mon.'});
-  $Tuesday = &checkboxnull($in{'Tues.'});
+  $Tuesday = &checkboxnull($in{'Tue.'});
   $Wednesday = &checkboxnull($in{'Wed.'});
-  $Thursday = &checkboxnull($in{'Thurs.'});
+  $Thursday = &checkboxnull($in{'Thu.'});
   $Friday = &checkboxnull($in{'Fri.'});
   $Saturday = &checkboxnull($in{'Sat.'});
   $DayFreq = $Sunday . $Monday . $Tuesday . $Wednesday . $Thursday . $Friday . $Saturday;
@@ -3600,7 +3617,7 @@ sub show_player_status {
     if (!($PlayerData[0]{'AnonPlayer'} )) { 
       print qq|<td>Player $PlayerData[$LoopPosition]{'PlayerID'}:</td><td>User ID: $PlayerData[$LoopPosition]{'User_Login'}</td>\n|;
     } else {
-      print qq|<td>User ID: Player $PlayerData[$LoopPosition]{'PlayerID'}</td>\n|;
+      print qq|<td>User ID: Player $PlayerData[$LoopPosition]{'PlayerID'} (anonymous)</td>\n|;
     }
     print qq|<td><SELECT name="NewPlayerStatus">\n|;
 		foreach my $key (@TXT) { 

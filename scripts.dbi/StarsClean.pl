@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # StarsClean.pl
 # Clean shared information out of .m files
 #

@@ -20,6 +20,9 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#use strict;
+#use warnings;
+
 use CGI qw/:standard/;
 use CGI::Session qw/-ip-match/;
 CGI::Session->name('TotalHost');
@@ -71,7 +74,7 @@ if ($File) {
   my $newPage = qq|$WWW_Scripts/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err|;
   # Redirect to newPage, which solves for reloading the page retaking the action.
   # Nothing can print before this or it breaks.
-  #  print $cgi->redirect($newPage);  # Doesn't work
+  #  print $cgi->redirect($newPage);  # BUG: Doesn't work
   print "Location: $newPage\n\n";
 } else { 
   print $cgi->header(); # Create the HTML page header
@@ -109,6 +112,7 @@ sub ValidateFileUpload {
     if ($RaceName) {
       # Confirm there's not already a entry with that name
       my $row;
+      # BUG: use SQL placeholders
       $sql = qq|SELECT RaceName from Races where RaceName = '$RaceName' AND User_Login = '$userlogin';|;
   		$db=&DB_Open($dsn);
       if (my $sth = &DB_Call($db,$sql)) { 
@@ -119,7 +123,7 @@ sub ValidateFileUpload {
       if ($RaceValues{'RaceName'}) {
   				$err .= "Race Name $RaceName already exists in your profile."; 
   				&LogOut (0,"ValidateFileUpload: Race Name $RaceName already exists in profile for $userlogin: $err, $File_Loc, $client_ip", $ErrorLog);
-          if (-f $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
+          if (-f $File_Loc ) { unlink $File_Loc or &LogOut(0,"Race Name $RaceName already exists in profile, failed to unlink", $ErrorLog); } #user-input cleaned as much as I can. 
           return 0;    
       }
       
@@ -127,7 +131,7 @@ sub ValidateFileUpload {
       if (&checkRaceCorrupt($File_Loc)) {
         $err .= 'This race file is corrupt! Caused by making the plural name too short. Recreate the race or fix it with StarsRace.exe !!';
         &LogOut (0, "ValidateFileUpload: Race file $File_Loc corrupt for $userlogin",$ErrorLog);
-        if (-f $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
+        if (-f $File_Loc ) { unlink $File_Loc or &LogOut(0,"Race file $File_Loc corrupt for $userlogin, failed to unlink", $ErrorLog); } #user-input cleaned as much as I can. 
         return 0;
       }   
 
@@ -152,6 +156,7 @@ sub ValidateFileUpload {
           my $racefiledir = "$Dir_Races/$UserValues{'User_File'}";  
           # If the User Race folder doesn't exist, create it. 
           if (not(-e($racefiledir))) {
+            #BUG:  $call = "mkdir $racefiledir" could be exploited if $racefiledir is manipulated.  Solution: Use mkdir() instead of system() for safer directory creation.
             my $call = "mkdir $racefiledir";
             my $exit_code = system($call);  # Where 0 is success
             if ($exit_code) { &LogOut(0,"ValidateFileUpload: Failed to create Race Directory, $racefiledir, $client_ip",$ErrorLog); }
@@ -186,20 +191,20 @@ sub ValidateFileUpload {
 						return 0;
   				} else {
   					$err .= "<b>ERROR: Race File: $File already exists. Delete the race that uses that file (or rename the file you are uploading) and try again!</b>";
-            if (-f $File_Loc ) { unlink $File_Loc; }  # Delete the temp file
+            if (-f $File_Loc ) { unlink $File_Loc or &LogOut(0,"Race File: $File already exists, failed to unlink", $ErrorLog); }  # Delete the temp file
   					&LogOut(0, "ValidateFileUpload: Race File: $File $File_Loc already exists at $Race_Destination: $err, $client_ip", $ErrorLog); 
   					return 0; 
   				}
   			} else { 
   				$err .= uc($File) . " not a valid Race ( .r1 ) file."; 
           &LogOut (0, "ValidateFileUpload: Invalid Race (.r1) File: Deleted $File_Loc for $userlogin",$ErrorLog);
-          if (-f $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
+          if (-f $File_Loc ) { unlink $File_Loc or &LogOut(0,"Invalid Race (.r1) File, failed to unlink", $ErrorLog); } #user-input cleaned as much as I can. 
   				return 0; 
   			}
   		} else {
   			$err .= "Failed Race File upload of $File by $userlogin";
   			&LogOut(0, "ValidateFileUpload: Invalid race file upload of $File_Loc by $userlogin. CheckMagic: $checkmagic, CheckVersion: $checkversion: $err, $client_ip", $ErrorLog);
-        if (-f $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
+        if (-f $File_Loc ) { unlink $File_Loc or &LogOut(0,"Invalid race file upload of $File_Loc by $userlogin, failed to unlink", $ErrorLog); } #user-input cleaned as much as I can. 
   			return 0;
   		}
     } else {
@@ -232,7 +237,7 @@ sub ValidateFileUpload {
       &LogOut(0, "ValidateFileUpload: Error $err, $errSerial , $client_ip", $ErrorLog); 
       # Pass the results to $err for display
       $err = 	$File . " not a valid .x[n] file: $err $errSerial. DISCARDING FILE"; 
-      if (-f $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
+      if (-f $File_Loc ) { unlink $File_Loc or &LogOut(0,"Not a valid .x[n] file, failed to unlink", $ErrorLog); } #user-input cleaned as much as I can. 
       return 0; 
     } else {&LogOut(300, "ValidateFileUpload: No errors for $in{'GameFile'}", $LogFile); }
     
@@ -305,7 +310,7 @@ sub ValidateFileUpload {
         # If the file failed to move, report and remove. 
         $err .= "<P>File failed to move!\n";
 				&LogOut(0,"ValidateFileUpload: File $File $File_Loc, $file_prefix failed to move for $userlogin, $client_ip",$ErrorLog);
-        if (-f $File_Loc ) { unlink $File_Loc; } #user-input cleaned as much as I can. 
+        if (-f $File_Loc ) { unlink $File_Loc or &LogOut(0,"File $File $File_Loc, $file_prefix failed to move for $userlogin, failed to unlink", $ErrorLog);} #user-input cleaned as much as I can. 
         return 0;
 			}
 		}
@@ -325,8 +330,8 @@ sub ValidateFileUpload {
     my $file_size = -s $zip_file; # Get the size in bytes and don't unzip if it's too big
     # 16-player, zipped, is 40k in 2400, 52k in 2401 (with no turns submitted)
     if ($file_size >= 55 * 1024) { 
-      $err .= "The zip file is too large ($file_size bytes). It must be smaller than 20 KB.";
-      &LogOut(0,"The zip file $zip_file is too large ($file_size bytes). It must be smaller than 20 KB.", $ErrorLog); 
+      $err .= "The zip file is too large ($file_size bytes). It must be smaller than 50 KB.";
+      &LogOut(0,"The zip file $zip_file is too large ($file_size bytes). It must be smaller than 50 KB.", $ErrorLog); 
       $all_files_valid = 0;
     } 
     
@@ -356,7 +361,7 @@ sub ValidateFileUpload {
       # Prevent extraction of files outside the intended directory
       if ($file_name =~ /\.\.|^\//) {
           $err .= "Unsafe file $file_name. ";
-          &LogOut (0,"Skipping potentially unsafe file: $filename", $ErrorLog);
+          &LogOut (0,"Skipping potentially unsafe file: $file_name", $ErrorLog);
           $all_files_valid = 0;
           next;
       }
@@ -371,8 +376,8 @@ sub ValidateFileUpload {
       # Check if the file has a valid extension
       my $valid_extensions = qr/\.((m\d{1,2})|xy|hst)$/i; # .m1 to .m99, .xy, or .hst
       unless ($file_name =~ $valid_extensions) { 
-        $err .= "Invalid file extension for '$file_name'. Must be .m*, .xy, or .hst. ";
-        &LogOut ("Invalid file extension for '$file_name'. Must be .m*, .xy, or .hst. ", $ErrorLog); 
+        $err .= "Invalid file extension for '$file_name'. Must be .m[n], .xy, or .hst. ";
+        &LogOut ("Invalid file extension for '$file_name'. Must be .m[n], .xy, or .hst. ", $ErrorLog); 
         $all_files_valid = 0;
         next;
       }      
@@ -415,7 +420,7 @@ sub ValidateFileUpload {
       # Ensure the final destination directory exists
       if (!-d $final_destination_dir) { # Check if directory doesn't exist
         if (!mkdir $final_destination_dir) {
-          $err .= "Failed to create directory $final_destination_dir: $!";
+          $err .= 'Failed to create final destination directory. ';
           &LogOut(100, "Failed to create directory $final_destination_dir: $!", $ErrorLog);
           exit 1; # Exit the script if directory creation fails
         } 
@@ -424,24 +429,24 @@ sub ValidateFileUpload {
       foreach my $file (@extracted_files) {
         my $destination_path = "$final_destination_dir/" . basename($file);
         if (!copy($file, $destination_path)) { 
-          $err .= "Failed to copy file to destination.";
+          $err .= 'Failed to copy file to destination. ';
           &LogOut(100, "Failed to copy $file to $destination_path: $!", $ErrorLog);
           next;
         } 
         # Set permissions to 660
         if (!chmod 0660, $destination_path) { 
-          $err .= "Failed to set permissions for destination path.";
+          $err .= 'Failed to set permissions for destination path. ';
           &LogOut(100,"Failed to set permissions for $destination_path: $!", $ErrorLog);
         } 
       }
       &LogOut(200, "Zip File: All files have been validated, unzipped, renamed (if needed), and copied to $final_destination_dir for ID: $id, GameFile: $GameFile", $LogFile);
       &Make_Zip_Game($id, $GameFile);
-    # Redirect the UI to the Replace Player Player UI
+      # Redirect the UI to the Replace Player Player UI
       $in{'cp'} = 'Replace Player';  
     } else {
-      if (!$xy_present) { $err .= "No .xy file present. "; }
-      if (!$hst_present) { $err .= "No .hst file present. "; }
-      $err .= "One or more files failed validation. No files were copied.";
+      if (!$xy_present) { $err .= 'No .xy file present. '; }
+      if (!$hst_present) { $err .= 'No .hst file present. '; }
+      $err .= 'One or more files failed validation. No files were copied. ';
       &LogOut(200,"One or more files failed validation. No files were copied, $err", $ErrorLog);
       return 0;
     }
@@ -464,7 +469,9 @@ sub Make_Zip_Game {
   # run Make_CHK
   my @CHK = &Read_CHK($GameFile); # There's no .chk file in an uploaded turn, but Read_CHK will make one
   # Determine # of players
+  # BUG: If there's an ERROR in the .chk file I think this will screw up. 
   my $num_players = (scalar @CHK) -3;  # There are 3 starting lines to a .chk file we need to remove
+ 
   # Get the game data for the game
   $sql = qq|SELECT * FROM Games WHERE GameFile = '$GameFile'|;
   my $db = &DB_Open($dsn);
@@ -475,13 +482,20 @@ sub Make_Zip_Game {
     $sth->finish();
   }
   # Add all the players (who are all the host) to the game 
-   for (my $i = 1; $i <= $num_players; $i++) {
-     $GameValues{'RaceFile'} = undef; # We don't have a race file for a zip game
-     $GameValues{'RaceID'} = 0; # We don't have a race ID for a zip game  
-     my $now = time();
-     $sql = qq|INSERT INTO GameUsers (GameName, GameFile, RaceFile, RaceID, User_Login, DelaysLeft, PlayerID, PlayerStatus, JoinDate, LastSubmitted) VALUES ('$GameValues{'GameName'}','$GameFile','$GameValues{'RaceFile'}',$GameValues{'RaceID'},'$GameValues{'HostName'}',$GameValues{'NumDelay'},$i,1,$now,0);|;
-     if (my $sth = &DB_Call($db,$sql)) { $sth->finish(); }
-   } 
+  # Need to check to see if each player is an AI and not add them
+  # The .chk file doesn't tell us if there's an AI player. 
+  my $numAI = 0;
+  for (my $i = 1; $i <= $num_players; $i++) {
+    my $player_file = $Dir_Games . "/$GameFile/$GameFile" . '.m' . $i;
+    ($aiEnabled, $aiRace, $aiSkill) = &Check_AI($player_file);
+    &LogOut(300,"AI Results for $GameFile for $player_file: $aiEnabled, $aiRace, $aiSkill", $LogFile);
+    if ($aiEnabled) { next; }  # Don't insert AI players
+    $GameValues{'RaceFile'} = undef; # We don't have a race file for a zip game
+    $GameValues{'RaceID'} = 0; # We don't have a race ID for a zip game  
+    my $now = time();
+    $sql = qq|INSERT INTO GameUsers (GameName, GameFile, RaceFile, RaceID, User_Login, DelaysLeft, PlayerID, PlayerStatus, JoinDate, LastSubmitted) VALUES ('$GameValues{'GameName'}','$GameFile','$GameValues{'RaceFile'}',$GameValues{'RaceID'},'$GameValues{'HostName'}',$GameValues{'NumDelay'},$i,1,$now,0);|;
+    if (my $sth = &DB_Call($db,$sql)) { $sth->finish(); }
+  } 
   # Pause the game so the host can update the players
   $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameFile\';|;
   if (my $sth = &DB_Call($db,$sql)) {  $sth->finish(); } 
@@ -559,3 +573,81 @@ sub Check_User {
   }
 }
 
+sub Check_AI {
+  # Determine if the .m file is an AI player.
+  # mostly a duplicate of displayBlockRace and decryptBlockRace 
+	my ($filename) = @_; 
+  # Read in the binary Stars! file, byte by byte
+  my $FileValues;
+  my @fileBytes;
+  open(StarFile, "<$filename");
+  binmode(StarFile);
+  while (read(StarFile, $FileValues, 1)) {
+    push @fileBytes, $FileValues; 
+  }
+  close(StarFile);
+  my ($aiEnabled, $aiRace, $aiSkill) = &decryptBlockRaceAI(@fileBytes);
+  return $aiEnabled, $aiRace, $aiSkill;
+}
+
+################################################################
+sub decryptBlockRaceAI { # mostly a duplicate of displayBlockRace and decryptBlockRace
+  my (@fileBytes) = @_;
+  my @block;
+  my @data;
+  my ($decryptedData, $encryptedBlock, $padding);
+  my @decryptedData;
+  my @encryptedBlock;
+  my @outBytes;
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ( $seedA, $seedB);
+  my ( $FileValues, $typeId, $size );
+  my $offset = 0; #Start at the beginning of the file
+  my $playerId; 
+  my ($aiEnabled, $aiRace, $aiSkill);
+  my @aiSkill = qw(Easy Standard Harder Expert);
+  my @aiRace = ('HE', 'SS', 'IS', 'CA', 'PP', 'AR', 'Human Inactive/Expansion');
+  my ($checkSum1, $checkSum2);
+  while ($offset < @fileBytes) {
+    # Get block info and data
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
+    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+
+    if ($typeId == 8) { # FileHeaderBlock, never encrypted
+      # We always have this data before getting to block 6, because block 8 is first
+      # If there are two (or more) block 8s, the seeds reset for each block 8
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
+      ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+    } else {
+      # Everything else needs to be decrypted
+      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
+      @decryptedData = @{ $decryptedData };
+      # WHERE THE MAGIC HAPPENS
+      if ($typeId == 6) { # Player Block
+        $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
+        # Byte 7 as 76543210
+        #   Bit 0 is always 1, Bit 1 defines whether an AI is enabled :  0:off ,  1:on
+        #   The 2s bit is 0 for Player, 1 for Human(inactive)
+        #   bits 6,7,8 also flip changed to human(inactive)  but don't flip back
+        $aiEnabled = ($decryptedData[7] >> 1) & 0x01;
+        if ($aiEnabled) {
+          # bits 23 defines how good the AI will be:
+          $aiSkill = ($decryptedData[7] >> 2) & 0x03;  #00 - Easy, 01 - Standard, 10 - Harder, 11 - Expert
+          @aiSkill = qw(Easy STandard Harder Expert);
+          # Bit 4 is always 0
+          # bits 765 define which PRT AI to use: 
+          # 000 - HE - Robotoids, 001 - SS - Turindromes, 010 - IS - Automitrons
+          # 011 - CA - Rototills, 100 - PP - Cybertrons, 101 - AR - Macinti, 111 - Human inactive / Expansion player
+          # When human is set back to active from Inactive, bit 1 flips but bits 765 aren't reset to 0
+          # So the values for Byte 7 for human are 1 (active) or 225 (active again) and 227 (inactive/expansion player)
+          $aiRace =  ($decryptedData[7] >> 5) & 0x07;  
+        } 
+      } 
+      # END OF MAGIC
+    } 
+    $offset = $offset + (2 + $size); 
+  } 
+  return  $aiEnabled, $aiRace[$aiRace], $aiSkill[$aiSkill];
+} # end sub

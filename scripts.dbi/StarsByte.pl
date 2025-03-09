@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # StarsByte.pl
 # Displays Stars! Block Data
 #

@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # StarsPlanet.pl
 # Reads Blocks $typeID == 7, $typeId == 13, $typeId == 14, $typeId == 15, $typeId == 35 
 #
