@@ -22,6 +22,7 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use CGI qw(:standard);
+$CGI::POST_MAX = 1024 * 100;  # Limit uploads to 100KB
 use CGI::Session;
 CGI::Session->name('TotalHost');
 use CGI::Carp qw(fatalsToBrowser);
@@ -31,14 +32,31 @@ use TotalHost;
 
 #%in = &parse_input(*in);
 #foreach my $field (param()) { $in{$field} = &clean(param($field)); }
+
+# Another memory protecting choice
+my @params = param();
+if (scalar @params > 20) {  # Allow only up to 20 parameters
+    &LogOut(100,"index.pl: Too many input parameters",$LogFile); 
+    die "Too many input parameters";
+}
+
 foreach my $field (param()) {
    my $value = param($field);  # Get the values for the current parameter in list context
+   
+   # Limit input length to prevent excessive memory use
+   if (length($value) > 255) {  
+     &LogOut(100,"index.pl: Input too long for parameter: $field",$LogFile); 
+     die "Input too long for parameter: $field";
+   }
+   
    $in{$field} = clean($value);  # Clean and assign to %in hash
 }
 
 my $cgi = CGI->new;      
 my $cookie = $cgi->cookie('TotalHost');
-my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
+# Limiting session duration
+#my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
+my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions", expires=>"+4h"});
 my $sessionid = $session->id unless $sessionid;
 #$sessionid = $session->id;
 

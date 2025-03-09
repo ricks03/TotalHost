@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # StarsMsg.pl
 # Displays Stars! Messages
 #

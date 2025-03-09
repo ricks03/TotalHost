@@ -135,7 +135,7 @@ sub add_user {
   	my $Date =&GetTimeString();
   	my $hash = $in{'User_Password'} . $secret_key;
   	my $passhash = sha1_hex($hash); 
-  	my $sql = qq|INSERT INTO User (`User_Login`, `User_Last`, `User_First`, `User_Password`, `User_Email`, `User_Status`, `User_Creation`, `User_Modified`, `EmailTurn`, `EmailList`) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', -5,'$Date','$Date', 1, 1);|;
+  	my $sql = qq|INSERT INTO User (`User_Login`, `User_Last`, `User_First`, `User_Password`, `User_Email`, `User_Timezone`, `User_Status`, `User_Creation`, `User_Modified`, `EmailTurn`, `EmailList`) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', 'America/New_York', -5,'$Date','$Date', 1, 1);|;
   	if (my $sth = &DB_Call($db,$sql)) { 
       print "<P>Done!  Check your email to activate your account. \n";
       $sth->finish();
@@ -194,7 +194,7 @@ sub activate_user {
     	# Hashing password with secret key
     	my $hash = $User_Password . $secret_key;
     	my $passhash = sha1_hex($hash);
-    	&LogOut(200, "Attempting a match on A: $User_Login 2: $User_Password 3: $passhash 4: $submit_hash", $LogFile);
+    	&LogOut(400, "Attempting a match on A: $User_Login 2: $User_Password 3: $passhash 4: $submit_hash", $LogFile);
         
     	if ($passhash eq $submit_hash && $submit_user eq $User_Login) {
         $id = $User_ID;

@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # StarsRace.pl
 #
 # Rick Steeves
@@ -687,6 +688,7 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         my $LRTs = &LRT($LRT,0); 
         @LRT = split(', ',$LRTs);
         foreach my $j (@LRT) {
+          print "***********J: $j\n";
    	      if    ($lrtCost{$j} < 0) { $i++; }
    	      elsif ($lrtCost{$j} > 0) { $k++; }
         }

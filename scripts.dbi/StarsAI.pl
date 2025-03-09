@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # StarsAI.pl
 # Toggles a player from Human <> Human (Inactive) 
 #
