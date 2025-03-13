@@ -5,7 +5,6 @@
 # 120808
 
 ##################################################################
-# File Filter    Version 1.0                                     #
 # Created 04/15/2010 by Rick Steeves    Last Modified 01/22/10   #
 # Used to provide file access while authenticating users         #
 # used notes from 															                 #
@@ -66,8 +65,8 @@ my $file = $in{'file'} or &error('No file selected.');
 #Sanitize file name request
 if ($file =~ /^(\w+[\w.-]+\.\w+)$/) { $file = $1; }
 else { &error('Invalid characters in filename.'); } 
-
-
+ 
+   
 # Extra Sanitize the results to try to prevent someome from wandering aimlessly about
 $file =~ s/\\//g;
 $file =~ s/\///g;
@@ -273,9 +272,9 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
   }
   # Change the default name of the file to be player-specific
   $file = $messageFile;
-	$outputfile = $GameFile . '.msg';
+	$outputfile = $GameFile . '.msg';   
   unless ($hostAccess) { $outputfile .= $id; }
-  $download_ok = 1;
+  $download_ok = 1;          
   ######################################################
   ######################################################  
   
