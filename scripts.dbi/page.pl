@@ -2511,6 +2511,18 @@ sub edit_game {
 		}
 		print "</tr></table>\n";
 	}
+
+print <<eof; 
+<script>
+function toggleCheckboxes(checked) {
+    const checkboxes = document.querySelectorAll('input[type="checkbox"][name^="hour"]');
+    checkboxes.forEach(checkbox => checkbox.checked = checked);
+}
+</script> 
+<button type="button" onclick="toggleCheckboxes(true)">Select All</button>
+<button type="button" onclick="toggleCheckboxes(false)">Deselect All</button>  
+eof
+  
 	print qq|<P>\n|;
 	print qq|<INPUT type="checkbox" name="ForceGen" | . &button_help("EnableForceGen") . qq| $Checked[$GameValues{'ForceGen'}]>Enable Force Generate for\n|;
 	# If ForceGenTurns isn't set, make the default 2. 
