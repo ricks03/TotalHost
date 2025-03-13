@@ -245,7 +245,7 @@ sub ValidateFileUpload {
     unless ($err) { 
 			# Do whatever you would do with a valid change (.x) file
 			if (&Move_Turn($File, $file_prefix)) {
-        $makeCHKrun = 0; # Let's not run MakeCHK more than we have to
+        my $makeCHKrun = 0; # Let's not run MakeCHK more than we have to
 				$db = &DB_Open($dsn);
 				# update the Last Submitted Field
 				$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.LastSubmitted = | . time() . qq| WHERE GameUsers.GameFile=\'$file_prefix\' AND GameUsers.User_Login=\'$userlogin\';|;
@@ -256,10 +256,13 @@ sub ValidateFileUpload {
 					&LogOut(200, "ValidateFileUpload: Last Submitted update FAILED $File, $File_Loc, in $file_prefix for $userlogin, $client_ip", $ErrorLog); 
 				}
         
+        # Update the .chk file
+        &Make_CHK($GameFile); # Once the .x file is uploaded, update the .chk file
+        
         # Now that the file is legit, fix anything else wrong with it.
         # Check (and potentially fix) the .x file for known Stars! exploits
         # Requires List files (.fleet, .queue, etc)
-        # Requires a file named 'fix' in the game folder as an additional safety net 
+        # BUG: ?? Requires a file named 'fix' in the game folder as an additional safety net 
         my $fixFile = "$Dir_Games/$GameFile/fix";
         my $warning; 
         if ($fixFiles && -f $fixFile) { 
@@ -297,13 +300,15 @@ sub ValidateFileUpload {
             # There's a recursion problem when calling TurnMake using call_system, because then TurnMake calls TurnMake.
             # Don't need to use sudo, because this is being called by apache2, running as www-data
             my $exit_status = system($MakeTurn); # Starting system with 1 makes it launch asynchronously, in case Stars! hangs
-            if ($exit_status > 0) { $makeCHKrun = 1; }  # Since TurnMake.pl could run Make_CHK, no need to run it twice
+            #if ($exit_status > 0) { $makeCHKrun = 1; }  # Since TurnMake.pl could run Make_CHK, no need to run it twice
             &LogOut(0, "upload: Ending call: $MakeTurn, Exit Status: $exit_status", $LogFile); 
-          	sleep 2;
+          	sleep 1;
           }
         }
-        # BUG: it's not runnig Make_CHK  when AsAvailable. This could mean running it twice, but at least it will run
-        if  ($makeCHKrun != 256 ) { &Make_CHK($file_prefix); } # Only run if we haven't already, 256 is running Stars!, 1 is Turns Missing
+        # BUG: it's not running Make_CHK when AsAvailable. This could mean running it twice, but at least it will run
+        # BUG: trying to stop it from stomping in itself
+        #sleep 1; 
+        #if  ($makeCHKrun != 256 ) { &Make_CHK($file_prefix); } # Only run if we haven't already, 256 is running Stars!, 1 is Turns Missing
         #&Make_CHK($file_prefix);
 				return 1; 
 			} else { 

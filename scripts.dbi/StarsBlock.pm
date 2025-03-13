@@ -1885,7 +1885,7 @@ sub decryptAI {
   # If the password / AI was not reset, no need to write the file back out
   # Faster, less risk of corruption   
   if ($action) { return \@outBytes; 
-  } else { &BlockLogOut(200," StarsAI: Did not make changes to $filename for playerID:$PlayerAI to $NewStatus", $LogFile); return 0; }
+  } else { &BlockLogOut(200," StarsAI: Did not make changes for playerID:$PlayerAI to $NewStatus", $LogFile); return 0; }
 }
 
 sub zerofy {

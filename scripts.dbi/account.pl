@@ -194,7 +194,7 @@ sub activate_user {
     	# Hashing password with secret key
     	my $hash = $User_Password . $secret_key;
     	my $passhash = sha1_hex($hash);
-    	&LogOut(400, "Attempting a match on A: $User_Login 2: $User_Password 3: $passhash 4: $submit_hash", $LogFile);
+    	&LogOut(401, "Attempting a match on A: $User_Login 2: $User_Password 3: $passhash 4: $submit_hash", $LogFile);
         
     	if ($passhash eq $submit_hash && $submit_user eq $User_Login) {
         $id = $User_ID;
@@ -411,7 +411,7 @@ sub login {
         $id = $User_ID;
         &LogOut(200, "Login user match success on $User_Login", $LogFile);
       } else {
-        &LogOut(400, "Login user match failed on $User_Login", $LogFile);
+        &LogOut(401, "Login user match failed on $User_Login", $LogFile);
       }
       if ($id) { last; }  # Exit the loop if a match is found
     }
