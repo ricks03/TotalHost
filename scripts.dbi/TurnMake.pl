@@ -117,7 +117,7 @@ my $generated = &CheckandUpdate;
  
 &DB_Close($db);
 
-# Let us know whether a turn was generated
+# Let us know whether any turn was generated
 if ($generated) { exit 1;}  # Turn generated, Make_CHK run
 else { exit 0;}   # Turn not generated
 
@@ -150,7 +150,7 @@ sub CheckandUpdate {
   # at a time. 
   #print "LOOP: $LoopPosition   Game Data: " . ($#GameData). "\n";
 	while ($LoopPosition <= ($#GameData)) { # work the way through the array. Empty array = -1
-		print "Checking whether to generate for Game $LoopPosition: $GameData[$LoopPosition]{'GameName'}: $GameData[$LoopPosition]{'GameFile'}...\n";
+		print "Checking whether to generate for Game $LoopPosition: $GameData[$LoopPosition]{'GameName'}: $GameData[$LoopPosition]{'GameFile'}..." . scalar localtime() . "\n";
 		my($TurnReady) = 'False'; #Is it time to generate
 		my($NewTurn) = 0; #Localize the value for Next Turn. The next turn won't change unless told to
 #		if ($GameData[$LoopPosition]{'ObserveHoliday'} ) { &CheckHolidays($GameData[$LoopPosition]{'NextTurn'}); }
@@ -379,7 +379,9 @@ sub CheckandUpdate {
         &updateList($GameData[$LoopPosition]{'GameFile'}, 1); # update List files for exploit detection
         &cleanFiles($GameData[$LoopPosition]{'GameFile'}); # Clean the .m files of player information
         if ($GameData[$LoopPosition]{'PublicMessages'}) { &publicMessages($GameData[$LoopPosition]{'GameFile'})}; # create public .messages file
-        &Make_CHK($GameData[$LoopPosition]{'GameFile'}); # Update the .chk file so it's current for the new turn
+        &Make_CHK($GameData[$LoopPosition]{'GameFile'}); # Update the .chk file so it's current for the new turn, $TurnReady=True
+        # Give a moment if a turn is generated.
+        sleep 2;
 
 				# get updated current turn so you can put it in the email, can vary based on force gen.
 				($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
@@ -460,7 +462,7 @@ sub CheckandUpdate {
     $LoopPosition++;	#Now increment to check the next game
   }   
   # Give the system a moment between each game, Stars! EXE is slow. 
-	sleep 2;
+	#sleep 2;
 }
 
 # Check to see if all the turns have arrived taking everything into account
@@ -472,18 +474,31 @@ sub Turns_Missing {
   my @CHK;
 	my %Values;
  	my $CHKFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.chk';
-  &Make_CHK($GameFile);
+  # Create the .chk file only if it's missing
+  unless (-e $CHKFile) {
+    &Make_CHK($GameFile);
+  }
+  
 	# Determine the number of players in the .chk File
 	if (-f $CHKFile) { #Check to see if .chk file is there.
 		&LogOut(200,"Turns_Missing: Reading .chk File $CHKFile",$LogFile);
-		open (IN_CHK,$CHKFile) || &LogOut(0,"Turns_Missing: Cannot open .chk file $CHKFile", $ErrorLog);
+		my $chk_open = open (IN_CHK,$CHKFile);
+    unless ($chk_open) {
+      &LogOut(0,"Turns_Missing: Cannot open .chk file $CHKFile", $ErrorLog);
+      &Make_CHK($GameFile); # IF the CHK File is missing for some reason, create it
+    }
 		chomp((@CHK) = <IN_CHK>);
 	 	close(IN_CHK);
 		for (my $i=3; $i <= @CHK - 1; $i++) { # Skip over starting lines
 			my $id = $i - 2;
 			$Status[$id] = $CHK[$i];
 		}
-	} else { &LogOut(0,'Turns_Missing: Cannot open .chk file - die die die ',$ErrorLog); die; }
+	} else { &LogOut(0,'Turns_Missing: Cannot find .chk file - die die die ',$ErrorLog); die; }
+  
+  # Remove all occurrences of carriage return (^M)
+  # BUG: This should be tested and enabled
+  #foreach my $line (@CHK) {     $line =~ s/\r//g;  }
+
 	# Run through all the players in the database and check status	
 	$sql = qq|SELECT GameUsers.PlayerID, GameUsers.PlayerStatus FROM Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile WHERE GameUsers.GameFile = '$GameFile' AND GameUsers.PlayerStatus=1;|;
 	if (my $sth = &DB_Call($db,$sql)) { 
@@ -491,7 +506,8 @@ sub Turns_Missing {
       %Values = %{$row};  
 			if ((index($Status[$Values{'PlayerID'}], 'turned in') == -1) && (index($Status[$Values{'PlayerID'}], 'dead') == -1)) { 
         &LogOut(300,"Turns_Missing: OUT $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile); 
-        $TurnsMissing = 1; 
+        $TurnsMissing = 1;
+        # last;  # Exit the while loop if TurnsMissing is true  BUG I need to add this for performance I just need to test it. 
       }
 			else { &LogOut(300,"Turns_Missing: IN $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile);  }
 		} 
