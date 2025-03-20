@@ -96,10 +96,11 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
 	# does the game file, player ID, and user ID exist (aka permitted)? 
 	# Can only download turn if you have an active user_status > 0
   #$sql = qq|SELECT Games.GameFile, User.User_ID, GameUsers.PlayerID, GameUsers.PlayerStatus FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$gamefile\') AND ((User.User_Login)=\'$userlogin\') AND ((GameUsers.PlayerID)=$turn_id) AND (User.User_Status > 0));|;
-  $sql = qq|SELECT Games.GameFile, User.User_ID, GameUsers.PlayerID, GameUsers.PlayerStatus FROM User INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login INNER JOIN Games ON Games.GameFile = GameUsers.GameFile WHERE Games.GameFile = \'$gamefile\' AND User.User_Login = \'$userlogin\' AND GameUsers.PlayerID = $turn_id AND User.User_Status > 0;|;
+  #$sql = qq|SELECT Games.GameFile, User.User_ID, GameUsers.PlayerID, GameUsers.PlayerStatus FROM User INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login INNER JOIN Games ON Games.GameFile = GameUsers.GameFile WHERE Games.GameFile = \'$gamefile\' AND User.User_Login = \'$userlogin\' AND GameUsers.PlayerID = $turn_id AND User.User_Status > 0;|;
+  $sql = qq|SELECT Games.GameFile, User.User_ID, GameUsers.PlayerID, GameUsers.PlayerStatus FROM User INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login INNER JOIN Games ON Games.GameFile = GameUsers.GameFile WHERE Games.GameFile = ? AND User.User_Login = ? AND GameUsers.PlayerID = ? AND User.User_Status > 0;|;
 	$db = &DB_Open($dsn);
 	my %GameValues;
-	if (my $sth = &DB_Call($db,$sql)) { 
+	if (my $sth = &DB_Call($db,$sql,$gamefile,$userlogin,$turn_id)) { 
     my $row = $sth->fetchrow_hashref(); 
     %GameValues = %{$row};
 #		while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
@@ -112,8 +113,8 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
 	if ($GameValues{'GameFile'} && $GameValues{'PlayerStatus'} ne '3') { $download_ok = 1; }
 	else {
 	#see if they are in the game, and the game permits anyone in the game to download
-		$sql = qq|SELECT Games.GameFile, Games.SharedM, User.User_ID FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$gamefile\') AND ((User.User_Login)=\'$userlogin\') AND ((Games.SharedM)=Yes));|;
-		if (my $sth = &DB_Call($db,$sql)) { 
+		$sql = qq|SELECT Games.GameFile, Games.SharedM, User.User_ID FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=?) AND ((User.User_Login)=?) AND ((Games.SharedM)=Yes));|;
+		if (my $sth = &DB_Call($db,$sql,$gamefile,$userlogin)) { 
       my $row = $sth->fetchrow_hashref();
       %GameValues = %{$row};
 #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
@@ -125,9 +126,9 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
   # Check to permit the host who is not playing to download
   unless ($download_ok == 1) { # Don't need to check if they already can download
 		# Determine if the player is in the game
-    $sql = qq|SELECT Games.GameFile, Games.HostName, User.User_Login, Games.HostAccess FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$gamefile\') AND ((Games.HostName)=\'$userlogin\'));|;  
+    $sql = qq|SELECT Games.GameFile, Games.HostName, User.User_Login, Games.HostAccess FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=?) AND ((Games.HostName)=?));|;  
 		my $playeringame = 0; 
-		if (my $sth = &DB_Call($db,$sql)) { 
+		if (my $sth = &DB_Call($db,$sql,$gamefile,$userlogin)) { 
       my $row = $sth->fetchrow_hashref(); 
       %GameValues = %{$row};
       if ($GameValues{'HostName'} eq $GameValues{'User_Login'} ) { $playeringame = 1; }
@@ -143,8 +144,9 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
 } elsif (($file =~ /^(\w+[\w.-]+\.[Rr]\d{1,2})$/) ) { 
 	$filetype = 'r';
 	$db = &DB_Open($dsn);
-	$sql = qq|SELECT * FROM Races WHERE User_Login='$userlogin' AND RaceFile='$file';|;
-	if (my $sth = &DB_Call($db,$sql)) { 
+	#$sql = qq|SELECT * FROM Races WHERE User_Login='$userlogin' AND RaceFile='$file';|;
+	$sql = qq|SELECT * FROM Races WHERE User_Login=? AND RaceFile=?;|;
+	if (my $sth = &DB_Call($db,$sql,$userlogin,$file)) { 
     my $row = $sth->fetchrow_hashref();
     %RaceValues = %{$row};
     $sth->finish();
@@ -157,10 +159,10 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
 	$filetype='zip'; 
 	@gamelocation = ($Dir_Games . '/' . $gamefile);
   	# Determine the user's player ID, which is not the same as their user ID
-	$sql = qq|SELECT PlayerID, GameFile FROM User INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login WHERE (((GameUsers.GameFile)='$gamefile') AND ((User.User_Login)='$userlogin'));|;
+	$sql = qq|SELECT PlayerID, GameFile FROM User INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login WHERE (((GameUsers.GameFile)=?) AND ((User.User_Login)=?));|;
 	$db = &DB_Open($dsn);
 	my %GameValues;
-	if (my $sth = &DB_Call($db,$sql)) { 
+	if (my $sth = &DB_Call($db,$sql,$gamefile,$userlogin)) { 
     while (my $row = $sth->fetchrow_hashref()) { 
      %GameValues = %{$row}; 
      #		while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
@@ -209,19 +211,20 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
 	$filetype='msg'; 
 	$gamelocation = $Dir_Games . '/' . $gamefile; # Get the location for the current turns
  
+	my %GameValues;
+  my @messageFiles;
+  my $messageFile;
+  my $hostAccess;
+  # read in the player values
 	# Determine the user's player ID, which is not the same as their user ID
 	#$sql =qq|SELECT PlayerID, GameFile FROM User INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login WHERE (((GameUsers.GameFile)='$gamefile') AND ((User.User_Login)='$userlogin'));|;
   # updated to include host access (if host access is enabled, give all messages)
   # 240923
-  $sql = qq|SELECT GameUsers.PlayerID, GameUsers.GameFile, Games.HostAccess FROM Games INNER JOIN (User INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login) ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE (((GameUsers.GameFile)='$gamefile') AND ((User.User_Login)='$userlogin' ) OR ((GameUsers.GameFile='$gamefile') AND (Games.HostName)='$userlogin') AND ((Games.HostAccess)=True));|;  
+#  $sql = qq|SELECT GameUsers.PlayerID, GameUsers.GameFile, Games.HostAccess FROM Games INNER JOIN (User INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login) ON (Games.GameFile = GameUsers.GameFile) WHERE (((GameUsers.GameFile)='$gamefile') AND ((User.User_Login)='$userlogin' ) OR ((GameUsers.GameFile='$gamefile') AND (Games.HostName)='$userlogin') AND ((Games.HostAccess)=True));|;  
+  $sql = qq|SELECT GameUsers.PlayerID, GameUsers.GameFile, Games.HostAccess FROM Games INNER JOIN (User INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login) ON (Games.GameFile = GameUsers.GameFile) WHERE (((GameUsers.GameFile)=?) AND ((User.User_Login)=? ) OR ((GameUsers.GameFile=?) AND (Games.HostName)=?) AND ((Games.HostAccess)=True));|;  
   #$sql = qq|SELECT GameUsers.PlayerID, GameUsers.GameFile, Games.HostAccess FROM Games INNER JOIN (User INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login) ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) WHERE (((GameUsers.GameFile)='$gamefile') AND ((User.User_Login)='$userlogin' AND (User.User_Login > 0)) OR ((GameUsers.GameFile='$gamefile') AND (Games.HostName)='$userlogin') AND ((Games.HostAccess)=True));|;  
 	$db = &DB_Open($dsn);
-	my %GameValues;
-  # read in the player values
-  my @messageFiles;
-  my $messageFile;
-  my $hostAccess;
-	if (my $sth = &DB_Call($db,$sql)) { 
+	if (my $sth = &DB_Call($db,$sql,$gamefile,$userlogin,$gamefile,$userlogin)) { 
     while (my $row = $sth->fetchrow_hashref()) { 
       %GameValues = %{$row}; 
       $id = $GameValues{'PlayerID'};
