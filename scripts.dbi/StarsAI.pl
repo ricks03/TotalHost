@@ -37,11 +37,14 @@ use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
 my $debug = 0;
 
-my $filename = $ARGV[0]; # input file
-my $playerAI = $ARGV[1];
-my $newAI = $ARGV[2];
-my $outFileName = $ARGV[3];
+my $filename = $ARGV[0]; # input HST file
+my $playerAI = $ARGV[1]; # Player number
+my $newAI = $ARGV[2]; # The value you want the AI to be
+my $outFileName = $ARGV[3]; #New file name (defaults to .ai)
 my @aiStatus = qw(Human Inactive CA PP HE IS SS AR);
+my @aiSkill = qw(Easy Standard Harder Expert);
+my @aiRace = ('HE', 'SS', 'IS', 'CA', 'PP', 'AR', 'Human Inactive/Expansion');
+
 my @prts = qw (HE SS WM CA IS SD PP IT AR JOAT );
 
 if (!($filename)) { 
@@ -67,14 +70,19 @@ if ( $ARGV[1] ) {
 }
 # Simpler to use 1-16 above because a null is a 0;
 $playerAI--;
+#Smartmatch deprecated
 unless ($ARGV[2] ~~ @aiStatus) { print "Player status must be:  " . join(",",@aiStatus) . "\n"; exit; }
+# unless (grep { $_ eq $ARGV[2] } @aiStatus) {
+#     print "Player status must be: " . join(",", @aiStatus) . "\n";
+#     exit;
+#}
 
 my ($basefile, $dir, $ext);
 $basefile = basename($filename);    # mygamename.m1
 $dir  = dirname($filename);         # c:\stars
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
 
-unless (uc($ext) eq '.hst') { print "Needs to run on .hst files\n"; exit; }
+unless (lc($ext) eq '.hst') { print "Needs to run on .hst files\n"; exit; }
 
 # Read in the binary Stars! file, byte by byte
 my $FileValues;
@@ -109,6 +117,7 @@ if ($outBytes) {
 } else { print "Nothing to do\n"; }
 
 ################################################################
+# BUG: This should be merged/sync'd back into the decryptAI fucntion in StarsBlock
 sub decryptAI {
   my (@fileBytes) = @_;
   my @block;
@@ -152,12 +161,32 @@ sub decryptAI {
         if ($playerId == $playerAI) {
           my $fullDataFlag = ($decryptedData[6] & 0x04);
           if ($fullDataFlag) {
-            my $PRT = $decryptedData[76]; # HE SS WM CA IS SD PP IT AR JOAT  
+            my $PRT = $decryptedData[6]; # HE SS WM CA IS SD PP IT AR JOAT  
             # In here is also the AI difficulty (lvlEasy, lvlStandard, lvlHard, lvlExpert . . .)
             # $decryptedData[7] In here is also the AI ID for which AI
-            print "Current PRT: $prts[$PRT]\n";
+            print "Current PRT: $prts[$PRT]  ($PRT)\n";
           }
-          $action =1;
+          
+          # Byte 7 as 76543210
+          #   Bit 0 is always 1, Bit 1 defines whether an AI is enabled :  0:off ,  1:on
+          #   The 2s bit is 0 for Player, 1 for Human(inactive)
+          #   bits 6,7,8 also flip changed to human(inactive)  but don't flip back
+          $aiEnabled = ($decryptedData[7] >> 1) & 0x01;
+          if ($aiEnabled) {
+            # bits 23 defines how good the AI will be:
+            $aiSkill = ($decryptedData[7] >> 2) & 0x03;  #00 - Easy, 01 - Standard, 10 - Harder, 11 - Expert
+            # Bit 4 is always 0
+            # bits 765 define which PRT AI to use: 
+            # 000 - HE - Robotoids, 001 - SS - Turindromes, 010 - IS - Automitrons
+            # 011 - CA - Rototills, 100 - PP - Cybertrons, 101 - AR - Macinti, 111 - Human inactive / Expansion player
+            # When human is set back to active from Inactive, bit 1 flips but bits 765 aren't reset to 0
+            # So the values for Byte 7 for human are 1 (active) or 225 (active again) and 227 (inactive/expansion player)
+            $aiRace =  ($decryptedData[7] >> 5) & 0x07;  
+          }
+          print "AI Status: Enabled: $aiEnabled";
+          if ($aiEnabled) { print "$aiSkill[$aiSkill], $aiRace[$aiRace]";
+          print "\n";
+          
           # Have to handle the password change differently for human <> inactive
           if ($newAI eq 'Human' ) {
             if  ($decryptedData[7] == 225  || $decryptedData[7] == 1) { 

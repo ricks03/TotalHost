@@ -17,7 +17,7 @@ $Location_Index = $WWW_HomePage . $WWW_Scripts . '/index.pl';
 # The higher the value the more log values show
 # 0 - Critical, log every time
 # 100 - Warning, Core system functions
-# 200 - Info. All DB Calls
+# 200 - Info. DB Calls
 # 300 - overly detailed
 # 400 - who cares really
 $logging = 300; 
@@ -30,7 +30,7 @@ $cleanFiles = 1; # 0, 1, 2: display, clean but don't write, write
 $fixFiles = 1; # 0, 1, 2: display, clean but don't write, write 
 
 # Where the accounts logs go
-$Dir_Log = '/home/totalhost/logs';
+$Dir_Log = '/home/th/logs';
 $File_Log = '/th.log';
 $LogFile = $Dir_Log . $File_Log;
 $File_ErrorLog = '/error.log';
@@ -41,10 +41,10 @@ $SQLLog = $Dir_Log . $File_SQLLog;
 $ip = $ENV{'REMOTE_ADDR'};
 $browser = $ENV{'HTTP_USER_AGENT'};
 
-# User / Password Database as a flat file
 $max_login_attempts = 6;
 $max_users = 40;
 $min_password_length = 6;
+$user_admin = 'superadmin';  # This account will generally get host privs. 
 
 $max_inactivity = 14; # The longest a game can stay active, in days, with no turn submissions
 $max_forcegen = 50; # The maxumum number of turns that can be force generated. 
@@ -76,7 +76,6 @@ $FormMethod      = 'Post'; # Method used for forms, Post or Get
 $Dir_Root        = '/var/www/html';
 $Dir_User        = '/home/totalhost';
 $Dir_WINE        = 'd:';
-# You're going to want all of these to be lower case. 
 $Dir_Sessions    = $Dir_User . '/sessions/'; # Note if you change this all the current passwords will invalidate. 
 $Dir_Upload      = $Dir_User . '/upload';
 $Dir_Games       = $Dir_User . '/games'; # Location of the actual game files used for turn gen
@@ -140,7 +139,8 @@ $height_news = 500;
 $width_news = 300;
 
 # Add all the Host and game related buttons
-$host_style = qq|style="color:red;width:120px;height:24;"|;
+$admin_style = qq|style="color:red;width:120px;height:24;"|;
+$host_style = qq|style="color:green;width:120px;height:24;"|;
 $user_style = qq|style="width:120px;height:24;"|;
 
 (@singularRaceName, @pluralRaceName);
@@ -158,3 +158,8 @@ $timezone = 'America/New_York';
 @GamePositions  = ('Close','Moderate','Farther','Distant');
 @GameParameters = ('Beginner: Max Minerals', 'Slower Tech Advances','Single Player', 'Tutorial', 'Computer Players Form Alliances', 'Accelerated BBS Play','Public Player Scores','No Random Events','Galaxy Clumping','wGen','unused');
 @GameVictory    = ('Owns x of all planets','Attains Tech x','in x Tech Fields', 'Exceeds score of x','Exceeds second place score by x','Has production capacity of x thousand','Owns x capital ships','Has the highest score after x years','Must meet x criteria', 'At least x years');
+
+@aiStatus = qw(Human Inactive CA PP HE IS SS AR);
+@aiSkill = qw(Easy Standard Harder Expert);
+@aiRace = ('HE', 'SS', 'IS', 'CA', 'PP', 'AR', 'Human Inactive/Expansion');
+

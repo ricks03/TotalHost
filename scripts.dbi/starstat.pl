@@ -63,9 +63,9 @@ close(StarFile);
 #   Bit 3 (8) - Game over
 #   Bit 4 (16)- Shareware Version
 
-# BUG: At some point I changed this string to SA4LSSsS but I don't
+# At some point I changed this string to SA4LSSsS but I don't
 # know why, and then it didn't line up with statstat.pl	
-# The chase is A2 to S (string) and h8 to L (which is probably a long)
+# The change is A2 to S (string) and h8 to L (which is probably a long)
 #  $unpack = "A2A4h8SSSS";
 $unpack = "SA4LSSsS";
 #$Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts

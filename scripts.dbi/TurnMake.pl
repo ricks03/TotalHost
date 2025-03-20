@@ -64,7 +64,7 @@ my @GameData = @$GameData;
 $reboot_file = $Dir_Root . '/reboot';
 if (-f $reboot_file) {
   my ($Message, $Subject);
-  print "Turn Generation paused from power outage. Delete $reboot_file to resume operations,\n";
+  print "Turn Generation paused from power outage. Delete $reboot_file to resume operations.\n";
 #  $sql = qq|SELECT Games.GameFile, Games.GameStatus, Games.HostName from Games WHERE (Games.GameStatus = 2 OR Games.GameStatus=3)|;
   $sql = qq|SELECT * from Games WHERE (Games.GameStatus = 2 OR Games.GameStatus=3)|;
   if (my $sth = &DB_Call($db,$sql)) {
@@ -78,6 +78,7 @@ if (-f $reboot_file) {
   # Send email to admin that the system recently powered up
   $Subject = $mail_prefix . 'Power Restored';
 	$Message = "\n\n$WWW_HomePage Power Restored.\n";
+  $Message .= "Turn Generation paused from power outage. Delete $reboot_file to resume operations.";
 	$Message .= "Active games set to Paused.\n";
   my $smtp = &Mail_Open;   
   &Mail_Send($smtp, $mail_from, $mail_from, $Subject, $Message); # notify site host
@@ -189,14 +190,14 @@ sub CheckandUpdate {
 				# If there are any delays set, then we need to clear them out, and reset the game status
 				# since if we're generating with a turn missing we've clearly hit the window past the delays.
 				if ($GameData[$LoopPosition]{'DelayCount'} > 0) {
-					$sql = "UPDATE Games SET DelayCount = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
-					if (my $sth = &DB_Call($db,$sql)) { 
+					$sql = qq|UPDATE Games SET DelayCount = 0 WHERE GameFile = ?;|;
+					if (my $sth = &DB_Call($db,$sql,$GameData[$LoopPosition]{'GameFile'})) { 
             &LogOut(50, "Checkandupdate: Delay reset to 0 for $GameData[$LoopPosition]{'GameFile'}", $LogFile);
             $sth->finish(); 
           }
             
-					$sql = "UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';";
-					if (my $sth = &DB_Call($db,$sql)) { 
+					$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = ?;|;
+					if (my $sth = &DB_Call($db,$sql,$GameData[$LoopPosition]{'GameFile'})) { 
             &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); 
             $sth->finish(); 
           }
@@ -217,13 +218,13 @@ sub CheckandUpdate {
 				# If there are any delays set, then we need to clear them out, and reset the game status
 				# since if we're generating with a turn missing we've clearly hit the window past the delays.
 				if ($GameData[$LoopPosition]{'DelayCount'} > 0) {
-					$sql = qq|UPDATE Games SET DelayCount = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';|;
-					if (my $sth = &DB_Call($db,$sql)) { 
+					$sql = qq|UPDATE Games SET DelayCount = 0 WHERE GameFile = ?;|;
+					if (my $sth = &DB_Call($db,$sql,$GameData[$LoopPosition]{'GameFile'})) { 
             &LogOut(50, "Checkandupdate: Delay reset to 0 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); 
             $sth->finish(); 
           }
-					$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';|;
-					if (my $sth = &DB_Call($db,$sql)) { 
+					$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = ?;|;
+					if (my $sth = &DB_Call($db,$sql,$GameData[$LoopPosition]{'GameFile'})) { 
             &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile); 
             $sth->finish(); 
           }
@@ -242,16 +243,16 @@ sub CheckandUpdate {
 				$TurnReady = 'True';
 				# If the game is in a delay state, decrement the delay 
 				if ($GameData[$LoopPosition]{'DelayCount'} > 0 ) {
-					$sql = qq|UPDATE Games SET DelayCount = DelayCount -1 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';|;
-					if (my $sth = &DB_Call($db,$sql)) { 
+					$sql = qq|UPDATE Games SET DelayCount = DelayCount -1 WHERE GameFile = ?;|;
+					if (my $sth = &DB_Call($db,$sql,$GameData[$LoopPosition]{'GameFile'})) { 
             &LogOut(50, "Checkandupdate: Delay decremented for $GameData[$LoopPosition]{'GameFile'}", $LogFile); 
             $sth->finish(); 
           }
 				}
         # And reset the game to active if it's time
         if ( $GameData[$LoopPosition]{'DelayCount'} == 1 ) { # which is now really 0
-  	   		$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\';|;
-  				if (my $sth = &DB_Call($db,$sql)) { 
+  	   		$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = ?;|;
+  				if (my $sth = &DB_Call($db,$sql,$GameData[$LoopPosition]{'GameFile'})) { 
             &LogOut(50, "Checkandupdate: GameStatus reset to 2 for $GameData[$LoopPosition]{'GameFile'}", $LogFile);
             $sth->finish();  
           }
@@ -359,15 +360,15 @@ sub CheckandUpdate {
 					$NumberofTurns = $GameData[$LoopPosition]{'ForceGenTurns'};
 					$NumberofTimes = $GameData[$LoopPosition]{'ForceGenTimes'} -1;
 					# Update NumberofTimes
-					$sql = qq|UPDATE Games SET ForceGenTimes = $NumberofTimes WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'|;
-					if (my $sth = &DB_Call($db,$sql)) {
+					$sql = qq|UPDATE Games SET ForceGenTimes = $NumberofTimes WHERE GameFile = ?|;
+					if (my $sth = &DB_Call($db,$sql, $GameData[$LoopPosition]{'GameFile'})) {
             &LogOut(200,"Decremented ForceGenTimes for $GameData[$LoopPosition]{'GameFile'}",$LogFile);
             $sth->finish(); 
           }
 					else { &LogOut(200,"Failed to Decrement ForceGenTimes for $GameData[$LoopPosition]{'GameFile'}",$ErrorLog);}
 					if ($NumberofTimes <= 0) { #If the game is no longer forced, unforce game
-						$sql = qq|UPDATE Games SET ForceGen = 0 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'|;
-						if (my $sth = &DB_Call($db,$sql)) { 
+						$sql = qq|UPDATE Games SET ForceGen = 0 WHERE GameFile = ?;|;
+						if (my $sth = &DB_Call($db,$sql,$GameData[$LoopPosition]{'GameFile'})) { 
               &LogOut(200,"Forcegen set to 0 for $GameData[$LoopPosition]{'GameFile'}",$LogFile);
               $sth->finish(); 
             }
@@ -381,7 +382,7 @@ sub CheckandUpdate {
         if ($GameData[$LoopPosition]{'PublicMessages'}) { &publicMessages($GameData[$LoopPosition]{'GameFile'})}; # create public .messages file
         &Make_CHK($GameData[$LoopPosition]{'GameFile'}); # Update the .chk file so it's current for the new turn, $TurnReady=True
         # Give a moment if a turn is generated.
-        sleep 2;
+        #sleep 2;
 
 				# get updated current turn so you can put it in the email, can vary based on force gen.
 				($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
@@ -391,8 +392,8 @@ sub CheckandUpdate {
         
 				# If Game was flagged as Delayed, once we generate it's not anymore
 				if ($GameData[$LoopPosition]{'GameStatus'} == 3 && $GameData[$LoopPosition]{'DelayCount'} <= 0) { 
-					$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = \'$GameData[$LoopPosition]{'GameFile'}\'|;
-					if (my $sth = &DB_Call($db,$sql)) { 
+					$sql = qq|UPDATE Games SET GameStatus = 2 WHERE GameFile = ?;|;
+					if (my $sth = &DB_Call($db,$sql,$GameData[$LoopPosition]{'GameFile'})) { 
             &LogOut(100, "TurnMake: Resetting Game Status for $GameData[$LoopPosition]{'GameFile'} to Active", $LogFile);
             $sth->finish(); 
           }
@@ -403,7 +404,7 @@ sub CheckandUpdate {
         # Read in the game and player information from the .chk File
     		my($InactivePosition) = 3;
         my $InactiveMessage = '';
-        while ($CHK[$InactivePosition]) {  #read .m file lines
+        while ($CHK[$InactivePosition]) {  #read .chk file lines
     			my ($CHK_Status, $CHK_Player) = &Eval_CHKLine($CHK[$InactivePosition]);
     			my($Player) = $InactivePosition -2;  # Since the first two lines are other information
      			my $MFile = $Dir_Games . '/' . $GameData[$LoopPosition]{'GameFile'} . '/' . $GameData[$LoopPosition]{'GameFile'} . '.m' . $Player;
@@ -415,8 +416,8 @@ sub CheckandUpdate {
     			# Get the Player Status values for the current player
           $GameFile = $GameData[$LoopPosition]{'GameFile'};
           # Get the player informaton for this player on this row
-    			$sql = qq|SELECT Games.GameFile, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, _PlayerStatus.PlayerStatus_txt FROM _PlayerStatus INNER JOIN (User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON _PlayerStatus.PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerID)=$Player));|;
-    			if (my $sth = &DB_Call($db,$sql)) { 
+    			$sql = qq|SELECT Games.GameFile, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, _PlayerStatus.PlayerStatus_txt FROM _PlayerStatus INNER JOIN (User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON _PlayerStatus.PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=?) AND ((GameUsers.PlayerID)=?));|;
+    			if (my $sth = &DB_Call($db,$sql,$GameFile,$Player)) { 
             my $row = $sth->fetchrow_hashref(); 
             %PlayerValues = %{$row}; 
             $sth->finish();
@@ -425,8 +426,8 @@ sub CheckandUpdate {
           &LogOut(300, "TurnMake: Player: $Player, Player Status: $PlayerValues{'PlayerStatus'}, AutoInactive: $GameData[$LoopPosition]{'AutoInactive'}, TurnYears: $TurnYears ", $LogFile); 
     			if (($PlayerValues{'PlayerStatus'} == 1) && ($GameData[$LoopPosition]{'AutoInactive'}) && ($TurnYears >= $GameData[$LoopPosition]{'AutoInactive'})) {
             &LogOut(300, "TurnMake: Need to set Player $Player to Inactive", $LogFile);  
-            $sql = qq|UPDATE GameUsers SET PlayerStatus=4 WHERE PlayerID = $Player AND GameFile = '$GameFile';|;
-          	if (my $sth = &DB_Call($db,$sql)) { 
+            $sql = qq|UPDATE GameUsers SET PlayerStatus=4 WHERE PlayerID = ? AND GameFile = ?;|;
+          	if (my $sth = &DB_Call($db,$sql,$Player,$GameFile)) { 
               &LogOut(100,"TurnMake: Player $Player Status updated to Inactive for $GameFile having missed $TurnYears turns", $LogFile); 
               # Create the message for the email
               $InactiveMessage .= $InactiveMessage . "Player $Player Status changed to Inactive. No turns submitted for $TurnYears turn(s).\n";
@@ -444,7 +445,7 @@ sub CheckandUpdate {
 				# a singular value (a scalar) or a plural one (a list).
 				my $GameValues = $GameData[$LoopPosition];
 				%GameValues = %$GameValues;
-				$GameValues{'Message'} = "New turn available at $WWW_HomePage\n\n";
+				$GameValues{'Message'} = "New turn available at $WWW_HomePage\n";
         # If any player(s) were set idle, add that to the email notification
         $GameValues{'Message'} .= $InactiveMessage; 
 				$GameValues{'HST_Turn'} = $HST_Turn;
@@ -462,7 +463,7 @@ sub CheckandUpdate {
     $LoopPosition++;	#Now increment to check the next game
   }   
   # Give the system a moment between each game, Stars! EXE is slow. 
-	#sleep 2;
+	sleep 2;
 }
 
 # Check to see if all the turns have arrived taking everything into account
@@ -474,34 +475,22 @@ sub Turns_Missing {
   my @CHK;
 	my %Values;
  	my $CHKFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.chk';
-  # Create the .chk file only if it's missing
-  unless (-e $CHKFile) {
-    &Make_CHK($GameFile);
-  }
+  &Make_CHK($GameFile);
   
 	# Determine the number of players in the .chk File
 	if (-f $CHKFile) { #Check to see if .chk file is there.
 		&LogOut(200,"Turns_Missing: Reading .chk File $CHKFile",$LogFile);
-		my $chk_open = open (IN_CHK,$CHKFile);
-    unless ($chk_open) {
-      &LogOut(0,"Turns_Missing: Cannot open .chk file $CHKFile", $ErrorLog);
-      &Make_CHK($GameFile); # IF the CHK File is missing for some reason, create it
-    }
-		chomp((@CHK) = <IN_CHK>);
-	 	close(IN_CHK);
+    @CHK = &Read_CHK($GameFile);
+    
 		for (my $i=3; $i <= @CHK - 1; $i++) { # Skip over starting lines
 			my $id = $i - 2;
 			$Status[$id] = $CHK[$i];
 		}
 	} else { &LogOut(0,'Turns_Missing: Cannot find .chk file - die die die ',$ErrorLog); die; }
   
-  # Remove all occurrences of carriage return (^M)
-  # BUG: This should be tested and enabled
-  #foreach my $line (@CHK) {     $line =~ s/\r//g;  }
-
 	# Run through all the players in the database and check status	
-	$sql = qq|SELECT GameUsers.PlayerID, GameUsers.PlayerStatus FROM Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile WHERE GameUsers.GameFile = '$GameFile' AND GameUsers.PlayerStatus=1;|;
-	if (my $sth = &DB_Call($db,$sql)) { 
+	$sql = qq|SELECT GameUsers.PlayerID, GameUsers.PlayerStatus FROM Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile WHERE GameUsers.GameFile = ? AND GameUsers.PlayerStatus=1;|;
+	if (my $sth = &DB_Call($db,$sql,$GameFile)) { 
     while (my $row = $sth->fetchrow_hashref()) { 
       %Values = %{$row};  
 			if ((index($Status[$Values{'PlayerID'}], 'turned in') == -1) && (index($Status[$Values{'PlayerID'}], 'dead') == -1)) { 
@@ -526,8 +515,10 @@ sub active_game {
 
 	my $db = &DB_Open($dsn);
 	# Read in all the user data for the game.
-	my $sql = qq|SELECT * FROM GameUsers WHERE GameFile = \'$GameFile\';|;
-	if (my $sth = &DB_Call($db,$sql)) { 	
+#	my $sql = qq|SELECT * FROM GameUsers WHERE GameFile = \'$GameFile\';|;
+#	if (my $sth = &DB_Call($db,$sql)) { 	
+	my $sql = qq|SELECT * FROM GameUsers WHERE GameFile = ?;|;
+	if (my $sth = &DB_Call($db,$sql, $GameFile)) { 	
     while (my $row = $sth->fetchrow_hashref()) { 
       my %UserValues = %{$row};
   		$UserCounter++;
@@ -546,8 +537,8 @@ sub active_game {
 		my $log = "\t$GameFile paused. Inactive more than $max_inactivity days, last submitted on " . localtime($LastSubmitted); 
 		&LogOut(50,$log, $ErrorLog);
 		# End/Pause the game
-		$sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameFile\'|;
-		if (my $sth = &DB_Call($db,$sql)) {
+		$sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = ?;|;
+		if (my $sth = &DB_Call($db,$sql,$GameFile)) {
 			&LogOut(100, "active_game: $GameFile Ended/Paused. $log", $ErrorLog);
       print "$log\n";
       $sth->finish(); 
