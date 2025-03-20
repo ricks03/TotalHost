@@ -74,7 +74,7 @@ if ($File) {
   my $newPage = qq|$WWW_Scripts/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err|;
   # Redirect to newPage, which solves for reloading the page retaking the action.
   # Nothing can print before this or it breaks.
-  #  print $cgi->redirect($newPage);  # BUG: Doesn't work
+  #  print $cgi->redirect($newPage);  # Doesn't work
   print "Location: $newPage\n\n";
 } else { 
   print $cgi->header(); # Create the HTML page header
@@ -112,12 +112,12 @@ sub ValidateFileUpload {
     if ($RaceName) {
       # Confirm there's not already a entry with that name
       my $row;
-      # BUG: use SQL placeholders
-      $sql = qq|SELECT RaceName from Races where RaceName = '$RaceName' AND User_Login = '$userlogin';|;
+      $sql = qq|SELECT RaceName from Races where RaceName = ? AND User_Login = ?;|;
   		$db=&DB_Open($dsn);
-      if (my $sth = &DB_Call($db,$sql)) { 
+      #$sth = $db->prepare($sql) or die $db->errstr;
+      if (my $sth = &DB_Call($db,$sql,$RaceName, $userlogin)) { 
         $row = $sth->fetchrow_hashref(); %RaceValues = %{$row}; 
-        $sth->finish();
+        if (my $row = $sth->fetchrow_hashref()) { %RaceValues = %{$row};   }
       }
       &DB_Close($db);
       if ($RaceValues{'RaceName'}) {
@@ -144,9 +144,9 @@ sub ValidateFileUpload {
   			if ( $dt == 5 ) { # If it is a race file
   				# If the file doesn't exist already
           # Read in the user information so we know where to put the race file
-          $sql = qq|SELECT * FROM User WHERE User_Login = '$userlogin';|;
+          $sql = qq|SELECT * FROM User WHERE User_Login = ?;|;
   				$db = &DB_Open($dsn);
-          if (my $sth = &DB_Call($db,$sql)) { 
+          if (my $sth = &DB_Call($db,$sql, $userlogin)) { 
             my $row = $sth->fetchrow_hashref(); %UserValues = %{$row};  
             $sth->finish();
           }
@@ -156,9 +156,10 @@ sub ValidateFileUpload {
           my $racefiledir = "$Dir_Races/$UserValues{'User_File'}";  
           # If the User Race folder doesn't exist, create it. 
           if (not(-e($racefiledir))) {
-            #BUG:  $call = "mkdir $racefiledir" could be exploited if $racefiledir is manipulated.  Solution: Use mkdir() instead of system() for safer directory creation.
-            my $call = "mkdir $racefiledir";
-            my $exit_code = system($call);  # Where 0 is success
+            #$call = "mkdir $racefiledir" could be exploited if $racefiledir is manipulated.  Solution: Use mkdir() instead of system() for safer directory creation.
+            #my $call = "mkdir $racefiledir";
+            #my $exit_code = system($call);  # Where 0 is success
+            my $exit_code = system('mkdir',$racefiledir);  # Where 0 is success
             if ($exit_code) { &LogOut(0,"ValidateFileUpload: Failed to create Race Directory, $racefiledir, $client_ip",$ErrorLog); }
             #unless (mkdir $racefiledir) { &LogOut(0,"ValidateFileUpload: Failed to create Race Directory $racefiledir",$ErrorLog); }
           }
@@ -171,8 +172,9 @@ sub ValidateFileUpload {
 							&LogOut(200,"ValidateFileUpload: $File $File_Loc moved to $Race_Destination for $userlogin: $err", $LogFile);
         			# Add the new race to the database
     					$db = &DB_Open($dsn);
-    					$sql = "INSERT INTO Races (RaceName, RaceFile, User_Login, RaceDescrip, User_File) VALUES ('$RaceName', '$File', '$userlogin', '$RaceDescrip', '$UserValues{'User_File'}');";
-      				if (my $sth = &DB_Call($db,$sql)) { # If the SQL query is not a failure
+    					#$sql = qq|INSERT INTO Races (RaceName, RaceFile, User_Login, RaceDescrip, User_File) VALUES ('$RaceName', '$File', '$userlogin', '$RaceDescrip', '$UserValues{'User_File'}');|;
+    					$sql = qq|INSERT INTO Races (RaceName, RaceFile, User_Login, RaceDescrip, User_File) VALUES (?, ?, ?, ?,?);|;
+      				if (my $sth = &DB_Call($db,$sql,$RaceName, $File, $userlogin, $RaceDescrip, $UserValues{'User_File'})) { # If the SQL query is not a failure
       					#$err .= "Database updated"; # This causes a crash. No idea why
       					&LogOut(200, "ValidateFileUpload: Race Database Updated for User: $userlogin, File: $File, $err",$LogFile);
                 $sth->finish();
@@ -248,21 +250,18 @@ sub ValidateFileUpload {
         my $makeCHKrun = 0; # Let's not run MakeCHK more than we have to
 				$db = &DB_Open($dsn);
 				# update the Last Submitted Field
-				$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.LastSubmitted = | . time() . qq| WHERE GameUsers.GameFile=\'$file_prefix\' AND GameUsers.User_Login=\'$userlogin\';|;
-				if (my $sth = &DB_Call($db, $sql)) {
+				$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET GameUsers.LastSubmitted = | . time() . qq| WHERE GameUsers.GameFile= ? AND GameUsers.User_Login= ?;|;
+				if (my $sth = &DB_Call($db, $sql, $file_prefix,$userlogin)) {
 					&LogOut(200, "ValidateFileUpload: Last Submitted updated for $File, $File_Loc, $file_prefix for $userlogin, $client_ip", $LogFile);
           $sth->finish();
 				} else {
 					&LogOut(200, "ValidateFileUpload: Last Submitted update FAILED $File, $File_Loc, in $file_prefix for $userlogin, $client_ip", $ErrorLog); 
 				}
         
-        # Update the .chk file
-        &Make_CHK($GameFile); # Once the .x file is uploaded, update the .chk file
-        
         # Now that the file is legit, fix anything else wrong with it.
         # Check (and potentially fix) the .x file for known Stars! exploits
         # Requires List files (.fleet, .queue, etc)
-        # BUG: ?? Requires a file named 'fix' in the game folder as an additional safety net 
+        # Requires a file named 'fix' in the game folder as an additional safety net 
         my $fixFile = "$Dir_Games/$GameFile/fix";
         my $warning; 
         if ($fixFiles && -f $fixFile) { 
@@ -280,9 +279,8 @@ sub ValidateFileUpload {
         }
  
         # If the game is AsAvailable, check to see if all Turns are in and whether we should generate. 
-   			$sql = qq|SELECT * FROM Games WHERE GameFile = \'$file_prefix\';|;
- 				# Load game values into the array
-        if (my $sth = &DB_Call($db,$sql)) { 
+   			$sql = qq|SELECT * FROM Games WHERE GameFile = ?;|;				
+        if (my $sth = &DB_Call($db,$sql, $file_prefix)) { # Load game values into the array
           my $row = $sth->fetchrow_hashref(); %GameValues = %{$row}; 
           $sth->finish();
         } # Should return only one value
@@ -290,26 +288,29 @@ sub ValidateFileUpload {
         if ($GameValues{'AsAvailable'} == 1 ) { # Don't immediately generate As Available if the file generated warnings
           if ($warning) {
             $err .= "Not immediately generating As Available game $file_prefix due to Warnings. Will generate on next turn check interval however.\n";
-            &LogOut(100, "upload: AsAvailable $err for $GameFile $userlogin", $LogFile);
+            &LogOut(100, "ValidateFileUpload: AsAvailable $err for $GameFile $userlogin", $LogFile);
           } else {
             # Run TurnMake for the game. TurnMake will handle for emails, .chk file, etc.
             #my $MakeTurn = "perl -I $Dir_Scripts $Dir_Scripts/TurnMake.pl $GameFile >/dev/null";
             my $MakeTurn = "$PerlLocation -I $Dir_Scripts $Dir_Scripts/TurnMake.pl $GameFile >/dev/null";
-            &LogOut(100, "upload.pl: Calling system for $MakeTurn", $LogFile);
+            &LogOut(100, "ValidateFileUpload: Calling system for $MakeTurn", $LogFile);
             #chdir($WINE_path) or &LogOut(0,"Cannot change directory: $WINE_path",$ErrorLog);
             # There's a recursion problem when calling TurnMake using call_system, because then TurnMake calls TurnMake.
             # Don't need to use sudo, because this is being called by apache2, running as www-data
             my $exit_status = system($MakeTurn); # Starting system with 1 makes it launch asynchronously, in case Stars! hangs
             #if ($exit_status > 0) { $makeCHKrun = 1; }  # Since TurnMake.pl could run Make_CHK, no need to run it twice
-            &LogOut(0, "upload: Ending call: $MakeTurn, Exit Status: $exit_status", $LogFile); 
-          	sleep 1;
+            &LogOut(0, "ValidateFileUpload: Ending call: $MakeTurn, Exit Status: $exit_status", $LogFile); 
+          	#sleep 2; # Stars is slow
           }
+        }  else { # Update the .chk file if it's not an as available game where TurnMake handles it. 
+          &Make_CHK($GameFile); # Once the .x file is uploaded, update the .chk file
         }
-        # BUG: it's not running Make_CHK when AsAvailable. This could mean running it twice, but at least it will run
-        # BUG: trying to stop it from stomping in itself
-        #sleep 1; 
-        #if  ($makeCHKrun != 256 ) { &Make_CHK($file_prefix); } # Only run if we haven't already, 256 is running Stars!, 1 is Turns Missing
-        #&Make_CHK($file_prefix);
+        
+
+        # It's not running Make_CHK when AsAvailable but it will be run on TurnMake
+        ###. This could mean running it twice, but at least it will run
+        ### Make_CHK runs when the .x uploads, and when TurnMake generates a turn.
+        ### if  ($makeCHKrun != 256 ) { &Make_CHK($file_prefix); } # Only run if we haven't already, 256 is running Stars!, 1 is Turns Missing
 				return 1; 
 			} else { 
         # If the file failed to move, report and remove. 
@@ -472,15 +473,19 @@ sub Make_Zip_Game {
   my ($id, $GameFile) = @_;  # $id is the logged-in user, and thus the host creating the game
   my $sql; 
   # run Make_CHK
-  my @CHK = &Read_CHK($GameFile); # There's no .chk file in an uploaded turn, but Read_CHK will make one
+  my @CHK = &Read_CHK($GameFile); # There's no .chk file in an uploaded game, but Read_CHK will make one
   # Determine # of players
-  # BUG: If there's an ERROR in the .chk file I think this will screw up. 
+  # BUG: If there's an ERROR in the .chk file I think this will screw up.
+  unless (&Valid_CHK($GameFile)) {
+    &LogOut(0,"Make_Zip_Game: CHK File not valid", $ErrorLog);
+    print "CHK Fail generated an error for $Gamefile. Please contact $mail_from.\n"; 
+  } 
   my $num_players = (scalar @CHK) -3;  # There are 3 starting lines to a .chk file we need to remove
  
   # Get the game data for the game
-  $sql = qq|SELECT * FROM Games WHERE GameFile = '$GameFile'|;
+  $sql = qq|SELECT * FROM Games WHERE GameFile = ?|;
   my $db = &DB_Open($dsn);
-  if (my $sth = &DB_Call($db,$sql)) { 
+  if (my $sth = &DB_Call($db,$sql,$GameFile)) { 
     my $row = $sth->fetchrow_hashref(); 
     %GameValues = %{$row};  
     &LogOut(300,"Make_Zip_Game: Get Game data from $GameFile", $LogFile);
@@ -488,22 +493,25 @@ sub Make_Zip_Game {
   }
   # Add all the players (who are all the host) to the game 
   # Need to check to see if each player is an AI and not add them
-  # The .chk file doesn't tell us if there's an AI player. 
+  # The .chk file doesn't distinguish an AI player. 
   my $numAI = 0;
   for (my $i = 1; $i <= $num_players; $i++) {
     my $player_file = $Dir_Games . "/$GameFile/$GameFile" . '.m' . $i;
-    ($aiEnabled, $aiRace, $aiSkill) = &Check_AI($player_file);
-    &LogOut(300,"AI Results for $GameFile for $player_file: $aiEnabled, $aiRace, $aiSkill", $LogFile);
-    if ($aiEnabled) { next; }  # Don't insert AI players
+    unless ($i == 1 ) { # Player 1 can never be an AI
+      ($aiEnabled, $aiRace, $aiSkill) = &Check_AI($player_file); # Results for RAce and Skill are strings
+      &LogOut(300,"Make_Zip_Game: AI Results for $GameFile for $player_file: $aiEnabled, $aiRace, $aiSkill", $LogFile);
+      if ($aiEnabled) { next; }  # Don't insert AI players
+    }
     $GameValues{'RaceFile'} = undef; # We don't have a race file for a zip game
     $GameValues{'RaceID'} = 0; # We don't have a race ID for a zip game  
     my $now = time();
-    $sql = qq|INSERT INTO GameUsers (GameName, GameFile, RaceFile, RaceID, User_Login, DelaysLeft, PlayerID, PlayerStatus, JoinDate, LastSubmitted) VALUES ('$GameValues{'GameName'}','$GameFile','$GameValues{'RaceFile'}',$GameValues{'RaceID'},'$GameValues{'HostName'}',$GameValues{'NumDelay'},$i,1,$now,0);|;
-    if (my $sth = &DB_Call($db,$sql)) { $sth->finish(); }
+    #$sql = qq|INSERT INTO GameUsers (GameName, GameFile, RaceFile, RaceID, User_Login, DelaysLeft, PlayerID, PlayerStatus, JoinDate, LastSubmitted) VALUES ('$GameValues{'GameName'}','$GameFile','$GameValues{'RaceFile'}',$GameValues{'RaceID'},'$GameValues{'HostName'}',$GameValues{'NumDelay'},$i,1,$now,0);|;
+    $sql = qq|INSERT INTO GameUsers (GameName, GameFile, RaceFile, RaceID, User_Login, DelaysLeft, PlayerID, PlayerStatus, JoinDate, LastSubmitted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);|;
+    if (my $sth = &DB_Call($db,$sql,$GameValues{'GameName'}, $GameFile, $GameValues{'RaceFile'}, $GameValues{'RaceID'}, $GameValues{'HostName'}, $GameValues{'NumDelay'}, $i, 1, $now, 0)) { $sth->finish(); }
   } 
   # Pause the game so the host can update the players
-  $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameFile\';|;
-  if (my $sth = &DB_Call($db,$sql)) {  $sth->finish(); } 
+  $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = ?;|;
+  if (my $sth = &DB_Call($db,$sql,$GameFile)) {  $sth->finish(); }    
   &DB_Close($db);
 }
 
@@ -562,9 +570,9 @@ sub Save_File {
 sub Check_User {
   # Confirm the user submitting the file is actually in the game and the correct player
   my ($file_prefix, $user_login, $playerId) = @_;
-  my $sql = qq|SELECT * from GameUsers WHERE User_Login =\'$user_login\' AND GameFile = \'$file_prefix\' AND PlayerID = $playerId;|;
+  my $sql = qq|SELECT * from GameUsers WHERE User_Login = ? AND GameFile = ? AND PlayerID = ?;|;
   my $db=&DB_Open($dsn);
-  if (my $sth = &DB_Call($db,$sql)) { 
+  if (my $sth = &DB_Call($db,$sql, $user_login, $file_prefix, $playerId)) { 
     my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};
     $sth->finish();  
   }
@@ -591,7 +599,8 @@ sub Check_AI {
     push @fileBytes, $FileValues; 
   }
   close(StarFile);
-  my ($aiEnabled, $aiRace, $aiSkill) = &decryptBlockRaceAI(@fileBytes);
+  my ($aiEnabled, $aiRace, $aiSkill) = &decryptBlockRaceAI(@fileBytes);  #values for aiRace and $aiSkill are strings
+  &LogOut(200,"Check_AI: Filename: $filename, Enabled: $aiEnabled, Race: $aiRace, Skill: $aiSkill",$LogFile);
   return $aiEnabled, $aiRace, $aiSkill;
 }
 
@@ -610,8 +619,6 @@ sub decryptBlockRaceAI { # mostly a duplicate of displayBlockRace and decryptBlo
   my $offset = 0; #Start at the beginning of the file
   my $playerId; 
   my ($aiEnabled, $aiRace, $aiSkill);
-  my @aiSkill = qw(Easy Standard Harder Expert);
-  my @aiRace = ('HE', 'SS', 'IS', 'CA', 'PP', 'AR', 'Human Inactive/Expansion');
   my ($checkSum1, $checkSum2);
   while ($offset < @fileBytes) {
     # Get block info and data
@@ -640,7 +647,6 @@ sub decryptBlockRaceAI { # mostly a duplicate of displayBlockRace and decryptBlo
         if ($aiEnabled) {
           # bits 23 defines how good the AI will be:
           $aiSkill = ($decryptedData[7] >> 2) & 0x03;  #00 - Easy, 01 - Standard, 10 - Harder, 11 - Expert
-          @aiSkill = qw(Easy STandard Harder Expert);
           # Bit 4 is always 0
           # bits 765 define which PRT AI to use: 
           # 000 - HE - Robotoids, 001 - SS - Turindromes, 010 - IS - Automitrons
@@ -648,11 +654,15 @@ sub decryptBlockRaceAI { # mostly a duplicate of displayBlockRace and decryptBlo
           # When human is set back to active from Inactive, bit 1 flips but bits 765 aren't reset to 0
           # So the values for Byte 7 for human are 1 (active) or 225 (active again) and 227 (inactive/expansion player)
           $aiRace =  ($decryptedData[7] >> 5) & 0x07;  
-        } 
+        } else { # There's no race or skill for a non-existent AI player
+          $aiRace = '';
+          $aiSkill = '';
+        }
       } 
       # END OF MAGIC
     } 
     $offset = $offset + (2 + $size); 
   } 
+  &LogOut(200, "Check_AI decryptBlockRaceAI: Enabled: $aiEnabled, Race: $aiRace[$aiRace] ($aiRace), Skill:  $aiSkill[$aiSkill] ($aiSkill)",$LogFile);
   return  $aiEnabled, $aiRace[$aiRace], $aiSkill[$aiSkill];
 } # end sub

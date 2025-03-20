@@ -229,7 +229,7 @@ print <<eof;
 <tr><td>User ID: </td><td><input type=text name="User_Login" value="" size=32 maxlength=32></td></tr>
 <tr><td>Email Address: </td><td><input type=text name="User_Email" value="" size=32 maxlength=32></td></tr>
 <tr><td>Password: </td><td><input type=password name="pass_temp" id="pass_temp"></td></tr>
-<tr><td><input type="hidden" name="User_Password" id="User_Password"><input type=submit name="Submit" value="add"></td></tr>
+<tr><td><input type="hidden" name="User_Password" id="User_Password"><input type=submit name="Submit" value="Create Account"></td></tr>
 </table>
 <input type="hidden" name="cp" value="">
 </FORM>

@@ -135,8 +135,10 @@ sub add_user {
   	my $Date =&GetTimeString();
   	my $hash = $in{'User_Password'} . $secret_key;
   	my $passhash = sha1_hex($hash); 
-  	my $sql = qq|INSERT INTO User (`User_Login`, `User_Last`, `User_First`, `User_Password`, `User_Email`, `User_Timezone`, `User_Status`, `User_Creation`, `User_Modified`, `EmailTurn`, `EmailList`) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', 'America/New_York', -5,'$Date','$Date', 1, 1);|;
-  	if (my $sth = &DB_Call($db,$sql)) { 
+  	#my $sql = qq|INSERT INTO User (`User_Login`, `User_Last`, `User_First`, `User_Password`, `User_Email`, `User_Timezone`, `User_Status`, `User_Creation`, `User_Modified`, `EmailTurn`, `EmailList`) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', 'America/New_York', -5,'$Date','$Date', 1, 1);|;
+  	#if (my $sth = &DB_Call($db,$sql)) { 
+ 	  my $sql = qq|INSERT INTO User (`User_Login`, `User_Last`, `User_First`, `User_Password`, `User_Email`, `User_Timezone`, `User_Status`, `User_Creation`, `User_Modified`, `EmailTurn`, `EmailList`) VALUES (?,?,?,?,?, 'America/New_York', -5,?,?, 1, 1);|;
+  	if (my $sth = &DB_Call($db,$sql,$User_Login,$User_Last,$User_First,$passhash, $User_Email, $Date, $Date)) { 
       print "<P>Done!  Check your email to activate your account. \n";
       $sth->finish();
     }
@@ -186,7 +188,7 @@ sub activate_user {
   # 240923
   #$sql = "SELECT User.User_ID, User.User_Login, User.User_Password, User.User_Email FROM User;";
   # Can only activate users that aren't active
-  $sql = "SELECT User.User_ID, User.User_Login, User.User_Password, User.User_Email FROM User WHERE User_Status=-5;";
+  $sql = 'SELECT User.User_ID, User.User_Login, User.User_Password, User.User_Email FROM User WHERE User_Status=-5;';
   if (my $sth = &DB_Call($db, $sql)) {
     while (my @row = $sth->fetchrow_array()) {
     	($User_ID, $User_Login, $User_Password, $User_Email) = @row;
@@ -229,8 +231,9 @@ sub activate_user {
     } else { $user_serial="ERROR"; &LogOut(0,"Missing Serials File $File_Serials",$ErrorLog);}
     $Date =&GetTimeString();
     $userfile = substr(sha1_hex(time()), 5, 8); 
-    $sql = "UPDATE User SET User_Status=1, User_Modified='$Date', User_File='$userfile', User_Serial='$user_serial', CreateGame=1 WHERE User_ID=$id;";
-    my $sth = &DB_Call($db,$sql);
+    #$sql = qq|UPDATE User SET User_Status=1, User_Modified='$Date', User_File='$userfile', User_Serial='$user_serial', CreateGame=1 WHERE User_ID=$id;|;
+    $sql = qq|UPDATE User SET User_Status=1, User_Modified=?, User_File=?, User_Serial=?, CreateGame=1 WHERE User_ID=?;|;
+    my $sth = &DB_Call($db,$sql,$Date,$userfile, $user_serial,$id);
     $sth->finish();
     $redirect = $WWW_Scripts . '/page.pl';
     # handy function - don't lose. 
@@ -249,7 +252,7 @@ sub reset_user {
 	&LogOut(100,"Password Reset for $in{'User_Login'}",$LogFile);
 	$db = &DB_Open($dsn);
   # updated to only be active accounts
-	$sql = "SELECT User_Login, User_ID, User_Email FROM User WHERE User_Status > 0;";
+	$sql = 'SELECT User_Login, User_ID, User_Email FROM User WHERE User_Status > 0;';
 	# Check to be sure the account exists
   if (my $sth = &DB_Call($db, $sql)) {
     while (my @row = $sth->fetchrow_array()) {
@@ -267,15 +270,15 @@ sub reset_user {
   	$new_password = sha1_hex($temp);
   	$Date =&GetTimeString();
   	# add new temporary password to database
-  	$sql = "UPDATE User SET User_Password='$new_password', User_Status=2, User_Modified='$Date' WHERE User_ID=$id;";
-  	my $sth = &DB_Call($db,$sql);
+  	$sql = "UPDATE User SET User_Password=?, User_Status=2, User_Modified=? WHERE User_ID=?;";
+  	my $sth = &DB_Call($db,$sql,$new_password, $Date,$id);
     $sth->finish();
   	# Email new temporary password
   	$Subject = $mail_prefix . 'Password Reset Request';
   	$Message = "\n\nA request was submitted to reset your password for User ID: $in{'User_Login'}.\n";
   	$Message .= "To reset your password, select the link below:\n";
   	$Message .= "$WWW_HomePage$WWW_Scripts" . '/account.pl?action=reset_password&new=' . $new_password . '&user=' . $in{'User_Login'};
-  	print "Sending email with a link to reset the password\n";
+  	print "Sending email with a link to reset the password.\n";
   	$smtp = &Mail_Open;
   	&Mail_Send($smtp, $User_Email, $mail_from, $Subject, $Message);
   	&Mail_Close($smtp);
@@ -348,8 +351,8 @@ sub reset_password2 {
 		$hash = $new_password . $secret_key;
 		$userhash = sha1_hex($hash); 
 		$Date = &GetTimeString();
-		$sql = "UPDATE User SET User_Password='$userhash', User_Status=1, User_Modified='$Date' WHERE User_ID=$id;";
-		my $sth = &DB_Call($db,$sql);
+		$sql = "UPDATE User SET User_Password=?, User_Status=1, User_Modified=? WHERE User_ID=?;";
+		my $sth = &DB_Call($db,$sql,$userhash,$Date,$id);
     $sth->finish(); 
 		print "Password Updated for $in{'User_Login'}.";		
 	} else {
@@ -369,8 +372,8 @@ sub change_password {
 	$hash = $new_password . $secret_key;
 	$userhash = sha1_hex($hash); 
 	$db = &DB_Open($dsn);
-	$sql = qq|UPDATE User SET User_Password=\'$userhash\', User_Modified=\'$Date\'  WHERE User_ID=$userid;|;
-	my $sth = &DB_Call($db,$sql);
+	$sql = qq|UPDATE User SET User_Password=?, User_Modified=?  WHERE User_ID=?;|;
+	my $sth = &DB_Call($db,$sql,$userhash,$Date,$userid);
   $sth->finish();
 	print "Password changed for $userid\n";
   &DB_Close($db);
