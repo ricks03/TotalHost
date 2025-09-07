@@ -2727,9 +2727,20 @@ sub update_game {
     return;
   }
   # Make sure everything coming in is clean.
-	$in{'GameName'} = &clean($in{'GameName'});
+  # If the game isn't created yet, there's not value for GameFile yet. Fix that.
+  if ($in{'type'} eq 'create') {
+		# Need to create a random gamefile name for a new game
+		use Digest::SHA1 qw(sha1_hex);
+		$GameFile = substr(sha1_hex(time()), 5, 8); # Should be random enough
+    $in{'GameFile'} = $GameFile;
+  } else {
+    $GameFile =  &clean($in{'GameFile'});
+  }
+  # If the GameName isn't entered, use the default 
+  if ($in{'GameName'} eq '') { $in{'GameName'} = $GameFile; }
+	else {$in{'GameName'} = &clean($in{'GameName'}); }
 	$in{'GameDescrip'} = &clean($in{'GameDescrip'});
-  my $GameFile =  &clean($in{'GameFile'});
+  
   # set boundaries on MaxPlayers
   if ($in{'MaxPlayers'} < 1 | $in{'MaxPlayers'} > 16) { $in{'MaxPlayers'} = 16;}
   else { $MaxPlayers = $in{'MaxPlayers'}; }
@@ -2769,6 +2780,13 @@ sub update_game {
 	my $SharedM = &checkboxnull($in{'SharedM'});
 	my $HostAccess = &checkboxnull($in{'HostAccess'});
 	$in{'Notes'} = &clean($in{'Notes'});
+  
+  # Make sure the game directory exists to put the files in
+  if (!-d "$Dir_Games/$in{'GameFile'}") { 
+    mkdir "$Dir_Games/$in{'GameFile'}"; 
+    &LogOut(0,"update_game: Creating dir $Dir_Games/$in{'GameFile'}", $ErrorLog); 
+  }
+  
   # Enable/disable List functionality for Fix
  	my $Exploit = &checkboxnull($in{'Exploit'}); # Not a DB entry
   if (!($Exploit)) { 
@@ -2781,6 +2799,8 @@ sub update_game {
     chmod 0660, "$Dir_Games/$in{'GameFile'}/fix";
     &updateList($in{'GameFile'}, 1);
   } 
+  &LogOut(0,"update_game: FIXFILE $Dir_Games/$in{'GameFile'}/fix   GameFile: $GameFile", $ErrorLog); 
+  
   # Update the clean file for whether enabled or disabled
 	my $Sanitize = &checkboxnull($in{'Sanitize'}); # Not a DB entry
   if (!($Sanitize)) { 
@@ -2792,8 +2812,9 @@ sub update_game {
     close SANITIZE; 
     umask 0002; 
     chmod 0660, "$Dir_Games/$in{'GameFile'}/clean";
-
   }
+  &LogOut(0,"update_game: CLEANFILE $Dir_Games/$in{'GameFile'}/clean   GameFile: $GameFile", $ErrorLog); 
+  
   # If messages have been disabled, delete the .messages file
 	my $PublicMessages = &checkboxnull($in{'PublicMessages'}); 
   if (!($PublicMessages)) { 
@@ -2924,13 +2945,15 @@ sub update_game {
        &LogOut(0,"$in{'GameName'} update $sql failed for $userlogin", $ErrorLog); 
     }
 	} elsif ($in{'type'} eq 'create') {
-		# Need to create a random gamefile name
-		use Digest::SHA1 qw(sha1_hex);
-		$CleanGameFile = substr(sha1_hex(time()), 5, 8); # Should be random enough
+		## Need to create a random gamefile name   (Done earlier)
+		#use Digest::SHA1 qw(sha1_hex);
+		#$CleanGameFile = substr(sha1_hex(time()), 5, 8); # Should be random enough
     # If the GameName isn't entered, use the default 
-    if ($in{'GameName'} eq '') { $in{'GameName'} = $CleanGameFile; }
-		&LogOut(50,"Creating random GameFile $CleanGameFile for $in{'GameName'}",$LogFile);
-		my $sql = qq|INSERT INTO Games (GameFile,HostName,GameName,GameDescrip,DailyTime,HourlyTime,GameType,GameStatus,AsAvailable,OnlyIfAvailable,DayFreq,HourFreq,ForceGen,ForceGenTurns,ForceGenTimes,HostMod,HostForce,NoDuplicates,GameRestore,AnonPlayer,GamePause,GameDelay,NumDelay,MinDelay,ObserveHoliday,NewsPaper,SharedM,HostAccess,PublicMessages,Notes,MaxPlayers) VALUES ('$CleanGameFile','$userlogin','$in{'GameName'}','$in{'GameDescrip'}',$in{'DailyTime'},'$in{'HourlyTime'}',$in{'GameType'},6,'$AsAvailable','$OnlyIfAvailable','$DayFreq','$HourFreq','$ForceGen',$ForceGenTurns,$ForceGenTimes,'$HostMod','$HostForceGen','$NoDuplicates','$GameRestore','$AnonPlayer','$GamePause','$GameDelay',$NumDelay, $MinDelay,'$ObserveHoliday','$NewsPaper','$SharedM','$HostAccess','$PublicMessages','$in{'Notes'}',$MaxPlayers);|;
+    #if ($in{'GameName'} eq '') { $in{'GameName'} = $CleanGameFile; }
+    #if ($in{'GameName'} eq '') { $in{'GameName'} = $GameFile; }
+		#&LogOut(50,"Creating random GameFile $CleanGameFile for $in{'GameName'}",$LogFile);
+		&LogOut(50,"Creating random GameFile $GameFile for $in{'GameName'}",$LogFile);
+		my $sql = qq|INSERT INTO Games (GameFile,HostName,GameName,GameDescrip,DailyTime,HourlyTime,GameType,GameStatus,AsAvailable,OnlyIfAvailable,DayFreq,HourFreq,ForceGen,ForceGenTurns,ForceGenTimes,HostMod,HostForce,NoDuplicates,GameRestore,AnonPlayer,GamePause,GameDelay,NumDelay,MinDelay,ObserveHoliday,NewsPaper,SharedM,HostAccess,PublicMessages,Notes,MaxPlayers) VALUES ('$GameFile','$userlogin','$in{'GameName'}','$in{'GameDescrip'}',$in{'DailyTime'},'$in{'HourlyTime'}',$in{'GameType'},6,'$AsAvailable','$OnlyIfAvailable','$DayFreq','$HourFreq','$ForceGen',$ForceGenTurns,$ForceGenTimes,'$HostMod','$HostForceGen','$NoDuplicates','$GameRestore','$AnonPlayer','$GamePause','$GameDelay',$NumDelay, $MinDelay,'$ObserveHoliday','$NewsPaper','$SharedM','$HostAccess','$PublicMessages','$in{'Notes'}',$MaxPlayers);|;
     #my $sql = qq|INSERT INTO Games (GameFile, HostName, GameName, GameDescrip, DailyTime, HourlyTime, GameType, GameStatus, AsAvailable, OnlyIfAvailable, DayFreq, HourFreq, ForceGen, ForceGenTurns, ForceGenTimes, HostMod, HostForce, NoDuplicates, GameRestore, AnonPlayer, GamePause, GameDelay, NumDelay, MinDelay, ObserveHoliday, NewsPaper, SharedM, HostAccess, PublicMessages, Notes, MaxPlayers) VALUES (?, ?, ?, ?, ?, ?, ?, 6, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);|;
 #     my @bind_params = ( 
 #       $CleanGameFile, $userlogin, $in{'GameName'}, $in{'GameDescrip'}, 
@@ -2948,17 +2971,17 @@ sub update_game {
 		else { 
       print "Create failed. Did you forget to provide a Game Name? Does the game already exist?\n"; 
       &LogOut(0,"$in{'GameFile'} create failed with $sql for $userlogin", $ErrorLog);
-      $CleanGameFile = 'CREATE FAILED';
+      $GameFile = 'CREATE FAILED';
     }
   }
   &DB_Close($db);
-	return $CleanGameFile; 
+	return $GameFile; 
 }
 
 sub create_game_size {
 	my ($GameFile, $GameName) = @_;
 	print <<eof;
-<H2>Game Parameters For $GameName</H2>
+<H2>Game Parameters For $GameName ($GameFile)</H2>
 <FORM action="$WWW_Scripts/page.pl" method="$FormMethod">
 	<TABLE cellpadding="2">
 		<TR><TH>Size</TH><TH>Position</TH><TH>Density</TH><TH></TH></TR>
