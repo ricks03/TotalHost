@@ -1617,8 +1617,7 @@ sub show_game {
     if ($GameValues{'GameStatus'} =~ /^[2345]$/ && -f $fixfile) { 
       &show_fix($GameFile); 
     }
-  
-      
+        
 		if ($GameValues{'Notes'}) { print qq|<table border=1 width=100%><tr><td><b>Game Notes</b>: $GameValues{'Notes'}</td></tr></table>\n|; }
 		else { print qq|<hr>|; }
     
@@ -1978,8 +1977,8 @@ sub process_game_launch {
       umask 0002; 
       chmod 0660, $def_file_races;
 		} else { 
-			print "Game Definition File for $GameFile not found!\n"; 
-			&LogOut(0,"Game Definition File $def_file not found at launch",$ErrorLog);
+			print "Game Definition File $def_file for $GameFile not found!\n"; 
+			&LogOut(0,"Game Definition File $def_file for $GameFile not found at launch",$ErrorLog);
 			return 0;
 		}
  
@@ -2799,7 +2798,6 @@ sub update_game {
     chmod 0660, "$Dir_Games/$in{'GameFile'}/fix";
     &updateList($in{'GameFile'}, 1);
   } 
-  &LogOut(0,"update_game: FIXFILE $Dir_Games/$in{'GameFile'}/fix   GameFile: $GameFile", $ErrorLog); 
   
   # Update the clean file for whether enabled or disabled
 	my $Sanitize = &checkboxnull($in{'Sanitize'}); # Not a DB entry
@@ -2813,7 +2811,6 @@ sub update_game {
     umask 0002; 
     chmod 0660, "$Dir_Games/$in{'GameFile'}/clean";
   }
-  &LogOut(0,"update_game: CLEANFILE $Dir_Games/$in{'GameFile'}/clean   GameFile: $GameFile", $ErrorLog); 
   
   # If messages have been disabled, delete the .messages file
 	my $PublicMessages = &checkboxnull($in{'PublicMessages'}); 
@@ -3209,6 +3206,7 @@ sub MakeHourFreq { #Make the hour turn frequency
 
 sub read_def {
 	my ($GameFile) = @_;
+  $GameFile = lc($GameFile);
 	my @Universe_Size = qw(Tiny Small Medium Large Huge);
 	my @Density = qw(Sparse Normal Dense Packed);
 	my @Positions = qw(Close Moderate Farther Distant);
@@ -3294,8 +3292,8 @@ sub read_def {
 		}	
 		print qq|</tr></table>\n|;
 	} else { 
-		print "<P>Game Definition File not found!\n"; 
-		&LogOut(0,"read_def: Game Definition File $def_file not found for $userlogin",$ErrorLog);
+		print "<P>Game Definition File not found fopr $GameFile!\n"; 
+		&LogOut(0,"read_def: Game Definition File $def_file for $GameFile not found for $userlogin",$ErrorLog);
 	}
   return ''; # Return blank to avoid getting values
 }
