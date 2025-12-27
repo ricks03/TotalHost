@@ -199,7 +199,8 @@ if ($in{'lp'} eq 'profile') {
  				"3Completed Games" 	   => "$WWW_Scripts/page.pl?lp=game&cp=show_games_completed&rp=games_complete",
 # 				"1Replacement Players" 	=> "$WWW_Scripts/page.pl?lp=profile_game&cp=welcome&rp=games_replacement",
 # 				"2XInvite People"	=> "",
- 				"4Create Game"	       => "$WWW_Scripts/page.pl?lp=game&cp=create_game&rp=",
+ 				"4All Games" 	   => "$WWW_Scripts/page.pl?lp=game&cp=show_games&rp=games",
+ 				"5Create Game"	       => "$WWW_Scripts/page.pl?lp=game&cp=create_game&rp=",
  				);
 } elsif ($in{'lp'} eq 'hosting') { 
 %menu_left = 	(
@@ -1118,6 +1119,22 @@ sub show_game {
     print qq|</tr>\n|;
 		print "</table>\n";
     
+    # Display when the game was created
+    # Only print game creation if it's before the folder (to adjust for file copies)
+      my $GameDefFile = $Dir_Games . '/' . $GameFile . '/' . "$GameFile.def";
+      if (-f $GameDefFile) {
+        my $mtime = (stat($GameDefFile))[9];
+        my $dtlast = DateTime->from_epoch(epoch => $mtime, time_zone => 'UTC');
+        if (DateTime::TimeZone->is_valid_name($timezone)) {
+          $dtlast->set_time_zone($timezone);
+          # Note that games that the def file is after the last turn won't display.
+          if ($mtime < $GameValues{'LastTurn'} || $GameValues{'LastTurn'} == 0 ) {
+            print "Game created: ";
+            print $dtlast->strftime('%Y-%m-%d %H:%M:%S %Z') . "\n";
+          }
+        }
+      }
+    
     #Display ForceGen Parameters   
     if ($GameValues{'ForceGen'} && $GameValues{'ForceGenTurns'} && $GameValues{'ForceGenTimes'} && $GameValues{'GameStatus'} != 9) { 
 			print "<P><i>Turns generate $GameValues{'ForceGenTurns'} years at a time for the next $GameValues{'ForceGenTimes'} turn generation(s)"; 
@@ -1160,7 +1177,7 @@ sub show_game {
 				}
 			}
 		} 
-
+    
     #Display when the last turn was generated if it was.
     unless ($GameValues{'GameStatus'} == 7 || $GameValues{'GameStatus'} == 0 )  {
   		if ($GameValues{'LastTurn'} && $GameValues{'LastTurn'} > 0) { 
