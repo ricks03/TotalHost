@@ -2,7 +2,6 @@ All stars files are divided into blocks. Each block is data about a particular t
 
 IF you look at the utility files (Stars*.pl), they're generally breaking down one (or more blocks) as a precursor to use them in TH. Block 8 is in every file type, and is not encrypted (significant because it contains the data to decrypt things, and what type the file is)
 
-
 So most of the utilities do (effectively):
 
 If block 8 then do this
