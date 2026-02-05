@@ -23,3 +23,5 @@ I began this project 20+ years ago as stop-and-start work, and I'm not a program
 The overall implementation is in Perl (except some Java for the movie-generating code).
 
 The original implementation was/is on a Windows VM running Apache, and ODBC calls to an Access database. I've since separated the "scripts" code base between an ODBC implementation (scripts.odbc) for Windows 16-bit, and a separate DBI implementation (scripts.dbi) for Linux with MariaDB and wine for the Stars!.exe). 
+
+Requires: CGI::Session, File::Find, Exporter, Net::SMTP, CGI, Date::Time, DateTime::TimeZone, Fcontl, MIME::Lite, GD::Graph, DBD::mysql, DBI
