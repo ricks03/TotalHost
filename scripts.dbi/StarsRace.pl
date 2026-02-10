@@ -305,7 +305,7 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
           my $playerRelationsLength = $decryptedData[112]; #Always 0 in race file
           
           @MTItems = &showMTItems($MTItems);
-          print "Player ID:$playerId"; if ($playerId == 255) { print "(race file)"; } print "\n";     
+          print "Player #:" . ($playerId + 1); if ($playerId == 255) { print "(race file)"; } print "\n";     
           if (uc($ext) !~ /R/) {  # Always 0 in a race file  
             print "Ship Designs:$shipDesigns\n";
             print "Planets:$planets\n";
