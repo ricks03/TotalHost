@@ -6,6 +6,7 @@
 # Version History
 # 180815  Version 1.0
 # 191123 Version 1.1 mostly working to display all race info
+# 260209 Version 1.2 also calculates leftover points
 #
 #     Copyright (C) 2019 Rick Steeves
 # 
@@ -38,7 +39,10 @@
 
 use strict;
 use warnings;   
-#use warnings::unused;   
+#use warnings::unused; 
+use FindBin;
+use lib $FindBin::Bin;
+  
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
 my $debug = 0;
@@ -87,7 +91,7 @@ if ($outBytes) {
   print "*** Race File Corruption detected*******\n";
   # Create the output file name
   my $newFile; 
-  $newFile = "$dir\\$basefile.fixed"; 
+  $newFile = "$dir/$basefile.fixed"; 
   
   # Output the Stars! File with fixed checksum
   open (OUTFILE, '>:raw', "$newFile");
@@ -99,7 +103,6 @@ if ($outBytes) {
   print "Fixed file: $newFile\n";
   unless ($ARGV[1] && $ARGV[1] eq $ARGV[0]) { print "\nRename\n$newFile\n to\n$filename\n"; }
 }
-
 
 ################################################################
 sub decryptBlockRace { # mostly a duplicate of displayBlockRace
@@ -161,73 +164,6 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
-#       # Function to parse the PLAYER structure translated from struct.c by chatGPT
-# sub parse_player {
-#     my ($data_ref) = @_;
-# 
-#     my $player = {};
-# 
-#     # Access values directly by position
-#     $player->{iPlayer}       = $data_ref->[0];
-#     $player->{cShDef}        = $data_ref->[1];
-#     $player->{cPlanet}       = read16($data_ref, 2);
-#     
-#     # Reading the bitfields for WORD cFleet:12 and cshdefSB:4
-#     my $cFleetAndSB          = read16($data_ref, 4);
-#     $player->{cFleet}        = $cFleetAndSB & 0x0FFF;         # Lower 12 bits
-#     $player->{cshdefSB}      = ($cFleetAndSB >> 12) & 0x000F; # Upper 4 bits
-# 
-#     # Reading union with WORD fields
-#     my $unionWord            = read16($data_ref, 6);
-#     $player->{det}           = $unionWord & 0x0007;           # Lower 3 bits
-#     $player->{iPlrBmp}       = ($unionWord >> 3) & 0x001F;    # Next 5 bits
-#     $player->{fInclude}      = ($unionWord >> 8) & 0x0001;    # 1 bit
-#     $player->{mdPlayer}      = ($unionWord >> 9) & 0x007F;    # Remaining 7 bits
-# 
-#     $player->{idPlanetHome}  = read16($data_ref, 8);
-#     $player->{wScore}        = read16($data_ref, 10);
-#     $player->{lSalt}         = read32($data_ref, 12);
-# 
-#     # Reading arrays and strings
-#     $player->{rgEnvVar}      = [ @{$data_ref}[16..18] ];
-#     $player->{rgEnvVarMin}   = [ @{$data_ref}[19..21] ];
-#     $player->{rgEnvVarMax}   = [ @{$data_ref}[22..24] ];
-#     $player->{pctIdealGrowth}= $data_ref->[25];
-#     $player->{rgTech}        = [ @{$data_ref}[26..31] ];
-#     $player->{rgResSpent}    = [ 
-#         read32($data_ref, 32), 
-#         read32($data_ref, 36), 
-#         read32($data_ref, 40), 
-#         read32($data_ref, 44), 
-#         read32($data_ref, 48), 
-#         read32($data_ref, 52)
-#     ];
-#     $player->{pctResearch}   = $data_ref->[56];
-#     $player->{iTechCur}      = $data_ref->[57];
-#     $player->{lResLastYear}  = read32($data_ref, 58);
-#     $player->{rgAttr}        = [ @{$data_ref}[62..(62 + $rsMax - 1)] ]; # rsMax is assumed to be known
-#     my $attr_start = 62 + $rsMax;
-#     $player->{grbitAttr}     = read32($data_ref, $attr_start);
-#     $player->{grbitTrader}   = read16($data_ref, $attr_start + 4);
-# 
-#     # Reading bitfields for WORD flags
-#     my $flags                = read16($data_ref, $attr_start + 6);
-#     $player->{fDead}         = $flags & 0x0001;
-#     $player->{fCrippled}     = ($flags >> 1) & 0x0001;
-#     $player->{fCheater}      = ($flags >> 2) & 0x0001;
-#     $player->{fLearned}      = ($flags >> 3) & 0x0001;
-#     $player->{fHacker}       = ($flags >> 4) & 0x0001;
-# 
-#     # ZIPPRODQ1 and szName (assuming sizes are known)
-#     my $zpq1_start           = $attr_start + 8;
-#     $player->{zpq1}          = [ @{$data_ref}[$zpq1_start..($zpq1_start + $zpq1_size - 1)] ];
-#     $player->{rgmdRelation}  = [ @{$data_ref}[($zpq1_start + $zpq1_size)..($zpq1_start + $zpq1_size + $iPlayerMax - 1)] ];
-#     my $name_start           = $zpq1_start + $zpq1_size + $iPlayerMax;
-#     $player->{szName}        = join('', map { chr } @{$data_ref}[$name_start..($name_start + 31)]);
-#     $player->{szNames}       = join('', map { chr } @{$data_ref}[($name_start + 32)..($name_start + 63)]);
-# 
-#     return $player;
-# }
         my $playerId; 
         my ($shipDesigns, $planets , $fleets, $starbaseDesigns, $logo);
         my ($aiEnabled, $aiRace, $aiSkill);
@@ -245,7 +181,7 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         my ($constructionLevelPointsSincePrevLevel, $electronicsLevelPointsSincePrevLevel, $biologyLevelPointsSincePrevLevel);
         my ($researchPercentage, $currentResourcePriority, $nextResourcePriority, $researchPointsPreviousYear);
         my ($resourcePerColonist, $producePerFactory, $toBuildFactory, $operateFactory, $producePerMine, $toBuildMine, $operateMine);
-        my $spendLeftoverPoints;
+        my ($leftoverPoints, $spendLeftoverPoints);
         my ($researchEnergy, $researchWeapons, $researchProp, $researchConstruction, $researchElectronics, $researchBiotech);
         my ($PRT, $LRT); 
         my $checkBoxes; 
@@ -253,10 +189,13 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         my $MTItems;
         my @MTItems=();
         
+        $leftoverPoints =  &advantagePointsLeft(\@decryptedData);
         $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
         $shipDesigns = $decryptedData[1] & 0xFF; # Always 0 in race file, // for players other than the current player this is based on the number
-        $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); # Always 0 in race file
-        $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8); # Always 0 in race file
+        #$planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); # Always 0 in race file
+        #$fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8); # Always 0 in race file
+        $planets = &read16(\@decryptedData, 2);
+        $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x0F) << 8);
         $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); # Always 0 in race file
         $logo = (($decryptedData[6] & 0xFF) >> 3); # iPlrBmp  :5,     // What picture have they chosen?
         $fullDataFlag = ($decryptedData[6] & 0x04); # Always true in race file
@@ -325,16 +264,16 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
           $constructionLevel     = $decryptedData[29]; #Always 0 in race file
           $electronicsLevel      = $decryptedData[30]; #Always 0 in race file
           $biotechLevel          = $decryptedData[31]; #Always 0 in race file
-          $energyLevelPointsSincePrevLevel         = $decryptedData[32]; # (4 bytes) #Always 0 in race file 
-          $weaponsLevelPointsSincePrevLevel        = $decryptedData[36]; # (4 bytes) #Always 0 in race file 
-          $propulsionLevelPointsSincePrevLevel     = $decryptedData[42]; # (4 bytes) #Always 0 in race file
-          $constructionLevelPointsSincePrevLevel   = $decryptedData[46]; # (4 bytes) #Always 0 in race file
-          $electronicsLevelPointsSincePrevLevel     = $decryptedData[50]; # (4 bytes) #Always 0 in race file
-          $biologyLevelPointsSincePrevLevel         = $decryptedData[54]; # (4 bytes) #Always 0 in race file
+          $energyLevelPointsSincePrevLevel          = &read32(\@decryptedData, 32); # (4 bytes) #Always 0 in race file 
+          $weaponsLevelPointsSincePrevLevel         = &read32(\@decryptedData, 36); # (4 bytes) #Always 0 in race file 
+          $propulsionLevelPointsSincePrevLevel      = &read32(\@decryptedData, 40); # (4 bytes) #Always 0 in race file
+          $constructionLevelPointsSincePrevLevel    = &read32(\@decryptedData, 44); # (4 bytes) #Always 0 in race file
+          $electronicsLevelPointsSincePrevLevel     = &read32(\@decryptedData, 48); # (4 bytes) #Always 0 in race file
+          $biologyLevelPointsSincePrevLevel         = &read32(\@decryptedData, 52); # (4 bytes) #Always 0 in race file
           $researchPercentage    = $decryptedData[56]; # defaults to 15
           $currentResourcePriority = $decryptedData[57] >> 4; # (right 4 bits) [same, energy ..., lowest]  #Always 0 in race file
-          $nextResourcePriority  = $decryptedData[57] & 0x04; # (left 4 bits)  #Always 0 in race file
-          $researchPointsPreviousYear = $decryptedData[58]; # (4 bytes)  #Always 0 in race file
+          $nextResourcePriority  = $decryptedData[57] & 0x0F; # (left 4 bits)  #Always 0 in race file
+          $researchPointsPreviousYear = &read32(\@decryptedData, 58); # (4 bytes)  #Always 0 in race file
           $resourcePerColonist = $decryptedData[62]; # ? 55? 
           $producePerFactory = $decryptedData[63];
           $toBuildFactory = $decryptedData[64];
@@ -363,46 +302,43 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
           # player relations length will be 0, with no bytes after it
           # for the player relations values
           # so the result here CAN be 0.
+          my $playerRelationsLength = $decryptedData[112]; #Always 0 in race file
           
           @MTItems = &showMTItems($MTItems);
-          print "Player ID:$playerId"; if ($playerId == 255) { print "(race file)"; } print "\n";          
-          print "Ship Designs:$shipDesigns\n";
-          print "Planets:$planets\n";
-          print "Fleets:$fleets\n";
-          print "Starbase Designs:$starbaseDesigns\n";
+          print "Player ID:$playerId"; if ($playerId == 255) { print "(race file)"; } print "\n";     
+          if (uc($ext) !~ /R/) {  # Always 0 in a race file  
+            print "Ship Designs:$shipDesigns\n";
+            print "Planets:$planets\n";
+            print "Fleets:$fleets\n";
+            print "Starbase Designs:$starbaseDesigns\n";
+            print "Homeworld:$homeWorld\n";
+            print "Player Rank:$rank\n";
+          }
           print "Logo:$logo\n";
           print "fullDataFlag:$fullDataFlag\n";
-          print "playerId:$playerId Name:$singularRaceName:$pluralRaceName"; 
-          if ($playerId == 255) { print "(race file)"; } print "\n"; 
-          print "Homeworld:$homeWorld\n";
-          print "Player Rank:$rank\n";
+          print "Name:$singularRaceName:$pluralRaceName\n"; 
           print "AI Enabled:$aiEnabled\n"; 
           if ($aiEnabled) {
             print "AI Skill:$aiSkill[$aiSkill]\n"; # 2 bits starting at bit 2
             print "AI:$aiRace[$aiRace]\n"; # 3 bits starting at position 5
           }
-          print "RAW: GRAV: $lowGravity,$centreGravity,$highGravity  Temp: $lowTemperature,$centreTemperature,$highTemperature RAD: $lowRadiation,$centreRadiation,$highRadiation\n";
-          print 'Grav:' . &showHab($lowGravity,$centreGravity,$highGravity,0) . ', Temp: ' . &showHab($lowTemperature,$centreTemperature,$highTemperature,1) . ', Rad: ' . &showHab($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
-          print "Tech Level :$energyLevel, $weaponsLevel, $propulsionLevel, $constructionLevel, $electronicsLevel, $biotechLevel\n";    
+          print "RAW: GRAV:$lowGravity,$centreGravity,$highGravity  TEMP:$lowTemperature,$centreTemperature,$highTemperature RAD:$lowRadiation,$centreRadiation,$highRadiation\n";
+          print 'Grav:' . &showHabRange($lowGravity,$centreGravity,$highGravity,0) . ', Temp:' . &showHabRange($lowTemperature,$centreTemperature,$highTemperature,1) . ', Rad:' . &showHabRange($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
+          print "Tech Level: $energyLevel, $weaponsLevel, $propulsionLevel, $constructionLevel, $electronicsLevel, $biotechLevel\n";    
           print "Tech Points:$energyLevelPointsSincePrevLevel, $weaponsLevelPointsSincePrevLevel, $propulsionLevelPointsSincePrevLevel, $constructionLevelPointsSincePrevLevel, $electronicsLevelPointsSincePrevLevel, $biologyLevelPointsSincePrevLevel \n";
           print "Research Percentage:$researchPercentage\n";
           print "Research Priority:" . &showResearchPriority($currentResourcePriority) . "\n";
           print "Next Priority:" . &showResearchPriority($nextResourcePriority) . "\n";
           print "ResearchPointsPreviousYear:$researchPointsPreviousYear\n";
           print "Productivity: Colonist: $resourcePerColonist, Factory: $producePerFactory, $toBuildFactory, $operateFactory, Mine: $producePerMine, $toBuildMine, $operateMine\n";
-          print 'Leftover Points:' . &showLeftoverPoints($spendLeftoverPoints) . "\n";
+          print "Leftover Points:$leftoverPoints\n";
+          print 'Spent Leftover Points:' . &showLeftoverPoints($spendLeftoverPoints) . "\n";
           print 'Research Cost:' . &showResearchCost($researchEnergy) . ', ' . &showResearchCost($researchWeapons) . ', ' . &showResearchCost($researchProp). ', ' . &showResearchCost($researchConstruction) . ', ' . &showResearchCost($researchElectronics) . ', ' . &showResearchCost($researchBiotech) . "\n";
           print 'PRT:' . &PRT($PRT,1) . "\n";
           print 'LRTs:' . join(',',&LRT($LRT,1)) . "\n";
           print 'Expensive Tech Starts at 3:' . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n";
-          print 'FactoriesCost1LessGerm:' . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
+          print 'Factories Cost 1 Less Germ:' . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
           print 'MT Items:' . join(',',@MTItems) . "\n"; #Always 0 in race file
-          #$decryptedData[84-109]; unknown, but in pairs
-          # Interestingly, if the player relations have never been set, the
-          # player relations length will be 0, with no bytes after it
-          # for the player relations values
-          # so the result here CAN be 0.
-          my $playerRelationsLength = $decryptedData[112]; #Always 0 in race file
           if ( $playerRelationsLength ) { 
             for (my $i = 1; $i <= $playerRelationsLength; $i++) {
               my $id = $i-1;
@@ -414,326 +350,7 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         # Calculate the race checksums
         ($checkSum1, $checkSum2) = &raceCheckSum(\@decryptedData, $singularRaceName, $pluralRaceName, $singularNameLength, $pluralNameLength);
         print "Calculated Race Checksum: $checkSum1  \t$checkSum2\n";
-        
-        print "############################\n";
-        
-        if ($fullDataFlag) {
-        # https://sourceforge.net/p/stars-nova/svn/HEAD/tree/trunk/Common/RaceDefinition/RaceAdvantagePointCalculator.cs#l22
-        # https://sourceforge.net/p/freestars/code/HEAD/tree/trunk/Server/Race.cpp#l141
-        # BUG: Not done integrating supernova/freestars point calculations yet.
-        my $points = 1650; 
-        my @scienceCost = ( 150, 330, 540, 780, 1050, 1380 );
-        my @LRT=&LRT($LRT,0); 
-        my @prtCost     = (40,95,45,10,-100,-150,120,180,90,66); # HE,SS,WM,CA,IS,SD,PP,IT,AR,JOAT
-        my @lrtCost     = (-235,-25,-159,-201,40,-240,-155,160,240,255,325,180,70,30); #IFE,TT,ARM,ISB,GR,UR,MA,NRSE,CE,OBRM,NAS,LSP,BET,RS
-        my $tmpPoints=0;
-        
-        # Hab
-        my $hab = 0;
-        my $desireFactor;
-        my $v13E;
-        my $v136;
-        my $v12E;
-        my $v100 = 0;
-        my @v108 = (0) x3; 
-        my $planetDesir;
-        my @testPlanetHab;
-        my $advantagePoints = 0;
-        my $isTotalTerraforming = 0;
-        foreach my $i (@LRT) { if ($i eq 'TT') { $isTotalTerraforming = 1;} }
-        my @habCenter = ($centreGravity, $centreTemperature, $centreRadiation);
-        my @habWidth = ($highGravity-$lowGravity, $highTemperature-$lowTemperature, $highRadiation-$lowRadiation);
-        my @habLow = ($lowGravity, $lowTemperature, $lowRadiation);
-        my @habHigh = ($highGravity, $highTemperature, $highRadiation);
-        my @testHabStart = ();
-        my @testHabWidth = ();
-        my $ttCorrFactor; 
-        my @terraformFactor = ( -1, -1, -1 ); 
-        my @iterNum;
-        my $tmpHab=0;
-#         for (my $h=0; $h<3; $h++) { # Where $h is Grav/Temp/Rad
-#           if ($h == 0 )    { $ttCorrFactor = 0; }
-#           elsif ($h == 1 ) { if ($isTotalTerraforming) { $ttCorrFactor = 8; } else { $ttCorrFactor = 5; } }  
-#           elsif ($h == 2 ) { if ($isTotalTerraforming) { $ttCorrFactor = 17; } else { $ttCorrFactor = 15; } } 
-#           for (my $i=0; $i<3; $i++) { 
-#             if ($habCenter[$i] == 255) { # immune
-#             	$testHabStart[$i] = 50;
-#       				$testHabWidth[$i] = 11;
-#       				$iterNum[$i] = 1;
-#             } else {
-#       				$testHabStart[$i] = $habLow[$i] - $ttCorrFactor;
-#       				if ($testHabStart[$i] < 0) { $testHabStart[$i] = 0; }
-#       				$tmpHab = $habHigh[$i] + $ttCorrFactor;
-#       				if ($tmpHab > 100) { $tmpHab = 100; }
-#       				$testHabWidth[$i] = $tmpHab - $testHabStart[$i];
-#       				$iterNum[$i] = 11;
-#             }
-#           } # end i
-#           # /* loc_92AAC */
-#           $v13E = 0.0;
-#           for (my $i=0; $i<$iterNum[0]; $i++) {
-#             if ( $i==0 || $iterNum[0]<=1 ) { $tmpHab = $testHabStart[0]; }
-#             else { $tmpHab = ($testHabWidth[0]*$i) / ($iterNum[0]-1) + $testHabStart[0]; }
-#             if ( $h!=0 && $habCenter[0] != 255) { # Grav immune
-#                $v100 = $habCenter[0] - $tmpHab;
-#                if (abs($v100)<= $ttCorrFactor) { $v100 = 0; }
-#                elsif ($v100 < 0) { $v100 += $ttCorrFactor; }
-#                else { $v100 -= $ttCorrFactor; }
-#                $v108[0] = $v100;
-#                $tmpHab = $habCenter[0] - $v100;
-#             }
-#             $testPlanetHab[0] = $tmpHab;
-#             $v136 = 0.0;
-#             for (my $j=0; $j<$iterNum[1]; $j++) {
-#               if ($j==0 || $iterNum[1]<=1) { $tmpHab = $testHabStart[1]; }
-#               else { $tmpHab = ($testHabWidth[1]*$j) / ($iterNum[1]-1) + $testHabStart[1]; }
-#               if ($h != 0 && $habCenter[1] != 255) { # Temp imune
-#                 $v100 = $habCenter[1] - $tmpHab;
-#                 if (abs($v100) <= $ttCorrFactor) { $v100=0; }
-#                 elsif ($v100<0) { $v100+= $ttCorrFactor; }
-#                 else { $v100 -= $ttCorrFactor; }
-#                 $v108[1] = $v100;
-#                 $tmpHab = $habCenter[1] - $v100;
-#               }
-#               $testPlanetHab[1] = $tmpHab;
-#               $v12E = 0;
-# 
-#               for (my $k=0;$k<$iterNum[2];$k++) {
-#                 if ( $k==0 || $iterNum[2] <= 1) { $tmpHab = $testHabStart[2]; }
-#                 else { $tmpHab = ($testHabWidth[2]*$k) / ($iterNum[2]-1) + $testHabStart[2]; }
-#                 if ($h != 0 && $habCenter[2] != 255) { 
-#                   $v100 = $habCenter[2] - $tmpHab; 
-#                   if ( abs( $v100 ) <= $ttCorrFactor ) { $v100 = 0; }
-#                   elsif ($v100 < 0) { $v100+=$ttCorrFactor; }
-#                   else { $v100 -= $ttCorrFactor; }
-#                   $v108[2] = $v100;
-#                   $tmpHab = $habCenter[2] - $v100;
-#                 }
-#                 $testPlanetHab[2] = $tmpHab;
-#                 #$planetDesir = &planetValueCalc($race, $testPlanetHab);
-#                 $planetDesir = 100;
-# 
-#                 $v100 = $v108[0]+$v108[1]+$v108[2];
-#                 if ($v100 > $ttCorrFactor) { 
-#                   $planetDesir -= $v100-$ttCorrFactor; 
-#                   if ($planetDesir < 0) { $planetDesir=0; }
-#                 }
-#                 $planetDesir *= $planetDesir;
-#                 if ($h == 0) { $planetDesir *=7; }
-#                 elsif ($h == 1) { $planetDesir *=5 } 
-#                 elsif ($h == 2) { $planetDesir *= 6; }
-#                 $v12E += $planetDesir;
-#               } # end k  
-#               #/* loc_92D34 */
-#               if ($habCenter[2] != 255) { $v12E = ($v12E*$testHabWidth[2])/100; }
-#               else { $v12E *= 11; }
-#               $v136 += $v12E;
-#             }
-#             if ($habCenter[1] != 255) { $v136 = ($v136 * $testHabWidth[1]) / 100; }
-#             else { $v136 *= 11; }
-#             $v13E += $v136;
-#           } # end i
-#           if ($habCenter[0] != 255) { $v13E = ($v13E * $testHabWidth[0]) / 100; }
-#           else { $v13E *= 11; }
-#           $advantagePoints += $v13E;
-#         } # end h
-#         $advantagePoints = $advantagePoints / 2000;
-#         $points += int($advantagePoints/10.0+.5);
-#         print "POINTS Hab: $points\n";
-#          
-#         # Growth
-#         my $grRateFactor = ($growthRate * 100 + .5); #use raw growth rate, otherwise HEs pay for GR at 2x
-#         my $grRate = $grRateFactor;
-#         if ($grRateFactor <= 5) { $points += (6 - $grRateFactor) * 4200; 
-#         } elsif ($grRateFactor <= 13) {
-#           if ($grRateFactor == 6 )  { $points += 3600 }
-#           elsif ($grRateFactor == 7) { $points += 2250 }
-#           elsif ($grRateFactor == 8) { $points +=  600; }
-#           elsif ($grRateFactor == 9) { $points +=  225; }
-#           $grRateFactor = $grRateFactor * 2 - 5;
-#         } elsif ( $grRateFactor < 20) { $grRateFactor = ($grRateFactor - 6) * 3; 
-#         } else { $grRateFactor = 45; }
-#         $points -= ($hab * $grRateFactor) / 24;         
-#         print "POINTS Growth: $points\n";
-#        
-#         # Immunities
-#         my $immunities = 0;
-#         if ( $centreGravity == 255)     { $immunities++; } #(base 65), 255 if immune 
-#         else { $points += abs($centreGravity - 50) * 4; } # bonus points for off center habs
-#         if ( $centreTemperature == 255) { $immunities++; } #(base 35), 255 if immune  
-#         else { $points += abs($centreTemperature - 50) * 4; } # bonus points for off center habs
-#         if ( $centreRadiation == 255)   { $immunities++; } # , 255 if immune 
-#         else { $points += abs($centreRadiation - 50) * 4; } # bonus points for off center habs
-#         if ($immunities > 1) { $points -= 150; } # if more then one immunity
-#         print "POINTS Immunities: $points \n";
-#    
-#         # Production
-#         my $j = $resourcePerColonist; # popEfficiency
-#         if ($j > 25)      { $j = 25; }
-#         if ($j <= 7)      { $points -= 2400; }
-#         elsif ($j == 8)   { $points -=1260; }
-#         elsif ($j == 9)   { $points -= 600; }
-#         elsif ($j > 10)   { $points += ($j - 10) * 120; }
-#         print "POINTS Production: $points \n";
-# 
-#         # factories
-#         $tmpPoints=0;    
-#       	if (&PRT($PRT,0) eq 'AR') {
-#        	  $points += 210; #AR
-#         } else {
-#         	my $prodPoints = $producePerFactory - 10; #FactoryRate() - 10;
-#         	my $costPoints = $toBuildFactory - 10; #FactoryCost().GetResources() - 10;
-#         	my $operPoints = $operateFactory - 10; #FactoriesRun() - 10;
-#         	if ($prodPoints < 0) { $tmpPoints -= $prodPoints * 100; }
-#           else { $tmpPoints -= $prodPoints * 121; }
-#         
-#         	if ($costPoints < 0) { $tmpPoints += $costPoints * $costPoints * -60; }
-#         	else { $tmpPoints += $costPoints * 55; }
-#         
-#         	if ($operPoints < 0) { $tmpPoints -= $operPoints * 40; }
-#         	else { $tmpPoints -= $operPoints * 35; }
-#       
-#         	my $llfp = 700; #Rules::GetConstant("LimitLowFactoryPoints", 700);
-#             
-#         	if ($tmpPoints > $llfp) { $tmpPoints = ($tmpPoints - $llfp) / 3 + $llfp; }
-#         
-#         	if ($operPoints > 14) { $tmpPoints -= 360; }
-#         	elsif ($operPoints > 11) { $tmpPoints -= ($operPoints - 7) * 45; }
-#         	elsif ($operPoints >= 7) { $tmpPoints -= ($operPoints - 6) * 30; }
-#         
-#         	if ($prodPoints >= 3) { $tmpPoints -= ($prodPoints - 2) * 60; }
-#         }
-#         $points += $tmpPoints;
-#         if ($toBuildFactory == 3) { $points -= 175; } # factory cost
-#         print "POINTS Factory: $points\n";
-#     
-#       	# mines
-#       	$tmpPoints = 0;
-#       	my $prodPoints = 10 - $producePerMine; # mineRate
-#       	my $costPoints = 3 - $producePerMine; # MineCost().GetResources();
-#       	my $operPoints = 10 - $operateMine; # MinesRun();
-#       	if ($prodPoints > 0) { $tmpPoints = $prodPoints * 100; }
-#       	else{ $tmpPoints = $prodPoints * 169; }
-#       	if ($costPoints > 0) { $tmpPoints -= 360; }
-#       	else { $tmpPoints += 80 - $costPoints * 65; }
-#       	if ($operPoints > 0) { $tmpPoints += $operPoints * 40; }
-#       	else { $tmpPoints += $operPoints * 35; }
-#       	$points += $tmpPoints;
-#         print "POINTS Mine: $points\n";
-#         
-        # PRTs
-        my %prtCost;
-        my %lrtCost;
-#         $prtCost{HE} =40;  # from the github code
-#         $prtCost{SS} =95;
-#         $prtCost{WM} =45;
-#         $prtCost{CA} =10;
-#         $prtCost{IS} =-100;
-#         $prtCost{SD} =-150;
-#         $prtCost{PP} =120;
-#         $prtCost{IT} =180;
-#         $prtCost{AR} =90;
-#         $prtCost{JOAT} =-66;
-
-        # from the race wizard
-        # + likely some norming factor of 70 points? 
-        $prtCost{SD}   =0;
-        $prtCost{IS}   =16;
-        $prtCost{JOAT} =28;
-        $prtCost{CA}   =53;
-        $prtCost{WM}   =65;
-        $prtCost{SS}   =81;
-        $prtCost{PP}   =90;
-        $prtCost{IT}   =110;
-        $prtCost{AR}   =999; # Special
-        $prtCost{HE}   =999;# Special
-  
-        $points -= $prtCost{&PRT($PRT,0)};  # Modify points for PRTs
-        print "POINTS PRT: $PRT " . (&PRT($PRT,0)) . " " . ($prtCost{&PRT($PRT,0)}) . ": $points\n";
-#         
-#         # LRTs
-#         $lrtCost{IFE} =-235;
-#         $lrtCost{TT}  =-25;
-#         $lrtCost{ARM} =-159;
-#         $lrtCost{ISB} =-201;
-#         $lrtCost{GR}  =40;
-#         $lrtCost{UR}  =-240;
-#         $lrtCost{MA}  =-155;
-#         $lrtCost{NRSE} =160; # NRSE
-#         $lrtCost{CE}  =240;
-#         $lrtCost{OBRM} =255;
-#         $lrtCost{NAS} =325;
-#         $lrtCost{LSP} =180;
-#         $lrtCost{BET} =70;
-#         $lrtCost{RS}  =30;
-
-# From the Race wizard
-        $lrtCost{IFE}  =79;
-        $lrtCost{TT}   =175; # Also tied to hab range
-        $lrtCost{ARM}  =53;
-        $lrtCost{ISB}  =67;
-        $lrtCost{GR}   =-12;
-        $lrtCost{UR}   =80;
-        $lrtCost{MA}   =52;
-        $lrtCost{NRSE} =-52; 
-        $lrtCost{CE}   =-79;
-        $lrtCost{OBRM} =-84;
-        $lrtCost{NAS}  =-94; # Also tied to hab range
-        $lrtCost{LSP}  =-59;
-        $lrtCost{BET}  =-22;
-        $lrtCost{RS}  	=-9;
-
-        my $i = 0;
-        my $k = 0;
-        my $LRTs = &LRT($LRT,0); 
-        @LRT = split(', ',$LRTs);
-        foreach my $j (@LRT) {
-          print "***********J: $j\n";
-   	      if    ($lrtCost{$j} < 0) { $i++; }
-   	      elsif ($lrtCost{$j} > 0) { $k++; }
-        }
-        if (($i + $k) > 4)  { $points -= ($i + $k) * ($i + $k - 4) * 10; }
-        if (($i - $k) > 3)  { $points -= ($i - $k - 3) * 60; }
-        if (($k - $i) > 3)  { $points -= ($k - $i - 3) * 40; }
-        if (($i + $k) == 3 ) { $points -= 2 }; # Rick added this
-        
-        foreach my $j (@LRT) { # Point changes for NAS
-          $points -= $lrtCost{$j};
-          if ($j eq 'NAS') {
-#             if (&PRT($PRT,0) eq 'PP') { $points -=280; }
-#             elsif (&PRT($PRT,0) eq 'SS') { $points -=200; }
-#             elsif (&PRT($PRT,0) eq 'JOAT') { $points -= 40; }
-            if (&PRT($PRT,0) eq 'PP') { $points -= 79; }
-            elsif (&PRT($PRT,0) eq 'SS') { $points -= 52; }
-            elsif (&PRT($PRT,0) eq 'JOAT') { $points -= -1; }
-          }
-         }
-         print "POINTS LRT: $points\n";
-#          
-#         # Research
-#         my @researchCost =  ($researchEnergy,$researchWeapons,$researchProp,$researchConstruction,$researchElectronics,$researchBiotech); # (0:+75%, 1: 0%, 2:-50%)
-#         my $techCost = 0;
-#         foreach my $i ( @researchCost ) {
-#           if    ($i == 2) { $techCost++; } # -50%
-#           elsif ($i == 0) {$techCost--; } # +75%
-#           elsif ($i == 1) {} # $i == 1 is 0
-#         }
-#         if ($techCost > 0) {
-#           $points -= $techCost * $techCost * 130;
-#           if ($techCost >= 6) { $points += 1430; }
-#           elsif ($techCost == 5) { $points +=520; } 
-#         } elsif ($techCost < 0 ) {
-#           $techCost -= $techCost;
-#           $points += $techCost * ($techCost + 9) * 15;
-#           if ($techCost >= 6) { $points += 30 };
-#           if ($techCost < 4 && $resourcePerColonist < 10) { $points -= 190; }#  Pop efficiency \ 100
-#         }
-#         if ($expensiveTechStartsAt3) { $points -= 180; }
-#         if (&PRT($PRT,0) eq 'AR' && $researchCost[0] == 2) { $points -= 100; }  #Energy @ 50%
-#         
-#         print "POINTS research: $points\n";
-# 
-      }
+        print "\n";
       } 
       # END OF MAGIC
       #reencrypt the data for output
@@ -746,4 +363,7 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
   if ( $action ) { return \@outBytes; }
   else { return 0; }
 } # end sub
+
+
+
 

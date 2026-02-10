@@ -134,6 +134,8 @@ our @EXPORT = qw(
   getRaceNames decryptNameBlock
   processData
   decryptGameInfo decode_victory_conditions
+  advantagePointsLeft _lInnateRaceHabitability
+  _toSigned _min _max
 );  
 
 my $debug = 1;
@@ -801,8 +803,8 @@ sub displayBlockRace { # mostly a lesser duplicate of decryptBlockRace
         
         $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
         $shipDesigns = $decryptedData[1] & 0xFF;  # Always 0 in race file
-        $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); # Always 0 in race file
-        $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);  # Always 0 in race file
+        $planets = &read16(\@decryptedData, 2);  # Always 0 in race file
+        $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x0F) << 8); # Always 0 in race file
         $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); # Always 0 in race file
         $logo = (($decryptedData[6] & 0xFF) >> 3); 
         $fullDataFlag = ($decryptedData[6] & 0x04); # Always true in race file
@@ -871,16 +873,16 @@ sub displayBlockRace { # mostly a lesser duplicate of decryptBlockRace
           $constructionLevel     = $decryptedData[29]; #Always 0 in race file
           $electronicsLevel      = $decryptedData[30]; #Always 0 in race file
           $biotechLevel          = $decryptedData[31]; #Always 0 in race file
-          $energyLevelPointsSincePrevLevel         = $decryptedData[32]; # (4 bytes) #Always 0 in race file
-          $weaponsLevelPointsSincePrevLevel        = $decryptedData[36]; # (4 bytes) #Always 0 in race file
-          $propulsionLevelPointsSincePrevLevel     = $decryptedData[42]; # (4 bytes) #Always 0 in race file
-          $constructionLevelPointsSincePrevLevel   = $decryptedData[46]; # (4 bytes) #Always 0 in race file
-          $electronicsLevelPointsSincePrevLevel     = $decryptedData[50]; # (4 bytes) #Always 0 in race file
-          $biologyLevelPointsSincePrevLevel         = $decryptedData[54]; # (4 bytes) #Always 0 in race file
+          $energyLevelPointsSincePrevLevel          = &read32(\@decryptedData, 32); # (4 bytes) #Always 0 in race file
+          $weaponsLevelPointsSincePrevLevel         = &read32(\@decryptedData,36); # (4 bytes) #Always 0 in race file
+          $propulsionLevelPointsSincePrevLevel      = &read32(\@decryptedData,40); # (4 bytes) #Always 0 in race file
+          $constructionLevelPointsSincePrevLevel    = &read32(\@decryptedData,44); # (4 bytes) #Always 0 in race file
+          $electronicsLevelPointsSincePrevLevel     = &read32(\@decryptedData,48); # (4 bytes) #Always 0 in race file
+          $biologyLevelPointsSincePrevLevel         = &read32(\@decryptedData,52); # (4 bytes) #Always 0 in race file
           $researchPercentage    = $decryptedData[56]; # defaults to 15
           $currentResourcePriority = $decryptedData[57] >> 4; # (right 4 bits) [same, energy ..., lowest]  #Always 0 in race file
-          $nextResourcePriority  = $decryptedData[57] & 0x04; # (left 4 bits) #Always 0 in race file
-          $researchPointsPreviousYear = $decryptedData[58]; # (4 bytes) #Always 0 in race file
+          $nextResourcePriority  = $decryptedData[57] & 0x0F; # (left 4 bits) #Always 0 in race file
+          $researchPointsPreviousYear = &read32(\@decryptedData,58); # (4 bytes) #Always 0 in race file
           $resourcePerColonist = $decryptedData[62]; # ? 55? 
           $producePerFactory = $decryptedData[63];
           $toBuildFactory = $decryptedData[64];
@@ -921,6 +923,7 @@ sub displayBlockRace { # mostly a lesser duplicate of decryptBlockRace
           print '<P><u>Factories Cost 1 Less Germ</u>: ' . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
           print '<P><u>Research Cost</u>:  Energy ' . &showResearchCost($researchEnergy) . ", Weapons " . &showResearchCost($researchWeapons) . ", Propulsion " . &showResearchCost($researchProp). ", Construction " . &showResearchCost($researchConstruction) . ", Electronics " . &showResearchCost($researchElectronics) . ", Biotech " . &showResearchCost($researchBiotech) . "\n";
           print '<P><u>Expensive Tech Starts at 3</u>: ' . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n";
+          print '<P><u>Advantage Points Left</u>: ' . &advantagePointsLeft(\@decryptedData);
         }
       }
       # END OF MAGIC            
@@ -2782,8 +2785,10 @@ sub decryptFix {
       if ($typeId == 6) { # Player Block. .m files can contain multiple players. Only enough info for Fix. More elsewhere.
         my $playerId = $decryptedData[0] & 0xFF; # typically >> 1
         my $shipDesigns = $decryptedData[1] & 0xFF;  
-        my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); 
-        my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);  
+#         my $planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); 
+#         my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8);  
+        my $planets = &read16(\@decryptedData, 2); # Always 0 in race file
+        my $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x0F) << 8); # Always 0 in race file
         my $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); 
         $player{$playerId}{shipDesigns} = $shipDesigns;
         $player{$playerId}{planets} = $planets;
@@ -2800,16 +2805,23 @@ sub decryptFix {
         if ($playerId == 31) { $playerId = -1; }
         my $flags = &read16(\@decryptedData, 2);
         my $isHomeworld = ($flags & 0x80) != 0;
-	      my $isInUseOrRobberBaron = ($flags & 0x04) != 0;
-	      my $hasEnvironmentInfo = ($flags & 0x02) != 0;
-	      my $bitWhichIsOffForRemoteMiningAndRobberBaron = ($flags & 0x01) != 0;
-	      my $weirdBit = ($flags & 0x8000) != 0;
+# 	      my $isInUseOrRobberBaron = ($flags & 0x04) != 0;
+# 	      my $hasEnvironmentInfo = ($flags & 0x02) != 0;
+# 	      my $bitWhichIsOffForRemoteMiningAndRobberBaron = ($flags & 0x01) != 0;
+        my $det = $flags & 0x7F;  # 7-bit detection level field (bits 0-6)
+        # Empirically, det uses bits 0-2 as flags in practice:
+        my $isInUseOrRobberBaron = ($det & 0x04) != 0;  # det bit 2
+        my $hasEnvironmentInfo = ($det & 0x02) != 0;    # det bit 1  
+        my $bitWhichIsOffForRemoteMiningAndRobberBaron = ($det & 0x01) != 0;  # det bit 0
+#	      my $weirdBit = ($flags & 0x8000) != 0;
+	      my $fFirstYear = ($flags & 0x8000) != 0;
 	      my $hasRoute = ($flags & 0x4000) != 0;
 	      my $hasSurfaceMinerals = ($flags & 0x2000) != 0;
 	      my $hasArtifact = ($flags & 0x1000) != 0;
 	      my $hasInstallations = ($flags & 0x0800) != 0;
 	      my $isTerraformed = ($flags & 0x0400) != 0;
 	      my $hasStarbase = ($flags & 0x0200) != 0;
+        my $fInclude = ($flags >> 8) & 0x01;  # Bit 8, should always be 1
         # More in the block I don't care about right now.       
       } 
       elsif ( $typeId == 3 ) { # waypoint delete block
@@ -3172,7 +3184,7 @@ sub decryptFix {
           #   if it needs fixing. 
           if ($itemType == 4 && $completePercent > 0 && grep( /^$itemId$/, @designChanges ) ) { # if a ship/base design, assumed designId
             $warnId = &zerofy($ownerId) . '-starbase-' . $planetId;
-            my $err = 'Cheap Starbase: Player ' . ($ownerId+1) . '. Do not edit a starbase under construction (design slot ' . ($itemId+1) . '.';
+            my $err = 'Cheap Starbase: Player ' . ($ownerId+1) . '. Do not edit a starbase under construction (design slot ' . ($itemId+1) . ').';
             $warning{$warnId} = $err;
           } 
           push (@item, $item);
@@ -4477,6 +4489,432 @@ sub processData {
     }
   }
 }
+
+##############################################################################
+# Calculates leftover race advantage points from a decrypted race block.
+# Pass a reference to the decrypted Block 6 byte array. Returns the leftover
+# advantage points as an integer (positive = remaining, negative = over budget).
+sub advantagePointsLeft {
+    my ($dataRef) = @_;
+
+    # PRT indices: 0=HE 1=SS 2=WM 3=CA 4=IS 5=SD 6=PP 7=IT 8=AR 9=JOAT
+    my @rgRacePrimaryTrait = ( 40, 95, 45, 10, -100, -150, 120, 180, 90, -66 );  
+    my @rgRaceAdvDisPts = ( -235, -25, -159, -201, 40, -240, -155,               # LRT costs, bits 0-13
+                             160, 240, 255, 325, 180, 70, 30 );                
+    my @rgRaceDisEnvPts = ( 50*3, 110*3, 180*3, 260*3, 350*3, 460*3 );         
+
+    # Named PRT constants
+    my $raCheapCol  = 0;  # HE
+    my $raStealth   = 1;  # SS
+    my $raMassAccel = 6;  # PP
+    my $raMacintosh = 8;  # AR
+    my $raNone      = 9;  # JOAT
+
+    # Named LRT/checkbox bit positions in grbitAttr
+    my $ibitRaceLast       = 13;
+    my $ibitRaceTerraform  = 1;   # TT
+    my $ibitRaceAdvScanner = 10;  # NAS
+    my $ibitRaceTech3      = 29;  # Expensive tech starts at 3
+    my $ibitRaceCheapFact  = 31;  # Factories cost 1kT less germanium
+
+    my $pctIdealGrowthMax = 20;
+
+    # Byte offsets into decrypted race block (Block 6)
+    my $OFF_ENV_CENTER = 16;  # rgEnvVar[3]     (bytes 16-18)
+    my $OFF_ENV_MIN    = 19;  # rgEnvVarMin[3]  (bytes 19-21)
+    my $OFF_ENV_MAX    = 22;  # rgEnvVarMax[3]  (bytes 22-24)
+    my $OFF_GROWTH     = 25;  # pctIdealGrowth  (byte 25)
+    my $OFF_RGATTR     = 62;  # rgAttr[0]       (bytes 62-77)
+    my $OFF_GRBITATTR  = 78;  # grbitAttr        (bytes 78-81, little-endian)
+
+    # Extract race fields from the decrypted block
+    my @envCenter = map { _toSigned($dataRef->[$OFF_ENV_CENTER + $_]) } (0, 1, 2);
+    my @envMin    = map { _toSigned($dataRef->[$OFF_ENV_MIN    + $_]) } (0, 1, 2);
+    my @envMax    = map { _toSigned($dataRef->[$OFF_ENV_MAX    + $_]) } (0, 1, 2);
+
+    my $pctIdealGrowth = $dataRef->[$OFF_GROWTH];
+
+    # rgAttr values (rs* enum indices)
+    #   0=rsResGen  1=rsFactProd  2=rsFactBuild  3=rsFactOperate
+    #   4=rsMineProd  5=rsMineBuild  6=rsMineOperate  7=rsUseLeftover
+    #   8-13=rsTechBonus1-6  14=rsMajorAdv(PRT)
+    my $rsResGen      = $dataRef->[$OFF_RGATTR + 0];
+    my $rsFactProd    = $dataRef->[$OFF_RGATTR + 1];
+    my $rsFactBuild   = $dataRef->[$OFF_RGATTR + 2];
+    my $rsFactOperate = $dataRef->[$OFF_RGATTR + 3];
+    my $rsMineProd    = $dataRef->[$OFF_RGATTR + 4];
+    my $rsMineBuild   = $dataRef->[$OFF_RGATTR + 5];
+    my $rsMineOperate = $dataRef->[$OFF_RGATTR + 6];
+    my @techBonus     = map { $dataRef->[$OFF_RGATTR + 8 + $_] } (0..5);
+    my $raMajor       = $dataRef->[$OFF_RGATTR + 14];
+
+    # grbitAttr (32-bit little-endian)
+    my $grbitAttr = &read32($dataRef, $OFF_GRBITATTR);
+
+    my $cPoints = 550 * 3;  # 1650
+
+    # Compute innate habitability 
+    my $lInnate = int( _lInnateRaceHabitability(\@envCenter, \@envMin, \@envMax, $grbitAttr, $ibitRaceTerraform ) / 2000 );
+
+    # Growth rate spread calculation 
+    my $iSpread = _max(1, _min($pctIdealGrowthMax, $pctIdealGrowth));
+    my $pctGrowth = $iSpread;
+
+    if ($iSpread > 5) {
+        if ($iSpread > 13) {
+            if ($iSpread < 20) {  $iSpread = 5 + 8*2 + ($iSpread - 13) * 3;
+            } else {  $iSpread = 5 + 8*2 + 18 + 6;  # = 45
+            }
+        } else {
+            if    ($iSpread == 6) { $cPoints += 1200 * 3; }
+            elsif ($iSpread == 7) { $cPoints += 750  * 3; }
+            elsif ($iSpread == 8) { $cPoints += 200  * 3; }
+            elsif ($iSpread == 9) { $cPoints += 75   * 3; }
+
+            $iSpread = 5 + ($iSpread - 5) * 2;
+        }
+    } else { $cPoints += 1400 * 3 * (6 - $iSpread);  }       # Growth 5% or less: mucho points     
+    $lInnate = int($lInnate * $iSpread / 24); # Scale habitability by growth spread 
+    
+    $cPoints -= $lInnate; # Subtract habitability
+
+    # Off-center hab bonus 
+    my $cGood = 0;
+    for my $i (0..2) {
+        if ($envCenter[$i] >= 0) {
+            $cPoints += abs($envCenter[$i] - 50) * 4;
+        } else {
+            $cGood++;  # immune
+        }
+    }
+
+    if ($cGood > 1) { $cPoints -= 150;  }  # Penalty for 2+ immunities
+
+    # Factory/immunity interaction penalty 
+    {
+        my $cOperate = $rsFactOperate;
+        my $cProduce = $rsFactProd;
+
+        if ($cOperate > 10 || $cProduce > 10) {
+            $cOperate = _max(1, $cOperate - 9);
+            $cProduce = _max(1, $cProduce - 9);
+            $cProduce *= ($raMajor == $raCheapCol) ? 3 : 2;
+
+            if ($cGood >= 2) {  $cPoints -= int($cOperate * $cProduce * $pctGrowth / 2);
+            } else {  $cPoints -= int($cOperate * $cProduce * $pctGrowth / 9);
+            }
+        }
+    }
+
+    # Colonist resource production cost 
+    {
+        my $i = _min($rsResGen, 25);
+        if    ($i <= 7)  { $cPoints -= 2400; }
+        elsif ($i == 8)  { $cPoints -= 1260; }
+        elsif ($i == 9)  { $cPoints -= 600;  }
+        elsif ($i > 10)  { $cPoints += 120 * ($i - 10); }
+    }
+
+    if ($raMajor != $raMacintosh) {
+        # Factory efficiency calculation 
+        my @rgi;
+        $rgi[0] = 10 - $rsFactProd;
+        $rgi[1] = 10 - $rsFactBuild;
+        $rgi[2] = 10 - $rsFactOperate;
+        
+        # Worse production
+        my $cCur = 0;
+        if ($rgi[0] > 0) {   $cCur += $rgi[0] * 100;
+        } else { $cCur += $rgi[0] * 121;
+        }
+        # Worse build cost
+        if ($rgi[1] < 0) {    $cCur -= $rgi[1] * 55;
+        } else {  $cCur -= $rgi[1] * $rgi[1] * 60;
+        }
+        # Worse operate count
+        if ($rgi[2] > 0) {   $cCur += $rgi[2] * 40;
+        } else {  $cCur += $rgi[2] * 35;
+        }
+
+        if ($cCur > 700) {  $cCur = 700 + int(($cCur - 700) / 3); }
+        # Extra penalty for ColOp >= 17 
+        if ($rgi[2] <= -7) {
+            if ($rgi[2] >= -11) {  $cCur -= 30 * (-6 - $rgi[2]);
+            } elsif ($rgi[2] >= -14) {  $cCur -= 75*3 + 45 * (-12 - $rgi[2]);
+            } else {  $cCur -= 120*3;
+            }
+        }
+
+        # Extra penalty for FactProd >= 13
+        if ($rgi[0] <= -3) { $cCur -= (-2 - $rgi[0]) * 20 * 3; }
+
+        $cPoints += $cCur;
+
+        # Cheap factories checkbox 
+        if (&bitTest($grbitAttr, $ibitRaceCheapFact)) {  $cPoints -= 175;   }
+
+        # Mine efficiency calculation 
+        $rgi[0] = 10 - $rsMineProd;
+        $rgi[1] =  3 - $rsMineBuild;
+        $rgi[2] = 10 - $rsMineOperate;
+
+        $cCur = 0;
+        if ($rgi[0] > 0) {   $cCur += $rgi[0] * 100; # Worse production
+        } else {   $cCur += $rgi[0] * 169; } 
+                
+        if ($rgi[1] <= 0) { $cCur -= -80 + $rgi[1] * 65; # Worse build cost
+         } else { $cCur -= 360;  }
+        
+        if ($rgi[2] > 0) { $cCur += $rgi[2] * 40;  # Worse operate count
+        } else { $cCur += $rgi[2] * 35;
+        }
+        $cPoints += $cCur;
+    } else { $cPoints += 210; # AR gets a flat adjustment 
+    }
+
+    # Primary racial trait cost 
+    $cPoints -= $rgRacePrimaryTrait[$raMajor];
+
+    # Lesser racial trait costs
+    my $cBad = 0;
+    $cGood = 0;
+    for my $i (0 .. $ibitRaceLast) {
+        if (&bitTest($grbitAttr, $i)) {
+            if ($rgRaceAdvDisPts[$i] < 0) {  $cBad++;
+            } else {  $cGood++;
+            }
+            $cPoints += $rgRaceAdvDisPts[$i];
+        }
+    }
+
+    if ($cBad + $cGood > 4) { $cPoints -= (($cBad + $cGood) * 10) * ($cBad + $cGood - 4); } # Penalize for too many traits
+    if ($cGood - $cBad > 3) { $cPoints -= 60 * ($cGood - $cBad - 3); } # Too many disadvantage traits
+    if ($cBad - $cGood > 3) { $cPoints -= 40 * ($cBad - $cGood - 3); } # Too many advantage traits
+
+    # NAS interaction with specific PRTs
+    if (&bitTest($grbitAttr, $ibitRaceAdvScanner)) {
+        if    ($raMajor == $raMassAccel) { $cPoints -= 280; }
+        elsif ($raMajor == $raStealth)   { $cPoints -= 200; }
+        elsif ($raMajor == $raNone)      { $cPoints -= 40;  }
+    }
+
+    # Research cost calculation 
+    {
+        my $cCur = 0;
+        for my $i (0..5) {  $cCur += ($techBonus[$i] - 1); }
+
+        if ($cCur > 0) {         # Net expensive research (more cheap than costly)
+            $cPoints -= $cCur * $cCur * 130;
+            if    ($cCur == 6) { $cPoints += (36 - 25) * 130; }
+            elsif ($cCur == 5) { $cPoints += (25 - 21) * 130; }
+        } elsif ($cCur < 0) {    # Net cheap research
+            $cPoints += $rgRaceDisEnvPts[-$cCur - 1];
+            if (-$cCur > 4 && $rsResGen < 10) {  # Discourage double-dipping
+                $cPoints -= 190;
+            }
+        }        
+        if (&bitTest($grbitAttr, $ibitRaceTech3)) { $cPoints -= 180; }  # Expensive tech starts at 3 checkbox       
+        if ($raMajor == $raMacintosh && $techBonus[0] == 2) { $cPoints -= 100; } # AR with cheap energy research penalty 
+    }
+    # Final: divide by 3, return as integer 
+    return int($cPoints / 3);
+}
+
+# Helper subs called by StarsAdvantage
+# _lInnateRaceHabitability(\@envCenter, \@envMin, \@envMax, $grbitAttr, $ibitTT)
+# Computes overall universe habitability score for a race.
+sub _lInnateRaceHabitability {
+    my ($envCenterRef, $envMinRef, $envMaxRef, $grbitAttr, $ibitRaceTerraform) = @_;
+    my @envCenter = @$envCenterRef;
+    my @envMin    = @$envMinRef;
+    my @envMax    = @$envMaxRef;
+    my $fTotalTerra = &bitTest($grbitAttr, $ibitRaceTerraform);
+    my @rgDelta = (0, 0, 0);
+    my $lInnate = 0.0;
+
+    for my $iTerra (0..2) {
+        # Determine terraforming range for this pass 
+        my $pctTerra;
+        if    ($iTerra == 0) { $pctTerra = 0; }
+        elsif ($iTerra == 1) { $pctTerra = $fTotalTerra ? 8 : 5; }
+        else                 { $pctTerra = $fTotalTerra ? 17 : 15; }
+
+        # Set up sampling ranges for each env dimension 
+        my (@rgBase, @rgInc, @rgSteps);
+        for my $i (0..2) {
+            if ($envCenter[$i] < 0) {
+                $rgBase[$i]  = 50;
+                $rgInc[$i]   = 11;
+                $rgSteps[$i] = 1;
+            } else {
+                $rgBase[$i] = $envMin[$i] - $pctTerra;
+                if ($rgBase[$i] < 0) { $rgBase[$i] = 0; }
+                my $iTry = $envMax[$i] + $pctTerra;
+                if ($iTry > 100) { $iTry = 100; }
+                $rgInc[$i]   = $iTry - $rgBase[$i];
+                $rgSteps[$i] = 11;
+            }
+        }
+
+        my $l3 = 0.0;
+        for my $ii (0 .. $rgSteps[0] - 1) {
+            my $iTry;
+            if ($ii == 0 || $rgSteps[0] <= 1) { $iTry = $rgBase[0];                
+            } else { $iTry = $rgBase[0] + int($ii * $rgInc[0] / ($rgSteps[0] - 1));
+            }
+
+            if ($iTerra == 0 || $envCenter[0] < 0) { # No adjustment                
+            } else {
+                my $iDelta = $envCenter[0] - $iTry;
+                if (abs($iDelta) <= $pctTerra) {  $iDelta = 0;
+                } elsif ($iDelta < 0) {  $iDelta += $pctTerra;
+                } else {  $iDelta -= $pctTerra;
+                }
+                $rgDelta[0] = $iDelta;
+                $iTry = $envCenter[0] - $iDelta;
+            }
+
+            my @testPlanet;
+            $testPlanet[0] = $iTry;
+            my $l2 = 0.0;
+
+            for my $jj (0 .. $rgSteps[1] - 1) {
+                if ($jj == 0 || $rgSteps[1] <= 1) {  $iTry = $rgBase[1];
+                } else {  $iTry = $rgBase[1] + int($jj * $rgInc[1] / ($rgSteps[1] - 1));
+                }
+
+                if ($iTerra == 0 || $envCenter[1] < 0) {
+                    # No adjustment
+                } else {
+                    my $iDelta = $envCenter[1] - $iTry;
+                    if (abs($iDelta) <= $pctTerra) {  $iDelta = 0;
+                    } elsif ($iDelta < 0) {  $iDelta += $pctTerra;
+                    } else {  $iDelta -= $pctTerra;
+                    }
+                    $rgDelta[1] = $iDelta;
+                    $iTry = $envCenter[1] - $iDelta;
+                }
+
+                $testPlanet[1] = $iTry;
+                my $l1 = 0;
+
+                for my $kk (0 .. $rgSteps[2] - 1) {
+                    if ($kk == 0 || $rgSteps[2] <= 1) {  $iTry = $rgBase[2];
+                    } else {  $iTry = $rgBase[2] + int($kk * $rgInc[2] / ($rgSteps[2] - 1));
+                    }
+
+                    if ($iTerra == 0 || $envCenter[2] < 0) { # No adjustment                        
+                    } else {  my $iDelta = $envCenter[2] - $iTry;
+                        if (abs($iDelta) <= $pctTerra) {  $iDelta = 0;
+                        } elsif ($iDelta < 0) {  $iDelta += $pctTerra;
+                        } else {  $iDelta -= $pctTerra;
+                        }
+                        $rgDelta[2] = $iDelta;
+                        $iTry = $envCenter[2] - $iDelta;
+                    }
+                    $testPlanet[2] = $iTry;
+
+                    my $pctDesire = _pctPlanetDesirability(\@testPlanet, \@envCenter, \@envMin, \@envMax );
+
+                    # Terraforming overshoot penalty
+                    my $iDeltaSum = $rgDelta[0] + $rgDelta[1] + $rgDelta[2];
+                    if ($iDeltaSum > $pctTerra) {
+                        $pctDesire -= ($iDeltaSum - $pctTerra);
+                        if ($pctDesire < 0) { $pctDesire = 0; }
+                    }
+
+                    $pctDesire *= $pctDesire;
+                    if    ($iTerra == 0) { $pctDesire *= 7; }
+                    elsif ($iTerra == 1) { $pctDesire *= 5; }
+                    else                 { $pctDesire *= 6; }
+                    $l1 += $pctDesire;
+                }
+
+                if ($envCenter[2] >= 0) { $l1 = int($l1 * $rgInc[2] / 100);  
+                } else {  $l1 = $l1 * 11;  }
+                $l2 += $l1;
+            }
+
+            if ($envCenter[1] >= 0) {  $l2 = $l2 * $rgInc[1] / 100;
+            } else {  $l2 = $l2 * 11;  }
+            $l3 += $l2;
+        }
+
+        if ($envCenter[0] >= 0) {  $l3 = $l3 * $rgInc[0] / 100;
+        } else {  $l3 = $l3 * 11;  }
+        $lInnate += $l3;
+    }
+
+    return int($lInnate / 10.0 + 0.5);
+}
+
+# _pctPlanetDesirability(\@planetEnv, \@raceCenter, \@raceMin, \@raceMax)
+# Faithful translation of planet.c PctPlanetDesirability() lines 2826-2886.
+sub _pctPlanetDesirability {
+    my ($planetRef, $centerRef, $minRef, $maxRef) = @_;
+
+    my $pctPos = 0;
+    my $pctNeg = 0;
+    my $pctMod = 100 * 100;
+
+    for my $i (0..2) {
+        my $iPlanet = $planetRef->[$i];
+        my $iPref   = $centerRef->[$i];
+        my $iMin    = $minRef->[$i];
+        my $iMax    = $maxRef->[$i];
+
+        if ($iMax < 0) {
+            $pctPos += 100 * 100;
+        } elsif ($iPlanet >= $iMin && $iPlanet <= $iMax) {
+            my $pctVar = abs($iPlanet - $iPref) * 100;
+            my ($d, $dPenalty);
+            if ($iPlanet < $iPref) {
+                $d = $iPref - $iMin;
+                $pctVar = int($pctVar / $d);
+                $dPenalty = ($iPref - $iPlanet) * 2 - $d;
+            } else {
+                $d = $iMax - $iPref;
+                $pctVar = int($pctVar / $d);
+                $dPenalty = ($iPlanet - $iPref) * 2 - $d;
+            }
+            $pctVar = 100 - $pctVar;
+            $pctPos += $pctVar * $pctVar;
+            if ($dPenalty > 0) {
+                $pctMod *= 2 * $d - $dPenalty;
+                $pctMod = int($pctMod / (2 * $d));
+            }
+        } elsif ($iPlanet < $iMin) {  $pctNeg += _min(15, $iMin - $iPlanet);
+        } else {  $pctNeg += _min(15, $iPlanet - $iMax);
+        }
+    }
+
+    if ($pctNeg) {  return -$pctNeg;  }
+
+    $pctPos = int(sqrt($pctPos / 3.0) + 0.9);
+    $pctPos = int($pctPos * $pctMod / 10000);
+
+    return $pctPos;
+}
+
+# Convert unsigned byte (0-255) to signed char (-128 to 127)
+# 255 in the file = -1 (immune) in the C struct
+sub _toSigned {
+    my ($val) = @_;
+    return ($val > 127) ? $val - 256 : $val;
+}
+
+sub _min {
+    my ($a, $b) = @_;
+    return $a < $b ? $a : $b;
+}
+
+sub _max {
+    my ($a, $b) = @_;
+    return $a > $b ? $a : $b;
+}
+
+
+
 
 # CSV position 18 is fuel
 # 1,1,"Stargate 100/250",1,0,0,5,5,0,0,0,400,100,40,40,144,100,250,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
