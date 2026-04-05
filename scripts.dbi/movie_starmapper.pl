@@ -36,8 +36,10 @@
 # Assumes that the stars turn files are available in some structure 
 # (currently <whatever>\<year>)
 
-#use strict; 
-#use warnings;
+use strict; 
+use warnings;
+use FindBin;
+use lib $FindBin::Bin;
 
 # This pulls the turns from the TH backup dir(s), so the last turn will only be
 # there if the game is ended.
@@ -103,8 +105,7 @@ closedir(DIRS);
 # On the first pass through, grab the player names
 my $firstPass = 1;
 foreach $dirname (@AllDirs) {
-  next if $dirname =~ /^\.\.?$/; # skip . and ..
-  if ($dirname =~ /BACKUP/) {  next; }  # Skip the default stars Backup folder(s)
+  # AllDirs already filtered
   my $isdir = "$destdir/$dirname";
   print "isdir: $isdir\n";
   unless (-d $isdir) { next; } # Skip if the directory is a file
@@ -126,7 +127,7 @@ foreach $dirname (@AllDirs) {
       my $MFile = "$destdir/$dirname/$filename";
       print "\tRemoving Password: $MFile\n";
       # Remove the password
-      &StarsPWD($MFile);
+      &StarsPWD($MFile);  # BUG: as StarsPWD by default creates .blank files...    And we can't call nonextant StarsPWD
     }
   }
   closedir(DIR);
@@ -147,7 +148,7 @@ print "DM: $map\n";
 
 my $exit_status = &call_system ($map);
 # copy out the map file. You need only one
-$file1 = $destdir . '/2400/' . $GameFile . '.map';
+$file1 = $destdir . '/' . $AllDirs[0] . '/' . $GameFile . '.map';
 $file2 = $destdir . '/' . uc($GameFile) . '.MAP';
 print "Copy $file1 > $file2\n";
 copy("$file1","$file2") or die "Copy MAP failed: $!";
@@ -160,32 +161,30 @@ sleep 2;
 print "Moving on to PLA files\n";
 foreach $dirname (@AllDirs) { # Dirname is the year value
   my $pla;
-	# Skip all . directories
-	if ($dirname =~ /\./) {  next; }
-	# Skip the default Stars! Backup folder(s) if present
-	if ($dirname =~ /BACKUP/) {  next; }
+  # Skip all . directories
+  if ($dirname =~ /\./) {  next; }
+  # Skip the default Stars! Backup folder(s) if present
+  if ($dirname =~ /BACKUP/) {  next; }
 
-	foreach $number (@numbers) {
-  
-#   	$pla = $executable;
-# 		$pla .= ' -dp ' . $destdir . '\\' . $dirname . '\\' . $GameFile . '.m' . $number;
-# 		$file1 = $destdir . '\\' . $dirname . '\\' . $GameFile . '.p' . $number;
-#     $file2 = $destdir . '\\' . $GameFile . ' ' . $dirname . '.p' . $number;  
-
-		$pla = $WINE_executable . " -dp  $Dir_WINE\\$WINE_Games\\\\$GameFile\.mov\\\\$dirname\\\\$GameFile" . '.m' . $number;
+  foreach $number (@numbers) {
+    #   	$pla = $executable;
+    # 		$pla .= ' -dp ' . $destdir . '\\' . $dirname . '\\' . $GameFile . '.m' . $number;
+    # 		$file1 = $destdir . '\\' . $dirname . '\\' . $GameFile . '.p' . $number;
+    #     $file2 = $destdir . '\\' . $GameFile . ' ' . $dirname . '.p' . $number;  
+    $pla = $WINE_executable . " -dp $Dir_WINE\\$WINE_Games\\\\$GameFile\.mov\\\\$dirname\\\\$GameFile" . '.m' . $number;
     print "DP: $pla\n";
-		$file1 = "$destdir/$dirname/$GameFile" . '.p' . $number;
+    $file1 = "$destdir/$dirname/$GameFile" . '.p' . $number;
     $file2 = "$destdir/$GameFile $dirname" . '.p' . $number;
-		#print "pla: $pla\n";
+    #print "pla: $pla\n";
     unless (-e $file2) {  # If the file is already there, no need to create
-  		my $exit_status = &call_system($pla);
-  		# and move/rename the file to the format/location for starmapper
-  		print "$file1 > $file2\n";
-  		copy($file1,$file2) or die "Copy PLA failed for $file1, $file2: $!";
-  		# Wait patiently, Stars! doesn't like to be launched over and over.
-  		sleep 2;
+      $exit_status = &call_system($pla);
+      # and move/rename the file to the format/location for starmapper
+      print "$file1 > $file2\n";
+      copy($file1,$file2) or die "Copy PLA failed for $file1, $file2: $!";
+      # Wait patiently, Stars! doesn't like to be launched over and over.
+      sleep 2;
     }
-	}
+  }
 }
 
 # configure the Starmapper ini file
@@ -247,7 +246,7 @@ foreach $number (@numbers) { $mapfile .= " $number"; }
 print MAPFILE $mapfile . "\n";
 close MAPFILE;
 chmod 0770, $MapOutFile;
-chdir $destdir;
+chdir $destdir or die "Cannot chdir to $destdir: $!\n";
 $exit_status = &call_system($MapOutFile); # Run starmapper
 
 # Initialize the Image command file
@@ -266,7 +265,8 @@ if (-f $MapOutFile) {
 } else { print "Can\'t create $ImgOutFile, because $MapOutFile is missing"; }
 
 
-die "Done! Delete the folder $destdir\n";
+print "Done! Delete the folder $destdir\n";
+exit 0;
 #if ($destdir) { rmtree($destdir) or die "$!: for directory $destdir\n"; }
 
 ##########################################

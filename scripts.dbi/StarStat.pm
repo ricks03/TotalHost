@@ -21,6 +21,9 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use FindBin;
+use lib $FindBin::Bin;
+
 package StarStat;
 do 'config.pl';
 
@@ -72,10 +75,6 @@ sub starstat {
 	read(StarFile, $FileValues, 22);
 	close(StarFile);
 
-# 211104 BUG: At some point I changed this string to SA4LSSsS but I don't
-# know why, and then it didn't line up with statstat.pl	
-# The change is A2 to S (string) and h8 to L (which is probably a long)
-#  $unpack = "A2A4h8SSSS";
 	$unpack = 'SA4LSSsS';
 	#$Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts
 	@FileValues = unpack($unpack,$FileValues);
@@ -102,6 +101,13 @@ sub starstat {
 	# Convert DTS to binary so we can pull the values back out
 	$dts = dec2bin($dts);
 	# File Type
+#   0  dtXY    .xy file
+#   1  dtLog   .x file
+#   2  dtHost  .hst file
+#   3  dtTurn  .m file
+#   4  dtHist  .h file
+#   5  dtRace  .r file
+#   6  dtMax
 	$dt = substr($dts, 8,15);
 	$dt = bin2dec($dt);
 	# These are 1 character, so there's no need to convert them back to decimal

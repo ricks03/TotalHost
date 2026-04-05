@@ -33,6 +33,9 @@
 
 use strict;
 use warnings;  
+use FindBin;
+use lib $FindBin::Bin;
+
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
 my $debug = 1; # Enable better debugging output. Bigger the better
@@ -102,7 +105,7 @@ sub decryptBlock {
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
   my ( $seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
@@ -124,7 +127,7 @@ sub decryptBlock {
 
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -138,32 +141,53 @@ sub decryptBlock {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
-      # WHERE THE MAGIC HAPPENS
       
-      
-      
-      if ($typeId == 13 || $typeId == 14) {
-      my $flags = &read16(\@decryptedData, 2);         # 0x01  - 0x40 are $det
-      #my $det = ($flags >> 9) & 0x7F;  # 0x7F is 01111111 (7 bits)
-      my $det = $flags & 0x7F; # Mask the lowest 7 bits (0x7F = 01111111 in binary)
-      print "det: $det\t";
+      # Special handling for Block 7: has unencrypted planet bytes after encrypted data
+      if ($typeId == 7) {
+        my $numPlanets = &read16(\@decryptedData, 10);
+        my $planetBytes = $numPlanets * 4;
+        # Read the unencrypted planet bytes from file
+        my @planetData = @fileBytes[$offset + 2 + $size .. $offset + 2 + $size + $planetBytes - 1];
+        # Store them for later output
+        my @block7PlanetBytes = @planetData;
       }
-     
-     
 
-      &processData(\@decryptedData,$typeId,$offset,$size, $inBlock);
-      
-      
-      
-
+      # WHERE THE MAGIC HAPPENS
+      &processData(\@decryptedData,$typeId,$offset,$size,$inBlock);
       # END OF MAGIC
+
       #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
       @encryptedBlock = @ { $encryptedBlock };
       if ($debug > 1) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
       push @outBytes, @encryptedBlock;
+      
+      # For Block 7, also write the unencrypted planet bytes
+      if ($typeId == 7) {
+        my $numPlanets = &read16(\@decryptedData, 10);
+        my $planetBytes = $numPlanets * 4;
+        my @planetData = @fileBytes[$offset + 2 + $size .. $offset + 2 + $size + $planetBytes - 1];
+        push @outBytes, @planetData;
+        
+        # Display raw planet coordinate bytes
+        if ($inBlock == -1 || $inBlock == 7) {
+          print "Planets: ";
+          for (my $i = 0; $i < $planetBytes; $i++) {
+            printf "%d ", ord($planetData[$i]);
+          }
+          print "\n";
+        }
+        
+        $offset = $offset + (2 + $size + $planetBytes);
+      } else {
+        $offset = $offset + (2 + $size);
+      }
     }
-    $offset = $offset + (2 + $size); 
+    
+    # For blocks 8 and 0 that didn't go through decryption
+    if ($typeId == 8 || $typeId == 0) {
+      $offset = $offset + (2 + $size); 
+    }
   }
   return \@outBytes;
 }

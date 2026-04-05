@@ -21,6 +21,9 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use FindBin;
+use lib $FindBin::Bin;
+
 use CGI qw(:standard);
 $CGI::POST_MAX = 1024 * 100;  # Limit uploads to 100KB
 use CGI::Session;
@@ -62,8 +65,8 @@ my $sessionid = $session->id unless $sessionid;
 
 # Doesn't need to validate, because everything in here doesn't require auth.
 #&validate($cgi,$session);
-$id = $session->param('userid');
-$userlogin = $session->param('userlogin');
+my $id = $session->param('userid');
+my $userlogin = $session->param('userlogin');
 
 # If the user happens to be logged in, redirect them to the first game page
 # &LogOut(0,"ID = $id, Login = $userlogin",$ErrorLog); 

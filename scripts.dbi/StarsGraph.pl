@@ -22,44 +22,56 @@
 
 # Graph the resource scores for a Stars! Game
 #
-# Creates graph_gamename.png
-# Assumes that the stars turn files are available in some structure 
+# Creates gamename.png
+# Assumes that the stars turn files are available in the correct structure 
 # (currently <whatever>\<year>)
 
-#use warnings;
+use strict;
+use warnings;  
+use FindBin;
+use lib $FindBin::Bin;
 
-use GD;      # for font names
+use GD qw(gdTinyFont);  # for font names
 use GD::Graph::lines;
-do 'config.pl';
+use File::Basename;
 use StarsBlock;
 
-my @singularRaceNames;
 my @AllDirs; # The list of all directories
 my $dirname; # individual directory name
+my $debug = 0;
 
 #########################################        
 my $filename = $ARGV[0]; # input file
 if (!($filename)) { 
-  print "\n\nUsage: StarsGraph.pl <game file prefix>\n\n";
-  print "Please enter the game file name. Example: \n";
-  print "  StarsGraph.pl abdd466g\n\n";
+  print "\n\nUsage: StarsGraph.pl <game.hst>\n\n";
+  print "Please enter the game HST file. Example: \n";
+  print "\tStarsGraph.pl c:\\stars\\game.hst\n";
+  print "\tStarsGraph.pl c:\\stars\\game.hst <destination path>\n\n";
   print "Creates a graph of a game\'s resources:\n";
-  print "A new file will be created: <filename>.png\n\n";
+  print "A new file will be created: c:\\stars\\<filename>.png or <destination path><filename>.png\n\n";
+  print "This program requires a history of game files, stored in subfolders by year ( /2401/, etc.)\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
 }
+# Validate that the file exists
+unless (-e $ARGV[0]) { print "File: $filename does not exist!\n"; exit; }
 
-# Name of the Game (the prefix for the .xy file)
-my $GameFile = $filename;  
-my $sourcedir = "$Dir_Games/$GameFile";
+my ($basefile, $sourcedir, $ext, $prefix, $dir);
+# for c:\stars\mygamename.m1
+$basefile = basename($filename);    # mygamename.m1
+$sourcedir  = dirname($filename);         # c:\stars
+#($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
+($prefix, $dir, $ext) = fileparse($basefile, qr/\.[^.]*/);
+my $GameFile = $prefix; # Name of the Game (the prefix for the .xy file)
+
 unless (-d $sourcedir) { die "Directory $sourcedir does not exist!\n"; }
-# Where final image will live
-my $graphPath = "$Dir_Graphs/graphs/$filename.png";
+my $graphPath = "$sourcedir/$GameFile.png"; # Where final image will live
+if ($ARGV[1]) { $graphPath= $ARGV[1] . '/' . $GameFile . '.png'; } 
 
 # Get all of the years from the backup subdirectories
-# Expectation is folder structure is turn/year
+# Expectation is folder structure is game/year
 opendir(DIRS, $sourcedir) || die("Cannot open $sourcedir\n"); 
-@AllDirs = readdir(DIRS);
+@AllDirs = sort { $a <=> $b } grep { /^\d{4}$/ } readdir(DIRS);
 closedir(DIRS);
 
 # Get the race names, and resource count
@@ -70,102 +82,100 @@ my %score;
 my $lastturn;
 my $highscore=0;
 my @turns;
+my @singularRaceNames;
+my $singularRaceNames;
+my $score;
+
 foreach $dirname (@AllDirs) {
   next if $dirname =~ /^\.\.?$/; # skip . and ..
-  if ($dirname =~ /BACKUP/) {  next; }  # Skip the default stars Backup folder(s)
-  unless ($dirname =~ /[0-9][0-9][0-9][0-9]/) {  next; }  # Skip if not a year folder
+  if ($dirname =~ /BACKUP/) { next; }  # Skip the default stars Backup folder(s)
+  unless ($dirname =~ /[0-9][0-9][0-9][0-9]/) { next; }  # Skip if not a year folder
   my $isdir = "$sourcedir/$dirname";
   unless (-d $isdir) { next; } # Skip if the directory is a file
   print "Year: $dirname\n";
   push @turns, $dirname;
-  opendir (DIR, "$sourcedir/$dirname") or die "can\'t open directory $sourcedir/$dirname\n";
-  while (defined($filename = readdir (DIR))) {
-    next if $filename =~ /^\.\.?$/; # skip . and ..
-    # Grab the race names from the first .hst file
-    if ($firstPass) {
-      $firstPass = 0; # Don't do this again
-      my $HST = "$sourcedir/$dirname/" . $GameFile . '.hst';
-      if (-f $HST) {
-        ($singularRaceNames, $score) = &getScores($HST);
-        @singularRaceNames = @{$singularRaceNames};
-        print "Singular: @singularRaceNames\n";
-      } else { die ".hst file $HST not found\n"; }
+
+  # Grab race names from first year that has a .hst
+  if ($firstPass) {
+    my $HST = "$sourcedir/$dirname/$GameFile.hst";
+    if (-f $HST) {
+      $firstPass = 0; # Only set to 0 when .hst is actually found
+      ($singularRaceNames, my $score) = &getScores($HST);
+      @singularRaceNames = @{$singularRaceNames};
+      print "Singular: @singularRaceNames\n";
     }
-    # Only for the .m files
-    # Score blocks aren't in the .hst File. 
-    if ($filename =~ /^(\w+[\w.-]+\.[Mm]\d{1,2})$/) { 
+    # If no .hst this year, firstPass stays 1 and we try the next year
+  }
+
+  opendir(DIR, "$sourcedir/$dirname") or die "can't open directory $sourcedir/$dirname\n";
+  while (defined(my $mfile = readdir(DIR))) {
+    next if $mfile =~ /^\.\.?$/; # skip . and ..
+    # Only for the .m files - score blocks aren't in the .hst file
+    if ($mfile =~ /^(\w+[\w.-]+\.[Mm]\d{1,2})$/) {
       $lastturn = $dirname;
-      my $MFile = "$sourcedir/$dirname/$filename";
-      my ($singularRaceNames, $score, $turn, $player) = &getScores($MFile);
-      if ($dirname eq '2400') { $score = 0; }
-      #print "\tPlayer: $player\tScore: $score\tFile: $MFile \n";
-      $score{$player}{$turn} = $score;
-      if ($score > $highscore) { $highscore = $score; }
+      my $MFile = "$sourcedir/$dirname/$mfile";
+      my (undef, $score, $player) = &getScores($MFile);
+      $score{$player}{$dirname} = $score; # use $dirname as key, not $turn
+      #if ($score > $highscore) { $highscore = $score; }
+      if (defined $score && $score > $highscore) { $highscore = $score; }
     }
   }
   closedir(DIR);
 }
+# Zero out year 2400 scores - starting year has no meaningful scores
+foreach my $player (keys %score) {
+  $score{$player}{'2400'} = 0 if exists $score{$player}{'2400'};
+}
+
 $highscore = $highscore+1000; # Just makes it graph better. 
 
 # Determine the race names 
 # Race names must be the Singular
 #@numbers = (1.. scalar @singularRaceNames);
 
+my @data;
 push @data, \@turns; # put turns into data array
 
 foreach my $playerId (sort keys %score) {
   my @pscore;
+  my $lastScore = 0;
   print "Player: $playerId\t";
-  foreach my $turn (sort {$score{$playerId}{$a} <=> $score{$playerId}{$b}} keys %{ $score{$playerId} }) {
-    push @pscore,$score{$playerId}{$turn};
+  foreach my $turn (@turns) {  # iterate @turns not player's own keys
+    push @pscore, $score{$playerId}{$turn};  # undef if missing, GD graphs as gap
+#     if (defined $score{$playerId}{$turn}) { # BG: Keep the score for missing years
+#       $lastScore = $score{$playerId}{$turn};
+#    }
   }
   print "score: @pscore";
   print "\n";
-  push @data, \@pscore; # adds each player score array to the data array
+  push @data, \@pscore;
 }
 
 # my @data = ( [@turns],   # Turns
-# 
 #              # Player 1 resources
 #              [ 2,  5,  16.8,  18, 19, 22.6, 26, 32, 34, 39,
 #                43, 48, 49, 49, 54.2, 58, 68, 72, 79 ],
-# 
 #              # Player 2 resources
 #              [ 11,  18,  29.4,  35.7, 36, 38.2, 36, 41, 45, 49,
 #                50, 51, 51.4, 52.6, 53.2, 54, 67, 73, 78 ],
-# 
 #              # Player 3 resources
 #              [ 5,  8,  24,  32, 37, 40, 50, 55, 61, 63,
 #                61, 60, 65.5, 68, 71, 69, 73, 73.5, 78, 78.5],
-# 
 #              # Player 4 resources
 #              [ 4.25,  8.9, 19, 21, 25, 24, 27, 29, 33, 35,
 #                41, 40, 45, 42, 44, 49, 51, 58, 61, 66],
-# 
 #              # Player 5 resources
 #              [ 2,  11,  9,  9.2, 9.8, 10.1, 8.2, 8.5, 9, 7,
 #                6, 5.5, 6.5, 5.2, 4.5, 4.2, 4, 3, 2, 1 ],
-# 
 #              # Player 6 resources
 #              [ 3.5,  8,  22,  22.5, 23, 25, 25, 25, 26, 21,
 #                20, 19.2, 19.7, 21, 18, 23, 17, 12, 10, 5],
-# 
 #              # Player 7 resources
 #              [ 6.5,  12.8,  31.7,  34, 32, 29, 19, 20.5, 28, 35,
 #               34, 33, 30, 28, 25, 21, 20, 16, 11, 9]
 #      );
 
 my $graph = new GD::Graph::lines( );
-# $graph->set(
-#         title             => "$GameFile",
-#         x_label           => 'Year',
-#         y_label           => 'Resources',
-#         y_max_value       => $highscore,
-#         y_tick_number     => 500,
-#         x_all_ticks       => 1,
-#         y_all_ticks       => 1,
-#         x_label_skip      => 3,
-#     );
     
 $graph->set(
         title             => "$GameFile",
@@ -182,103 +192,13 @@ $graph->set(
         bgclr             => 'white',
     );
 
-
-$graph->set_legend_font(GD::gdFontTiny);
+$graph->set_legend_font(gdTinyFont);
 $graph->set_legend(@singularRaceNames);
 
 my $gd = $graph->plot( \@data );
-
 open OUT, ">$graphPath" or die "Couldn't open for output: $!";
 binmode(OUT);
 print OUT $gd->png( );
 close OUT;
 
-#####################################
-sub getScores {
-  my ($HST) = @_;
-  # Read in the binary Stars! file, byte by byte
-  my $FileValues;
-  my @fileBytes;
-  #@fileBytes = ();
-  my @singularRaceNames;
-  open(StarFile, "<$HST" );
-  binmode(StarFile);
-  while ( read(StarFile, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
-  close(StarFile);
-  # Decrypt the data, block by block
-  my ($singularRaceNames, $score, $turn, $player) = &decryptScores(@fileBytes);
-  #my ($singularRaceNames, $score, $turn, $player) = &decryptScores();
-  @singularRaceNames = @{$singularRaceNames};
-  return \@singularRaceNames, $score, $turn, $player;
-}
-
-sub decryptScores {
-  my (@fileBytes) = @_;
-  my @block;
-  my @data;
-  my ($decryptedData, $encryptedBlock, $padding);
-  my @decryptedData;
-  my @encryptedBlock;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
-  my ($random, $seedA, $seedB, $seedX, $seedY );
-  my ( $FileValues, $typeId, $size );
-  my $offset = 0; #Start at the beginning of the file
-  my @singularRaceNames;
-  my $score;
-  my $resources;
-  while ($offset < @fileBytes) {
-    # Get block info and data
-    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
-    ( $typeId, $size ) = &parseBlock($FileValues, $offset);
-    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-
-    if ($debug > 1) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-    if ($debug > 1) { print 'BLOCK RAW: Size ' . @block . ":\n" . join ("", @block), "\n"; }
-    
-     if ($typeId == 8 ) { # FileHeaderBlock, never encrypted
-      # We always have this data before getting to block 6, because block 8 is first
-      # If there are two (or more) block 8s, the seeds reset for each block 8
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
-      ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
-      $seedX = $seedA; # Used to reverse the decryption
-      $seedY = $seedB; # Used to reverse the decryption
-      #push @outBytes, @block;
-      
-    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
-    } else {
-      # Everything else needs to be decrypted
-      @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
-      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
-      @decryptedData = @{ $decryptedData };  
-      # WHERE THE MAGIC HAPPENS
-      if ($typeId == 6 ) {  #PlayerBlock
-        my $playerId = $decryptedData[0] & 0xFF;
-        my $fullDataFlag = ($decryptedData[6] & 0x04);
-        my $index = 8;
-        if ($fullDataFlag) { 
-          # The player names are at the end which is not a fixed length
-          $index = 112;
-          my $playerRelationsLength = $decryptedData[112]; 
-          $index = $index + $playerRelationsLength + 1;
-        } 
-        my $singularNameLength = $decryptedData[$index] & 0xFF;
-        my $singularMessageEnd = $index + $singularNameLength;
-        my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
-        push @singularRaceNames, $singularRaceName;
-      } elsif ($typeId == 45) { # PlayerScoresBlock
-         
-        my $playerId     = ($decryptedData[0] >> 0) & 0x0F; 
-        $score        = &read32(\@decryptedData, 4);  # Not exactly the same
-        $resources    = &read32(\@decryptedData, 8); # Not EXACTLY the same
-        
-        print "PlayerId: $playerId, Res: $resources\n";
-        if ($Player == $playerId) { $score = $resources; }
-      }
-    }
-    # END OF MAGIC
-    $offset = $offset + (2 + $size); 
-  }
-  return \@singularRaceNames, $score, $turn, $Player;
-} 
+print "$graphPath created!\n";

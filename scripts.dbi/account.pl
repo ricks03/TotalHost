@@ -48,14 +48,14 @@ foreach my $field (param()) {
 
 #print $cgi->header();
 
-if ($in{'action'} eq 'login') { &login; die;
+if ($in{'action'} eq 'login') { &login; exit;
 } elsif ($in{'action'} eq 'logout' || $in{'action'} eq 'logoutfull') { 
 	my $cgi = CGI->new;
 	my $cookie = &get_cookie($cgi);
 	my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
 	$cookie = $session->id unless $cookie;
-	if ($in{'action'} eq 'logout') { &logout($cgi,$session); die;}
-	elsif ($in{'action'} eq 'logoutfull') { &logoutfull($cgi,$session); die;
+	if ($in{'action'} eq 'logout') { &logout($cgi,$session); exit;}
+	elsif ($in{'action'} eq 'logoutfull') { &logoutfull($cgi,$session); exit;
 	} else { &LogOut(10,"ERROR: How did we get here 1",$ErrorLog);
 	}
 }
@@ -106,7 +106,7 @@ if ($in{'action'} eq 'add_user') { &add_user;
 } elsif ($in{'action'} eq 'reset_user') { &reset_user; 
 } elsif ($in{'action'} eq 'reset_password') { &reset_password; 
 } elsif ($in{'action'} eq 'reset_password2') { &reset_password2; 
-} elsif ($in{'action'} eq 'change_password') { &change_password; 
+} elsif ($in{'action'} eq 'change_password') { &change_password($session); 
 } elsif ($in{'action'} eq 'login_fail') { 
     print "<P>Login failed! (The User Name is case-sensitive, and the account must be activated.)"; 
     print qq|<P>Do you need to <a href=/scripts/index.pl?cp=reset_user>Reset your password</a>?|;
@@ -129,7 +129,7 @@ sub add_user {
 	my $User_Password = $in{'User_Password'};
   
   # Check to see that fields were filled out
-  if ($User_First && $User_Last && $User_Login && $User_Email && $valid_email && $pass_temp && (length($pass_temp) > $min_pass_length)) {
+  if ($User_First && $User_Last && $User_Login && $User_Email && $valid_email && $pass_temp && (length($pass_temp) > $min_password_length)) {
   
   	my $db = &DB_Open($dsn);
   	my $Date =&GetTimeString();
@@ -137,8 +137,8 @@ sub add_user {
   	my $passhash = sha1_hex($hash); 
   	#my $sql = qq|INSERT INTO User (`User_Login`, `User_Last`, `User_First`, `User_Password`, `User_Email`, `User_Timezone`, `User_Status`, `User_Creation`, `User_Modified`, `EmailTurn`, `EmailList`) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', 'America/New_York', -5,'$Date','$Date', 1, 1);|;
   	#if (my $sth = &DB_Call($db,$sql)) { 
- 	  my $sql = qq|INSERT INTO User (`User_Login`, `User_Last`, `User_First`, `User_Password`, `User_Email`, `User_Timezone`, `User_Status`, `User_Creation`, `User_Modified`, `EmailTurn`, `EmailList`) VALUES (?,?,?,?,?, 'America/New_York', -5,?,?, 1, 1);|;
-  	if (my $sth = &DB_Call($db,$sql,$User_Login,$User_Last,$User_First,$passhash, $User_Email, $Date, $Date)) { 
+    my $sql = qq|INSERT INTO User (`User_Login`, `User_Last`, `User_First`, `User_Password`, `User_Email`, `User_Timezone`, `User_Status`, `User_Creation`, `User_Modified`, `EmailTurn`, `EmailList`) VALUES (?,?,?,?,?,?,-5,?,?, 1, 1);|;
+    if (my $sth = &DB_Call($db,$sql,$User_Login,$User_Last,$User_First,$passhash,$User_Email,$timezone,$Date,$Date)) {
       print "<P>Done!  Check your email to activate your account. \n";
       $sth->finish();
     }
@@ -266,7 +266,7 @@ sub reset_user {
   }
   if ($id) { 
   	# Create new temporary password
-  	$temp = $id . $secretkey;
+  	$temp = $id . $secret_key;
   	$new_password = sha1_hex($temp);
   	$Date =&GetTimeString();
   	# add new temporary password to database
@@ -300,7 +300,7 @@ sub reset_password {
       ($User_Login, $User_ID, $User_Password, $User_Email) = @row;
 
       # Create the new password hash
-      $temp = $User_ID . $secretkey;
+      $temp = $User_ID . $secret_key;
       $new_password = sha1_hex($temp);
 
       # Check if the user login and password match
@@ -364,6 +364,7 @@ sub reset_password2 {
 }
 
 sub change_password {
+  my ($session) = @_;
 	$Date =&GetTimeString();
 	$userid=$session->param("userid");
 	$User_Login = $session->param("userlogin");
@@ -444,19 +445,19 @@ sub login {
 
 sub logout { 
 	my ($cgi, $session) = @_; # receive two args
-    $session->clear(`"logged-in"`);
+    $session->clear("logged-in");
     $cookie = $cgi->cookie
        (-NAME	=>	'TotalHost', 
 	    -VALUE	=>	"", 
         -PATH => '/',
 	    -EXPIRES=>	"+3M",
 	   );
-    print $cgi->redirect( -URL => "$WWW_Scripts/index.pl", -cookie=> `$cookie`);
+    print $cgi->redirect( -URL => "$WWW_Scripts/index.pl", -cookie=> "$cookie");
 }
 
 sub logoutfull { 
 	my ($cgi, $session) = @_; # receive two args
-    $session->clear(`"logged-in"`);
+    $session->clear("logged-in");
 	$session->delete();
     $cookie = $cgi->cookie
        (-NAME	=>	'TotalHost', 
@@ -464,5 +465,5 @@ sub logoutfull {
         -PATH => '/',
 	    -EXPIRES=>	"-1M",
 	   );
-    print $cgi->redirect( -URL => "$WWW_Scripts/index.pl", -cookie=> `$cookie`);
+    print $cgi->redirect( -URL => "$WWW_Scripts/index.pl", -cookie=> "$cookie");
 }

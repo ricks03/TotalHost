@@ -21,7 +21,6 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 package TotalHost;
 our $VERSION = '1.00';  # Use a floating-point string for version numbers
 use Net::SMTP; # requires libcrypto-1_1_.dll
@@ -56,7 +55,7 @@ our @EXPORT = qw(
 	UpdateLastTurn UpdateNextTurn FixNextTurnDST GenerateTurn clean_name
 	rp_list_games list_games LoadGamesInProgress
 	Make_CHK Read_CHK Valid_CHK Eval_CHK Eval_CHKLine 
-	Game_Backup File_Date
+	Game_Backup File_Date Generate_Merged
 	clean 
 	DaysToAdd ValidTurnTime ValidFreq CheckHolidays LoadHolidays ShowHolidays
   show_race_block
@@ -65,6 +64,8 @@ our @EXPORT = qw(
   call_system  get_user
   create_graph print_legend
   show_schedule
+  player_status_label
+  has_merged
 );
 # Remarked out functions: FileData FixTime MakeGameStatus checkboxes checkboxnull
 #  showCategory
@@ -102,23 +103,10 @@ sub DB_Close {
   $dbh->disconnect();
 }
 
-# sub DB_Check {
-#     my ($sqlin, $db) = @_;
-# 
-#     if ($db->err) {
-#         my $error = "Database: Error in $sqlin: " . $db->err . " * " . $db->errstr . "\n";
-#         &LogOut(0, $error, $ErrorLog);
-#         return 0;
-#     } else {
-#         return 1;
-#     }
-# }
-
 sub DB_Call {
   # With bind_params, I can use placeholders in the SQL. If there are no placeholders it will just work. 
   # The bind parameters need to be in order. The SQL needs to replace the value with a ?
   # and the call updated to, for example, 
-  #$sql = qq|UPDATE User INNER JOIN Games ON Games.GameFile = GameUsers.GameFile SET GameUsers.PlayerStatus = ? WHERE Games.GameFile = ? AND User.User_File = ? AND GameUsers.PlayerID = ?|;        
   #&DB_Call($db, $sql, $update, $GameFile, $UserFile, $PlayerID);
   my ($dbh, $sql, @bind_params) = @_;
   
@@ -164,9 +152,9 @@ sub Mail_Send { # Sends mail to the listed user, with the associated values (to:
 		$smtp->datasend("Service process - Do not reply to this message.\n");
 		$smtp->datasend("\n");
 		# End message
-		$smtp->dataend();  # Bug the last person's email will have a . in it. 
+		$smtp->dataend();  
 	} else {
-    &LogOut(0,qq|Mail not present: Would send mail: $MailTo, $MailFrom, $Subject, $Message|, $ErrorLog);
+    &LogOut(0,"Mail not present: Would send mail: $MailTo, $MailFrom, $Subject, $Message", $ErrorLog);
   }
 }
 
@@ -185,7 +173,7 @@ sub Mail_Open {
 sub Mail_Close  {
 	($smtp) = @_;
 	if ($mail_present) {
-		#$smtp->quit;	
+		$smtp->quit;	
 		&LogOut(400, "Mail_Close: Closing mail", $LogFile); 
 	}
 }
@@ -261,11 +249,7 @@ sub Email_Turns { #email turns out to the appropriate players
 	# If you're emailing, only do so to people who have requested it
 	# Otherwise mail the active people. 
   # This expects to get all the players. Filtering it by status is bad. 
-  #my $sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') AND ((GameUsers.PlayerStatus)=1)) ORDER BY GameUsers.PlayerID;|;
-	#my $sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$GameFile\') ) ORDER BY GameUsers.PlayerID;|;
-  #my $sql = qq|SELECT Games.GameFile, Games.GameStatus, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus, User.User_Timezone FROM User INNER JOIN (Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile) ON User.User_Login = GameUsers.User_Login WHERE Games.GameFile = \'$GameFile\' ORDER BY GameUsers.PlayerID;|;
   # Load email addresses for all players, and host if not in game  
-	#my ($User_Login, $Email, $PlayerID, $EmailTurn, $PlayerStatus, $Timezone) = &Load_EmailAddresses($GameFile, $sql);
 	my ($User_Login, $Email, $PlayerID, $EmailTurn, $PlayerStatus, $Timezone) = &Load_EmailAddresses($GameFile);
   # Note starts at 1 except the host could be at 0 if not in game
 	my @User_Login    = @$User_Login;
@@ -351,7 +335,6 @@ sub Email_Turns { #email turns out to the appropriate players
       );
       # Convert to the desired timezone
       $dt->set_time_zone($Timezone{$i} || $timezone); # Default to config.pl timezone if otherwise undefined
-			#$Message .= "Next scheduled turn generation on or after " . localtime($GameVals{'NextTurn'}) . ' : ' . $dt->strftime('%Y-%m-%d %H:%M:%S %Z');
 			$Message .= "Next scheduled turn generation on or after " . $dt->strftime('%a %b %d %H:%M:%S %Y %Z');
 			$Message .= ".\n\n";
 		}
@@ -395,7 +378,7 @@ sub Load_EmailAddresses {
   # Get the email addresses and add the host if they're not in the game. And Admin if admin did it. 
   # Host player ID will be 0.
 	my ($GameFile) = @_;
-	my @User_Login, @Email, @PlayerID, @EmailTurn, @PlayerStatus, @Timezone;
+	my (@User_Login, @Email, @PlayerID, @EmailTurn, @PlayerStatus, @Timezone);
   my %Host;
 	&LogOut(300,"Load_EmailAddresses: Email game name: $GameFile",$LogFile);   
   my $sql = qq|SELECT Games.GameFile, GameUsers.User_Login, User.User_Email, GameUsers.PlayerID, User.EmailTurn, GameUsers.PlayerStatus, User.User_Timezone FROM User INNER JOIN (Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile) ON User.User_Login = GameUsers.User_Login WHERE Games.GameFile = ? ORDER BY GameUsers.PlayerID;|;
@@ -424,7 +407,7 @@ sub Load_EmailAddresses {
     push @PlayerID, 0;  # The host doesn't have a player ID
     push @EmailTurn, $Host{'EmailTurn'}; # Use Host turn value to whether they get emailed
     push @PlayerStatus, 1; # Hosts are never banned, so Player Status is  effectively 1 
-    push @Timezone, $Host{'User_Timezone'}, 1; # Hosts are never banned, so Player Status is  effectively 1 
+    push @Timezone, $Host{'User_Timezone'}; # 
   }
 	&DB_Close($db);
 	return \@User_Login, \@Email, \@PlayerID, \@EmailTurn,  \@PlayerStatus, \@Timezone;
@@ -485,7 +468,7 @@ sub LogOut {
   if ($DayofMonth <=7) { $WeekofMonth = 1;}
 	elsif ($DayofMonth >7 && $DayofMonth <=14) { $WeekofMonth = 2;}
 	elsif ($DayofMonth >14 && $DayofMonth <=21) { $WeekofMonth = 3;}
-	elsif ($DayofMonth >21 && $DayofMonth <=28) { $WeekofMonth = 4;}
+	elsif ($DayofMonth >22 && $DayofMonth <=28) { $WeekofMonth = 4;}
 	elsif ($DayofMonth >28 && $DayofMonth <=31) { $WeekofMonth = 5;}
 
   my $LogFileDate = $LogFile . '.' . $Year . '.' . $Month . '.' . $WeekofMonth; 
@@ -565,7 +548,7 @@ sub show_notes {
     $filename =~ s|.*/||;      # Remove the path
     $filename =~ s/\.[^.]+$//; # Remove the extension
     print "<P>$filename:\n";      
-    open my $fh, '<', $file || &LogOut(0,"show_notes: cannot open $file!", $ErrorLog);
+    open my $fh, '<', $file or &LogOut(0,"show_notes: cannot open $file!", $ErrorLog);
     while (my $line = <$fh>) {
       print $line;  # Print each line of the file
     }
@@ -668,7 +651,11 @@ function Help( name ) {
 </script>
 <script type="text/javascript" src="/sha1.js"></script>
 <script type="text/javascript"> hash = hex_sha1("string"); </script>
+<script>
+const prefix = window.location.hostname.split('.')[0];
+document.title = prefix.charAt(0).toUpperCase() + prefix.slice(1);</script>
 </head>
+
 eof
 }
 
@@ -714,10 +701,10 @@ sub html_left {
 	print qq|<P><hr>\n|;
 	print qq|<iframe id = "ifr" src="$WWW_Notes| . qq|blank.htm" name="your_name" marginwidth=0 marginheight=0 width="$lp_width" height="$height_help" frameborder="0" scrolling="auto"></iframe>\n|;
 	print qq|<table border=0>\n|;
-  # fro black background
+  # for black background
 #  print qq|<table border="0" style="color: white; background: '/images/bkgstar.gif';">\n|; # Ensure the table is styled
 	print qq|<tr>\n<td id="help" align=left>\n|;
-# fro black background
+# for black background
 #  print qq|<tr>\n<td id="help" align="left" style="color: white; background-color: black;">\n|; # Set inline styles for black background and white text
 	print qq|</td>\n</tr>\n|;
 	print qq|</table>\n|;
@@ -754,8 +741,6 @@ print qq|<li><table width=200><tr width=200><td width=200></td></tr></table></li
 print qq|<li><a href="$WWW_Scripts/index.pl?lp=home">Home</a></li>|;
 if ($session->param("userid")) { print qq|<li><a href="$WWW_Scripts/page.pl?lp=profile&cp=show_profile" rel="dropmenu3">Profile</a></li>|; }
 if ($session->param("userid")) { print qq|<li><a href="$WWW_Scripts/page.pl?lp=game&cp=show_first_game&rp=games" rel="dropmenu4">Games</a></li>|; }
-#print qq|<li><a href="$WWW_Scripts/index.pl" rel="dropmenu4">Info</a></li>|;
-#print qq|<li><a href="#" rel="dropmenu5">Info</a></li>\n|;
 print qq|<li><a href="$WWW_Scripts/index.pl?lp=home" rel="dropmenu5">Quick Info</a></li>\n|;
 print qq|</ul></div>|;
 
@@ -867,7 +852,7 @@ sub fixdate {
 sub SubmitTime{
 	my ($daytime) = @_;
 	my $answer = '';
- 	if ($daytime < .0006944) { $answer = int($daytime*86400) . " seconds ago";}
+ 	if ($daytime < .0000579) { $answer = int($daytime*86400) . " seconds ago";} # Last 5 seconds
 # 	elsif ($daytime < .04167) { $answer = int($daytime * 1440 ) . " minute(s) ago"; }
   elsif ($daytime < .04167) { $answer = "Recently";}
 	elsif ($daytime < 1) { $answer = int($daytime * 24 ) . " hour(s) ago";}
@@ -896,38 +881,11 @@ sub checkboxes {
 	else { return('Yes'); }
 }
 
-# sub checknull {  # Make something null return 0 else return the value
-# 	my ($value) = @_;
-# #	&LogOut(10,"CHECKNULLSUB: $value",$ErrorLog);
-# 	if ($value eq '' || $value eq 0) { return 0;}
-# #	else { return $value; }
-# 	else { return 1; }
-# }
-
 sub checknull {  # Make something null return 0 else return the value
 	my ($value) = @_;
 	if ($value eq '') { return 0;}
 	else { return $value;}
-
 }
-
-# Very important subroutine -- get rid of all the naughty
-# metacharacters from the file name. If there are, we
-# complain bitterly and die.
-# sub clean_filename {
-#    my ($name) = @_;
-# #   if ($name=~/^[\w\._-]+$/) {
-# 	if ($name =~ /^[A-Za-z0-9]+$/) {
-# 		my $clean_name = lc(substr($name,0,8));
-# 		&LogOut(200, "clean_filename: $clean_name",$LogFile);
-# 		return $clean_name;
-# 	} else {
-#       print "<STRONG>Naughty characters detected. Only ";
-#       print 'alphanumerics are allowed. A random game file name will be assigned to you.</STRONG>';
-#       &LogOut(0,'clean_filename: Attempt to use naughty characters in File Name $name',$ErrorLog);
-# 		return 0;
-#    }
-# }
 
 sub list_games {
 	my ($sql, $type) = @_;
@@ -941,7 +899,7 @@ sub list_games {
     while (my $row = $sth->fetchrow_hashref()) {
       $countgames++;
     	#($GameName, $GameFile, $GameStatus, $GameDescrip, $HostName, $NewsPaper) = ($row->{'GameName'}, $row->{'GameFile'}, $row->{'GameStatus'}, $row->{'GameDescrip'}, $row->{'HostName'}, $row->{'NewsPaper'});
-    	($GameName, $GameFile, $GameStatus, $GameDescrip, $HostName, $NewsPaper, $GameType, $HourlyTime, $AsAvailable) = ($row->{'GameName'}, $row->{'GameFile'}, $row->{'GameStatus'}, $row->{'GameDescrip'}, $row->{'HostName'}, $row->{'NewsPaper'}, $row->{'GameType'}, $row->{'HourlyTime'}, $row->{'AsAvailable'});
+    	($GameName, $GameFile, $GameStatus, $GameDescrip, $HostName, $NewsPaper, $GameType, $HourlyTime, $AsAvailable, $DayFreq, $HourFreq, $DailyTime, $Teams) = ($row->{'GameName'}, $row->{'GameFile'}, $row->{'GameStatus'}, $row->{'GameDescrip'}, $row->{'HostName'}, $row->{'NewsPaper'}, $row->{'GameType'}, $row->{'HourlyTime'}, $row->{'AsAvailable'}, $row->{'DayFreq'}, $row->{'HourFreq'}, $row->{'DailyTime'}, $row->{'Teams'});
       #if ($GameStatus == 6) { next; }  # Don't need to display games being created.
        
       if ($NewsPaper) { $rp = 'show_news'; } else { $rp = 'my_games'; } # The URL should only include news if there's news.
@@ -962,7 +920,7 @@ sub list_games {
 			print qq|<td>$HostName</td>\n|;
       # Print turn generation schedule
       print '<td>';
-      print &show_schedule( $GameType, $HourlyTime, $AsAvailable); 
+      print &show_schedule( $GameType, $HourlyTime, $AsAvailable, $DayFreq, $HourFreq, $DailyTime, 1); 
       print '</td>';
 			# Display Game Description
 			print qq|<td>$GameDescrip</td>\n|;
@@ -976,7 +934,7 @@ sub list_games {
 }
 
 sub rp_list_games {
-	my ($sql, $type) = @_;
+	my ($sql, $type, $rp_default) = @_;
 	my $db = &DB_Open($dsn);
 	my $countgames=0;
 	print qq|<u>$type</u>\n|;
@@ -987,8 +945,10 @@ sub rp_list_games {
  	    ($GameName, $GameFile, $GameStatus) = ($row->{'GameName'}, $row->{'GameFile'}, $row->{'GameStatus'});
  			print qq|<tr><td>|;
  			print  qq|<img src="$StatusBall{$GameStatus[$GameStatus]}" alt='$GameStatus[$GameStatus]' border="0"></a>|; 
-      if ($GameStatus == 7) { print qq|&nbsp&nbsp<a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=show_news&GameFile=$GameFile>$GameName</a>|;
-      } else { print qq|&nbsp&nbsp<a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=show_news&GameFile=$GameFile>$GameName</a>|; }
+#       if ($GameStatus == 7) { print qq|&nbsp&nbsp<a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=show_news&GameFile=$GameFile>$GameName</a>|;
+#       } else { print qq|&nbsp&nbsp<a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=show_news&GameFile=$GameFile>$GameName</a>|; }
+      my $rp = $row->{'NewsPaper'} ? 'show_news' : $rp_default;
+      print qq|&nbsp&nbsp<a href=$WWW_Scripts/page.pl?lp=game&cp=show_game&rp=$rp&GameFile=$GameFile>$GameName</a>|;           
  			print qq|</td></tr>\n|;
 		}
 		if (!($countgames)) { print "<tr><td>&nbsp&nbsp No Games Found</td></tr>"; }
@@ -1005,7 +965,7 @@ sub LoadGamesInProgress {
     while (my $row = $sth->fetchrow_hashref()) {  # Load all game values into the array
       my %GameValues = %{$row};
 #			while ( my ($key, $value) = each(%GameValues) ) { print "$key => $value\n"; }
-			@GameData[$GameCounter] = { %GameValues };
+			$GameData[$GameCounter] = { %GameValues };
 			$GameCounter++;
 		}
     $sth->finish();
@@ -1023,19 +983,21 @@ sub Make_CHK { # Updates the .chk file for a game
     my($CheckGame) = $WINE_executable . ' -v ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile\.hst";
 
     my $chkfile = "$Dir_Games/$GameFile/$GameFile" . '.chk';
-     # Wait if the .chk file is in use
-#     if (-e $CHK_FILE) {
-#       open my $chk_fh, '<', $CHK_FILE or &LogOut(400, "Make_CHK: Failed to open $CHK_FILE: $!", $LogFile);
-#       # Retry every 2 seconds if the .chk file is locked
-#       if (!flock($chk_fh, LOCK_EX | LOCK_NB)) {
-#         &LogOut(300, "Make_CHK: $CHK_FILE is in use, waiting 2 seconds...", $LogFile);
-#         sleep 1;
-#       }
-#       close $chk_fh;
-#     }
     sleep 2;
     &LogOut(200, "Make_CHK: Running for $GameFile, $CheckGame, $chkfile", $LogFile);  
     my $exit_status = &call_system($CheckGame,0); # Make_CHK
+
+     # Wait if the .chk file is in use
+    # BUG: AI Suggested replacement code
+#     my $lockfile = "$Dir_Games/$GameFile/$GameFile.chk.lock";
+#     open(my $lock_fh, '>', $lockfile) or &LogOut(400, "Make_CHK: Failed to open lockfile: $!", $LogFile);
+#     flock($lock_fh, LOCK_EX) or &LogOut(400, "Make_CHK: Failed to lock lockfile: $!", $LogFile);
+#     &LogOut(200, "Make_CHK: Running for $GameFile, $CheckGame, $chkfile", $LogFile);  
+#     my $exit_status = &call_system($CheckGame,0); # Make_CHK
+#     flock($lock_fh, LOCK_UN);
+#     close $lock_fh;
+#     unlink $lockfile;
+
     if (-f $chkfile) {
       umask 0002; 
       chmod 0660, $chkfile; 
@@ -1082,7 +1044,7 @@ sub Valid_CHK {
   chomp (@CHK = <IN_CHK>);
  	close(IN_CHK);
   # Does the 3rd line include "Year:"
-  if ($CHK[2] =~ /^\d{2}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2} - ".*?" Year:/) { $error .= "Missing Year: from CHK file\n"; }
+  unless ($CHK[2] =~ /^\d{2}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2} - ".*?" Year:/) { $error .= "Missing Year: from CHK file\n"; }
   # Do any lines include "ERROR"
   foreach my $line (@CHK) { if ($line =~ /\bERROR\b/) {  $error .= "ERROR in .chk file\n"; } }
   if ($error) {
@@ -1116,7 +1078,7 @@ sub Eval_CHK {
 sub Eval_CHKLine { 
 # Evaluate one of the lines from a .chk file
 	my ($ChkResult) = @_;
-	my $ChkStatus, $ChkName, $ChkId = '';
+	my ($ChkStatus, $ChkName, $ChkId) = '';
 	# Possible results: turned in, still out, not in the right game, dead, not on the right year, error, hack (hacked race)
 	foreach $key (keys(%TurnResult)) {  # This should be declared locally
 		if (index($ChkResult, $key) >= 0 ) { $ChkStatus = $TurnResult{$key}; } # If the string includes the index value from %TurnResult
@@ -1125,7 +1087,7 @@ sub Eval_CHKLine {
 	$ChkName =~ s/(.*: )(\")(.*)(\")(.*)/$3/;
   $ChkId = $ChkResult;
   $ChkId =~ s/^(.*\s-\s)(\d+):.*/$2/; 
-  &LogOut(0,"Eval_CHKLine:  $ChkStatus, $ChkName, $ChkId, $ChkResult",$LogFile);
+  &LogOut(0,"Eval_CHKLine: $ChkStatus, $ChkName, $ChkId, $ChkResult",$LogFile);
 	if ($ChkStatus) { return $ChkStatus, $ChkName, $ChkId; }
 	else { 
     &LogOut(0,"Eval_CHKLine: Fail for no \$ChkResult in TurnResult array, $ChkResult",$ErrorLog);
@@ -1135,9 +1097,6 @@ sub Eval_CHKLine {
 
 sub UpdateNextTurn { #Update the database for the time that the next turn should generate.
 	my($db,$NextTurn, $GameFile, $LastTurn) = @_;
-  # Fix Next Turn for DST
-  # 221110 Time is already fixed for DST earlier, so don't fix it again!
-	#$NextTurn = &FixNextTurnDST($NextTurn, $LastTurn, 0); 
 	my $upd = "UpdateNextTurn for $GameFile updated to $NextTurn: " . localtime($NextTurn);
 	&LogOut(50,$upd,$LogFile);
 	$sql = qq|UPDATE Games SET NextTurn = $NextTurn WHERE GameFile = ?;|;
@@ -1160,36 +1119,6 @@ sub UpdateLastTurn {
   } 
 	else { return 0; }
 }
-
-# sub FixNextTurnDST {
-# 	# Check to see if the next turn is in a different time zone than the last one, 
-# 	# and adjust the value by one hour if necessary
-# 	# Display determines whether you're trying to display information that's already been 
-# 	# changed so it needs to be adjusted in the other direction.
-# 	# 
-# 	my ($NextTurn, $LastTurn, $Display) = @_;
-# 	my $NextTurnDST, $LastTurnDST; 
-# 	my ($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $IsDST); 
-# 	($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $LastTurnDST) = localtime($LastTurn); 
-# 	($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $NextTurnDST) = localtime($NextTurn); 
-# 
-# 	if ($Display) {
-# 		# If displaying the next turn time
-# 		if ($LastTurnDST == $NextTurnDST) { return $NextTurn; }
-# 		elsif ($LastTurnDST > $NextTurnDST) { return $NextTurn + 3600; }
-# 		elsif ($LastTurnDST < $NextTurnDST) { return $NextTurn - 3600; }
-# 		# If something went wrong, do nothing and just return what it was previously.
-# 		else { &LogOut(0, "FixNextTurnDST(1): Check_DST FAILED $Display", $ErrorLog); return $NextTurn; }
-# 
-# 	} else {
-# 		# If actually adjusting the next turn time
-# 		if ($LastTurnDST == $NextTurnDST) { return $NextTurn; }
-# 		elsif ($LastTurnDST < $NextTurnDST) { return $NextTurn + 3600; }
-# 		elsif ($LastTurnDST > $NextTurnDST) { return $NextTurn - 3600; }
-# 		# If something went wrong, do nothing and just return what it was previously.
-# 		else { &LogOut(0, "FixNextTurnDST(2): Check_DST FAILED $Display", $ErrorLog); return $NextTurn; }
-# 	}
-# }
 
 sub FixNextTurnDST {
     # Adjusts the next turn time if DST changes between turns
@@ -1236,12 +1165,23 @@ sub FixNextTurnDST {
     return $NextTurn;
 }
 
-
 sub GenerateTurn { # Generate a turn and refresh files
 	use File::Copy;
 	my($NumberofTurns, $GameFile) = @_;
 	# Backup the existing Turn
 	if ($turn = &Game_Backup($GameFile)) { &LogOut(200,"GenerateTurn: Gamefile $GameFile Backed up for Turn: $turn",$LogFile); }
+  
+  # Delete any .merged files before generating new turn (but after they're backed up)
+  my $game_dir = $Dir_Games . '/' . $GameFile;
+  opendir(my $dh, $game_dir) or &LogOut(0, "GenerateTurn: Can't opendir $game_dir: $!", $ErrorLog);
+  while (my $file = readdir($dh)) {
+    if ($file =~ /\.merged$/ && -f "$game_dir/$file") {
+      unlink("$game_dir/$file") or &LogOut(0, "GenerateTurn: Failed to delete $game_dir/$file: $!", $ErrorLog);
+      &LogOut(100, "GenerateTurn: Deleted $game_dir/$file", $LogFile);
+    }
+  }
+  closedir($dh);
+  
 	# Generate the actual Stars! turns
 	# There is a Stars! bug when you generate this way from the command line with / the .x[n] file isn't deleted.
 	# So you have to use \ (eg d:\th\games instead of d:/th/games)
@@ -1279,6 +1219,57 @@ sub Game_Backup {  # Backup the current game folder
 	closedir(DIR);
 	return $turn;
 }
+
+# Merged team files
+sub Generate_Merged {
+  my ($GameFile) = @_;
+  use File::Copy;
+  my $game_dir = $Dir_Games . '/' . $GameFile;
+  my $db = &DB_Open($dsn);
+
+  # Get all players with a team assignment
+  my $sql = qq|SELECT PlayerID, Team FROM GameUsers WHERE GameFile = ? AND Team > 0 ORDER BY Team, PlayerID;|;
+  my %teams;
+  if (my $sth = &DB_Call($db, $sql, $GameFile)) {
+    while (my $row = $sth->fetchrow_hashref()) {
+      push @{$teams{$row->{'Team'}}}, $row->{'PlayerID'};
+    }
+    $sth->finish();
+  } else {
+    &LogOut(0, "Generate_Merged: Failed to query GameUsers for $GameFile", $ErrorLog);
+    &DB_Close($db);
+    return;
+  }
+  &DB_Close($db);
+
+  foreach my $team (keys %teams) {
+    my @players = @{$teams{$team}};
+    next unless scalar(@players) > 1;  # Nothing to merge for a solo team
+
+    foreach my $target (@players) {
+      my $target_m   = $game_dir . '/' . $GameFile . '.m' . $target;
+      my $merged_file = $target_m . '.merged';
+      my @others = grep { $_ != $target } @players;
+
+      # First merge: target.m + first_other.m -> merged_file
+      my $other_m  = $game_dir . '/' . $GameFile . '.m' . $others[0];
+      my $cmd = "perl $Dir_Scripts/StarsMerge.pl $target_m $other_m $merged_file";
+      my $exit_code = &call_system($cmd, 2);
+      &LogOut(100, "Generate_Merged: $cmd (exit: $exit_code)", $LogFile);
+
+      # Subsequent merges build on the previous merged result
+      for my $i (1..$#others) {
+        $other_m = $game_dir . '/' . $GameFile . '.m' . $others[$i];
+        $cmd = "perl $Dir_Scripts/StarsMerge.pl $merged_file $other_m $merged_file";
+        $exit_code = &call_system($cmd, 2);
+        &LogOut(100, "Generate_Merged: $cmd (exit: $exit_code)", $LogFile);
+      }
+    }
+  }
+}
+
+
+
 
 sub File_Date {
 	($file) = @_;
@@ -1397,7 +1388,7 @@ sub LoadHolidays { #Load the Holiday Values from the Database
       %HolidayValues = %{$row};
 #			(@Holiday[$HolidayCounter], @Holiday_txt[$HolidayCounter], @Nationality[$HolidayCounter]) = $db->Data("Holiday", "Holiday_txt", "Nationality");
 #			while ( my ($key, $value) = each(%GameValues) ) { print "$key => $value\n"; }
-		  @Holiday[$HolidayCounter] = { %HolidayValues };
+		  $Holiday[$HolidayCounter] = { %HolidayValues };
 		  $HolidayCounter++;
 		}
     $sth->finish();
@@ -1448,7 +1439,7 @@ sub show_race_block {
 sub process_fix {
 	# When the Fix scripts run (detecting errors) they need to log somewhere. 
   # And then be available on the display.
-  # The warning/fix file is stored as .warnings in the folder for the game
+  # The warning file is stored as .warnings in the folder for the game
 	## The format for each entry is id<tab>epochtime<tab>year<tab>result
 	## and stored in chronologic order, newest first
   # Called from upload.pl
@@ -1465,7 +1456,7 @@ sub process_fix {
     chmod 0660, $warningfile;
 	}
 
-	# Read in the old fixes
+	# Read in the old warnings
 	open (IN_FILE, $warningfile) || &LogOut (0,"process_fix: Failed to read $warningfile for $GameFile", $ErrorLog);
 	@fixes = <IN_FILE>;
 	close(IN_FILE);
@@ -1505,24 +1496,22 @@ sub process_game_status {
     if ($GameValues{'HostName'} eq $userlogin || $userlogin eq $user_admin) { # If only the host (or admin) can update the game
       $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$HostName\';|;
     } elsif ($GameValues{'GamePause'} ) {       # If players are allowed to pause the game
-#      $sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile) SET Games.GameStatus = 4 WHERE Games.GameFile = \'$in{'GameFile'}\' AND GameUsers.User_Login=\'$userlogin\' AND Games.GamePause=1;|;
-      #$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) SET Games.GameStatus = 4 WHERE Games.GameFile = \'$GameFile\' AND GameUsers.User_Login=\'$userlogin\' AND Games.GamePause=1;|;
       $sql = qq|UPDATE Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile SET Games.GameStatus = 4 WHERE (GameUsers.User_Login=\'$userlogin\' AND Games.GameFile=\'$GameFile\' AND Games.GamePause=1) OR (Games.GameFile=\'$GameFile\') AND (Games.HostName=\'$userlogin\');|;
     }
     $GameValues{'GameStatus'} = 4; # When used later
     $state_set = 1;
-  } elsif ($state eq 'UnPause') { #BUG: Should anyone be able to unpause a game? 
+  } elsif ($state eq 'UnPause') { 
     # Try to figure out when the next turn is due and update the date so it doesn't just start generating
 		($Second, $Minute, $Hour, $DayofMonth, $Month, $Year, $WeekDay, $WeekofMonth, $DayofYear, $IsDST, $CurrentDateSecs) = &GetTime; 
 		if ($GameValues{'GameType'} == 1 ) { # Daily game    
-			# Determine when the next possible time is that turns are due
-			($DaysToAdd1, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'},$WeekDay);
-			# now advance one interval from that, so you have a full interval
-			($DaysToAdd2, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'},$NextDayOfWeek);
-			# Set the time for the next turn on the right day
-			$NewTurn = $CurrentDateSecs + $DaysToAdd1*86400 + $DaysToAdd2*86400 +($GameValues{'DailyTime'} *60*60); 
-      #if (!$isDST) { $NewTurn = $NewTurn + (60*60); }
-      # 221110 Fixing for DST
+      # Pass DailyTime and SecOfDay so DaysToAdd returns 0 when today's slot hasn't passed yet
+      my $SecOfDay = ($Minute * 60) + ($Hour * 60 * 60) + $Second;
+      # First call: find today or the next valid day, accounting for whether today's time has passed
+      ($DaysToAdd1, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'}, $WeekDay, $GameValues{'DailyTime'}, $SecOfDay);
+      # Second call: advance one full interval from there (no time args - always move forward)
+      ($DaysToAdd2, $NextDayOfWeek) = &DaysToAdd($GameValues{'DayFreq'}, $NextDayOfWeek);
+      $NewTurn = $CurrentDateSecs + $DaysToAdd1*86400 + $DaysToAdd2*86400 + ($GameValues{'DailyTime'} *60*60);
+      
       $NewTurn = &FixNextTurnDST($NewTurn, time(), 0);
       $GameValues{'GameStatus'} = 2; # So the value is changed if used later before a query.
 			#$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
@@ -1531,22 +1520,19 @@ sub process_game_status {
 			# Determine when the next possible time is that turns are due
       # Generate the next turn now + number of hours (sliding)
       $NewTurn = time() + ($GameValues{'HourlyTime'} *60 *60); 
-      #221110 Fixing for DST
       $NewTurn = &FixNextTurnDST($NewTurn, time(), 0);
       # Make sure we're generating on a valid day
       while (&ValidTurnTime($NewTurn,'Day',$GameValues{'DayFreq'}, $GameValues{'HourFreq'}) ne 'True') { $NewTurn = $NewTurn + ($GameValues{'HourlyTime'} *60*60); }
       # Make sure we're generating on a valid hour
       while (&ValidTurnTime($NewTurn,'Hour',$GameValues{'DayFreq'}, $GameValues{'HourFreq'}) ne 'True') { $NewTurn = $NewTurn + 3600; } 
-			#$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
 			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$HostName\';|;
 		} else {
       # There really is no time the next turn will be due. Add a day so there's a buffer.
       my $epoch_now = time();
       # Convert epoch time to a DateTime object in the desired time zone
-      my $dt = DateTime->from_epoch(epoch => $epoch_now, time_zone => 'America/New_York');      
+      my $dt = DateTime->from_epoch(epoch => $epoch_now, time_zone => $timezone);      
       $dt->add(days => 1); # Add one day, taking DST into account
       $NewTurn = $dt->epoch();  # Convert back to epoch time
-			#$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
 			$sql = qq|UPDATE Games SET GameStatus = 2, NextTurn = $NewTurn WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$HostName\';|;
     }
     $GameValues{'GameStatus'} = 2; # When used later
@@ -1554,24 +1540,20 @@ sub process_game_status {
     &Make_CHK($GameValues{'GameFile'}); # Rebuild the .chk file in case there's a problem, Unpause
     &updateList($GameValues{'GameFile'}, 1); # Rebuild the List files in case there's a problem, Unpause
   } elsif ($state eq 'Locked') {
-   	#$sql = qq|UPDATE Games SET GameStatus = 0 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
    	$sql = qq|UPDATE Games SET GameStatus = 0 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$HostName\';|;
     $GameValues{'GameStatus'} = 0; # When used later
     $state_set = 1;
     &LogOut(200,$sql,$LogFile);
   } elsif ($state eq 'Unlocked') {
-    #$sql = qq|UPDATE Games SET GameStatus = 7 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
     $sql = qq|UPDATE Games SET GameStatus = 7 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$HostName\';|;
     $GameValues{'GameStatus'} = 7; # When used later
     $state_set = 1;
   } elsif ($state eq 'Launched') {
-    #$sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
     $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$HostName\';|;
     $GameValues{'GameStatus'} = 4; # When used later
     $state_set = 1;
     &Make_CHK($GameValues{'GameFile'}); # Rebuild the .chk file in case there's a problem. Launched
   } elsif ($state eq 'Ended') {
-    #$sql = qq|UPDATE Games SET GameStatus = 9 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\';|;
     $sql = qq|UPDATE Games SET GameStatus = 9 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$HostName\';|;
     $GameValues{'GameStatus'} = 9; # When used later
     $state_set = 1;
@@ -1579,8 +1561,21 @@ sub process_game_status {
 	  if (my $turn = &Game_Backup($GameValues{'GameFile'})) { &LogOut(200,"Ended: Gamefile $GameValues{'GameFile'} Backed up for Turn: $turn",$LogFile); }
     # create the graph of the game score
     &graph_score($GameValues{'GameFile'});
+    # Purge all the old Block files: .fleet, .queue, .waypoint, .design, .last, .yr
+    use File::Find;
+    my $base_path = $Dir_Games . '/' . $GameFile . '/' . $GameFile;
+    find(sub {
+        return if $File::Find::dir eq $base_path;  # Skip root directory
+        return unless -f;  # Only process files
+        if (/\.(fleet|queue|waypoint|design|last|yr)$/) {
+            if (unlink $_) {
+                &LogOut(200, "Deleted file: $File::Find::name", $LogFile);
+            } else {
+                &LogOut(200, "Could not delete $File::Find::name: $!", $ErrorLog);
+            }
+        }
+    }, $base_path);    
   } elsif ($state eq 'Restart') {
-    #$sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$userlogin\' AND GameStatus = 9;|;
     $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$HostName\' AND GameStatus = 9;|;
     $GameValues{'GameStatus'} = 4; # When used later
     $state_set = 1;
@@ -1593,9 +1588,7 @@ sub process_game_status {
     $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND (GameStatus = 2 OR GameStatus = 3);|;
     $GameValues{'GameStatus'} = 4; # When used later
     $state_set = 1;
-  } else {
-		&LogOut(100,"process_game_status: for $GameFile failed: $state", $ErrorLog);
-  }
+  } else {	&LogOut(100,"process_game_status: for $GameFile failed: $state", $ErrorLog); }
   
   if ($state_set) {
   	if (my $sth = &DB_Call($db,$sql)) { 
@@ -1632,8 +1625,7 @@ sub process_game_status {
   }
 }
 
-# A sub function to wrap up the head call, since it's 
-# duplicated in LWP::Simple and GGI
+# A sub function to wrap up the head call, since it's duplicated in LWP::Simple and GGI 
 sub lwp_head {
   require LWP::Simple;
   return LWP::Simple::head(@_);
@@ -1642,17 +1634,11 @@ sub lwp_head {
 # Check if the Internet is up
 sub check_internet {
   # Net::Ping requires root privs
-  #my $p = Net::Ping->new("icmp");
-  #return $p->ping("$internet_site");  # Check against a reliable host
   require LWP::Simple;
   my $url = "https://$internet_site";
-  if (lwp_head($url)) {
-    return 1;
-  } else {
-    return 0;
-  }
+  if (lwp_head($url)) { return 1; } 
+  else { return 0; }
 }
-
 
 # Get the number of consecutive Internet "down" records
 sub get_internet_down_count {
@@ -1660,11 +1646,8 @@ sub get_internet_down_count {
   open (OUTFILE, "<$internet_status_log") or return 0;  # Return 0 if file doesn't exist
   while (my $line = <OUTFILE>) {
       chomp($line);
-      if ($line =~ /Internet is down/) {
-          $count++;
-      } else {
-          $count = 0;  # Reset if we find an "up" status
-      }
+      if ($line =~ /Internet is down/) {  $count++; } 
+      else {  $count = 0;  } # Reset if we find an "up" status
   }
   close OUTFILE;
   return $count;
@@ -1684,7 +1667,6 @@ sub internet_log_status {
 
 # Clear the log file (used when Internet comes back up)
 sub clear_internet_log {
-  #open (OUTFILE, ">$internet_status_log") or do { print "Could not open $internet_status_log\n"; &LogOut(0,"Could not open $internet_status_log",$ErrorLog); die; }
   open (OUTFILE, ">$internet_status_log") or print "Could not open $internet_status_log: $!\n";
   close OUTFILE;
   umask 0002; 
@@ -1711,7 +1693,6 @@ sub call_system {
 
   #system($CheckGame);
   my $exit_status = system($call);
-  # print "Command failed with exit status: $exit_status\n";
   &LogOut(0, "call_system: Ending call $rand: $call, Delay: $delay, Exit Status: $exit_status", $LogFile); 
 	sleep $delay;
   return $exit_status;
@@ -1734,7 +1715,6 @@ sub graph_score {
   my @AllDirs; # The list of all directories
   my $dirname; # individual directory name
 
-  #########################################        
   # Name of the Game (the prefix for the .xy file)
   my $sourcedir = "$Dir_Games/$GameFile";
   unless (-d $sourcedir) { 
@@ -1765,7 +1745,6 @@ sub graph_score {
     unless ($dirname =~ /[0-9][0-9][0-9][0-9]/) {  next; }  # Skip if not a year folder
     my $isdir = "$sourcedir/$dirname";
     unless (-d $isdir) { next; } # Skip if the directory is a file
-    # print "Year: $dirname\n";
     push @turns, $dirname;
     opendir (DIR, "$sourcedir/$dirname") or die "can\'t open directory $sourcedir/$dirname\n";
     while (defined($filename = readdir (DIR))) {
@@ -1788,9 +1767,8 @@ sub graph_score {
       if ($filename =~ /^(\w+[\w.-]+\.[Mm]\d{1,2})$/) { 
         $lastturn = $dirname;
         my $MFile = "$sourcedir/$dirname/$filename";
-        my ($singularRaceNames, $score, $turn, $player) = &getScores($MFile);
+        my ($singularRaceNames, $score, $player) = &getScores($MFile);
         if ($dirname eq '2400') { $score = 0; }
-        #print "\tPlayer: $player\tScore: $score\tFile: $MFile \n";
         $score{$player}{$turn} = $score;
         if ($score > $highscore) { $highscore = $score; }
       }
@@ -1801,7 +1779,6 @@ sub graph_score {
   # Determine the race names 
   # Race names must be the Singular
   #@numbers = (1.. scalar @singularRaceNames);
-
   push @data, \@turns; # put turns into data array
 
   foreach my $playerId (sort keys %score) {
@@ -1810,7 +1787,6 @@ sub graph_score {
     foreach my $turn (sort {$score{$playerId}{$a} <=> $score{$playerId}{$b}} keys %{ $score{$playerId} }) {
       push @pscore,$score{$playerId}{$turn};
     }
-    # print "score: @pscore\n";
     push @data, \@pscore; # adds each player score array to the data array
   }
   my $graph = new GD::Graph::lines( );
@@ -1848,7 +1824,6 @@ sub print_legend {
   # hash: the array of status balls
   
   # Start the legend table
-#  print qq|<table border="0" cellspacing="0" cellpadding="0" style="border: 1px solid black;">\n|;
   print qq|<table border="0" cellspacing="5" cellpadding="0" style=\"text-align: left; font-size: smaller;\">\n|;
   print qq|<tr><th>Legend:</th></tr>\n|;
   
@@ -1864,7 +1839,6 @@ sub print_legend {
 	}
   
   #Add the _Player Status values to the legend
-  # BUG: I only want these for TurnBall 
   if ($player_status) {
   print qq|<td><i>TH Idle</i></td>|; 
   $c++; if ($c/$num_columns == int($c/$num_columns)) { print qq|</tr>\n<tr>|; }
@@ -1877,21 +1851,103 @@ sub print_legend {
   print qq|</table>\n|;
 }
 
+# sub show_schedule {
+#   my ($GameType, $HourlyTime, $AsAvailable) = @_;
+#   my $schedule;
+#   if ($GameType == 4) { $schedule = "Only when all turns are in"; } 
+#  	elsif ($GameType == 3) { $schedule = "Manual"; }
+#   elsif ($GameType == 1) { $schedule = "Daily"; }
+#  	elsif ($GameType == 2) { 
+#     if ($HourlyTime >=1) {
+#  		  $schedule = "Every $HourlyTime hours"; 
+#     } elsif ($HourlyTime < 1) {
+#       my $minutes = int(($HourlyTime * 60) + .5);
+#       $schedule = "Every $minutes minutes";
+#     }
+#   }
+#   if ($AsAvailable) { $schedule .= " or all turns"; }
+# 	$schedule .= "\n";
+#   return $schedule // 'No schedule available'; #first use of or if undefined
+# }
+
 sub show_schedule {
-  my ($GameType, $HourlyTime, $AsAvailable) = @_;
-  my $schedule;
-  if ($GameType == 3) { $schedule = "Only when all turns are in"; } 
- 	elsif ($GameType == 4) { $schedule = "Manual"; }
-  elsif ($GameType == 1) { $schedule = "Daily"; }
- 	elsif ($GameType == 2) { 
-    if ($HourlyTime >=1) {
- 		  $schedule = "Every $HourlyTime hours"; 
+  my ($GameType, $HourlyTime, $AsAvailable, $DayFreq, $HourFreq, $DailyTime, $brief) = @_;
+  my $output = '';
+  if ($GameType == 3) { $output .= "Turns generated as required (manually).\n"; }
+#  elsif ($GameType == 4) { $output .= "Turns generate only when all turns are in.\n"; }
+  elsif ($GameType == 2) {
+    if ($HourlyTime >= 1) {
+      $output .= " Turns generate every $HourlyTime hours";
     } elsif ($HourlyTime < 1) {
       my $minutes = int(($HourlyTime * 60) + .5);
-      $schedule = "Every $minutes minutes";
+      $output .= " Turns generate every $minutes minutes";
     }
-  }
-  if ($AsAvailable) { $schedule .= " or all turns"; }
-	$schedule .= "\n";
-  return $schedule // 'No schedule available'; #first use of or if undefined
+    if ($AsAvailable) { $output .= " or when all turns are in"; }
+    $output .= ".\n";
+    unless ($brief) {
+      if ($DayFreq) {
+        $output .= "<table border=1><tr>\n";
+        for (my $i=0; $i < 7; $i++) { $output .= "<th>$WeekDays[$i]</th>\n"; }
+        $output .= "</tr><tr>\n";
+        for (my $i=0; $i < 7; $i++) {
+          my $day = substr($DayFreq, $i, 1);
+          if ($day) { $output .= "<td align=center>Yes</td>\n"; }
+          else { $output .= "<td align=center>No</td>\n"; }
+        }
+        $output .= "</tr></table>\n";
+      }
+      if ($HourFreq) {
+        $output .= "Hours turns can Generate:\n";
+        $output .= "<table border=1><tr>\n";
+        for (my $i=0; $i <= 23; $i++) {
+          if ($i/12 == int($i/12)) { $output .= "</tr><tr>\n"; }
+          my $hour = substr($HourFreq, $i, 1);
+          if ($hour) { $output .= "<td align=center>$i:00</td>\n"; }
+          else { $output .= "<td align=center><strike>$i:00</strike></td>\n"; }
+        }
+        $output .= "</tr></table>\n";
+      }
+    }
+  } elsif ($GameType == 1) {
+    $output .= " Turns generate daily";
+    if ($AsAvailable) { $output .= " or when all turns are in"; }
+    $output .= ".\n";
+    unless ($brief) {
+      $output .= "<table border=1><tr>\n";
+      for (my $i=0; $i < 7; $i++) { $output .= "<th>$WeekDays[$i]</th>\n"; }
+      $output .= "</tr><tr>\n";
+      for (my $i=0; $i < 7; $i++) {
+        my $day = substr($DayFreq, $i, 1);
+        my $gen_time = &fixdate($DailyTime) . ':00';
+        if ($day) { $output .= "<td align=center>$gen_time</td>\n"; }
+        else { $output .= "<td align=center>-</td>\n"; }
+      }
+    $output .= "</tr></table>\n";
+    }
+  } else { $output .= "Unknown game type.\n"; }
+  return $output;
+}
+
+sub player_status_label {
+  my ($PlayerStatus, $CHK_Status, $PlayerID, $CHKLine) = @_;
+  if    ($PlayerStatus == 4)  { print ' (Idle)'; }
+  elsif ($PlayerStatus == 3)  { print ' (Banned)'; }
+  elsif ($PlayerStatus == 2)  { print ' (Inactive-Housekeeping AI)'; }
+  elsif ($PlayerID eq '')     { print ' (Computer AI)'; }
+  if ($CHK_Status eq 'Deceased') { print ' -Deceased'; }
+  if ($CHKLine && $CHKLine =~ /HACKER/) { print '<span style="color: red;"> (HACKED FILE) </span>'; }
+}
+
+sub has_merged {
+  # Folder has .merged files, which are used in team games. 
+    my ($dir) = @_;
+    opendir(my $dh, $dir) or die "Cannot open directory $dir: $!";
+    while (my $file = readdir($dh)) {
+        if ($file =~ /\.merged$/ && -f "$dir/$file") {
+            closedir($dh);
+            return 1;
+        }
+    }
+    closedir($dh);
+    return 0;
 }

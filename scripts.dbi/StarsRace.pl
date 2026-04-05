@@ -58,7 +58,7 @@ if (!($filename)) {
   print "\n\nUsage: StarsRace.pl <input file>\n\n";
   print "Please enter the input file (.r|.m|.hst). Example: \n";
   print "  StarsRace.pl c:\\games\\test.r1\n\n";
-  print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
+  print "As always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
 }
 # Validate that the file exists
@@ -68,6 +68,7 @@ my ($basefile, $dir, $ext);
 # for c:\stars\mygamename.m1
 $basefile = basename($filename);    # mygamename.m1
 $dir  = dirname($filename);         # c:\stars
+$dir =~ s/\\/\//g;  # normalize to forward slashes
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
 
 # There is not race information in these files
@@ -113,7 +114,7 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
   my ( $seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
@@ -130,7 +131,7 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
 
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -171,7 +172,7 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         my ($playerRelations, $playerRelationsLength);
         my ($singularNameLength, $singularMessageEnd, $pluralNameLength, $singularRaceName, $pluralRaceName);
         my $homeWorld; 
-        my $rank;
+        my $score;
         my ($centreGravity, $centreTemperature, $centreRadiation); 
         my ($lowGravity, $lowTemperature, $lowRadiation);
         my ($highGravity, $highTemperature, $highRadiation);
@@ -185,15 +186,15 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         my ($researchEnergy, $researchWeapons, $researchProp, $researchConstruction, $researchElectronics, $researchBiotech);
         my ($PRT, $LRT); 
         my $checkBoxes; 
-        my ($expensiveTechStartsAt3, $factoriesCost1LessGerm);
+        my ($randomRace, $expensiveTechStartsAt3, $factoriesCost1LessGerm);
+        my ($fDead, $fCrippled, $fCheater, $fLearned, $fHacker);
+        my ($fNoResearch, $cpq); 
         my $MTItems;
         my @MTItems=();
         
         $leftoverPoints =  &advantagePointsLeft(\@decryptedData);
         $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
         $shipDesigns = $decryptedData[1] & 0xFF; # Always 0 in race file, // for players other than the current player this is based on the number
-        #$planets = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 0x03) << 8); # Always 0 in race file
-        #$fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x03) << 8); # Always 0 in race file
         $planets = &read16(\@decryptedData, 2);
         $fleets = ($decryptedData[4] & 0xFF) + (($decryptedData[5] & 0x0F) << 8);
         $starbaseDesigns = (($decryptedData[5] & 0xF0) >> 4); # Always 0 in race file
@@ -239,10 +240,7 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
         
         if ($fullDataFlag) { 
           $homeWorld = &read16(\@decryptedData, 8); # no homeworld in race file
-          # BUG: the references say this is two bytes, but I don't think it is.
-          # That means I don't know what byte 11 is tho. 
-          # Maybe in universes with more planets?
-          $rank = &read16(\@decryptedData, 10); # Always 0 in race file. Not in game file.
+          $score = &read16(\@decryptedData, 10); # Always 0 in race file. Not in game file.
           # Bytes 12..15 are the password;
           # The password inverts when the player is set to Human(inactive) mode (the bits are flipped).
           # The ai password "viewai" is 238 171 77 9
@@ -289,19 +287,36 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
           $researchElectronics   = $decryptedData[74]; # (0:+75%, 1: 0%, 2:-50%)
           $researchBiotech       = $decryptedData[75]; # (0:+75%, 1: 0%, 2:-50%)
           $PRT = $decryptedData[76]; # HE SS WM CA IS SD PP IT AR JOAT  
-          #$decryptedData[77]; unknown , always 0?  #Bug: 2nd half of PRT?
+          # $decryptedData[77]; # unused.
           $LRT =  $decryptedData[78]  + ($decryptedData[79] * 0x100); 
+          #   $decryptedData[80]; unused.
           $checkBoxes = $decryptedData[81]; 
-          # Unknown bit 5
           $expensiveTechStartsAt3 = &bitTest($checkBoxes, 5);
-          # Unknown bit 6
+          $randomRace = &bitTest($checkBoxes, 6); # ibitRaceRandom
           $factoriesCost1LessGerm = &bitTest($checkBoxes, 7);
           $MTItems =  $decryptedData[82] + ($decryptedData[83] * 0x100); #Always 0 in race file
-          #$decryptedData[82-109]; unknown, but in pairs
+          my $wFlags = $decryptedData[84] + ($decryptedData[85] * 0x100);
+          $fDead = &bitTest($wFlags, 0);
+          $fCrippled = &bitTest($wFlags, 1);
+          $fCheater = &bitTest($wFlags, 2);
+          $fLearned = &bitTest($wFlags, 3);
+          $fHacker = &bitTest($wFlags, 4);
+          $fNoResearch = $decryptedData[86]; # Player has no reaserch set
+          $cpq         = $decryptedData[87];  # number of items in queue
+         #$decryptedData[88-111]; production queue
+          my @queueTypes = ('Mines(Auto)', 'Factories(Auto)', 'Defenses(Auto)', 'Alchemy(Auto)',
+                  'MinTerra', 'MaxTerra', 'Packet', 'Factory', 'Mines', 'Defenses', 'DefensesUpg', 'Alchemy',
+                  'Terraform', 'Genesis', 'Packet250', 'Packet500', 'Packet750', 'Packet1000', 'Scanner');
+          my @productionQueue;
+          for (my $i = 0; $i < 12; $i++) {
+            my $word  = $decryptedData[88 + ($i*2)] + ($decryptedData[89 + ($i*2)] * 0x100);
+            my $mdIdle = $word & 0x3F;         # bits 0-5
+            my $cQuan  = ($word >> 6) & 0x3FF; # bits 6-15
+            push @productionQueue, { type => $queueTypes[$mdIdle] // $mdIdle, qty => $cQuan };
+          }
           # Interestingly, if the player relations have never been set, the
           # player relations length will be 0, with no bytes after it
-          # for the player relations values
-          # so the result here CAN be 0.
+          # for the player relations values so the result here CAN be 0.
           my $playerRelationsLength = $decryptedData[112]; #Always 0 in race file
           
           @MTItems = &showMTItems($MTItems);
@@ -312,32 +327,40 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
             print "Fleets:$fleets\n";
             print "Starbase Designs:$starbaseDesigns\n";
             print "Homeworld:$homeWorld\n";
-            print "Player Rank:$rank\n";
+            print "Player Score:$score\n";
           }
           print "Logo:$logo\n";
+          print "Race Name:$singularRaceName:$pluralRaceName\n"; 
+          if ($decryptedData[12] || $decryptedData[13] || $decryptedData[14] || $decryptedData[15]) { print "Password set\n" } else { print "Password not set\n"; }
           print "fullDataFlag:$fullDataFlag\n";
-          print "Name:$singularRaceName:$pluralRaceName\n"; 
-          print "AI Enabled:$aiEnabled\n"; 
+         print "AI Enabled:$aiEnabled\n"; 
           if ($aiEnabled) {
             print "AI Skill:$aiSkill[$aiSkill]\n"; # 2 bits starting at bit 2
             print "AI:$aiRace[$aiRace]\n"; # 3 bits starting at position 5
           }
-          print "RAW: GRAV:$lowGravity,$centreGravity,$highGravity  TEMP:$lowTemperature,$centreTemperature,$highTemperature RAD:$lowRadiation,$centreRadiation,$highRadiation\n";
-          print 'Grav:' . &showHabRange($lowGravity,$centreGravity,$highGravity,0) . ', Temp:' . &showHabRange($lowTemperature,$centreTemperature,$highTemperature,1) . ', Rad:' . &showHabRange($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
-          print "Tech Level: $energyLevel, $weaponsLevel, $propulsionLevel, $constructionLevel, $electronicsLevel, $biotechLevel\n";    
-          print "Tech Points:$energyLevelPointsSincePrevLevel, $weaponsLevelPointsSincePrevLevel, $propulsionLevelPointsSincePrevLevel, $constructionLevelPointsSincePrevLevel, $electronicsLevelPointsSincePrevLevel, $biologyLevelPointsSincePrevLevel \n";
+          print "Leftover Points:$leftoverPoints\n";
+          print 'Spent Leftover Points:' . &showLeftoverPoints($spendLeftoverPoints) . "\n";
           print "Research Percentage:$researchPercentage\n";
           print "Research Priority:" . &showResearchPriority($currentResourcePriority) . "\n";
           print "Next Priority:" . &showResearchPriority($nextResourcePriority) . "\n";
           print "ResearchPointsPreviousYear:$researchPointsPreviousYear\n";
-          print "Productivity: Colonist: $resourcePerColonist, Factory: $producePerFactory, $toBuildFactory, $operateFactory, Mine: $producePerMine, $toBuildMine, $operateMine\n";
-          print "Leftover Points:$leftoverPoints\n";
-          print 'Spent Leftover Points:' . &showLeftoverPoints($spendLeftoverPoints) . "\n";
-          print 'Research Cost:' . &showResearchCost($researchEnergy) . ', ' . &showResearchCost($researchWeapons) . ', ' . &showResearchCost($researchProp). ', ' . &showResearchCost($researchConstruction) . ', ' . &showResearchCost($researchElectronics) . ', ' . &showResearchCost($researchBiotech) . "\n";
-          print 'PRT:' . &PRT($PRT,1) . "\n";
+          
+          print 'PRT:' . &PRT($PRT,1);
+          if ($randomRace) { print " (This race has the Random bit set)"; }
+          print "\n";
           print 'LRTs:' . join(',',&LRT($LRT,1)) . "\n";
-          print 'Expensive Tech Starts at 3:' . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n";
+          print "RAW:GRAV:$lowGravity,$centreGravity,$highGravity  TEMP:$lowTemperature,$centreTemperature,$highTemperature RAD:$lowRadiation,$centreRadiation,$highRadiation\n";
+          print 'Grav:' . &showHabRange($lowGravity,$centreGravity,$highGravity,0) . ', Temp:' . &showHabRange($lowTemperature,$centreTemperature,$highTemperature,1) . ', Rad:' . &showHabRange($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
+          unless ( $dt == 5) { # not in a race file
+            print "Tech Level: $energyLevel, $weaponsLevel, $propulsionLevel, $constructionLevel, $electronicsLevel, $biotechLevel\n";    
+            print "Tech Points:$energyLevelPointsSincePrevLevel, $weaponsLevelPointsSincePrevLevel, $propulsionLevelPointsSincePrevLevel, $constructionLevelPointsSincePrevLevel, $electronicsLevelPointsSincePrevLevel, $biologyLevelPointsSincePrevLevel \n";
+          }
+          print "Productivity: Colonist: " . ($resourcePerColonist*100) . ", Factory: $producePerFactory, $toBuildFactory, $operateFactory, Mine: $producePerMine, $toBuildMine, $operateMine\n";
           print 'Factories Cost 1 Less Germ:' . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
+          print 'Research Cost:' . &showResearchCost($researchEnergy) . ', ' . &showResearchCost($researchWeapons) . ', ' . &showResearchCost($researchProp). ', ' . &showResearchCost($researchConstruction) . ', ' . &showResearchCost($researchElectronics) . ', ' . &showResearchCost($researchBiotech) . "\n";
+          if ($PRT == 9) { print 'Expensive Tech Starts at 4:' . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n"; 
+          } else { print 'Expensive Tech Starts at 3:' . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n";}
+          
           print 'MT Items:' . join(',',@MTItems) . "\n"; #Always 0 in race file
           if ( $playerRelationsLength ) { 
             for (my $i = 1; $i <= $playerRelationsLength; $i++) {
@@ -347,10 +370,11 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
             } 
           } else { print "Player Relations never set\n"; }
         }
+        print "Dead:$fDead, Crippled:$fCrippled, Cheater:$fCheater, Learned:$fLearned, Hacker:$fHacker\n";
+ 
         # Calculate the race checksums
         ($checkSum1, $checkSum2) = &raceCheckSum(\@decryptedData, $singularRaceName, $pluralRaceName, $singularNameLength, $pluralNameLength);
-        print "Calculated Race Checksum: $checkSum1  \t$checkSum2\n";
-        print "\n";
+        print "\nCalculated Race Checksum: $checkSum1  \t$checkSum2\n";
       } 
       # END OF MAGIC
       #reencrypt the data for output
@@ -363,7 +387,3 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
   if ( $action ) { return \@outBytes; }
   else { return 0; }
 } # end sub
-
-
-
-

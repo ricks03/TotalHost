@@ -34,8 +34,6 @@
 #    minefields (who can see it)
 #    CA (more player information on other races than appropriate)
 
-# Example Usage: StarsClean.pl c:\stars\game.m1
-#
 # Derived from decryptor.py and decryptor.java from
 # https://github.com/stars-4x/starsapi  
 # And takes inspiration from Xyligun's StarsKnowledgeCleaner.exe
@@ -51,11 +49,12 @@
 # Cleans CA known player information
 
 use strict;
-use warnings;   
+use warnings;  
+use FindBin;
+use lib $FindBin::Bin;
+ 
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
-my $debug = 0; # Enable better debugging output. Bigger the better
-my $cleanFiles = 1; # 0, 1, 2: display, clean but don't write, write 
 
 # For Object Block 43 
 my $objectId;    
@@ -64,29 +63,13 @@ my $number;
 my $owner;
 my $type; # 0 = minefield, 1 = packet/salvage, 2 = wormhole, 3 = MT
 my ($x, $y);
-# For MT
-my ($xDest, $yDest);
-my $warp;
-my $metBits;
-my $itemBits;
-my $turnNo;
-my $turnNoDisplay;
-#For minefields
-my $mineCount;
-my $mineDetonate;
-my $mineType;
-#For wormholes
-my $wormholeId;
-my $targetId;
-my $beenThrough;    
-my $canSee;
-my $stability;
-# For packets
-my $targetAndSpeed;
-my ($destPlanetId, $WarpSpeedMinus4, $WarpOverMDLimit);
+my ($xDest, $yDest, $warp, $metBits, $itemBits, $turnNo, $turnNoDisplay); # For MT
+my ($mineCount, $mineDetonate, $mineType); #For minefields
+my ($wormholeId, $targetId, $beenThrough, $canSee, $stability); #For wormholes
+my ($targetAndSpeed, $destPlanetId, $WarpSpeedMinus4, $WarpOverMDLimit); # For packets
 my ($ironium, $boranium, $germanium);
 #holding values for unknown variables
-my ($unk1, $unk2, $unk3, $unk4, $unk5) = '';  
+my ($unk1, $unk2, $unk3, $unk4, $unk5) = ('', '', '', '', '');  
 
 # For Player Block 6
 my $playerId;  # int , 1 byte
@@ -116,7 +99,7 @@ my $outName = $ARGV[1];
 my $filename;
 
 if (!($inName)) { 
-  print "\n\nRemoves other player minefield, MT, wormhole, and race information from .m files.\n";
+  print "\nRemoves other player minefield, MT, wormhole, and race information from .m files.\n";
   print "\n\nUsage: StarsClean.pl <input> <output (optional)>\n\n";
   print "Please enter the .m input. Example: \n";
   print "  StarsClean.pl c:\\games\\test.m6\n\n";
@@ -161,13 +144,14 @@ if (@mFiles == 0) {
   die "Something went wrong. There\'s no information\nDid you specify a .m file?\n"; 
 }
 
-foreach $filename (@mFiles) {
+foreach my $filename (@mFiles) {
 # Loop through for each .m file in the directory
 # and clean it
   my ($basefile, $dir, $ext);
   # for c:\stars\mygamename.m1
   $basefile = basename($filename);    # mygamename.m1
   $dir  = dirname($filename);         # c:\stars
+  $dir =~ s/\\/\//g;  # normalize to forward slashes
   ($ext) = $basefile =~ /(\.[^.]+)$/; # .m  extension
   # Read in the binary Stars! file, byte by byte
   my $FileValues;
@@ -180,7 +164,7 @@ foreach $filename (@mFiles) {
   close(StarFile);
   
   # Decrypt the data, block by block
-  my ($outBytes, $needsCleaning) = &decryptClean(@fileBytes);
+  my ($outBytes, $needsCleaning) = &decryptClean(\@fileBytes, 1);
   my @outBytes = @{$outBytes};
   
   # Create the output file name(s)
@@ -190,21 +174,19 @@ foreach $filename (@mFiles) {
     # if the outName was defined
     if ($outName) {   $newFile = $outName;  } 
     # Otherwise, safety first
-    else { $newFile = $dir . '\\' . $basefile . '.clean'; }
-    # and because I dont like fiddling with it when debugging
-#    if ($debug) { $newFile = "f:\\clean_" . $basefile;  } # Just for me
+    else { $newFile = $dir . '/' . $basefile . '.clean'; }
   } elsif (-d $inName && $inName eq $outName ) {
     # if inName was a directory, and outName is the same location
     # overwrite the existing files
-    $newFile = $dir . '\\' . $basefile;
+    $newFile = $dir . '/' . $basefile;
   } elsif (-d $outName) {
     # Otherwise create the files in the new location.   
-    $newFile = $outName . '\\' . $basefile; 
+    $newFile = $outName . '/' . $basefile; 
   } else { die "What happened to the name?\n"; }
   
   # Output the Stars! File with modified data
-  # Don't do unless in clean write mode and needsCleaning
-  if ($cleanFiles > 1 && $needsCleaning) {
+  # Don't do unless it needs Cleaning
+  if ($needsCleaning) {
     open ( CLEANFILE, '>:raw', "$newFile" );
     for (my $i = 0; $i < @outBytes; $i++) {
       print CLEANFILE $outBytes[$i];
