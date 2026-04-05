@@ -65,8 +65,11 @@
 # The checksum is the same as the .m file (the turn # - 2400).
 
 use strict;
-use warnings;   
+use warnings; 
 #use warnings::unused;   
+use FindBin;
+use lib $FindBin::Bin;
+  
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
 my $debug = 0;
@@ -76,15 +79,14 @@ my $outFileName = $ARGV[1];
 if (!($filename)) { 
   print "\n\nUsage: StarsPWD.pl <input file> <output file (optional)>\n\n";
   print "Please enter the input file (.m, .r, .x, .hst). Example: \n";
-  print "  StarsPWD.pl c:\\games\\test.m6\n\n";
+  print "  StarsPWD.pl c:\\games\\test.m6\n";
   print "If the password is removed from a .m file, the password must be\n";
-  print "  set when the turn is next submitted or the password will revert.\n\n";
-  print "Removes all player passwords from a .hst file. For multi-turn .m files\n";
-  print "  you must also reset the password on the .m file.\n\n"; 
-  print "Removes any administrative password on the .hst file.\n\n";
+  print "  set when the turn is next submitted or the password will revert.\n";
+  print "Removes all player passwords from a .hst file.\n";
+  print "Removes any administrative password on the .hst file.\n";
   print "Removes the race password on the .r file.\n\n";
   print "Sets a password in a .x file that would change the password to blank.\n\n";
-  print "By default, a new file will be created: <filename>.blank\n\n";
+  print "By default, a new file will be created: <filename>.blank\n";
   print "You can create a different file with StarsPWD.pl <filename> <newfilename>\n";
   print "  StarsPWD.pl <filename> <filename> will overwrite the original file.\n\n";
   print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
@@ -97,6 +99,7 @@ my ($basefile, $dir, $ext);
 # for c:\stars\mygamename.m1
 $basefile = basename($filename);    # mygamename.m1
 $dir  = dirname($filename);         # c:\stars
+$dir =~ s/\\/\//g;  # normalize to forward slashes
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
 
 # There are no passwords in these files
@@ -145,7 +148,7 @@ sub decryptPWD2 {
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti );
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt );
   my ( $seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
@@ -166,7 +169,7 @@ sub decryptPWD2 {
       # If there are two (or more) block 8s, the seeds reset for each block 8
       my ($unshiftedData) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -175,13 +178,11 @@ sub decryptPWD2 {
       # shift the data from binary
       my ($unshiftedData) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
-      #if (uc($ext) =~ /R/) { print "Race CheckSum (original):" . join (" ", @unshiftedData), "\n"; } 
-      if ( $action                                             # If the password has been reset, fix the checksum
-           && $size                                              # .x files don't have any data in block 0
-           && $unshiftedData[0] > 0 && $unshiftedData[1] > 0     # race files have values set for the checksum
-           && uc($ext) =~ /R/                                    # And it's an R file
-          ) 
-      {
+      # If the password has been reset, fix the checksum
+      # .x files don't have any data in block 0
+      # race files have values set for the checksum
+      # And it's an R file  ($dt == 5)
+      if ( $action && $size && $unshiftedData[0] > 0 && $unshiftedData[1] > 0  && $dt == 5 )   {
         # change the checksum values
         $unshiftedData[0] = $checkSum1;
         $unshiftedData[1] = $checkSum2;
@@ -195,9 +196,6 @@ sub decryptPWD2 {
       } else {
         push @outBytes, @block;
       }
-    } elsif ($typeId == 7) { # Planet block (.xy file)
-      # Note that planet's data requires something extra to decrypt. 
-      print "BLOCK 7 found. ERROR! .xy file!\n"; die;
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
@@ -222,40 +220,71 @@ sub decryptPWD2 {
 
         # There are player blocks from other players in the .m file. 
         #   If you reset the password in those you can corrupt at the very least the player race name 
-        # The playerId of race (.r) files is 255
-        if ((($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) && (($playerId == $Player) | (uc($ext) eq '.hst') | ($playerId == 255))) {
+        # The playerId of race (.r) files is 255 . $dt for a hst file is 2.
+        if ((($decryptedData[12]  != 0) || ($decryptedData[13] != 0) || ($decryptedData[14] != 0) || ($decryptedData[15] != 0)) && (($playerId == $Player) || ($dt == 2) || ($playerId == 255))) {
           # Replace the password with blank
           $decryptedData[12] = 0;
           $decryptedData[13] = 0;
           $decryptedData[14] = 0;
           $decryptedData[15] = 0;  
           $action = 1;
-          print "Block $typeId password reset!\n";
+          if ($dt != 5) { print "Turn " . ($turn+2400) . " Player " . ($playerId+1) . " "; } # if not a race file 
+          print "Block $typeId (" . &dtString($dt) . ") password reset!\n";
                                               
-          if (uc($ext) =~ /R/ && $action) { # recalculate the checksum for race files   
+          if ($dt == 5 && $action) { # recalculate the checksum for race files  dt=5 
             ($checkSum1, $checkSum2) = &raceCheckSum(\@decryptedData, $singularRaceName[$playerId], $pluralRaceName[$playerId], $singularNameLength, $pluralNameLength);
           }
         } else { 
-          # In .hst some Player blocks could be password protected, and some not 
-          unless (uc($ext) eq '.hst' ) { print "Block $typeId isn't password-protected!\n"; }
+          # In .hst dt=2 some Player blocks could be password protected, and some not 
+          unless ($dt == 2 ) { 
+            if ($dt != 5) { print "Turn " . ($turn+2400) . " Player " . ($playerId+1) . " "; } # if not a race file 
+            print "Block $typeId (" . &dtString($dt) . ") isn't password-protected!\n"; 
+          }
         }
       }
       if ($typeId == 36) { # .x file Change Password Block
-        if (($decryptedData[0]  != 0) | ($decryptedData[1] != 0) | ($decryptedData[2] != 0) | ($decryptedData[3] != 0)) {
+        if (($decryptedData[0]  != 0) || ($decryptedData[1] != 0) || ($decryptedData[2] != 0) || ($decryptedData[3] != 0)) {
           # Replace the password with blank
           $decryptedData[0] = 0;
           $decryptedData[1] = 0;
           $decryptedData[2] = 0;
           $decryptedData[3] = 0; 
           $action = 1;
-          print "Block $typeId password reset!\n";
+          print "Block $typeId (" . &dtString($dt) . ") password reset!\n";
         }
       } 
       # END OF MAGIC
-      #reencrypt the data for output
-      ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
-      @encryptedBlock = @ { $encryptedBlock };
-      push @outBytes, @encryptedBlock;
+#       #reencrypt the data for output
+#       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
+#       @encryptedBlock = @ { $encryptedBlock };
+#       push @outBytes, @encryptedBlock;
+
+    # Recalculate encryption seeds from scratch for this block instead of reusing the decryption seeds 
+    my ($reencrypt_seedX, $reencrypt_seedY);
+    ($reencrypt_seedX, $reencrypt_seedY) = &initDecryption($binSeed, $fShareware, $Player, $turn, $lidGame);
+    
+    # Now advance the seeds to match where we are in the file by processing all previous encrypted blocks
+    # We need to "skip" the same number of encryption operations that occurred during decryption
+    my $temp_offset = 0;
+    while ($temp_offset < $offset) {
+      my $temp_FileValues = $fileBytes[$temp_offset + 1] . $fileBytes[$temp_offset];
+      my ($temp_typeId, $temp_size) = &parseBlock($temp_FileValues, $temp_offset);
+      
+      # Skip unencrypted blocks (8 and 0 only)
+      if ($temp_typeId != 8 && $temp_typeId != 0) {
+        my @temp_data = @fileBytes[$temp_offset+2 .. $temp_offset+(2+$temp_size)-1];
+        # Advance seeds by "decrypting" (really just advancing through the random sequence)
+        my ($dummy, $new_seedX, $new_seedY, $dummy_padding) = &decryptBytes(\@temp_data, $reencrypt_seedX, $reencrypt_seedY);
+        $reencrypt_seedX = $new_seedX;
+        $reencrypt_seedY = $new_seedY;
+      }
+      $temp_offset = $temp_offset + (2 + $temp_size);
+    }
+    
+    # Now reencrypt the current block with the properly calculated seeds
+    ($encryptedBlock, $reencrypt_seedX, $reencrypt_seedY) = &encryptBlock(\@block, \@decryptedData, $padding, $reencrypt_seedX, $reencrypt_seedY);
+    @encryptedBlock = @ { $encryptedBlock };
+    push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
   }

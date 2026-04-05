@@ -22,12 +22,11 @@ $Location_Index = $WWW_HomePage . $WWW_Scripts . '/index.pl';
 # 400 - who cares really
 $logging = 300; 
 
+# Global enable/disable in case of issues
 # Clean .m files before giving them to the player, removing non-player info (mines, MT, etc)
-# Also requires a file named 'clean' in the individual game folder
-$cleanFiles = 1; # 0, 1, 2: display, clean but don't write, write 
-# Fixing negates or warns for bug effects. 
-# Also requires a file named 'fix' in the individual game folder
-$fixFiles = 1; # 0, 1, 2: display, clean but don't write, write 
+$cleanFiles = 1; # enable sanitizing player information 
+# Fixing negates or warns for bug effects
+$fixFiles = 1; # enable exploit detection/correction
 
 # Where the accounts logs go
 $Dir_Log = '/home/th/logs';
@@ -88,6 +87,8 @@ $Dir_Scripts     = $Dir_Root . '/scripts';
 $WINE_Races      = '\\races'; # Location of the actual race files used for game creation 
 $WINE_Games      = '\\games'; # Location of the actual game files used for game creation & turn gen
 $File_Planets    = $Dir_User . '/strings_planets.txt'; # Planet name file
+
+$reboot_file   = $Dir_Root . '/reboot'; # Leave blank to disable reboot detection
 
 # Email
 # Currently expects an localhost open relay

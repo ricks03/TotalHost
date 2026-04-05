@@ -24,43 +24,38 @@
 # It also creates a <gamefile>.pvs file to use with polyview. Copy of polyview required, 
 # available at http://www.polybytes.com/
 
+use strict; 
+use warnings;
+use FindBin;
+use lib $FindBin::Bin;
 
-# Name of the Game (the prefix for the .xy file)
-$GameFile = $ARGV[0]; # input file
-
-# Stars EXE
-$executable= "E:\\Stars!\\stars26j\\stars.exe";
-
-# Location of ImageMagic convert applications
-$image = "E:\\Program Files\\ImageMagick-6.4.1-Q16\\convert";
-
-# Path of the game backups
-# Assumes a structure of <path>\<turn year>
-$path = "W:\\Games\\$GameFile";
-
-# Location of the starmap executable
-$starmap = "d:\\stars\\utils\\starmap\\starmap2\\starmap.exe";
-
-# Where to output the .ini, .pcx, and .bat files
-$outputpath = "c:\\temp\\";
+my $GameFile = $ARGV[0]; # input file  # Name of the Game (the prefix for the .xy file)
+# Validate that the file exists
+unless (-e $ARGV[0]) { print "File: $filename does not exist!\n"; exit; }
+my $executable= "E:\\Stars!\\stars26j\\stars.exe"; # Stars EXE
+my $image = "E:\\Program Files\\ImageMagick-6.4.1-Q16\\convert"; #  Location of ImageMagic convert applications
+my $path = "W:\\Games\\$GameFile"; # Path of the game backups # Assumes a structure of <path>\<turn year>
+my $starmap = "d:\\stars\\utils\\starmap\\starmap2\\starmap.exe";  # Location of the starmap executable
+my $outputpath = "c:\\temp\\"; # Where to output the .ini, .pcx, and .bat files
 
 # Determine the players to provide output
-@numbers = (1,2,3,4);
-@passwords = ('','','','quack');
-@names = ('Eladrin','Posleen','Kobold','Mallard');
+# BUG (minor): We could now read in the # players and palyer names, and fix passwords
+my @numbers = (1,2,3,4);
+my @passwords = ('','','','');
+my @names = ('Eladrin','Posleen','Kobold','Mallard');
 
 # Get a listing of all of the backup directories
-$BackupDir = $path;
+my $BackupDir = $path;
 opendir(DIRS, $BackupDir) || die("Cannot open $BackupDir\n"); 
 @AllDirs = readdir(DIRS);
 closedir(DIRS);
 
 # Create the Starmap, Polyview, and Image command file
-$DataOutFile = $outputpath . "starmap_" . $GameFile . ".bat";
+my $DataOutFile = $outputpath . "starmap_" . $GameFile . ".bat";
 open (MAPFILE, ">$DataOutFile");
-$DataOutFile = $outputpath . "image_" . $GameFile . ".bat";
+my $DataOutFile = $outputpath . "image_" . $GameFile . ".bat";
 open (IMGFILE, ">$DataOutFile");
-$DataOutFile = $outputpath . $GameFile . ".pvs";
+my $DataOutFile = $outputpath . $GameFile . ".pvs";
 open (POLYFILE, ">$DataOutFile");
 
 foreach $name (@AllDirs) {
@@ -79,7 +74,6 @@ close POLYFILE;
 #   Stars! -dm mygame.m1    <-- Dump the universe definition and exit
 # Generate all of the .pla files
 #   Stars! -dp mygame.m1    <-- Dump player 1's planets and exit
-
 foreach $name (@AllDirs) {
 	if ($name =~ /\./) {  next; }
 	if ($name =~ /BACKUP/) {  next; }
@@ -101,7 +95,7 @@ foreach $name (@AllDirs) {
 		system ($pla);
 		$count++;
 		# Wait patiently, stars doesn't like to be launched over and over.
-		sleep 1;
+		sleep 2;
 	}
 
 	# Generate the starmap2 ini files
@@ -114,7 +108,7 @@ foreach $name (@AllDirs) {
 	}
 	print INIFILE "Gfx " . $outputpath . $name . ".PCX\n";
 
-	# Print names to try to get the colors to stay consistent
+# Print names to try to get the colors to stay consistent
 # 	$ctr = 1;
 # 	print INIFILE "\n";
 # 	print INIFILE "[NAMES]\n";

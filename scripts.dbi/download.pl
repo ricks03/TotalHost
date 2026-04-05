@@ -27,6 +27,9 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use FindBin;
+use lib $FindBin::Bin;
+
 use CGI qw(:standard);
 use CGI::Session qw/-ip-match/;
 CGI::Session->name('TotalHost');
@@ -75,6 +78,7 @@ $file =~ s/\"//g;
 $file =~ s/\'//g;
 $file =~ s/ //g;
 my $turn_id = $file;
+$turn_id =~ s/\.merged$//i;                          # strip .merged first if present
 $turn_id =~ s/(^\w+[\w.-]+\.[mM])(\d{1,2})/$2/;
 # Get the name of the game file (file name with no extensions)
 my $gamefile = $file; 
@@ -95,8 +99,6 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
 	# need to check the database to see whether the logged in user gets access
 	# does the game file, player ID, and user ID exist (aka permitted)? 
 	# Can only download turn if you have an active user_status > 0
-  #$sql = qq|SELECT Games.GameFile, User.User_ID, GameUsers.PlayerID, GameUsers.PlayerStatus FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=\'$gamefile\') AND ((User.User_Login)=\'$userlogin\') AND ((GameUsers.PlayerID)=$turn_id) AND (User.User_Status > 0));|;
-  #$sql = qq|SELECT Games.GameFile, User.User_ID, GameUsers.PlayerID, GameUsers.PlayerStatus FROM User INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login INNER JOIN Games ON Games.GameFile = GameUsers.GameFile WHERE Games.GameFile = \'$gamefile\' AND User.User_Login = \'$userlogin\' AND GameUsers.PlayerID = $turn_id AND User.User_Status > 0;|;
   $sql = qq|SELECT Games.GameFile, User.User_ID, GameUsers.PlayerID, GameUsers.PlayerStatus FROM User INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login INNER JOIN Games ON Games.GameFile = GameUsers.GameFile WHERE Games.GameFile = ? AND User.User_Login = ? AND GameUsers.PlayerID = ? AND User.User_Status > 0;|;
 	$db = &DB_Open($dsn);
 	my %GameValues;
@@ -113,15 +115,18 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
 	if ($GameValues{'GameFile'} && $GameValues{'PlayerStatus'} ne '3') { $download_ok = 1; }
 	else {
 	#see if they are in the game, and the game permits anyone in the game to download
-		$sql = qq|SELECT Games.GameFile, Games.SharedM, User.User_ID FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=?) AND ((User.User_Login)=?) AND ((Games.SharedM)=Yes));|;
+		$sql = qq|SELECT Games.GameFile, Games.SharedM, User.User_ID FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=?) AND ((User.User_Login)=?) AND ((Games.SharedM)=1));|;
 		if (my $sth = &DB_Call($db,$sql,$gamefile,$userlogin)) { 
       my $row = $sth->fetchrow_hashref();
       %GameValues = %{$row};
 #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
       $sth->finish();
 		} 
-		else { &error('ERROR: Finding user $userlogin to download shared m file'); }
-		if ($GameValues{'GameFile'}) { $download_ok = 1; }
+		else { &error("ERROR: Finding user $userlogin to download shared m file"); }
+		if ($GameValues{'GameFile'}) { 
+      $download_ok = 1;         
+      $outputfile = $Dir_Games . '/' . $gamefile . '/' . $file;
+    }
 	}
   # Check to permit the host who is not playing to download
   unless ($download_ok == 1) { # Don't need to check if they already can download
@@ -138,6 +143,40 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
     $outputfile = "$Dir_Games/$gamefile/$file";
   }
 	&DB_Close($db);
+
+# If file is a merged turn file
+} elsif ($file =~ /^(\w+[\w.-]+\.[mM]\d{1,2}\.merged)$/i) {
+    $filetype = 'merged';
+    $gamefile =~ s/\.[mM]\d{1,2}$//; # Strip the residual .m1
+    #&error("DEBUG: merged block reached. turn_id=$turn_id gamefile=$gamefile user=$userlogin");
+    $sql = qq|SELECT Games.GameFile, User.User_ID, GameUsers.PlayerID, GameUsers.PlayerStatus FROM User INNER JOIN GameUsers ON User.User_Login = GameUsers.User_Login INNER JOIN Games ON Games.GameFile = GameUsers.GameFile WHERE Games.GameFile = ? AND User.User_Login = ? AND GameUsers.PlayerID = ? AND User.User_Status > 0;|;
+    $db = &DB_Open($dsn);
+    my %GameValues;
+    if (my $sth = &DB_Call($db,$sql,$gamefile,$userlogin,$turn_id)) {
+        my $row = $sth->fetchrow_hashref();
+        %GameValues = %{$row};
+        $sth->finish();
+        $outputfile = $Dir_Games . '/' . $GameValues{'GameFile'} . '/' . $file;
+    }
+    else { &error("download: ERROR: Finding user $userlogin to download file $file"); }
+    if ($GameValues{'GameFile'} && $GameValues{'PlayerStatus'} ne '3') { $download_ok = 1; }
+    else {
+      $sql = qq|SELECT Games.GameFile, Games.SharedM, User.User_ID FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=?) AND ((User.User_Login)=?) AND ((Games.SharedM)=1));|;
+      if (my $sth = &DB_Call($db,$sql,$gamefile,$userlogin)) {
+          my $row = $sth->fetchrow_hashref();
+          %GameValues = %{$row};
+          $sth->finish();
+      }
+      else { &error("ERROR: Finding user $userlogin to download shared merged file"); }
+      if ($GameValues{'GameFile'}) { 
+        $download_ok = 1; 
+        $outputfile = $Dir_Games . '/' . $gamefile . '/' . $file;
+      }
+    }    
+    &DB_Close($db);
+    # Strip .merged so the browser saves it as gamename.m1, not gamename.m1.merged
+    $file =~ s/\.merged$//i;
+
 
 # If it's a .r[n] file, validate who wants it before they get it
 #} elsif (($file =~ /^(\w+[\w.-]+\.R\d{1,2})$/) || ($file =~ /^(\w+[\w.-]+\.r\d{1,2})$/)) { 
@@ -278,13 +317,11 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
 	$outputfile = $GameFile . '.msg';   
   unless ($hostAccess) { $outputfile .= $id; }
   $download_ok = 1;          
-  ######################################################
   ######################################################  
   
   # If the file type wasn't one of the predefined ones, error out.
   } else { &error("User $userlogin authorized. Invalid file type $file $filetype"); }
-  
-  if ($download_ok) { &download($file,$outputfile) or &error("User $userlogin authorized, but an unknown error has occured.");  }
+  if ($download_ok) { &download($file,$outputfile) or &error("User $userlogin authorized, but an unknown error has occurred.");  }
   else { &error("User $userlogin Unauthorized.") 
 }
 
@@ -293,7 +330,8 @@ sub download {
   my ($file, $outputfile) = @_;
   #my $file = $_[0] or return(0);
 	# For a race file, download from the race file location
-	if ($filetype eq 'r' || $filetype eq 'm' || $filetype eq 'xy') {
+  if ($filetype eq 'r' || $filetype eq 'm' || $filetype eq 'xy' || $filetype eq 'merged') {
+  
    	open(DLFILE, '<', "$outputfile") or return(0);
 	  # this prints the download headers with the file size included
 	  # so you get a progress bar in the dialog box that displays during file downloads. 

@@ -24,26 +24,34 @@
 
 use strict;
 use warnings;   
-#use warnings::unused;   
+use FindBin;
+use lib $FindBin::Bin;
 use StarsBlock; # A Perl Module from TotalHost
-use StarStat; # A Perl module from TotalHost
+use StarStat;
 use File::Basename;  # Used to get filename components
-my ($file_prefix, $file_player, $file_type, $file_ext);
-my $inDir = $ARGV[0];  # scan Directory
-my $inFile = $ARGV[1]; # input file
+
+my $inDir;
+my $inFile;
+my ($file_prefix);
+if ($ARGV[0]) {
+  my $arg = $ARGV[0];
+  $arg =~ s/\\/\//g;  # normalize to forward slashes
+  if (-f $arg) {
+    $inFile = $arg;
+    $inDir = dirname($arg);
+  } elsif (-d $arg) {
+    $inDir = $arg;
+  }
+}
 
 print "\n";
 
-if (!($inDir)) { 
-  print "\nReports .x serial/hardware status.\n";
-  print "\nUsage: \n\tStarsSecure.pl <File Directory> \n\n";
-  print "Example: \n";
-  print "\tStarsSecure.pl c:\\games\\ \n\n";
-  print "If there's more than one game in the same folder, you can \n";
-  print "specify the game on the command line:\n";
-  print "\tStarsSecure.pl c:\\games\\ c:\\games\\Game.x1 \n\n";
-  print "While this tries to protect from invalid files, it won\'t always. \n";
-  print "Don\'t do that.\n";
+if (!($ARGV[0])) { 
+  print "\nReports .x serial/hardware status. Usage: \n";
+  print "\tStarsSecure.pl <File Directory> - scans all .x files in folder\n";
+  print "\tStarsSecure.pl <game.x1>        - scans only that file's game\n";
+  print "Example: \tStarsSecure.pl c:\\games\\ \n";
+  print "Example: \tStarsSecure.pl c:\\games\\game.x1 \n\n"; print "\nAs always when using any tool, it's a good idea to back up your file(s).\n";
   exit;
 } 
 
@@ -51,16 +59,14 @@ if (!($inDir)) {
 unless (-d $inDir ) { print "Directory: $inDir does not exist!\n"; exit;  }
 
 # Fix if you leave the / off the directory, now OS aware
-if ($inDir =~ /\\/) {
-  if (substr($inDir,-1) ne '\\') {  $inDir = $inDir . '\\'; }
-} elsif ( $inDir =~ /\//) {
-  if (substr($inDir,-1) ne '/') {  $inDir = $inDir . '/'; }
+if ($inDir =~ /\\/) { if (substr($inDir,-1) ne '\\') {  $inDir = $inDir . '\\'; }
+} elsif ( $inDir =~ /\//) { if (substr($inDir,-1) ne '/') {  $inDir = $inDir . '/'; }
 }
 
 # if a file is specified, check to see if it exists
 if ($inFile) {
   if (-e $inFile) {
-    ($file_prefix, $file_player, $file_type, $file_ext) = &FileData (basename($inFile)); 
+    ($file_prefix) = &FileData (basename($inFile)); 
   } else {
     print "File: $inFile does not exist!\n"; exit;
   }
@@ -68,27 +74,29 @@ if ($inFile) {
 
 # Read in all files in the directory $inDir and store block 9 data+ for each file
 my %block9;
-opendir(DIR, $inDir) or print "Directory: Can\'t opendir $inDir\n";; 
+opendir(DIR, $inDir) or print "Directory: Can\'t opendir $inDir\n"; 
 while (defined(my $file = readdir(DIR))) {  
-    my $FileValues;
-    my @fileBytes;
-    my $filename =  $inDir . $file;
-		next unless ($file =~ /^(\w+[\w.-]+\.[xX]\d{1,2})$/); # skip unless it's a .x[n] file
-    print "$filename\n";
-    # This regexp skips the ARGV[1] value
-    # index might be better here than regexp
-    #next if ($inFile && $inFile =~ /$file/i); # Skip for the case-insensitive file we started with 
-    if ($inFile && !($file =~ /$file_prefix/i)) { next; } # Skip if it's a different file 
-    open(StarFile, "<$filename" );
-    binmode(StarFile);
-    while ( read(StarFile, $FileValues, 1)) {
-      push @fileBytes, $FileValues; 
-    }
-    close(StarFile);
-  
-    # Decrypt the data, block by block
-    my @block9data = &decrypt_Serials(@fileBytes);
-    $block9{$file} = [@block9data]; # store array in a hash
+  my $FileValues;
+  my @fileBytes;
+  my $filename =  $inDir . $file;
+  next unless ($file =~ /^(\w+[\w.-]+\.[xX]\d{1,2})$/); # skip unless it's a .x[n] file
+  # This regexp skips the ARGV[1] value
+  # index might be better here than regexp
+  #next if ($inFile && $inFile =~ /$file/i); # Skip for the case-insensitive file we started with 
+if ($inFile && !($file =~ /^\Q$file_prefix\E\.[xX]\d{1,2}$/i)) { next; }  # Skip if it's a different game
+  print "$filename\n";
+  open(StarFile, "<$filename" );
+  binmode(StarFile);
+  while ( read(StarFile, $FileValues, 1)) {
+    push @fileBytes, $FileValues; 
+  }
+  close(StarFile);
+
+  # Decrypt the data, block by block
+  my @block9data = &decrypt_Serials(@fileBytes);
+  if (@block9data) {
+    $block9{$file} = [@block9data];
+  } else { print "\tWarning: No serial data (Block 9) found in $file\n"; }
 }
 closedir(DIR);
 print "\n";
@@ -100,9 +108,9 @@ foreach my $file1 ( sort keys %block9 ) {
   foreach my $file2 ( sort keys %block9 ) {
     if ($file1 eq $file2) { next; } # if it's the same file then skip it
     # Check to see if the serial numbers are the same
-    if (@{$block9{$file1}}[0] eq @{$block9{$file2}}[0]) {
+    if ($block9{$file1}[0] == $block9{$file2}[0]) {
       # If the serial numbers are the same, the hardware hashes must be the same
-      if (@{$block9{$file1}}[1] eq @{$block9{$file2}}[1]) {
+      if ($block9{$file1}[1] eq $block9{$file2}[1]) {
         print "\tInfo   : $file1 same serial/hardware hash as $file2\n";
       } else { 
         print "\tDANGER : $file1 same serial as $file2, but different hardware hash\n"; 
@@ -122,21 +130,21 @@ sub decrypt_Serials {
   my @data;
   my ($decryptedData, $padding);
   my @decryptedData;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
-  my ($seedA, $seedB);
+  my ($encryptedBlock, @encryptedBlock);
+  my @outBytes;
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
+  my ($seedA, $seedB, $seedX, $seedY);
   my ($FileValues, $typeId, $size);
   my $offset = 0; #Start at the beginning of the file
-  my ($hardware, $serial);
+  my ($serial,$hardware);
   
-  ###########################################################################
   # Because we're just reading a directory, validate that what we're reading
   # is actually a Stars! file
   $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
   ($typeId, $size) = &parseBlock($FileValues, $offset);
   @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-  ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+  ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block );
   unless ($Magic eq 'J3J3') { print "\tNon-Stars! .x file detected. Exiting..."; exit;}
-  ##########################################################################3
 
   while ($offset < @fileBytes) {
     # Get block info and data
@@ -148,8 +156,11 @@ sub decrypt_Serials {
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
     if ($typeId == 8) { # File Header Block, never encrypted
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block );
       ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+      $seedX = $seedA; # Used to reverse the decryption
+      $seedY = $seedB; # Used to reverse the decryption
+      push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted
        shift @block; # Drop the first two entries so we wouldn't need @data;
@@ -170,8 +181,13 @@ sub decrypt_Serials {
         return ($serial, $hardware); # might as well stop immediately
       }
       # END OF MAGIC
+      # reencrypt the data for output
+      ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
+      @encryptedBlock = @ { $encryptedBlock };
+      push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
   }
+  return(\@outBytes); # No block 9 found
 }
 

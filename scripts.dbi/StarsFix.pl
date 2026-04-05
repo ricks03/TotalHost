@@ -48,6 +48,9 @@
 use strict;
 use warnings;  
 #use warnings::unused; 
+use FindBin;
+use lib $FindBin::Bin;
+
 use File::Basename;  # Used to get filename components
 use StarsBlock; # A Perl Module from TotalHost
 use StarStat; # A Perl module for TotalHost
@@ -85,8 +88,9 @@ unless (-e $ARGV[0]) { print "File: $filename does not exist!\n"; exit; }
 # for d:\th\games\mygamename\mygamename.m1
 my $basefile = basename($filename);    # mygamename.m1
 my $gameDir  = dirname($filename);         # d:\th\games\gamename
+$gameDir =~ s/\\/\//g;  # normalize to forward slashes
 my ($gameName, $file_player, $file_type, $file_ext) = &FileData ($basefile); 
-my $listPrefix =  $gameDir . '\\' . $gameName;
+my $listPrefix =  $gameDir . '/' . $gameName;
 
 # Get the year of the file
 my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($filename);
@@ -122,7 +126,7 @@ my %waypointList;
 if (-e "$listPrefix.hst.waypoint" ) {
   my $waypointList = &readList("$listPrefix.hst.waypoint");
   %waypointList = %$waypointList;
-#  &printList(\%fleetList);
+#  &printList(\%waypointList);
 } else { print "No waypoint file detected.\n"; }
 
 # read lastPlayer
@@ -137,7 +141,6 @@ if (-e "$listPrefix.hst.last" && $file_type =~ /x/i) {
   }
 }
 
-##############################################
 # Read in the binary Stars! file, byte by byte
 my $FileValues;
 my @fileBytes;
@@ -151,7 +154,8 @@ close(STARFILE);
 # Decrypt the data, block by block, and process it
 my ($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList);
 # Include the directory to handle the difference between TH and standalone 
-($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer) = &decryptFix(dirname($filename), $filename, \@fileBytes,\%fleetList, \%queueList, \%designList, \%$waypointList, $lastPlayer);
+#($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer) = &decryptFix(dirname($filename), $filename, \@fileBytes,\%fleetList, \%queueList, \%designList, \%$waypointList, $lastPlayer);
+($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer) = &decryptFix(dirname($filename), $filename, \@fileBytes,\%fleetList, \%queueList, \%designList, \%waypointList, $lastPlayer);
 my @outBytes = @{$outBytes};
 %warning    = %$warning; # Tracking warnings generated
 %fleetList  = %$fleetList;
@@ -164,7 +168,7 @@ my @outBytes = @{$outBytes};
 if ($file_type =~ /hst/i || $file_type =~ /M/i ) {
   print "Updating List Files...\n";
 
-  if (%designList) { # Output the fleets for a .x pass
+  if (%designList) { # Output the designs for a .x pass
 #  print "Printing Ship Design List...\n";
 #  &printList(\%designList);
   &writeList("$listPrefix.hst.design", \%designList);
@@ -182,10 +186,10 @@ if ($file_type =~ /hst/i || $file_type =~ /M/i ) {
     &writeList("$listPrefix.hst.fleet", \%fleetList);
   }
   
-  if (%waypointList) { # Output the fleets for a .x pass
+  if (%waypointList) { # Output the waypoints for a .x pass
 #    print "Printing Waypoint List...\n";
 #    &printList(\%waypointList);
-    &writeList("$listPrefix.hst.fleet", \%waypointList);
+    &writeList("$listPrefix.hst.waypoint", \%waypointList);
   }
   
   if ($lastPlayer) {# Store the last player value for 10th Starbase for a .x pass
@@ -215,12 +219,11 @@ if (%warning) {
 
 # Output the Stars! File with bugs fixed.
 # Only create a new file if anything was wrong. 
-#if (scalar @outBytes && $fixFiles > 1) {
 if ($needsFixing && $fixFiles > 1) {
   # Create the output file name
   my $newFile; 
   if ($outFileName) { $newFile = $outFileName;  } 
-  else { $newFile = $gameDir . '\\' . $basefile . '.fixed'; }
+  else { $newFile = $gameDir . '/' . $basefile . '.fixed'; }
   open (OutFile, '>:raw', "$newFile");
   for (my $i = 0; $i < @outBytes; $i++) {
     print OutFile $outBytes[$i];
@@ -230,24 +233,3 @@ if ($needsFixing && $fixFiles > 1) {
   print "\n\nFile output: $newFile\n";
   unless ($ARGV[1]) { print "Don't forget to rename $newFile\n\n"; }
 }
-
-
-# sub showDestType {
-#   my ($type) = @_;
-#   my @category;
-#   $category[0] = 'unknown';
-#   $category[1] = 'Planet';
-#   $category[2] = 'Fleet';
-#   $category[4] = 'Deep Space';
-#   $category[8] = 'Salvage/Packet/MT/Minefield';
-#   return $category[$type];
-# }
-
-#     public static int ITEM_ID_INDEX = 0;
-#     public static int MASS_INDEX = 7;
-#     public static int ARMOR_INDEX = 15;
-#     public static int FUEL_INDEX = 14;
-#     public static int ITEM_ARMOR_INDEX = 13;
-#     public static int SLOT_START_INDEX = 16;
-#     public static int ENGINE_COUNT_INDEX = 17;
-#     public static int SLOT_COUNT_INDEX = 48;

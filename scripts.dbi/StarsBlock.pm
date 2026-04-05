@@ -96,10 +96,10 @@ our @EXPORT = qw(
   initDecryption getFileHeaderBlock getFileFooterBlock getFileFooter
   encryptBytes decryptBytes
   read8 read16 read32 read64 readN write16 parseBlock
-  dec2bin bin2dec
+  dec2bin bin2dec unpackWord
   encryptBlock decryptPWD
   stripPadding addPadding
-  isMinefield getMineType getMineDetonate
+  isMinefield 
   isPacketOrSalvage getPacketType
   isWormhole getWormholeType
   isMT getMTPartName
@@ -127,7 +127,7 @@ our @EXPORT = qw(
   raceCheckSum checkRaceCorrupt
   checkSerials decryptSerials
   readList writeList printList updateList
-  cleanFiles
+  cleanFiles trimM
   adjustFleetCargo tallyFleet 
   publicMessages decryptMessages
   getScores decryptScores
@@ -136,6 +136,7 @@ our @EXPORT = qw(
   decryptGameInfo decode_victory_conditions
   advantagePointsLeft _lInnateRaceHabitability
   _toSigned _min _max
+  planetaryScanners planetNames dtString
 );  
 
 my $debug = 1;
@@ -268,6 +269,13 @@ sub getFileHeaderBlock {
   # dts - Convert DTS to binary so we can pull the values back out
   $dts = dec2bin($dts);
   #Break DTS into its binary components
+#   0  dtXY    .xy file
+#   1  dtLog   .x file
+#   2  dtHost  .hst file
+#   3  dtTurn  .m file
+#   4  dtHist  .h file
+#   5  dtRace  .r file
+#   6  dtMax
   $dt = substr($dts, 8,15);
   $dt = bin2dec($dt);
   # File Type
@@ -282,7 +290,7 @@ sub getFileHeaderBlock {
   $fGameOver = substr($dts, 4,1);  # Probably 4
   # Shareware
   $fShareware = substr($dts, 3, 1);
-  return $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti;
+  return $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt;
 }
 
 sub getFileFooterBlock {
@@ -481,14 +489,14 @@ sub read8 {
 sub read16 {
 #	 Read a 16 bit little endian integer from a byte array
   my ($data, $offset) = @_;
-  my @data = @{ $data };
+  my @data = @{ $data }; # In theory remarking this out would make it mcuh faster. 
 	return &read8($data[$offset+1]) << 8 | &read8($data[$offset]);
 }
 
 sub read32 {
 #	 Read a 32 bit little endian integer from a byte array
   my ($data, $offset) = @_;
-  my @data = @{ $data };
+  my @data = @{ $data };   # In theory remarking this out would make it mcuh faster. 
 	return &read8($data[$offset+3]) << 24 | 
 				&read8($data[$offset+2]) << 16 | 
 				&read8($data[$offset+1]) << 8 | 
@@ -496,13 +504,14 @@ sub read32 {
 }
 
 # Read a 64-bit little-endian integer from a byte array (using two read32 calls)
-sub read64 {
-    my ($data, $offset) = @_;
-    my @data = @{$data};
-    my $low  = ($data[$offset + 3] << 24) | ($data[$offset + 2] << 16) | ($data[$offset + 1] << 8) | $data[$offset];
-    my $high = ($data[$offset + 7] << 24) | ($data[$offset + 6] << 16) | ($data[$offset + 5] << 8) | $data[$offset + 4];
-    return ($high << 32) | $low; # Combine high and low 32-bit words into 64 bits
-}
+# Not a good idea unless always runningon a 64-bit system
+# sub read64 {
+#     my ($data, $offset) = @_;
+#     my @data = @{$data};
+#     my $low  = ($data[$offset + 3] << 24) | ($data[$offset + 2] << 16) | ($data[$offset + 1] << 8) | $data[$offset];
+#     my $high = ($data[$offset + 7] << 24) | ($data[$offset + 6] << 16) | ($data[$offset + 5] << 8) | $data[$offset + 4];
+#     return ($high << 32) | $low; # Combine high and low 32-bit words into 64 bits
+# }
 
 sub readN {
 my ($data, $offset, $byteLen) = @_;
@@ -531,6 +540,15 @@ sub bin2dec {
 	return unpack("N", pack("B32", substr("0" x 32 . shift, -32)));
 }
 
+sub unpackWord {
+    my ($w) = @_;
+    # Extract mantissa (low 13 bits) and exponent (high 3 bits)
+    my $mantissa = $w & 0x1FFF;
+    my $exponent = ($w >> 13) & 0x07;
+    # Shift mantissa by (exponent * 2) bits
+    return $mantissa << ($exponent * 2);
+}
+
 sub decryptPWD {
   my (@fileBytes) = @_;
   my @block=();
@@ -539,7 +557,7 @@ sub decryptPWD {
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
   my ( $seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
@@ -558,13 +576,27 @@ sub decryptPWD {
     if ($typeId == 8) {  # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
       push @outBytes, @block;
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
-      push @outBytes, @block;
+      if ($action && $size && $dt == 5) { # .r file checksum update
+        my ($unshiftedData) = &unshiftBytes(\@data);
+        my @unshiftedData = @{ $unshiftedData };
+        if ($unshiftedData[0] > 0 && $unshiftedData[1] > 0) {
+          $unshiftedData[0] = $checkSum1;
+          $unshiftedData[1] = $checkSum2;
+          my $shiftedData = &shiftBytes(\@unshiftedData);
+          my @shiftedData = @{ $shiftedData };
+          my @header = ($block[0], $block[1]);
+          unshift (@shiftedData, @header);
+          push @outBytes, @shiftedData;
+        } else { push @outBytes, @block; }
+      } else {
+        push @outBytes, @block;
+      }      
     } elsif ($typeId == 7) { # Planet block (.xy file)
       # Note that planet's data requires something extra to decrypt. 
        &BlockLogOut(0, "BLOCK 7 found. ERROR!", $ErrorLog); die;
@@ -575,12 +607,26 @@ sub decryptPWD {
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
         # We need the race name info for calculating the race checksum if we reset a race password
-        $playerId = $decryptedData[0] & 0xFF; 
+        $playerId = $decryptedData[0] & 0xFF;
+        my $fullDataFlag = ($decryptedData[6] & 0x04);
+        my $index = 8;
+        if ($fullDataFlag) {
+          $index = 112;
+          my $playerRelationsLength = $decryptedData[112];
+          $index = $index + $playerRelationsLength + 1;
+        }
+        my $singularNameLength = $decryptedData[$index] & 0xFF;
+        my $singularMessageEnd = $index + $singularNameLength;
+        my $pluralNameLength = $decryptedData[$index+$singularNameLength+1] & 0xFF;
+        if ($pluralNameLength == 0) { $pluralNameLength = 1; }
+        $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+        $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
+        
 # So apparently there are player blocks from other players in the .m file, and
-# ff you reset the password in those you corrupt at the very least the player race name 
+# if you reset the password in those you corrupt at the very least the player race name 
 #        if (($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) {
-        # BUG: Fixing for only PlayerID = Player blocks will break for .hst
-        if ((($decryptedData[12]  != 0) | ($decryptedData[13] != 0) | ($decryptedData[14] != 0) | ($decryptedData[15] != 0)) && ($playerId == $Player)){
+        # BG: Fixing for only PlayerID = Player blocks will break for .hst
+        if ((($decryptedData[12]  != 0) || ($decryptedData[13] != 0) || ($decryptedData[14] != 0) || ($decryptedData[15] != 0)) && ($dt == 2 || $playerId == $Player || $playerId == 255 )){
           &BlockLogOut(200,"Block $offset password blanked for M File", $LogFile);
           print "Block $offset password blanked for M File\n";
           # Replace the password with blank
@@ -589,6 +635,10 @@ sub decryptPWD {
           $decryptedData[14] = 0;
           $decryptedData[15] = 0;  
           $action = 1;
+          if ($dt == 5) { # .r file - recalculate checksum
+          ($checkSum1, $checkSum2) = &raceCheckSum(\@decryptedData, $singularRaceName[$playerId], $pluralRaceName[$playerId], $singularNameLength, $pluralNameLength);
+          }
+
         } else { 
 #           if ($playerId != $Player) { print "Block $offset is for another player!\n"; }
 #           # BUG: In .hst some Player blocks could be password protected, and some not
@@ -599,7 +649,7 @@ sub decryptPWD {
         }
       }
       if ($typeId == 36) { # .x file Change Password Block
-        if (($decryptedData[0]  != 0) | ($decryptedData[1] != 0) | ($decryptedData[2] != 0) | ($decryptedData[3] != 0)) {
+        if (($decryptedData[0]  != 0) || ($decryptedData[1] != 0) || ($decryptedData[2] != 0) || ($decryptedData[3] != 0)) {
           &BlockLogOut(200,"Block $offset password blanked for X File", $LogFile);
           # Replace the password with blank
           $decryptedData[0] = 0;
@@ -667,22 +717,22 @@ sub isMinefield() {
   if ($type == 0) { return 1;} else {return 0;} 
 }
 
-sub getMineType {
-  my ($bitArray) = (@_);
-  my @bitArray = @ { $bitArray };
-  $mineType = $bitArray[14] . $bitArray[15];
-  $mineType = bin2dec($mineType);
-  if ($mineType == 0) { return "Standard"};
-  if ($mineType == 1) { return "Heavy"};
-  if ($mineType == 2) { return "Speed Trap"};
-}
+# sub getMineType {
+#   my ($bitArray) = (@_);
+#   my @bitArray = @ { $bitArray };
+#   $mineType = $bitArray[14] . $bitArray[15];
+#   $mineType = bin2dec($mineType);
+#   if ($mineType == 0) { return "Standard"};
+#   if ($mineType == 1) { return "Heavy"};
+#   if ($mineType == 2) { return "Speed Trap"};
+# }
 
-sub getMineDetonate {
-  my ($bitArray) = @_;
-  my @bitArray = @ { $bitArray };
-  if ($bitArray == 1) { return "Detonating"; }
-  else { return "Not Detonating"; }
-}
+# sub getMineDetonate {
+#   my ($bitArray) = @_;
+#   my @bitArray = @ { $bitArray };
+#   if ($bitArray == 1) { return "Detonating"; }
+#   else { return "Not Detonating"; }
+# }
 
 sub isPacketOrSalvage {
   my ($type) = @_;
@@ -748,7 +798,7 @@ sub displayBlockRace { # mostly a lesser duplicate of decryptBlockRace
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
   my ( $seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
@@ -763,7 +813,7 @@ sub displayBlockRace { # mostly a lesser duplicate of decryptBlockRace
     if ($typeId == 8) { # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -782,7 +832,7 @@ sub displayBlockRace { # mostly a lesser duplicate of decryptBlockRace
         my $fullDataFlag;
         my ($playerRelations, $playerRelationsLength);
         my ($singularNameLength, $singularMessageEnd, $pluralNameLength, $singularRaceName, $pluralRaceName);
-        my $homeWorld; 
+        my ($homeWorld, $score); 
         my $rank;
         my ($centreGravity, $centreTemperature, $centreRadiation);
         my ($lowGravity, $lowTemperature, $lowRadiation);
@@ -797,7 +847,10 @@ sub displayBlockRace { # mostly a lesser duplicate of decryptBlockRace
         my ($researchEnergy, $researchWeapons, $researchProp, $researchConstruction, $researchElectronics, $researchBiotech);
         my ($PRT,$LRT);
         my $checkBoxes; 
-        my ($expensiveTechStartsAt3, $factoriesCost1LessGerm);
+        my ($randomRace, $expensiveTechStartsAt3, $factoriesCost1LessGerm);
+        my ($fDead, $fCrippled, $fCheater, $fLearned, $fHacker);
+        my ($fNoResearch, $cpq); 
+
         my $MTItems;
         my @MTItems=();
         
@@ -848,10 +901,8 @@ sub displayBlockRace { # mostly a lesser duplicate of decryptBlockRace
         
         if ($fullDataFlag) { 
           $homeWorld = &read16(\@decryptedData, 8); # no homeworld in race file
-          # BUG: the references say this is two bytes, but I don't think it is.
-          # That means I don't know what byte 11 is tho. 
           # Maybe in universes with more planets?
-          $rank = &read16(\@decryptedData, 10); # Always 0 in race file. Not in game file. BUG: This is likely 2 bytes for 16 player games
+          $score = &read16(\@decryptedData, 10); # Always 0 in race file. Not in game file. 
           # Bytes 12..15 are the password;
           # The password inverts when the player is set to Human(inactive) mode (the bits are flipped).
           # The ai password "viewai" is 238 171 77 9
@@ -873,7 +924,7 @@ sub displayBlockRace { # mostly a lesser duplicate of decryptBlockRace
           $constructionLevel     = $decryptedData[29]; #Always 0 in race file
           $electronicsLevel      = $decryptedData[30]; #Always 0 in race file
           $biotechLevel          = $decryptedData[31]; #Always 0 in race file
-          $energyLevelPointsSincePrevLevel          = &read32(\@decryptedData, 32); # (4 bytes) #Always 0 in race file
+          $energyLevelPointsSincePrevLevel          = &read32(\@decryptedData,32); # (4 bytes) #Always 0 in race file
           $weaponsLevelPointsSincePrevLevel         = &read32(\@decryptedData,36); # (4 bytes) #Always 0 in race file
           $propulsionLevelPointsSincePrevLevel      = &read32(\@decryptedData,40); # (4 bytes) #Always 0 in race file
           $constructionLevelPointsSincePrevLevel    = &read32(\@decryptedData,44); # (4 bytes) #Always 0 in race file
@@ -898,32 +949,52 @@ sub displayBlockRace { # mostly a lesser duplicate of decryptBlockRace
           $researchElectronics   = $decryptedData[74]; # (0:+75%, 1: 0%, 2:-50%)
           $researchBiotech       = $decryptedData[75]; # (0:+75%, 1: 0%, 2:-50%)
           $PRT = $decryptedData[76]; # HE SS WM CA IS SD PP IT AR JOAT  
-          #$decryptedData[77]; unknown , always 0?  #Bug: 2nd half of PRT?
+          $decryptedData[77]; # unused.
           $LRT =  $decryptedData[78]  + ($decryptedData[79] * 0x100); 
+          #   $decryptedData[80]; unused.
           $checkBoxes = $decryptedData[81]; 
-          #Unknown bit 5
           $expensiveTechStartsAt3 = &bitTest($checkBoxes, 5);
-          # Unknown bit 6
+          $randomRace = &bitTest($checkBoxes, 6); # ibitRaceRandom
           $factoriesCost1LessGerm = &bitTest($checkBoxes, 7);
           $MTItems =  $decryptedData[82] + ($decryptedData[83] * 0x100); #Always 0 in race file
-          #$decryptedData[82-109]; unknown, but in pairs
+          my $wFlags = $decryptedData[84] + ($decryptedData[85] * 0x100);
+          $fDead = &bitTest($wFlags, 0);
+          $fCrippled = &bitTest($wFlags, 1);
+          $fCheater = &bitTest($wFlags, 2);
+          $fLearned = &bitTest($wFlags, 3);
+          $fHacker = &bitTest($wFlags, 4);
+          $fNoResearch = $decryptedData[86]; # Player has no reaserch set
+          $cpq         = $decryptedData[87];  # number of items in queue
+         #$decryptedData[88-111]; production queue
+          my @queueTypes = ('Mines(Auto)', 'Factories(Auto)', 'Defenses(Auto)', 'Alchemy(Auto)',
+                  'MinTerra', 'MaxTerra', 'Packet', 'Factory', 'Mines', 'Defenses', 'DefensesUpg', 'Alchemy',
+                  'Terraform', 'Genesis', 'Packet250', 'Packet500', 'Packet750', 'Packet1000', 'Scanner');
+         my @productionQueue;
+          for (my $i = 0; $i < 12; $i++) {
+            my $word  = $decryptedData[88 + ($i*2)] + ($decryptedData[89 + ($i*2)] * 0x100);
+            my $mdIdle = $word & 0x3F;         # bits 0-5
+            my $cQuan  = ($word >> 6) & 0x3FF; # bits 6-15
+            push @productionQueue, { type => $queueTypes[$mdIdle] // $mdIdle, qty => $cQuan };
+          }
           # Interestingly, if the player relations have never been set, the
           # player relations length will be 0, with no bytes after it
-          # for the player relations values
-          # so the result here CAN be 0.
-
+          # for the player relations values so the result here CAN be 0.
           @MTItems = &showMTItems($MTItems);
           print "<img src=\"$WWW_Image" . 'logo' . $logo . ".png\">\n";
           print "<P><u>Race Name</u>: $singularRaceName : $pluralRaceName\n"; 
+          if ($decryptedData[12] || $decryptedData[13] || $decryptedData[14] || $decryptedData[15]) { print "(Password set)\n" } else { print "(Password not set)\n"; }
           print '<P><u>Spend Leftover Points</u>: ' . &showLeftoverPoints($spendLeftoverPoints) . "\n";
-          print '<P><u>PRT</u>: ' . &PRT($PRT,1) . "\n";
+          print '<P><u>PRT</u>: ' . &PRT($PRT,1);
+          if ($randomRace) { print " (THIS RACE HAS THE RANDOM BIT SET)"; }
+          print "\n";
           print '<P><u>LRTs</u>: ' . join(', ',&LRT($LRT,1)) . "\n";
           print '<P><u>Hab</u>: Grav: ' . &showHabRange($lowGravity,$centreGravity,$highGravity, 0) . ", Temp: " . &showHabRange($lowTemperature,$centreTemperature,$highTemperature,1) . ", Rad: " . &showHabRange($lowRadiation,$centreRadiation,$highRadiation,2) . ", Growth: $growthRate\%\n"; 
           print '<P><u>Productivity</u>: Colonist ' . ($resourcePerColonist*100) . ", Factory: Produce $producePerFactory, Cost To Build $toBuildFactory, May Operate $operateFactory, Mine: Produce $producePerMine, Resources to Build $toBuildMine, May Operate $operateMine\n";
           print '<P><u>Factories Cost 1 Less Germ</u>: ' . &showFactoriesCost1LessGerm($factoriesCost1LessGerm) . "\n";
           print '<P><u>Research Cost</u>:  Energy ' . &showResearchCost($researchEnergy) . ", Weapons " . &showResearchCost($researchWeapons) . ", Propulsion " . &showResearchCost($researchProp). ", Construction " . &showResearchCost($researchConstruction) . ", Electronics " . &showResearchCost($researchElectronics) . ", Biotech " . &showResearchCost($researchBiotech) . "\n";
           print '<P><u>Expensive Tech Starts at 3</u>: ' . &showExpensiveTechStartsAt3($expensiveTechStartsAt3) . "\n";
-          print '<P><u>Advantage Points Left</u>: ' . &advantagePointsLeft(\@decryptedData);
+          print '<P><u>Advantage Points Left</u>: ' . &advantagePointsLeft(\@decryptedData) . "\n";
+          if ($score > 0 ) { print '<P><u>Score</u>: ' . $score . "\n"; }
         }
       }
       # END OF MAGIC            
@@ -962,7 +1033,6 @@ sub nibbleToChar {
 }
 
 sub charToNibble {
-  # Untested. This is never called anywehre.
   my ($ch) = @_; # this is sent as a 4-bit nibble, 0 to 15
 	if (ord($ch) >= ord('0') && ord($ch) <= ord('9')) { return (ord($ch) - ord('0')); }
   if (ord($ch) >= ord('A') && ord($ch) <= ord('F')) { return (ord($ch) - ord('A') + 10); }
@@ -1108,10 +1178,10 @@ sub showMTItems {
   if (&bitTest($itemBits, 5)) { push @string, 'Hush-a-Boom';        }
   if (&bitTest($itemBits, 6)) { push @string, 'Anti Matter Torpedo'; }
   if (&bitTest($itemBits, 7)) { push @string, 'Multi Contained Munition'; }
-  if (&bitTest($itemBits, 0)) { push @string, 'Mini Morph';         }
-  if (&bitTest($itemBits, 1)) { push @string, 'Enigma Pulsar';      }
-  if (&bitTest($itemBits, 2)) { push @string, 'Genesis Device';    }
-  if (&bitTest($itemBits, 3)) { push @string, 'Jump Gate';         }
+  if (&bitTest($itemBits, 8)) { push @string, 'Mini Morph';         }
+  if (&bitTest($itemBits, 9)) { push @string, 'Enigma Pulsar';      }
+  if (&bitTest($itemBits, 10)) { push @string, 'Genesis Device';    }
+  if (&bitTest($itemBits, 11)) { push @string, 'Jump Gate';         }
   #     Unused bits="4"/>
   if (@string) { return @string; }
   else { $string[0] = 'None'; return @string }
@@ -1142,9 +1212,13 @@ sub decodeBytesForStarsString {
   	$ch1 = substr($hexChars,$t,1);
   	if ($ch1 eq 'F'){
       # Use 3 nibbles
-      # BUG: Should likely be using charToNibble here
       # In some cases this is the last character
       unless ($t+2 > length($hexChars)) {
+      # BUG: Should likely be using charToNibble here. Need to test the code.
+#         my $ch3 = &charToNibble(substr($hexChars,$t+2,1));
+#         my $ch4 = &charToNibble(substr($hexChars,$t+1,1));
+#         $ch2 = chr(($ch3 << 4) | $ch4);  # keeping original (t+2)(t+1) order
+#         $result .= $ch2;
         my $ch3 = substr($hexChars,$t+2,1);  # Get hex character
         $ch3 = hex ($ch3); # convert to decimal
         $ch3 = &dec2bin($ch3);  # convert to binary
@@ -1252,7 +1326,8 @@ sub resetRace {
     print "Cleaning ...\n";  
     for (my $i = 8; $i <112; $i++) {
      # CAs can see hab ranges so that shouldn't be cleaned.
-     unless ($i =~ /^16|17|18|19|20|21|22|23|24/) {  $decryptedBytes[$i] = $resetRace[$i-8]; }
+     #unless ($i =~ /^16|17|18|19|20|21|22|23|24/) {  $decryptedBytes[$i] = $resetRace[$i-8]; }
+     unless ($i >= 16 && $i <= 24) { $decryptedBytes[$i] = $resetRace[$i-8]; }
     }
     # Reset all of the player relations to Neutral
     # Variable length based on number of players
@@ -1265,7 +1340,6 @@ sub resetRace {
   }
   return @decryptedBytes;
 }
-
 
 sub publicMessages {
   # Exports player messages
@@ -1289,7 +1363,7 @@ sub publicMessages {
   if (@mFiles == 0) { 
     &BlockLogOut(20,"publicMessages: No .m files in $inDir", $ErrorLog);
   } else {
-  
+    my ($ext) = $basefile =~ /(\.[^.]+)$/; # only .m files
     my $messagefile = "$inDir/$GameFile" . '.messages';
     if (-f $messagefile) { unlink $messagefile; } # Get rid of the old one, since we append
     
@@ -1308,7 +1382,7 @@ sub publicMessages {
       close(StarFile);
       
       # Decrypt the data, block by block
-      my ($outBytes) = &decryptMessages(@fileBytes);
+      my ($outBytes) = &decryptMessages(\@fileBytes, $ext);
       my @outBytes = @{ $outBytes };
       if (scalar (@outBytes)) {
         foreach my $message (@outBytes) {
@@ -1331,14 +1405,13 @@ sub publicMessages {
   }
 }
 
-
-sub StarsClean {
+sub StarsClean {   # Removes shared "privileged" information from a .m file for TotalHost
   my ($GameFile) = @_;
-  # Removes shared "privileged" information from a .m file for TotalHost
   my @mFiles;      
   my $filename;
   my $inDir = $Dir_Games . "/" . $GameFile;
-  
+  $inDir =~ s/\\/\//g;  # normalize to forward slashes
+
   #Validate directory 
   unless (-d $inDir  ) { 
     &BlockLogOut(0,"StarsClean: Failed to find $inDir for cleaning $GameFile", $ErrorLog);
@@ -1372,13 +1445,13 @@ sub StarsClean {
     
     # Decrypt the data, block by block
     # and modify appropriately
-    my ($outBytes, $needsCleaning) = &decryptClean(@fileBytes);
+    my ($outBytes, $needsCleaning) = &decryptClean(\@fileBytes,0);
     &BlockLogOut(300,"StarsClean: $mFile Needs Cleaning : $needsCleaning", $LogFile);
     my @outBytes = @{$outBytes};
     
     # Output the Stars! file with modified data
     # Since we don't need to rewrite the file if nothing needs cleaning, let's not (safer)
-    if ($cleanFiles == 2 && $needsCleaning) {
+    if ($needsCleaning) {
       # Backup the file before we clean it
       # Because otherwise we can't get back to where we were, as the actual
       # backup is pre-turn generation, so random event will change.
@@ -1399,14 +1472,15 @@ sub StarsClean {
 }
 
 sub decryptClean {
-  my (@fileBytes) = @_;
+  my ($fileBytes, $display) = @_;
+  my @fileBytes = @{$fileBytes};
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
   my ($seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
   my $needsCleaning = 0;
@@ -1416,14 +1490,10 @@ sub decryptClean {
   my $number;
   my $owner;
   my $type; # 0 = minefield, 1 = packet/salvage, 2 = wormhole, 3 = MT
-  # For MT
-  my ($warp, $metBits, $itemBits, $turnNo, $turnNoDisplay);
-  #For minefields
-  my ($mineCount, $mineDetonate, $mineType);
-  #For wormholes
-  my ($wormholeId, $targetId, $beenThrough, $canSee, $stability);
-  # For packets
-  my ($targetAndSpeed, $destPlanetId, $WarpSpeedMinus4, $WarpOverMDLimit);
+  my ($warp, $metBits, $itemBits, $turnNo, $turnNoDisplay);   # For MT
+  my ($mineCount, $mineDetonate, $mineType);   #For minefields
+  my ($wormholeId, $targetId, $beenThrough, $canSee, $wormAge, $stableLevel);   #For wormholes
+  my ($targetAndSpeed, $destPlanetId, $WarpSpeedMinus4, $WarpOverMDLimit);   # For packets
   # For Player Block 6
   my ($playerId, $ShipSlotsUsed, $PlanetCount);
   my ($FleetAndStarBaseDesignCount, $FleetCount, $StarBaseDesignCount); 
@@ -1432,26 +1502,23 @@ sub decryptClean {
   # The values used when cleaning race values. Defaults to Humanoids
   my @resetRace =  ( 81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 );
   my $offset = 0; #Start at the beginning of the file
-  while ($offset < @fileBytes) {
-    # Get block info and data
+  while ($offset < @fileBytes) {  # Get block info and data    
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
     @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
-    # FileHeaderBlock, never encrypted
-    if ($typeId == 8 ) { # File Header Block
+    if ($typeId == 8 ) { # File Header Block, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block );
       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
       push @outBytes, @block;
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
       push @outBytes, @block;
-    } else {
-      # Everything else needs to be decrypted
+    } else { # Everything else needs to be decrypted      
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
       @decryptedData = @{ $decryptedData };    
       # WHERE THE MAGIC HAPPENS
@@ -1459,24 +1526,18 @@ sub decryptClean {
         my $PRT = $decryptedData[76];
         if ($PRT == 3) { # Reset the info the CA player can see
           $needsCleaning = 1;
-          if ($cleanFiles) {   
-            @decryptedData = &resetRace(\@decryptedData,$Player);
-          }
+          if ($display) { print "Player " . ($Player+1) . ": Cleaning CA race data for player $playerId\n"; }
+          @decryptedData = &resetRace(\@decryptedData,$Player);
         }
       }
       elsif ($typeId == 43) { # Check for special attributes in the Object Block
-        if ($size == 2) {
-          my $count = &read16(\@decryptedData, 0);
-        } else {
+        if ($size != 2) { #Skip the count block
           $objectId =  &read16(\@decryptedData, 0);
           $number = $objectId & 0x01FF;
           $owner = ($objectId & 0x1E00) >> 9;
           $type = $objectId >> 13;
-          # BUG: MTID 12 bits, Type 4 bits.
-          # BUG: Wormhole ID 12 bits, Type ID 4 bits
-          
-          # Mystery Trader
-          if (&isMT($type)) {
+                   
+          if (&isMT($type)) { # Mystery Trader
             $needsCleaning = 1;
             $x = &read16(\@decryptedData, 2);
             $y = &read16(\@decryptedData, 4);
@@ -1488,110 +1549,67 @@ sub decryptClean {
       			$turnNo = &read16(\@decryptedData, 16); # Which doesn't report turn like everything else
             $turnNoDisplay =  $turnNo + 2401;
             my $MTPart = &getMTPartName($itemBits);
-            if ($cleanFiles) { 
-              # Reset players who have traded with MT
-              ($decryptedData[12], $decryptedData[13]) = &resetPlayers($Player, &read16(\@decryptedData, 12));
-              # reset values for display
-              $metBits = &read16(\@decryptedData, 12);
-              # Reset the MT Part
-              $decryptedData[14] = 0;
-              $decryptedData[15] = 0;
-              # reset part values for display
-      			  $itemBits = &read16(\@decryptedData, 14);
-              $MTPart = &getMTPartName($itemBits);
-            }
-          # Minefields
-          } elsif (&isMinefield($type)) {
+            # Reset players who have traded with MT
+            ($decryptedData[12], $decryptedData[13]) = &resetPlayers($Player, &read16(\@decryptedData, 12));              
+            $metBits = &read16(\@decryptedData, 12); # reset values for display            
+            $decryptedData[14] = 0;  # Reset the MT Part
+            $decryptedData[15] = 0;             
+    			  $itemBits = &read16(\@decryptedData, 14);  # reset part values for display
+            $MTPart = &getMTPartName($itemBits);
+            if ($display) { print "Player " . ($Player+1) . ": MT at ($x,$y) warp $warp, turn $turnNoDisplay, metBits $metBits, item $MTPart\n"; }
+          } elsif (&isMinefield($type)) { # Minefields
             $needsCleaning = 1;
-            # BUG: decay rate? (might be calculated)
+            # Note: decay rate is not stored in the block, it is calculated from mine type.
             $x = &read16(\@decryptedData, 2); # 2 bytes
             $y = &read16(\@decryptedData, 4); # 2 bytes
             $mineCount = &read32(\@decryptedData, 6); # 4 bytes
             $canSee = &read16(\@decryptedData, 10);
-            my $mineStatus = &read16(\@decryptedData, 12);   # includes detonating
-            $mineStatus = dec2bin($mineStatus);
-            my @mineStatus;
-            for (my $i=0; $i <= 15; $i++)  {
-               $mineStatus[$i] = substr($mineStatus,$i,1); 
-            }
-            $mineDetonate = &getMineDetonate(\@mineStatus); # bit 7 is detonating  status
-            $mineType = &getMineType(\@mineStatus); # bit 14+15 = mine type
-            $unk4 = &read16(\@decryptedData, 14);  
+            my %mineTypes = (0 => "Standard", 1 => "Heavy", 2 => "Speed Trap");
+            $mineType = $mineTypes{$decryptedData[12]} // "Unknown"; 
+            $mineDetonate = $decryptedData[13] ? "Detonating" : "Not Detonating";          
+            $grbitPlrNow = &read16(\@decryptedData, 14); # who gets to see the minefield this turn during turn generation  
             $turnNo = &read16(\@decryptedData, 16);
             $turnNoDisplay =  $turnNo + 2401;
-            if ($cleanFiles) {
-              # Hard to find any data here as not much is known of the format
-              # Reset players who can see the minefield
-              ($decryptedData[10], $decryptedData[11]) = &resetPlayers ($Player, &read16(\@decryptedData, 10));
-              # reset values for display
-              $canSee = &read16(\@decryptedData, 10);
-            }
-          #Wormholes
-          } elsif (isWormhole($type)) {
+            # Reset players who can see the minefield
+            ($decryptedData[10], $decryptedData[11]) = &resetPlayers ($Player, &read16(\@decryptedData, 10));            
+            $canSee = &read16(\@decryptedData, 10); # reset values for display
+            if ($display) { print "Player " . ($Player+1) . ": Resetting minefield $number at ($x,$y) owner player " . ($owner+1) . ", $mineCount mines, $mineType, $mineDetonate, canSee $canSee, turn $turnNoDisplay\n"; }
+          } elsif (isWormhole($type)) {   #Wormholes
             $needsCleaning = 1;
             $x = &read16(\@decryptedData, 2);
             $y = &read16(\@decryptedData, 4);
-            $stability = &read16(\@decryptedData, 6);
-            #$stability = &dec2bin($stability);
-    	      $canSee = &read16(\@decryptedData, 8);
+            $stableLevel = &read16(\@decryptedData, 6) & 0x03;
+            $wormAge     = (&read16(\@decryptedData, 6) >> 2) & 0x03FF;    	      
+            $canSee = &read16(\@decryptedData, 8);
     	      $beenThrough = &read16(\@decryptedData, 10);
-    	      $targetId = &read16(\@decryptedData, 12) % 4096;   
-            # BUG: One of these fields is likely wormhole AGE.
-            $unk4 =  &read16(\@decryptedData, 12); #possibly random amount added to last stability value ?
-            $unk4 = &dec2bin ($unk4);                        
-            $unk5 =  &read16(\@decryptedData, 14);  # Always zeros? 
-            $unk5 = &dec2bin ($unk5);                        
+    	      $targetId = &read16(\@decryptedData, 12);   
+            $unk5 =  &read16(\@decryptedData, 14);  # Always zero
             $turnNo = &read16(\@decryptedData, 16);
             $turnNoDisplay =  $turnNo + 2401;
-            if ($cleanFiles) { 
-              # Reset players who can see wormhole
-              ($decryptedData[8], $decryptedData[9]) = &resetPlayers ($Player, &read16(\@decryptedData, 8));
-              # reset values for display
-    	        $canSee = &read16(\@decryptedData, 8);
-              # Reset players who are known to have been through
-              ($decryptedData[10], $decryptedData[11]) = &resetPlayers ($Player, &read16(\@decryptedData, 10));
-              # reset values for display
-              $beenThrough = &read16(\@decryptedData, 10);
-            }
-          # Packet
-          } elsif (&isPacketOrSalvage($type)) {
-          
-# Struct: THPACK
-# This struct represents a "mineral packet" in Stars!. Below is the byte mapping for its fields:
-# 
-# Field Name	 Type	Size (Bytes)	                    Offset(Bytes)	    Description
-# idPlanet	   unsigned short:10	 2 (10 bits used)	  0	                Planet destination ID (10 bits).
-# iWarp	       unsigned short:4	   2 (4 bits used)	  0 (overlapping)	  Warp speed (next 4 bits).
-# fMoved	     unsigned short:1	   2 (1 bit used)	    0 (overlapping)	  Movement flag (next 1 bit).
-# fInclude	   unsigned short:1	   2 (1 bit used)	    0 (overlapping)	  Inclusion flag (final bit).
-# rgwtMin	     int[3]	             12	                2	                Mineral quantities (3 integers, 4 bytes each).
-# wtMax	       unsigned short:14	 2 (14 bits used)	 14	                Maximum weight (14 bits).
-# iDecayRate	 unsigned short:2	   2 (2 bits used)	 14 (overlapping)	  Decay rate (2 bits).
-# Total Block Size: 16 bytes
-          
+            # Reset players who can see wormhole
+            ($decryptedData[8], $decryptedData[9]) = &resetPlayers ($Player, &read16(\@decryptedData, 8));             
+  	        $canSee = &read16(\@decryptedData, 8); # reset values for display
+            # Reset players who are known to have been through
+            ($decryptedData[10], $decryptedData[11]) = &resetPlayers ($Player, &read16(\@decryptedData, 10));              
+            $beenThrough = &read16(\@decryptedData, 10); # reset values for display
+            if ($display) { print "Player " . ($Player+1) . ": Resetting Wormhole $number at ($x,$y) target $targetId, stableLevel $stableLevel, age $wormAge, canSee $canSee, beenThrough $beenThrough, turn $turnNoDisplay\n"; }
+          } elsif (&isPacketOrSalvage($type)) { # Packet. Not written to file unless player is PP, who can see them anyway.  Included here just because we're looking at this block anyway. 
             $x = &read16(\@decryptedData, 2);
             $y = &read16(\@decryptedData, 4);
-            $targetAndSpeed = &read16(\@decryptedData, 6);
-            $targetAndSpeed = &dec2bin($targetAndSpeed);
-            $destPlanetId = substr($targetAndSpeed,6,10);       # 10 bits
-            $destPlanetId = &bin2dec($destPlanetId);
-            $WarpSpeedMinus4 = substr($targetAndSpeed,2,4); #4 bits
-            $WarpSpeedMinus4 = &bin2dec($WarpSpeedMinus4);
-            $WarpOverMDLimit = substr($targetAndSpeed,2,2);# 2 bits 
-            $WarpOverMDLimit = &bin2dec($WarpOverMDLimit);
-            $ironium = &read16(\@decryptedData, 8);
-            $boranium = &read16(\@decryptedData, 10);
-            $germanium = &read16(\@decryptedData, 12);
-            # BUG: there's data that changes in byte 14. 
-            # fairly certain this isn't a player ID or CanSee??
-            $unk5 = &dec2bin(&read16(\@decryptedData, 14)); 
-            $turnNo = &read16(\@decryptedData, 16); # Doesn't appear to be turn info like the rest
-            $turnNoDisplay = $turnNo + 2401;
-            my $warpSpeed = $WarpSpeedMinus4 + 4;
-            if ($cleanFiles) {
-              # BUG: Decay rate wouldn't be public.
-              # BUG: Packet ownership must be included in here somewhere
-            }
+            $targetAndSpeed  = &read16(\@decryptedData, 6);
+            $destPlanetId    = $targetAndSpeed & 0x03FF;         # idPlanet:10
+            $WarpSpeedMinus4 = ($targetAndSpeed >> 10) & 0x0F;   # iWarp:4
+            $WarpOverMDLimit = ($targetAndSpeed >> 12) & 0x03;   # top 2 bits of iWarp
+            $ironium         = &read16(\@decryptedData, 8);
+            $boranium        = &read16(\@decryptedData, 10);
+            $germanium       = &read16(\@decryptedData, 12);
+            $wtMax           = &read16(\@decryptedData, 14) & 0x3FFF;  # wtMax:14 low bits
+            $iDecayRate      = (&read16(\@decryptedData, 14) >> 14) & 0x03;  # iDecayRate:2 high bits            
+            $turnNo          = &read16(\@decryptedData, 16); # Doesn't appear to be turn info like the rest
+            $turnNoDisplay   = $turnNo + 2401;
+            my $warpSpeed    = $WarpSpeedMinus4 + 4;
+            my $packetType = ($destPlanetId == 1023) ? "Salvage" : "Packet";
+            if ($display) { print "Player " . ($Player+1) . ": $packetType at ($x,$y) dest planet $destPlanetId, warp " . ($WarpSpeedMinus4+4) . ", Fe $ironium Bo $boranium Ge $germanium, turn $turnNoDisplay\n"; }
           }
         }
       }
@@ -1623,7 +1641,7 @@ sub StarsList {
   while (read(STARFILE, $FileValues, 1)) {
     push @fileBytes, $FileValues; 
   }
-  close(StarFile);
+  close(STARFILE);
   # Decrypt the data, block by block, and process it
   # Include the directory to handle the difference between TH and standalone 
   my %fleetList;
@@ -1667,7 +1685,7 @@ sub StarsList {
 
 sub StarsFix {
   # Return results from Stars! file for exploits (based off StarsFix & StarsQueue/StarsFleet/decryptQueue/decryptFleet
-  my ($gameDir, $filename, $turn) = @_; # .x file location includes path (Uploads). BUG: Uploaded files are moved prior to StarsFix
+  my ($gameDir, $filename, $turn) = @_; # .x file location includes path (Uploads). 
   my $needsFixing = 0;
   
   # Get the pieces of file names
@@ -1710,7 +1728,8 @@ sub StarsFix {
  
   # read lastPlayer
   my $lastPlayer = -1; # storing the last player # for 10th Starbase
-  if ($file_type =~ /x/i && -f "$listPrefix.hst.last") {
+  if ($file_type =~ /x/i && -f "$listPrefix.hst.last") {  # we don't have $dt here. 
+  #if ($dt == 1 && -f "$listPrefix.hst.last") { # $dt = 1 = .x file
     open (LISTFILE,"$listPrefix.hst.last");
     my @lastFile = <LISTFILE>;
     close LISTFILE;
@@ -1749,7 +1768,7 @@ sub StarsFix {
   # Output the Stars! file with modified data
   # Since we don't need to rewrite the file if nothing needs fixing, let's not (safer)
   if ($needsFixing) {
-    if ($fixFiles == 2) {  # Don't do unless in write mode
+    if ($fixFiles) {  # Don't do unless in write mode
   	  &BlockLogOut(300,"StarsFix Backup: $filename > $filename.preFix", $LogFile);
    	  copy($filename, "$filename.preFix");
       &BlockLogOut(200," StarsFix: Pushing out $filename post-fixing", $LogFile);
@@ -1792,7 +1811,7 @@ sub StarsAI {
   close(StarFile);
   
   # Decrypt the data, block by block
-  my ($outBytes) = &decryptAI(\@fileBytes, $PlayerAI, $NewStatus);
+  my ($outBytes, $messages) = &decryptAI(\@fileBytes, $PlayerAI, $NewStatus, 1); # 1 enables logging
   if ($outBytes) {
     my @outBytes = @{$outBytes};
     # Create the backup file
@@ -1803,14 +1822,14 @@ sub StarsAI {
       print OUTFILE $outBytes[$i];
     }
     close (OUTFILE);
-    &BlockLogOut(200," StarsAI: Updated $filename for playerId:$playerAI to $NewStatus ", $LogFile);
+    &BlockLogOut(200," StarsAI: Updated $filename for playerId:$PlayerAI to $NewStatus ", $LogFile);
   } else { 
-    &BlockLogOut(200," StarsAI: Did not update $filename for playerId:$playerAI to $NewStatus ", $LogFile); 
+    &BlockLogOut(200," StarsAI: Did not update $filename for playerId:$PlayerAI to $NewStatus ", $LogFile); 
   }
 }
 
 sub decryptAI {
-  my ($fileBytes, $PlayerAI, $NewStatus ) = @_;
+  my ($fileBytes, $PlayerAI, $newStatus, $logging) = @_;
   my @fileBytes = @{ $fileBytes };
   my @block;
   my @data;
@@ -1818,11 +1837,18 @@ sub decryptAI {
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti );
+  my @messages;
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt );
   my ( $seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   my $action = 0; # Was any action taken
+  my ($aiEnabled, $aiSkill, $aiRace);
+  my @aiStatus = qw(Active Inactive CA PP HE IS SS AR);
+  my @aiSkill = qw(Easy Standard Harder Expert);
+  my @aiRace = ('HE', 'SS', 'IS', 'CA', 'PP', 'AR', 'Human Inactive/Expansion');
+  my @prts = qw (HE SS WM CA IS SD PP IT AR JOAT );
+  
   while ($offset < @fileBytes) {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
@@ -1834,62 +1860,167 @@ sub decryptAI {
     if ($typeId == 8) {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
       push @outBytes, @block;
-# BUG? Does the file footer / race hash have to be updated when we change this? 
-#    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
-#      push @outBytes, @block;
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
+      push @outBytes, @block;
     } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
-        my $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
-        if ($PlayerAI == $playerId) {
-          if (($NewStatus eq 'Active' || $NewStatus eq 'Idle')  && $decryptedData[7] == 227 ) {
-            $action = 1;
-            #Changing from Human(Inactive) to Human
-            $decryptedData[7] = 225;
-            # The bits for the password of an inactive player are the inverse of the 
-            # bits of the password for an active player 
-            # Flip the bits of the password
-            $decryptedData[12] = &read8(~$decryptedData[12]);
-            $decryptedData[13] = &read8(~$decryptedData[13]);
-            $decryptedData[14] = &read8(~$decryptedData[14]);
-            $decryptedData[15] = &read8(~$decryptedData[15]);
-            &BlockLogOut(200," StarsAI: Flipped playerId:$playerId to Active", $LogFile);
-          } elsif ($NewStatus eq 'Inactive'  && ($decryptedData[7] == 225  || $decryptedData[7] == 1)) {
-            $action = 1;
-            #Changing from Human to Human(Inactive) AI
-            $decryptedData[7] = 227;
-            # The bits for the password of an inactive player are the inverse of the 
-            # bits of the password for an active player 
-            # Flip the bits of the password
-            $decryptedData[12] = &read8(~$decryptedData[12]);
-            $decryptedData[13] = &read8(~$decryptedData[13]);
-            $decryptedData[14] = &read8(~$decryptedData[14]);
-            $decryptedData[15] = &read8(~$decryptedData[15]);
-            &BlockLogOut(200," StarsAI: Flipped playerId:$playerId to Inactive/AI", $LogFile);
-          } else { &BlockLogOut(200," StarsAI: No Status Change for playerId:$playerId", $LogFile); }
-        } 
-      } 
+        my $playerId = $decryptedData[0] & 0xFF; 
+        if (!defined($PlayerAI) || $playerId == $PlayerAI) {
+          if ($playerId != 255) { push @messages, "Player: " . ($playerId +1); 
+          } else { push @messages, "Race File"; }
+          my $fullDataFlag = ($decryptedData[6] & 0x04);
+          if ($fullDataFlag) {
+            my $PRT = $decryptedData[76]; # HE SS WM CA IS SD PP IT AR JOAT  
+            # In here is also the AI difficulty (lvlEasy, lvlStandard, lvlHard, lvlExpert . . .)
+            push @messages, "PRT: $prts[$PRT] ($PRT)";
+            if ($logging) { &BlockLogOut(200," StarsAI: Current PRT: $prts[$PRT]  ($PRT)", $LogFile); }
+          }
+          
+          # Byte 7 as 76543210
+          #   Bit 0 is always 1, Bit 1 defines whether an AI is enabled :  0:off ,  1:on
+          #   The 2s bit is 0 for Player, 1 for Human(inactive)
+          #   bits 6,7,8 also flip changed to human(inactive)  but don't flip back
+          # bits 23 defines how good the AI will be:
+          # Bit 4 is always 0
+          # bits 765 define which PRT AI to use: 
+          # 000 - HE - Robotoids, 001 - SS - Turindromes, 010 - IS - Automitrons
+          # 011 - CA - Rototills, 100 - PP - Cybertrons, 101 - AR - Macinti, 111 - Human inactive / Expansion player
+          # When human is set back to active from Inactive, bit 1 flips but bits 765 aren't reset to 0
+          # So the values for Byte 7 for human are 1 (active) or 225 (active again) and 227 (inactive/expansion player)
+          
+          if ($decryptedData[7] == 227) {
+              push @messages, "AI Status: Human (Inactive)";
+          } elsif ($decryptedData[7] == 1 || $decryptedData[7] == 225) {
+              push @messages, "AI Status: Disabled";
+          } else {
+              $aiEnabled = ($decryptedData[7] >> 1) & 0x01;
+              $aiSkill = ($decryptedData[7] >> 2) & 0x03;  #00 - Easy, 01 - Standard, 10 - Harder, 11 - Expert
+              $aiRace = ($decryptedData[7] >> 5) & 0x07;
+              my $aiStatus = "AI Status: " . ($aiEnabled ? "Enabled" : "Not Enabled");
+              if ($aiEnabled) { $aiStatus .= " $aiSkill[$aiSkill], $aiRace[$aiRace]"; }
+              push @messages, $aiStatus;
+          }  
+                  
+          if ($dt != 2) { # Only modify .hst files
+            push @messages, "This is not a .hst file";
+            return 0, \@messages;
+          }
+          
+          if (defined($newStatus)) {   
+            $newStatus = 'Active' if ($newStatus eq 'Idle');  # Idle is a TH states, not a race file state.
+            # Have to handle the password change differently for human <> inactive
+            # Change Human to Human
+            if ($newStatus eq 'Active' ) {
+              if  (($newStatus eq 'Active' && $decryptedData[7] == 1)  || ($newStatus eq 'Active' && $decryptedData[7] == 225)) { # Active and Active Again
+                push @messages, "Already Active Human";
+                if ($logging) { &BlockLogOut(200," StarsAI: Already Human. No Status Change for playerId:$playerId", $LogFile); }
+              # Change from Human (Inactive) to Active
+              } elsif ($newStatus eq 'Active' && $decryptedData[7] == 227 ) { # Human (Inactive)
+                $action = 1;
+                $decryptedData[7] = 225;
+                # The bits for the password of an inactive player are the inverse of the 
+                # bits of the password for an active player 
+                # Flip the bits of the password
+                $decryptedData[12] = &read8(~$decryptedData[12]);
+                $decryptedData[13] = &read8(~$decryptedData[13]);
+                $decryptedData[14] = &read8(~$decryptedData[14]);
+                $decryptedData[15] = &read8(~$decryptedData[15]);
+                push @messages, "Changing from Human(Inactive) AI to Active";
+                if ($logging) { &BlockLogOut(200," StarsAI: Flipped playerId:$playerId to Active", $LogFile); }
+               } elsif ($newStatus eq 'Active'  && ($decryptedData[7] != 1 && $decryptedData[7] != 225 && $decryptedData[7] != 227)) { # must be an AI
+                # Change AI to Human # Reset the AI password to blank for human use
+                $action = 1;
+                $decryptedData[7] = 225;
+                $decryptedData[12] = 0;
+                $decryptedData[13] = 0;
+                $decryptedData[14] = 0;
+                $decryptedData[15] = 0;
+                push @messages, "Changing from AI to Active";
+                if ($logging) { &BlockLogOut(200," StarsAI: Changing playerId:$playerId from AI to Active", $LogFile); }
+              } else {
+                push @messages, "Unknown AI state";
+                if ($logging) { &BlockLogOut(200," StarsAI: Unknown AI state: $decryptedData[7]", $LogFile); }
+              }
+            } elsif ($newStatus eq 'Inactive') {  
+              # Change Human(Inactive) to Human(Inactive)
+              if ($newStatus eq 'Inactive' && $decryptedData[7] == 227 ) {
+                push @messages, "Already Human(Inactive)";
+                if ($logging) { &BlockLogOut(200," StarsAI: Already Human (Inactive)", $LogFile); }
+              # Change Human to Human(Inactive)
+              } elsif (($newStatus eq 'Inactive' && $decryptedData[7] == 225)  || ($newStatus eq 'Inactive' && $decryptedData[7] == 1)) { # making sure they're human
+                $action = 1; 
+                $decryptedData[7] = 227;
+                # The bits for the password of an inactive player are the inverse of the 
+                # bits of the password for an active player 
+                # Flip the bits of the password
+                $decryptedData[12] = &read8(~$decryptedData[12]);
+                $decryptedData[13] = &read8(~$decryptedData[13]);
+                $decryptedData[14] = &read8(~$decryptedData[14]);
+                $decryptedData[15] = &read8(~$decryptedData[15]);
+                push @messages, "Changing from Active to Human(Inactive) AI";
+                if ($logging) { &BlockLogOut(200," StarsAI: Flipped playerId:$playerId to Human(Inactive) AI", $LogFile); }
+              } elsif ($newStatus eq 'Inactive' && ($decryptedData[7] != 1 && $decryptedData[7] != 225 && $decryptedData[7] != 227)) { # an AI
+                $action = 1; 
+                $decryptedData[7] = 227;
+                # The inverse of a blank password
+                $decryptedData[12] = 255;
+                $decryptedData[13] = 255;
+                $decryptedData[14] = 255;
+                $decryptedData[15] = 255;
+                push @messages, "Changing from Full AI to Human(Inactive) AI";
+                if ($logging) { &BlockLogOut(200," StarsAI: Changing from Full AI to Human(Inactive) AI for playerId:$playerId", $LogFile); }
+              }
+            } else { # If not setting to active or inactive then setting to AI 
+              $action = 1; 
+              # Set the standard AI password              
+              $decryptedData[12] = 238;
+              $decryptedData[13] = 171;
+              $decryptedData[14] = 77;
+              $decryptedData[15] = 9;
+              push @messages, "Changing AI race to $newStatus";
+              if ($logging ) { &BlockLogOut(200," StarsAI: Changing AI race to $newStatus", $LogFile); }
+
+              # Use the Expert values for the AIs
+              if ($newStatus eq 'CA')       {  $decryptedData[7] = 111;  push @messages, "FYI, CA AI does not expect IFE. Expects TT/OBRM/NAS"; 
+              } elsif ($newStatus  eq 'PP') {  $decryptedData[7] = 143;  push @messages, "FYI, PP AI expects IFE/TT/OBRM/NAS. The PP AI appears brain dead for non-PP PRTs";
+              } elsif ($newStatus  eq 'HE') {  $decryptedData[7] = 15;   push @messages, "FYI, AI HE expects IFE/OBRM";
+              } elsif ($newStatus  eq 'IS') {  $decryptedData[7] = 79;   push @messages, "FYI, AI IS does not expect IFE. Expects OBRM/NAS";
+              } elsif ($newStatus  eq 'SS') {  $decryptedData[7] = 47;   push @messages, "FYI, AI SS expects IFE/ARM";
+              } elsif ($newStatus  eq 'AR') {  $decryptedData[7] = 175;  push @messages, "FYI, AI AR expects IFE/TT/ARM/ISB";
+              } else { 
+                $action = 0; 
+                push @messages, "ERROR: \$newStatus is not a valid status";
+                if ($logging ) { &BlockLogOut(200," StarsAI: ERROR, \$newStatus is not a valid status", $LogFile); }
+              }
+            } # End of $newStatus 
+          }
+        } # End of PlayerId 
+      } # End of typeID 6
       # END OF MAGIC
-      #reencrypt the data for output    
+      #reencrypt the data for output
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
       @encryptedBlock = @ { $encryptedBlock };
       push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
   }
-  # If the password / AI was not reset, no need to write the file back out
+  # If the password was not reset, no need to write the file back out
   # Faster, less risk of corruption   
-  if ($action) { return \@outBytes; 
-  } else { &BlockLogOut(200," StarsAI: Did not make changes for playerID:$PlayerAI to $NewStatus", $LogFile); return 0; }
+  if ($action) { return \@outBytes, \@messages; }
+  else {  
+    return 0, \@messages; 
+  }
 }
+
 
 sub zerofy {
 # make a 1 digit number 2 digits
@@ -1944,8 +2075,9 @@ sub showCategory {
   $item{'64'} = [ qw ( LadyFinger BlackCat M-70 M-80 Cherry LBU-17 LBU-32 LBU-74 HushaBoom Retro Smart Neutron EnrichedNeutron Peerless Annihilator ) ];
   $item{'128'} = [ qw ( Midget Mini Miner Maxi Super Ultra Orbital ) ]; 
   $item{'256'} = [ qw ( Mine40 Mine50 Mine80 Mine130 Heavy50 Heavy110 Heavy200 Speed20 Speed30 Speed50 ) ];
-  $item{'512'} = [ qw ( SG250 SG300 SG600 SG500 SGany SG800  SGanyany Mass5 Mass6 Mass7 Mass8 Mass9 Mass10 Mass11 Mass12 Mass13 ) ];  #BUG: Where is SG100
-  $item{'1024'} = [ qw ( Viewer50 Viewer90 Viewer150 Viewer220 Viewer280 Viewer320 Snooper400 Snooper500 Snooper620 ) ];
+  #$item{'512'} = [ qw ( SG250 SG300 SG600 SG500 SGany SG800  SGanyany Mass5 Mass6 Mass7 Mass8 Mass9 Mass10 Mass11 Mass12 Mass13 ) ];  
+  $item{'512'} = [ qw ( SG100 SGany SG150 SG300 SG100any SGany800 SGanyany Mass5 Mass6 Mass7 Mass8 Mass9 Mass10 Mass11 Mass12 Mass13 ) ];
+  $item{'1024'} = [ &planetaryScanners() ];
   $item{'2048'} = [ qw ( TransportCloak StealthCloak Super-StealthCloak Ultra-StealthCloak MultiFunction BattleComputer BattleSuperComputer BattleNexus Jammer10 Jammer20 Jammer30 Jammer50 EnergyCapacitor FluxCapacitor EnergyDampener TachyonDetector Anti-matterGenerator) ];
   $item{'4096'} = [ qw ( Colonization OrbitalCon Cargo SuperCargo MultiCargo Fuel SuperFuel ManeuveringJet Overthruster BeamDeflector ) ];
   $item{'6194'} = [ qw ( empty ) ];
@@ -2256,10 +2388,10 @@ sub unshiftBytes {
   for (my $i = 0; $i <  $paddedSize; $i+=4) {
     # Swap bytes using indexes in this order:  4 3 2 1
     my $chunk =  (
-        (ord($shiftedBytes[$i+3]) << 24) | 
-        (ord($shiftedBytes[$i+2]) << 16) | 
-        (ord($shiftedBytes[$i+1]) << 8)  | 
-         ord($shiftedBytes[$i])
+      (ord($shiftedBytes[$i+3]) << 24) | 
+      (ord($shiftedBytes[$i+2]) << 16) | 
+      (ord($shiftedBytes[$i+1]) << 8)  | 
+       ord($shiftedBytes[$i])
     );
     # Write out the decrypted data, swapped back
     my $unshiftedBytes = $chunk     & 0xFF;
@@ -2292,10 +2424,10 @@ sub shiftBytes {
   for(my $i = 0; $i <$paddedSize; $i+=4) {
     # Swap bytes:  4 3 2 1
     my $chunk = (
-          ($unshiftedBytes[$i+3] << 24) | 
-          ($unshiftedBytes[$i+2] << 16) | 
-          ($unshiftedBytes[$i+1] << 8)  | 
-           $unshiftedBytes[$i]
+      ($unshiftedBytes[$i+3] << 24) | 
+      ($unshiftedBytes[$i+2] << 16) | 
+      ($unshiftedBytes[$i+1] << 8)  | 
+       $unshiftedBytes[$i]
     );
     # Write out the shifted data, swapped back
     my $shiftedBytes = chr($chunk      & 0xFF);
@@ -2374,7 +2506,7 @@ sub checkRaceCorrupt {
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
-  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
   my ( $seedA, $seedB );
   my ( $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
@@ -2390,7 +2522,7 @@ sub checkRaceCorrupt {
     if ($typeId == 8) { # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
       my ($unshiftedData) = &unshiftBytes(\@data); 
@@ -2511,7 +2643,7 @@ sub decryptSerials {
   my @data;
   my ($decryptedData, $padding);
   my @decryptedData;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
   my ($seedA, $seedB);
   my ($FileValues, $typeId, $size);
   my $offset = 0; #Start at the beginning of the file
@@ -2527,7 +2659,7 @@ sub decryptSerials {
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
     if ($typeId == 8) { # File Header Block, never encrypted
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block );
       ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
     } else {
       # Everything else needs to be decrypted
@@ -2635,8 +2767,6 @@ sub updateList { # Update the list data for a game
   # unlink qq|$Dir_Games/$GameFile/$GameFile.warnings|; 
   my @extensions = qw ( design queue fleet waypoint last ); 
   if (!($enable)) { # Remove the fix file
-    my $fixfile = qq|$Dir_Games/$GameFile/fix|; 
-    if (-f $fixfile) {  unlink $fixfile; } 
   # StarsList cleans up the files otherwise
     foreach my $extension (@extensions) {
       my $extension = qq|$Dir_Games/$GameFile/$GameFile.hst.$extension|; 
@@ -2644,22 +2774,84 @@ sub updateList { # Update the list data for a game
     }
   } 
   else { # We need to create both the fix file, and the List files
-    if ($fixFiles && -f "$Dir+Games/$GameFile/fix") { 
+    if ($fixFiles) { 
       &StarsList("$Dir_Games/$GameFile", "$Dir_Games/$GameFile/$GameFile.hst"); 
     }
   }
 }
 
 sub cleanFiles {
-  my ($GameFile) = @_;
+  my ($GameFile, $Sanitize) = @_;
   # Clean the .m files
   # Works on a folder-by-folder game-by-game basis. 
   # Requires a file named 'clean' in the game folder
   # $cleanFiles is set in config.pl
-  if ($cleanFiles && -f "$Dir+Games/$GameFile/clean") {
+  if ($cleanFiles && $Sanitize) {
     &StarsClean($GameFile); 
-    &BlockLogOut(50, "Cleaned .m Files for $GameFile", $LogFile);
+    &BlockLogOut(50, "cleanFiles: Cleaned .m Files for $GameFile", $LogFile);
   }
+}
+
+# trims .m files down to single turn if they are multi-turn
+sub trimM {
+  my ($filename, $outFileName, $display) = @_;
+
+  # Read the file
+  my @fileBytes;
+  my $FileValues;
+  unless (open(STARFILE, "<$filename")) { print "Cannot open $filename: $!\n"; return; }
+  binmode(STARFILE);
+  while (read(STARFILE, $FileValues, 1)) { push @fileBytes, $FileValues; }
+  close(STARFILE);
+
+  if ($display) { print "Read " . scalar(@fileBytes) . " bytes from $filename\n" } ;
+
+  # Walk all blocks and record the offset of every block 8
+  my $offset = 0;
+  my $lastBlock8Offset = -1;
+  my ($typeId, $size);
+  my $block8Count = 0;
+
+  while ($offset < @fileBytes) {
+    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    ($typeId, $size) = &parseBlock($FileValues, $offset);
+    if ($typeId == 8) {
+      $lastBlock8Offset = $offset;
+      $block8Count++;
+      if ($display) { print "  Found block 8 at offset $offset (turn block $block8Count)\n"; }
+    }
+    $offset += 2 + $size;
+  }
+
+  if ($block8Count <= 1) {
+    if ($display) { print "  Single turn only, skipping.\n\n"; }
+    return;
+  }
+
+  if ($display) { print "  Keeping last turn at offset $lastBlock8Offset, removing " . ($block8Count - 1) . " earlier turn(s)\n";  }
+
+  # Extract just the last turn's bytes
+  my @outBytes = @fileBytes[$lastBlock8Offset .. $#fileBytes];
+
+  # Clear fMulti (bit 10 of dts word at bytes 16-17 of block 8)
+  my $dts = ord($outBytes[16]) | (ord($outBytes[17]) << 8);
+  $dts &= ~(1 << 10);
+  $outBytes[16] = chr($dts & 0xFF);
+  $outBytes[17] = chr(($dts >> 8) & 0xFF);
+
+  # Write output
+  my $newFile = $outFileName || ($filename . '.stripped');
+  unless (open(OUTFILE, '>:raw', $newFile)) { if ($display) { print "Cannot write $newFile: $!\n"; } return; }
+  for my $byte (@outBytes) { print OUTFILE $byte; }
+  close(OUTFILE);
+
+  my $origSize = scalar(@fileBytes);
+  my $newSize  = scalar(@outBytes);
+  my $savings  = $origSize - $newSize;
+  my $pct      = $origSize ? int($savings / $origSize * 100) : 0;
+
+  if ($display) { print "  Saved $savings bytes ($pct%) -> $newFile\n\n"; }
+  unless ($outFileName) { if ($display) { print "  Don't forget to rename $newFile\n"; } }
 }
 
 sub tallyFleet {
@@ -2672,10 +2864,10 @@ sub tallyFleet {
   my @shipCount = split (chr(31), $shipCount);
   for (my $bit = 0; $bit <= 15; $bit++) {
     if ($shipDesigns & (1 << $bit) ) { # If there's a design in this slot, decimal value. 
-        $cargoCapacity += $designList{$ownerId}{$bit}{cargoCapacity} * $shipCount[$bit];
-        $fuelCapacity  += $designList{$ownerId}{$bit}{fuelCapacity} * $shipCount[$bit];
-        if ($designList{$ownerId}{$bit}{robberBaron} == 1) { $robberBaron = 1; }
-        $mass          += $designList{$ownerId}{$bit}{mass} * $shipCount[$bit];
+      $cargoCapacity += $designList{$ownerId}{$bit}{cargoCapacity} * $shipCount[$bit];
+      $fuelCapacity  += $designList{$ownerId}{$bit}{fuelCapacity} * $shipCount[$bit];
+      if ($designList{$ownerId}{$bit}{robberBaron} == 1) { $robberBaron = 1; }
+      $mass          += $designList{$ownerId}{$bit}{mass} * $shipCount[$bit];
     }
   }
   return $cargoCapacity, $fuelCapacity, $robberBaron, $mass;
@@ -2717,7 +2909,7 @@ sub decryptFix {
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
   my ($seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
   my $lastTurn;
@@ -2742,7 +2934,8 @@ sub decryptFix {
   my %hullType = &readHullType;
   my %itemDetail = &readItemDetail();
   #while ( my ($key, $value) = each(%itemDetail ) ) { print "$key => $value\n"; }
-
+  my $waypointId; 
+  
   while ($offset < @fileBytes) {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset]; # invert the pair of header bytes
@@ -2763,7 +2956,7 @@ sub decryptFix {
 
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block);
+      ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       # This turn has multiple turns, so let's skip forward and decrypt only the last turn
 #       if ( $fMulti ) {  # fMulti is set only on the first Block 8 
@@ -2826,7 +3019,8 @@ sub decryptFix {
       } 
       elsif ( $typeId == 3 ) { # waypoint delete block
         my $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
-        my $playerId = $decryptedData[1] >> 1;
+        #my $playerId = ($decryptedData[1] >> 1) & 0xFF;
+        my $playerId = ($decryptedData[1] >> 1) & 0x0F;
         my $wayPointId = ($decryptedData[2]& 0xFF);   
         my $id = $fleetId . '+' . $wayPointId;
         
@@ -2857,7 +3051,6 @@ sub decryptFix {
         my $xDest;
         my $yDest;
         my $targetId;
-        my $targetIdType;
         my $warp;
         my $taskId;
         my $targetType;
@@ -2876,7 +3069,7 @@ sub decryptFix {
         my $err;
         # Setting destination task adds a change (so a Task 4 & Task 5)
         $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
-        $playerId = $decryptedData[1] >> 1;
+        $playerId = ($decryptedData[1] >> 1) & 0x0F;
 #         my $positionObjectId = &read16(\@decryptedData, 2);
         $waypointId = &read16(\@decryptedData, 2); # separate for each fleet.
 			  $xDest = &read16(\@decryptedData, 4);  
@@ -2885,12 +3078,14 @@ sub decryptFix {
 #         my $unknownBitsWithWarp = $decryptedData[6] & 0x0F;
         $yDest = &read16(\@decryptedData, 6);  
 #         my $positionObjectType = $decryptedData[7] & 0xFF;
-        $targetId = ($decryptedData[8] & 0xFF) + (($decryptedData[9] & 1) << 8);  # ID for destination like Fleet Merge, 511 is current location
-        $targetIdType = $decryptedData[9] >> 1; #BUG: Almost certainly incorrect bits
+#        $targetId = ($decryptedData[8] & 0xFF) + (($decryptedData[9] & 1) << 8);  # ID for destination like Fleet Merge, 511 is current location
+        $targetId = &read16(\@decryptedData[8]);  # ID for destination like Fleet Merge, 511 is current location
         $warp = $decryptedData[10] >> 4; # left 4 bits
         $taskId = $decryptedData[10] & 0x0F; # right 4 bits
-        $targetType = ($decryptedData[11]& 0xFF) % 16; #0-Unknown, 1-planet, 2-fleet, 4-deep space, 8-wormhole/trader/minefield/salvage
-		    $unknownBitsWithTargetType = ($decryptedData[11]& 0xFF) >> 4; # left 4 bits
+        $targetType = $decryptedData[11]& 0x0F; #0-Unknown, 1-planet, 2-fleet, 4-deep space, 8-wormhole/trader/minefield/salvage
+        $validTask = ($decryptedData[11] >> 4) & 0x01;     # Bit 4: fValidTask flag
+        $noAutoTrack = ($decryptedData[11] >> 5) & 0x01;   # Bit 5: fNoAutoTrack flag
+        # Bits 6-7 are unused
         if ($targetId == 511) { $targetId = 'self'; }
         # Subtasks
         # Bytes 12+ are specific waypoint task data.
@@ -2951,35 +3146,37 @@ sub decryptFix {
         elsif ($taskId == 6) { #Lay Minefield 
           my @mineDuration = ( '1 Year', '2 Years', '3 Years', '4 Years', '5 Years', 'Infinite' );
           my $mineDuration = 0;
-          my @mineTarget = ('Unknown','Planet','Fleet',3, 'Deep Space',5,6,7,'Object'); # Wormhole, Minefield, MT, Packet(?)
+          #my @mineTarget = ('Unknown','Planet','Fleet',3, 'Deep Space',5,6,7,'Object'); # Wormhole, Minefield, MT, Packet(?)
+          my @mineTarget;
+          $mineTarget[0x00] = 'None/Nil';
+          $mineTarget[0x01] = 'Planet/Starbase';
+          $mineTarget[0x02] = 'Fleet/Ship';
+          $mineTarget[0x04] = 'Deep Space';
+          $mineTarget[0x08] = 'Thing (Packet/Minefield/Wormhole/Trader/Salvage)';
+          $mineTarget[0x0f] = 'All';
+
           my $mineTarget;
-          #my $mineTarget = ($decryptedData[11]& 0xFF) % 16; #0-Unknown, 1-planet, 2-fleet, 4-deep space, 8-wormhole/trader/minefield/salvage
-          $mineTarget = $decryptedData[11] & 0x0F; # right 4
+          $mineTarget = $targetType; #0-Unknown, 1-planet, 2-fleet, 4-deep space, 8-wormhole/trader/minefield/salvage
           # If no values are set (the defaults) bytes 12-14 absent
-          if (exists $decryptedData[12]) {
-            $mineDuration = $decryptedData[12];
+          if (exists $decryptedData[12]) { 
+            $mineDuration = $decryptedData[12]; # How long to stay laying mines
           } 
-          #my $unk = $decryptedData[13]; # Always 0. Only exists if not "1 Year"
-          #my $unk = $decryptedData[14]; # Always the same as byte 12. Only exists if not "1 Year"
-        }
+          if (exists $decryptedData[14]) { 
+            $mineDuration = $decryptedData[14]; #$cTimeOld Reset value
+          } 
+       }
         elsif ($taskId == 7) { #Patrol
           # If no values are set (the defaults) there are no additional bytes added
           my ($patrolIntercept, $patrolWarp);
-          if ($decryptedData[12]) { $patrolWarp = $decryptedData[12] } else { $patrolWarp = 0; }
+          if ($decryptedData[12]) { $patrolWarp = &read16(\@decryptedData[12]) } else { $patrolWarp = 0; }
           # bit 13 appears to always be 0
-          if ($decryptedData[14]) { $patrolIntercept = $decryptedData[14] } else { $patrolIntercept = 0; }
+          if ($decryptedData[14]) { $patrolIntercept = &read16(\@decryptedData[14]) } else { $patrolIntercept = 0; }
         }
         elsif ($taskId == 8) { # Route Fleet
           # There are no additional bytes for a Route order
         }
         elsif ($taskId == 9) { # Transfer Fleet
-          if ($decryptedData[12]) {
-            # We skip over the actual player's ID, screwing up the value of the byte
-            if ($decryptedData[12] > $playerId) { $transferId = $decryptedData[12] + 1 } 
-            else { $transferId = $decryptedData[12]; }
-          } else { 
-           $transferId = 0; # To save space, Player 1 gets no byte
-          }
+            $transferId = &read16(\@decryptedData[12]); # iPlrX (player index to transfer to)
         }
         
         ### 32K Merge & SS Pop Steal ###########################################
@@ -2997,8 +3194,8 @@ sub decryptFix {
               if ( ( $playerShipCount[$i] + $targetShipCount[$i] ) > 32767) {
                 $err = '32k Merge: Player ' . ($playerId+1) . ' Fleet ' . ($fleetId+1) . ' to ' . ($targetId+1) . ' Merge order triggers 32k Fleet bug.';
                 $needsFixing++; 
-                if ($fixFiles == 2 ) {
-                  $decryptedData[11] = $decryptedData[11] & 0xF0 ; # Set the right 4 bits to 0 (no action)
+                if ($fixFiles ) {
+                  $decryptedData[10] = $decryptedData[10] & 0xF0; # Clear grTask (bits 0-3 of byte 10) to grTaskNone
                   $err .= ' Fixed!! Reset to No Task.';
                 }
                 $warning{$warnId} = $err;
@@ -3017,7 +3214,7 @@ sub decryptFix {
           if ($typeId == 5 && $taskId == 1 && $targetType == 1 && $taskPopulation =~ /[135679]/ && $fleetList{$playerId}{$fleetId}{robberBaron} == 1 ) { # @showTransportTask
             $err = 'SS Pop Steal: Player ' . ($playerId+1) . ' fleet ' . ($fleetId+1) . " asssigned Transport> Population> $showTransportTask[$taskPopulation] orders at $xDest" . 'x' . "$yDest.";          
             $needsFixing++;
-            if ($fixFiles == 2 ) { # Only fix if fixFiles is set
+            if ($fixFiles ) { # Only fix if fixFiles is set
               $decryptedData[18] = 0; # Set the fleet task and cargo value for population to do nothing
               $decryptedData[19] = 0; 
               $err .= ' Fixed!! Reset to Do Nothing.';
@@ -3042,9 +3239,9 @@ sub decryptFix {
   #           if (  $errI || $errB || $errG || $errP || $errF) {
   #             $warnId = &zerofy($playerId) . '-freepop-' . &zerofy($fleetId); # adding a zero lets us sort on key
   #             $err = "Freepop Exploit: Player " . ($playerId+1) . " moved excess cargo over fleet " . ($fleetId+1) . " capacity: $errI, $errB, $errG, $errP, $errF,";
-  #             #BUG: How to fix for this. 
+  #             #Note: How to implement fix for this. 
   #             # needsFixing++;
-  # #           if ($fixFiles == 2) {
+  # #           if ($fixFiles ) {
   # #             $decryptedData[18] = 0; # Set the fleet task and cargo value for population to do nothing
   # #             $decryptedData[19] = 0; 
   # #             $err .= ' Fixed!! Reset to do nothing.';
@@ -3068,74 +3265,112 @@ sub decryptFix {
         $waypoint{targetId} = $targetId;
         $waypoint{targetType} = $targetType;
         $waypointList{$playerId}{$waypoint{id}} = { %waypoint };   
-      } 
-      elsif ($typeId == 19 ) { # waypoint task block .m/.hst files. 
-        # Fleet ID is not stored in this block. Always follows associated Fleet Block 16.
-        # This is the fleet's next waypoints, in order. 
-        my $xDest;      # tested
-        my $yDest;      # tested
-        my $objectId;   # like fleetId
-        my $warp;       # tested
-        my $taskId;     # tested
-        my $targetType;
-        my $playerId = $ownerId; # from last pass of fleet block
-        
-        $xDest =  &read16(\@decryptedData, 0);
-        $yDest =  &read16(\@decryptedData, 2);
-        $objectId = &read16(\@decryptedData,4);  # like fleetId
-        $warp  = ($decryptedData[6] & 0xFF) >> 4; # Left bits
-        # byte 6 = $decryptedData[6] & 0x0F; # right 4 bits, always 0??
-        # byte 7
-        $taskId = $decryptedData[8] & 0x0F; # right 4 bits
-        $targetType = ($decryptedData[9]& 0xFF) % 16; #0-Unknown, 1-planet, 2-fleet, 4-deep space, 8-wormhole/trader/minefield/salvage
-      }
-      elsif ($typeId == 20 ) { # waypoint block 20 in .m/.hst files. 8 Bytes
+      } elsif ($typeId == 19 || $typeId == 20) { # waypoint block 20 in .m/.hst files. 8 Bytes
+        #define rtOrderA        19  // Turn   Zero or more follow an rtShipA or rtFleetA
+        #define rtOrderB        20  // Turn   Same as an rtOrder but w/o Task structure
         # We'll never have WP 20 (.m/.hst) && WP 28/29 (.x)
-        # BUG: This block is not fully mapped.
-        # Fleet ID is not stored in this block. Always follows associated Fleet Block 16. 
-        # Block 8 is task ID.
-        # This is the fleet's current location 
+        # Fleet ID and waypoint number need to be tracked separately
+        # since they're not in this block, although they're always in the preceding fleet block 16
         # Additional waypoints are stored immediately thereafter as Block 19s or 20s
-        my $x;     # tested
-        my $y;     # tested
-        my $objectId;         # like fleet Id?
-        my $warp;  # tested
-        my $taskId;# tested
-        my $waypointId;
-        my $targetType;
+
+        my ($waypoint_x, $waypoint_y, $targetId, $warp, $taskId, $targetType, $validTask, $noAutoTrack);
         my %waypoint; # to store waypoints in a hash
-        #my $fleetId; # from last fleet block 
-        my $playerId = $ownerId; # from last pass of fleet block
+        my $playerId = $Player; # from last pass of fleet block
         
-			  $x = &read16(\@decryptedData, 0);  
-        $y = &read16(\@decryptedData, 2);
-        $objectId = &read16(\@decryptedData,4); # like fleet Id
-        $warp = $decryptedData[6] >> 4; # left 4 bits
-        # $decryptedData[6] & 0x0F; # right 4 bits, always 0??
-        if ($decryptedData[8]) { # Not present when no task assigned
-          $taskId = $decryptedData[8] & 0x0F; # right 4 bits
+ 			  $waypoint_x = &read16(\@decryptedData, 0);  
+        $waypoint_y = &read16(\@decryptedData, 2);
+        $targetId = &read16(\@decryptedData, 4);    
+        $warp = ($decryptedData[6] >> 4) & 0x0F;       # Bits 4-7 of byte 6
+        $taskId = $decryptedData[6] & 0x0F;            # Bits 0-3 of byte 6
+        $targetType = $decryptedData[7] & 0x0F;        # grobj (bits 0-3) 0-Unknown, 1-planet, 2-fleet, 4-deep space, 8-wormhole/trader/minefield/salvage
+        $validTask = ($decryptedData[7] >> 4) & 0x01;  # fValidTask (bit 4)
+        $noAutoTrack = ($decryptedData[7] >> 5) & 0x01;# fNoAutoTrack (bit 5)
+        
+        # Store basic waypoint data
+        %waypoint = (
+          x => $waypoint_x,
+          y => $waypoint_y,
+          targetId => $targetId,
+          warp => $warp,
+          taskId => $taskId,
+          targetType => $targetType,
+          validTask => $validTask,
+          noAutoTrack => $noAutoTrack,
+        );
+
+        if ( $typeId == 19) { # waypoint task orders          
+          #define grTaskNone      0
+          #define grTaskNil       0
+          #define grTaskXPort     1
+          #define grTaskColonize	2
+          #define grTaskMine      3
+          #define grTaskMerge     4
+          #define grTaskRecycle   5
+          #define grTaskLayMines  6
+          #define grTaskPatrol    7
+          #define grTaskRoute     8
+          #define grTaskSell      9
+          #define grTaskMax      10
+          # Read task-specific data based on taskId
+          if ($validTask && $taskId != 0) {
+            if ($taskId == 1) {
+              my @transport = ();
+              for (my $i = 0; $i < 5; $i++) {
+                #my $offset = 12 + ($i * 2);
+                my $offset = 8 + ($i * 2);
+                my $itemaction = &read16(\@decryptedData, $offset);
+                my $quantity = $itemaction & 0x0FFF;        # bits 0-11
+                my $action = ($itemaction >> 12) & 0x0F;    # bits 12-15
+                
+                push @transport, {
+                  quantity => $quantity,
+                  action => $action,
+                  # Mineral types: 0=Ironium, 1=Boranium, 2=Germanium, 3=Colonists, 4=Fuel
+                  type => $i,
+                };
+                }
+                $waypoint{transport} = \@transport;
+            }
+            elsif ($taskId == 6) { # Read TASKLAYMINES at offset 12
+              $waypoint{mineTime} = &read16(\@decryptedData, 8);
+              $waypoint{mineTimeOld} = &read16(\@decryptedData, 10);
+            }
+            elsif ($taskId == 7) { # Read TASKPATROL at offset 12
+              $waypoint{patrolWarp} = &read16(\@decryptedData, 8);
+              $waypoint{patrolDist} = &read16(\@decryptedData, 10);
+            }
+            elsif ($taskId == 9) { # Read TASKSELL at offset 12
+              $waypoint{sellToPlayer} = &read16(\@decryptedData, 8);
+            }
+          }
         }
+
+        # Store task waypoint data
+        %waypoint = (
+          warp => $warp,
+          taskId => $taskId,
+          targetType => $targetType,
+          validTask => $validTask,
+          noAutoTrack => $noAutoTrack,
+        );
+        $waypoint{$ownerId}{$fleetId}{$waypointId} = { %waypoint };
         
-        $waypointId = &read16(\@decryptedData, 2);
-        #$fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
-        #$playerId = $decryptedData[1] & 0xFF;
-			  #$xDest = &read16(\@decryptedData, 4);  
-        #$yDest = &read16(\@decryptedData, 6);
-#        #my $positionObjectId = &read16(\@decryptedData, 2);
-# #        my $unknownBitsWithWarp = $decryptedData[6] & 0x0F;
-# #        my $positionObjectType = $decryptedData[7] & 0xFF;
-# #        my $fullWaypointData;
-# #        my $warp =  $decryptedData[10] >> 4; 
-#         my $waypointTask = $decryptedData[6] & 0x0F;
-        $waypoint{id} = $waypointId; # Duplicate data, but easier to manage.
-        $waypoint{x} = $x; 
-        $waypoint{y} = $y;
-        $waypoint{warp} = $warp;
-        $waypoint{taskId} = $taskId;
-        $waypoint{typeId} = $typeId;
-#        $waypoint{targetId} = $targetId;
-        $waypoint{targetType} = $targetType;
-        $waypoint{$playerId}{$waypointId} = { %waypoint };
+        # Check if waypoint destination needs to be updated
+        # Write back out the new waypoint data. 
+        my $old_key = "$waypoint_x,$waypoint_y";
+        if (exists $coord_mapping->{$old_key}) {
+          my ($new_x, $new_y) = @{$coord_mapping->{$old_key}};
+          # Only update if coordinates actually changed
+          if ($new_x != $waypoint_x || $new_y != $waypoint_y) {
+            # Write back out the new waypoint data
+            $decryptedData[0] = $new_x & 0xFF;
+            $decryptedData[1] = ($new_x >> 8) & 0xFF;
+            $decryptedData[2] = $new_y & 0xFF;
+            $decryptedData[3] = ($new_y >> 8) & 0xFF;
+            print "\tWaypoint #$waypointId (Fleet #$fleetId) updated: ($waypoint_x,$waypoint_y) -> ($new_x,$new_y)\n";
+          }
+        }
+        $waypointId++; # increment the waypoint Id in case there are more waypoints
       }
       elsif ( $typeId == 28 || $typeId == 29) { # ProductionQueueBlock and ProductionQueueChangeBlock
         # Block 28 will always follow a Block 13 (Planet block), so the current planet ownerId will be the Player Id
@@ -3172,10 +3407,18 @@ sub decryptFix {
                 
         my @queueValues = qw ( Mines(Auto) Factories(Auto) Defenses(Auto) Alchemy(Auto) MinTerra MaxTerra Packet Factory Mines Defenses Unknown Alchemy );
         for (my $i=$index; $i <= scalar(@decryptedData)-4; $i+=4) {
-          $itemId = &read16(\@decryptedData, $i) >> 10;  # Top 6 bits - but only uses 4
-          $count = &read16(\@decryptedData, $i) & 0x3FF; # Bottom 10 bits
-          $completePercent = &read16(\@decryptedData, $i+2) >> 4; #Top 12 bits
-          $itemType = &read16(\@decryptedData, $i+2) & 0x0F; # bottom 4 bits
+        
+#           $itemId = &read16(\@decryptedData, $i) >> 10;  # Top 6 bits - but only uses 4
+#           $count = &read16(\@decryptedData, $i) & 0x3FF; # Bottom 10 bits
+#           $completePercent = &read16(\@decryptedData, $i+2) >> 4; #Top 12 bits
+#           $itemType = &read16(\@decryptedData, $i+2) & 0x0F; # bottom 4 bits
+          
+          my $prodValue = &read32(\@decryptedData, $i);
+          $count           = $prodValue & 0x3FF;           # bits 0-9:   cItem
+          $itemId          = ($prodValue >> 10) & 0x7F;    # bits 10-16: iItem
+          my $grobj        = ($prodValue >> 17) & 0x07;    # bits 17-19: grobj
+          $completePercent = ($prodValue >> 20) & 0x7F;    # bits 20-26: pct  
+                  
           # itemType=2 is defaults, itemType=4 is ship (itemId 0-15) or base (itemId 16-25)
           # if itemType=4, $itemId is the designId
           $item = "$itemId|$count|$completePercent|$itemType";  
@@ -3303,20 +3546,32 @@ sub decryptFix {
                   
                   # Adjust the cargo after the deleted design
                   my $cargoRatio;
-                  if ( $fleetList{$i}{$j}{cargoCapacity} > 0) {  $cargoRatio = $cargoCapacity / $fleetList{$i}{$j}{cargoCapacity}; }
+                  if ( $fleetList{$i}{$j}{cargoCapacity} > 0) { $cargoRatio = $cargoCapacity / $fleetList{$i}{$j}{cargoCapacity}; }
                   else { $cargoRatio = 0; } 
                   my $fuelRatio;
                   if ( $fleetList{$i}{$j}{fuelCapacity} > 0) { $fuelRatio = $fuelCapacity / $fleetList{$i}{$j}{fuelCapacity}; }
                   else { $fuelRatio = 0; }
                   # Adjust the cargo for the deleted design
-                  # BUG: The calculation for the cargo and fuel post design deletion will be +- 1 occasionally. 
-                  # BUG: Should also be for split fleets, duplicate code.
+                  # BG: The calculation for the cargo and fuel post design deletion will be +- 1 occasionally. 
+                  # BG: Should also be for split fleets, duplicate code.
+#                   my @cargo = split( chr(31), $fleetList{$i}{$j}{cargo});
+#                   for (my $k=0; $k <=3; $k++ ){
+#                     $cargo[$k] = int(.5 + ($cargo[$k] * $cargoRatio)); # adjust the cargo based on the deleted design
+#                     $mass += $cargo[$k]; 
+#                   }
+#                   $cargo[4] = int(.5 + ($cargo[4] * $fuelRatio));
+
+                  # Note: fuel calculation post design deletion will be +/- 1 occasionally.
                   my @cargo = split( chr(31), $fleetList{$i}{$j}{cargo});
-                  for (my $k=0; $k <=3; $k++ ){
-                    $cargo[$k] = int(.5 + ($cargo[$k] * $cargoRatio)); # adjust the cargo based on the deleted design
-                    $mass += $cargo[$k]; 
+                  my $totalCargo = $cargo[0] + $cargo[1] + $cargo[2] + $cargo[3]; # ironium, boranium, germanium, population
+                  my $newTotal = int(.5 + ($totalCargo * $cargoRatio));
+                  for (my $k = 0; $k <= 2; $k++) {
+                    $cargo[$k] = int(.5 + ($cargo[$k] * $cargoRatio));  # adjust the cargo based on the deleted design
+                    $mass += $cargo[$k];
                   }
-                  $cargo[4] = int(.5 + ($cargo[4] * $fuelRatio));
+                  $cargo[3] = $newTotal - ($cargo[0] + $cargo[1] + $cargo[2]);
+                  $mass += $cargo[3];
+                  $cargo[4] = int(.5 + ($cargo[4] * $fuelRatio));  # fuel
                   
                   $fleetList{$i}{$j}{cargoCapacity} = $cargoCapacity;
                   $fleetList{$i}{$j}{fuelCapacity}  = $fuelCapacity;
@@ -3452,7 +3707,7 @@ sub decryptFix {
                 $warnId = &zerofy($ownerId) . '-colonizer-' . &zerofy($designId);
                 $itemCategory = &read16(\@decryptedData, $index-3);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
                 $needsFixing++;
-                if ($fixFiles == 2) {
+                if ($fixFiles ) {
                   ($decryptedData[$index-3], $decryptedData[$index-2]) = &write16(0); # Category
                   $err .= ' Fixed!! Slot now truly empty.';
                 } 
@@ -3477,7 +3732,7 @@ sub decryptFix {
               $err = 'Spacedock Overflow: Player ' . ($ownerId+1) . ': > 21 SuperLatanium detected in starbase design slot ' . ($designNumber+1) . ": $shipName.";
               $warnId = &zerofy($ownerId) . '-dock-' . &zerofy($designId);
               $needsFixing++;
-              if ($fixFiles == 2) {
+              if ($fixFiles ) {
                 $decryptedData[$spaceDockIndex+11] = 21; # Armor slot on spacedock
                 # Armor value should be 250 + (1500 * $itemCount) / 2
                 $armor = 250 + (1500 * 21) / 2; # adjust for 21 Super Latanium
@@ -3505,8 +3760,9 @@ sub decryptFix {
           } 
 
           ### Cheap Starbase ###################################################
-          # Editing a starbase under construction at planet(s) with no starbase
-          if ($file_type =~ /x/i && -f "$listPrefix.hst.queue") {
+          # Editing a starbase under construction at planet(s) with no starbase . $dt == 1 is .x          
+          #if ($file_type =~ /x/i && -f "$listPrefix.hst.queue") {
+          if ($dt == 1 && -f "$listPrefix.hst.queue") {
             if ($typeId == 27 && $isStarbase && $totalBuilt == 0) { # .x and Starbase
               foreach my $planetId (sort keys %{$queueList{$ownerId}}) { 
                 my @itemList = split (chr(31), $queueList{$ownerId}{$planetId}{item}); # $planetId = planetId
@@ -3532,7 +3788,7 @@ sub decryptFix {
                     }
                     $needsFixing++;
                     $warnId = &zerofy($ownerId) . '-starbase-' . &zerofy($planetId); # warn on player and planet
-                    if ($fixFiles == 2) {
+                    if ($fixFiles ) {
                       $err .= " Fixed!! Starbase design for $shipName reset to blank.";
                     } 
                     $warning{$warnId} = $err;
@@ -3577,7 +3833,8 @@ sub decryptFix {
 
         # OwnerId and Id are 0-15 (+1 for displayed value)
         # OwnerId of 127 is none (deep space), OwnerId of 0 is a planet if typeId = 1
-        $fromOwnerId = $decryptedData[1] >> 1;
+        #$fromOwnerId = $decryptedData[1] >> 1;
+        $fromOwnerId = ($decryptedData[1] >> 1) & 0x0F;
         $toOwnerId = $decryptedData[3] >> 1;
         # toId of 511 is deep space
         $fromId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
@@ -3643,7 +3900,7 @@ sub decryptFix {
               $err = 'Mineral Upload: Overage of '. ( $totalUpload{$toId}-$fleetList{$toOwnerId}{$toId}{cargoCapacity}) . ' from player ' . ($Player+1) . ' to player ' . ($toOwnerId+1). ', fleet ' . ($toId+1) . '.';
               $needsFixing++; 
               $warning{$warnId} = $err;
-              if ($fixFiles == 2) {
+              if ($fixFiles ) {
                 # BUG: If we make an adjustment here remember to update fleetList data
                 # Setting the contents to 0 seems to prevent the order from happening.
                 $decryptedData[5] = 0;
@@ -3686,9 +3943,11 @@ sub decryptFix {
         my $battlePlan; # full fleet data
         my $fleetCargo = '0' . chr(31) . '0' . chr(31) .'0' . chr(31) . '0' . chr(31) . '0';
         my ($cargoCapacity, $fuelCapacity, $robberBaron, $mass) = (0) x 4;
+        $waypointId = 0; # reset the waypoint Id for a new fleet
                  
         $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
-        $ownerId = $decryptedData[1] >> 1;
+        #$ownerId = ($decryptedData[1] >> 1) & 0xFF;
+        $ownerId = ($decryptedData[1] >> 1) & 0x0F;
         #$byte2 = $decryptedData[2];
 	      #$byte3 = $decryptedData[3];
         $kindByte = $decryptedData[4];
@@ -3819,7 +4078,7 @@ sub decryptFix {
         if (($attackWho) > 3 && $planNumber == 0) { 
            $err = 'Friendly Fire: Player ' . ($planPlayerId+1) . ': detected in Default battle plan against ' . &attackWho($attackWho) . '.';
            $needsFixing++;
-           if ($fixFiles == 2) {
+           if ($fixFiles ) {
              $decryptedData[3] = 2;
              $err .= ' Fixed!! Attack Who reset to Neutral/Enemy.';
            }
@@ -3842,15 +4101,6 @@ sub decryptFix {
       elsif ( $typeId == 35) { # Planet Change block
         # Planet Route orders, either NoResearch, iWarpfling, OR idRoute
         # Max planets = 945
-#         $planetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 7) << 8);
-#         $ownerId = ($decryptedData[1] & 0xF8) >> 3;
-#         my $fNoResearch =   $decryptedData[2] & 0x01;  # 0000000x
-#         my $iWarpFling =   (($decryptedData[3] & 0x7f ) >> 3);  # 0xxxx000
-#         my $warpSpeed = $iWarpFling + 4;
-#         my $idFling =  (&read16(\@decryptedData, 2) >> 1) & 0b1111111111; # bytes 2 & 3, 10 bits shifted 1 to the right.
-#         # I need one bit from byte 3, all of byte 4, and 1 bit from byte 5  (10 bits)              
-#         my $byte1 = $decryptedData[3] >> 7; # Extracting the first bit of $byte1      
-#         my $idRoute = ($decryptedData[5] & 0x01) << 9 | ($decryptedData[4] << 1) | $byte1 & 0x01; #move 4 one to the left, and then get the first bit of byte 5
 
         $planetId = &read16(\@decryptedData, 0); # from 0-whatever, meaning add 1 for UI
         my $ul = read32(\@decryptedData, 2);
@@ -3878,14 +4128,14 @@ sub decryptFix {
         my @fleetCargo;
         
         $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);  # Shift 8 to the left
-        $playerId = $decryptedData[1] >> 1;  # The player Id will be the same in each fleet
+        $playerId = ($decryptedData[1] >> 1) & 0x0F;  # The player Id will be the same in each fleet
         
         @fleetCargo = split (chr(31), $fleetList{$playerId}{$fleetId}{cargo}); 
         @shipCount   = split (chr(31), $fleetList{$playerId}{$fleetId}{shipCount}); # keeps updating
         # Merge the fleets in the fleetList array
         for (my $i = 2; $i < $size; $i=$i+2) {
           $fleetId[$i] = ($decryptedData[$i] & 0xFF) + (($decryptedData[$i+1] & 1) << 8);  # Shift 8 to the left
-          $playerId[$i] =  $decryptedData[$i+1 ] >> 1; # Shift 1 to the right
+          $playerId[$i] =  ($decryptedData[$i+1] >> 1) & 0x0F; # Shift 1 to the right
 
           $fleetList{$playerId}{$fleetId}{cargoCapacity} += $fleetList{$playerId[$i]}{$fleetId[$i]}{cargoCapacity};
           $fleetList{$playerId}{$fleetId}{fuelCapacity} += $fleetList{$playerId[$i]}{$fleetId[$i]}{fuelCapacity};
@@ -3922,7 +4172,7 @@ sub decryptFix {
         # The fleet that is being split. Followed by Block 23
         # In other words, create new fleet Id.
         my $fleetId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
-        my $playerId = $decryptedData[1] >> 1;
+        my $playerId = ($decryptedData[1] >> 1) & 0x0F;
       }
       elsif ($typeId == 23) { # Move Ships block
         # Always follows each block 24 
@@ -3941,10 +4191,18 @@ sub decryptFix {
         my @shipDesignsR = ();
         
         $fleetIdL       = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
-        $playerIdL      = $decryptedData[1] >> 1;
+        $playerIdL      = ($decryptedData[1] >> 1) & 0x0F;
         $fleetIdR  = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 1) << 8); 
-        $playerIdR =  $decryptedData[3] >> 1;        
-        #$byte4 = $decryptedData[4]; # What is byte 4 (always 34)  00100010
+        $playerIdR =  ($decryptedData[3] >> 1) & 0x0F;  
+        # Value  Constant                    Meaning
+        # 0x00   grobjNil                    nothing/null
+        # 0x01   grobjPlanet / grobjStarbase planet or starbase (shared value)
+        # 0x02   grobjShip / grobjFleet      ship or fleet (shared value)
+        # 0x04   grobjSpace                  deep space
+        # 0x08   grobjThing                  minefield, wormhole, etc.
+        # 0x0F   grobjAll                    all types                      
+        $grobj1 = $decryptedData[4] & 0x0F;        # object type of the left/source fleet
+        $grobj2 = ($decryptedData[4] >> 4) & 0x0F; # object type of the right/destination fleet      
         $shipDesigns = &read16(\@decryptedData, 5);        
         
         # if the fleet doesn't exist (yet) clone the original 
@@ -3985,11 +4243,13 @@ sub decryptFix {
               my $err = '32k Merge: Player ' . ($playerId+1) . ' merge order for fleet ' . ($fleetIdL+1) . ' to ' . ($fleetIdR+1) . ' for ship design ' . ($bit+1) . '.';
               if ($shipCountL[$bit] > 32767 ) { # fleet has more than 32k of a ship design
                 $shipCountR[$bit] = $shipCountR[$bit] + ( $shipCountL[$bit] - 32767 );
-                $shipCountL[$bit] = 32767 - $shipCountL[$bit]; # second so the value hasn't changed.
+                $shipCountL[$bit] = 32767 - $shipCountL[$bit]; # second so the value hasn't changed.   (AI)
+                $shipCountL[$bit] = 32767; # second so the value hasn't changed.
               }
               if ($shipCountR[$bit] > 32767 ) { # fleet has more than 32k of a ship design
                 $shipCountL[$bit] = $shipCountL[$bit] + ( $shipCountR[$bit] - 32767 );
-                $shipCountR[$bit] = 32767 - $shipCountR[$bit]; # second so the value hasn't changed.
+                $shipCountR[$bit] = 32767 - $shipCountR[$bit]; # second so the value hasn't changed.  (AI)
+                $shipCountR[$bit] = 32767; # second so the value hasn't changed.
               }
               $err .= '  Stars! will correct to 32,767.'; # This is handled by the EXE
               $warnId = &zerofy($playerId) . '-32k-' . $fleetIdL . '+' . $fleetIdR; # adding a zero lets us sort on key
@@ -4018,12 +4278,6 @@ sub decryptFix {
         # Update the fleets into fleetList
         $fleetList{$playerIdR}{$fleetIdR}{playerId} = $playerIdR; # duplicate, but easier to read
         $fleetList{$playerIdR}{$fleetIdR}{id} = $fleetIdR; # duplicate, but easier to read
-        #$fleetList{$playerIdR}{$fleetIdR}{x} = $fleetList{$playerIdL}{$fleetIdL}{x};
-        #$fleetList{$playerIdR}{$fleetIdR}{y} = $fleetList{$playerIdL}{$fleetIdL}{y};
-        #$fleetList{$playerIdR}{$fleetIdR}{battlePlan} = $fleetList{$playerIdL}{$fleetIdL}{battlePlan};
-        #$fleetList{$playerIdR}{$fleetIdR}{deltaX} = $fleetList{$playerIdL}{$fleetIdL}{deltaX};
-        #$fleetList{$playerIdR}{$fleetIdR}{deltaY} = $fleetList{$playerIdL}{$fleetIdL}{deltaY};
-        #$fleetList{$playerIdR}{$fleetIdR}{warp}   = $fleetList{$playerIdL}{$fleetIdL}{warp};
         $fleetList{$playerIdR}{$fleetIdR}{shipCount}     = join(chr(31), @shipCountR); 
         $fleetList{$playerIdR}{$fleetIdR}{shipDesigns}  = join('',@shipDesignsR);
         $fleetList{$playerIdR}{$fleetIdR}{cargoCapacity} = $cargoCapacityR;
@@ -4059,7 +4313,7 @@ sub decryptFix {
             $massL += $cargoL[$k];
           }
         } #Otherwise there's no cargo.
-        $cargoR[4] = int(.5 + ($totalFuel *  $fuelRatioR));     # fuelCapacity is never 0. BUG: Had that happen.
+        $cargoR[4] = int(.5 + ($totalFuel *  $fuelRatioR));     # the combined fuel capacity could be 0, so we guard against it above
         $cargoL[4] = $totalFuel - $cargoR[4];
 
         $fleetList{$playerIdL}{$fleetIdL}{cargo} = join (chr(31), @cargoL);
@@ -4084,7 +4338,7 @@ sub decryptFix {
           # dig through waypoints and clear
           foreach my $j (keys %{$waypointList{$playerIdR}}) {  
             my ($fltId, $wayId) = split ('\+', $j);
-            if ($fltId == $fleetIdL) { delete  ($waypointList{$playerIdR}{$j}); } # clear "dead" waypoints
+            if ($fltId == $fleetIdR) { delete  ($waypointList{$playerIdR}{$j}); } # clear "dead" waypoints
           }
         }
       }
@@ -4100,17 +4354,19 @@ sub decryptFix {
 }
 
 sub decryptMessages {
-  my (@fileBytes) = @_;
+  my ($fileBytes, $ext) = @_;   # Expecting to get just the data of the block
+  my @fileBytes = @{ $fileBytes };
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
   my ($random, $seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
   my $currentTurn;
+  my $currentYear;
   my $offset = 0; #Start at the beginning of the file
   my @messages;
   while ($offset < @fileBytes) {
@@ -4124,11 +4380,12 @@ sub decryptMessages {
     if ($typeId == 8 ) { # File Header Block, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block );
       if ($fMulti) { 
         my @footer =  ( $fileBytes[-2], $fileBytes[-1] );
         $currentTurn = &getFileFooterBlock(\@footer, 2) + 2400; 
-        push @messages, "Current Year: $currentTurn\n";
+        $currentYear = "Year: $currentTurn\n";
+        push @messages, "Year: $currentTurn\n"; 
       } 
       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
@@ -4163,27 +4420,29 @@ sub decryptMessages {
         $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
         $singularRaceName[0] = 'Everyone';
       } elsif ($typeId == 40) { # check the Message block 
-        my $byte0 =  &read16(\@decryptedData, 0);  # unknown
-        my $byte2 =  &read16(\@decryptedData, 2);  # unknown
+        my $byte0 =  &read16(\@decryptedData, 0);  # bytes 0-3: lpmsgplrNext pointer, meaningless on disk
+        my $byte2 =  &read16(\@decryptedData, 2);  # bytes 0-3: lpmsgplrNext pointer, meaningless on disk
         my $senderId = &read16(\@decryptedData, 4);
         my $recipientId = &read16(\@decryptedData, 6);
-        my $byte8 =  &read16(\@decryptedData, 8); # unknown
+        my $iInRe       = &read16(\@decryptedData, 8); # msg # this is a reply to, 0 if not a reply
         my $messageBytes = &read16(\@decryptedData, 10);
         my $messageLength = $size -1;
         $message = &decodeBytesForStarsString(@decryptedData[11..$messageLength]);
-    #    print "From: $senderId, To: $recipientId, \"$message\"\n"; 
+        $message =~ s/[\r\n]+$//;  # strip trailing newlines/carriage returns
         if ($message) {
+          if ($currentYear) {push @messages, $currentYear; undef $currentYear}  # Do this only for the first message of the year, as separated by Block 8s
           my $recipient;
-          if ($ext =~ /[xX]/) { 
+          if ($dt == 1) { # .x file
             # Different for x files, as we don't have player names in it.
             # Player ID #s are a bit weird, as 0 in this case is "everyone", not Player 1 (ID:0)
             if ( $recipientId == 0 ) { $recipient = 'Everyone'; } else { $recipient = 'Player ' . $recipientId; }
-            push @messages, "Year:" . ($turn+2400) . ", From: Me, To: $recipient (" . ($recipientId+1) . "), \"$message\"\n";
-          } else { 
+            my ($playerNum) = $ext =~ /(\d+)$/;
+            $playerNum //= '?';
+            push @messages, "Year:" . ($turn+2400) . ", From: Player $playerNum (Me), To: $recipient (" . ($recipientId) . ") \"$message\"\n";
+          } elsif ($dt == 3) { # .m file
             # We don't have player names for races undiscovered either
-#            push @messages, "\tMessage Year:" . ($turn+2400) . ", From: $singularRaceName[$senderId+1], To: $singularRaceName[$recipientId], \"$message\"\n";
-            #push @messages, "Message Year:" . ($turn+2400) . ", From: $singularRaceName[$senderId+1] (" . ($senderId+1) . "), To: $singularRaceName[$recipientId] (" . ($recipientId) . "), \"$message\"\n";
-            push @messages, "Year:" . ($turn+2400) . ", \tFrom: " . ($senderId+1) .":$singularRaceName[$senderId+1], \tTo: " . ($recipientId) . ": $singularRaceName[$recipientId], \t\"$message\"\n";
+            if ( $recipientId == 0 ) { $recipient = 'Everyone'; } else { $recipient = 'Player ' . $recipientId; }
+            push @messages, "Year:" . ($turn+2400) . ", From: Player " . ($senderId+1) ." (" . $singularRaceName[$senderId+1] . "), To: $recipient ($singularRaceName[$recipientId]), \"$message\"\n";
           }
         } 
       } 
@@ -4191,7 +4450,7 @@ sub decryptMessages {
     }
     $offset = $offset + (2 + $size); 
   }
-  return \@messages;
+  return \@outBytes, \@messages;
 }
 
 sub getScores {
@@ -4208,19 +4467,20 @@ sub getScores {
   }
   close(StarFile);
   # Decrypt the data, block by block
-  my ($singularRaceNames, $score, $turn, $player) = &decryptScores(@fileBytes);
+  my ($singularRaceNames, $score, $player) = &decryptScores(\@fileBytes);
   @singularRaceNames = @{$singularRaceNames};
-  return \@singularRaceNames, $score, $turn, $player;
+  return \@singularRaceNames, $score, $player;
 }
 
 sub decryptScores {
-  my (@fileBytes) = @_;
+  my ($fileBytes_ref) = @_; 
+  my @fileBytes = @{$fileBytes_ref};
   my @block;
   my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
   my ($random, $seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
@@ -4233,13 +4493,13 @@ sub decryptScores {
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
-    #if ($debug > 1) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
-    #if ($debug > 1) { print 'BLOCK RAW: Size ' . @block . ":\n" . join ("", @block), "\n"; }
+    if ($debug > 1) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
+    if ($debug > 1) { print 'BLOCK RAW: Size ' . @block . ":\n" . join ("", @block), "\n"; }
     
      if ($typeId == 8 ) { # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block );
       ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
@@ -4267,19 +4527,40 @@ sub decryptScores {
         my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
         push @singularRaceNames, $singularRaceName;
       } elsif ($typeId == 45) { # PlayerScoresBlock
-         
-        my $playerId     = ($decryptedData[0] >> 0) & 0x0F; 
-        $score        = &read32(\@decryptedData, 4);  # Not exactly the same
-        $resources    = &read32(\@decryptedData, 8); # Not EXACTLY the same
+        my $scorex = &read16(\@decryptedData, 0);
+        my $playerId            = ($scorex >> 0) & 0x1F;  # bits 0-4 (5 bits)
+        my $fValid              = ($scorex >> 5) & 0x01;  # bit 5  #indicates whether the score  data is valid for this player.
+        my $grbitVC             = ($scorex >> 6) & 0xFF;  # bits 6-13 (8 bits)
+        my $fWinner             = ($scorex >> 14) & 0x01;           # bit 14 
+        my $fHistory            = ($scorex >> 15) & 0x01;           # bit 15; 
         
-        #print "PlayerId: $playerId, Res: $resources\n";
+        # Individual victory condition flags from grbitVC (based on defines.h)
+        my $vcPlanetControl = ($grbitVC >> 0) & 0x01;  # vcPlanetControl = 0
+        my $vcTechLevel     = ($grbitVC >> 1) & 0x01;  # vcTechLevel = 1
+        my $vcTechFields    = ($grbitVC >> 2) & 0x01;  # vcTechFields = 2
+        my $vcScore         = ($grbitVC >> 3) & 0x01;  # vcScore = 3
+        my $vcScoreExcess   = ($grbitVC >> 4) & 0x01;  # vcScoreExcess = 4
+        my $vcProduction    = ($grbitVC >> 5) & 0x01;  # vcProduction = 5
+        my $vcLargeShips    = ($grbitVC >> 6) & 0x01;  # vcLargeShips = 6
+        my $vcTurns         = ($grbitVC >> 7) & 0x01;  # vcTurns = 7
+        
+        my $rank         = &read16(\@decryptedData, 2);
+        my $rawScore        = &read32(\@decryptedData, 4);  # Not exactly the same
+        my $resources    = &read32(\@decryptedData, 8); # Not EXACTLY the same
+        my $planets      = &read16(\@decryptedData, 12);
+        my $starbases    = &read16(\@decryptedData, 14);   
+        my $unarmedShips = &unpackWord(&read16(\@decryptedData, 16));  # to properly unpack the ship counts, handling both small counts (< 8192, where exponent = 0) and large counts (= 8192, where the value is compressed).
+        my $escortShips  = &unpackWord(&read16(\@decryptedData, 18));    
+        my $capitalShips = &unpackWord(&read16(\@decryptedData, 20));
+        my $techLevels   = &read16(\@decryptedData, 22);
+
         if ($Player == $playerId) { $score = $resources; }
       }
     }
     # END OF MAGIC
     $offset = $offset + (2 + $size); 
   }
-  return \@singularRaceNames, $score, $turn, $Player;
+  return \@singularRaceNames, $score, $Player;
 } 
 
 sub decryptGameInfo { # from the .xy file
@@ -4287,9 +4568,10 @@ sub decryptGameInfo { # from the .xy file
   my @block;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
   my ($random, $seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
+  my $GameName; 
 
   my $offset = 0; #Start at the beginning of the file
   while ($offset < @fileBytes) {
@@ -4300,7 +4582,7 @@ sub decryptGameInfo { # from the .xy file
     if ($typeId == 8 ) { # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block );
       ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
     } else {  # Everything else needs to be decrypted
       shift @block; # or shift @array for 1..2;
@@ -4364,7 +4646,10 @@ sub decryptGameInfo { # from the .xy file
           }
           push @GameValues, $push_value; 
         }
-        # We don't have Gamefile here, will add it later       
+        $GameName = join('', map { chr($_) } @decryptedData[32..63]); # Long Game Name  
+        unshift (@GameValues, $GameName); # Set the GameName as the first element of the array
+        
+        # We don't have Gamefile here, will add it later   
         return @GameValues;   # Since block 7 data will exist only once, we can return.
       }
     }
@@ -4386,8 +4671,8 @@ sub decode_victory_conditions {
     elsif ($id == 5) { $value = 10 + $value * 10;  } # vcProduction
     elsif ($id == 6) { $value = 10 + $value * 10; } # vcLargeShips
     elsif ($id == 7) {  $value = 30 + $value * 10; } # vcTurns
-    elsif ($id == 8) { } # vcTurns   
-    elsif ($id == 9) { $value = 30 + $value * 10;  } # vcTurns
+    elsif ($id == 8) { } # vcMustMeet 
+    elsif ($id == 9) { $value = 30 + $value * 10;  } #vcLeastYears
     return $value;
 }
 
@@ -4407,7 +4692,7 @@ sub getRaceNames {
   # Decrypt the data, block by block
   @singularRaceNames = &decryptNameBlock(@fileBytes);
   #@singularRaceNames = &decryptNameBlock();
-  @$singularRaceNames = $singular;
+  #@$singularRaceNames = $singular;
   return @singularRaceNames;
 }
 
@@ -4419,7 +4704,7 @@ sub decryptNameBlock {
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti);
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
   my ($random, $seedA, $seedB, $seedX, $seedY );
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
@@ -4437,7 +4722,7 @@ sub decryptNameBlock {
     if ($typeId == 8 ) {
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti) = &getFileHeaderBlock(\@block );
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block );
       ($seedA, $seedB ) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
     } elsif ($typeId == 6 ) { #PlayerBlock
@@ -4581,11 +4866,8 @@ sub advantagePointsLeft {
     # Off-center hab bonus 
     my $cGood = 0;
     for my $i (0..2) {
-        if ($envCenter[$i] >= 0) {
-            $cPoints += abs($envCenter[$i] - 50) * 4;
-        } else {
-            $cGood++;  # immune
-        }
+      if ($envCenter[$i] > 0) {  $cPoints += abs($envCenter[$i] - 50) * 4;
+      } else {  $cGood++; } # immune
     }
 
     if ($cGood > 1) { $cPoints -= 150;  }  # Penalty for 2+ immunities
@@ -4596,81 +4878,74 @@ sub advantagePointsLeft {
         my $cProduce = $rsFactProd;
 
         if ($cOperate > 10 || $cProduce > 10) {
-            $cOperate = _max(1, $cOperate - 9);
-            $cProduce = _max(1, $cProduce - 9);
-            $cProduce *= ($raMajor == $raCheapCol) ? 3 : 2;
+          $cOperate = _max(1, $cOperate - 9);
+          $cProduce = _max(1, $cProduce - 9);
+          $cProduce *= ($raMajor == $raCheapCol) ? 3 : 2;
 
-            if ($cGood >= 2) {  $cPoints -= int($cOperate * $cProduce * $pctGrowth / 2);
-            } else {  $cPoints -= int($cOperate * $cProduce * $pctGrowth / 9);
-            }
+          if ($cGood >= 2) {  $cPoints -= int($cOperate * $cProduce * $pctGrowth / 2);
+          } else {  $cPoints -= int($cOperate * $cProduce * $pctGrowth / 9);
         }
+      }
     }
 
     # Colonist resource production cost 
     {
-        my $i = _min($rsResGen, 25);
-        if    ($i <= 7)  { $cPoints -= 2400; }
-        elsif ($i == 8)  { $cPoints -= 1260; }
-        elsif ($i == 9)  { $cPoints -= 600;  }
-        elsif ($i > 10)  { $cPoints += 120 * ($i - 10); }
+      my $i = _min($rsResGen, 25);
+      if    ($i <= 7)  { $cPoints -= 2400; }
+      elsif ($i == 8)  { $cPoints -= 1260; }
+      elsif ($i == 9)  { $cPoints -= 600;  }
+      elsif ($i > 10)  { $cPoints += 120 * ($i - 10); }
     }
 
     if ($raMajor != $raMacintosh) {
-        # Factory efficiency calculation 
-        my @rgi;
-        $rgi[0] = 10 - $rsFactProd;
-        $rgi[1] = 10 - $rsFactBuild;
-        $rgi[2] = 10 - $rsFactOperate;
-        
-        # Worse production
-        my $cCur = 0;
-        if ($rgi[0] > 0) {   $cCur += $rgi[0] * 100;
-        } else { $cCur += $rgi[0] * 121;
-        }
-        # Worse build cost
-        if ($rgi[1] < 0) {    $cCur -= $rgi[1] * 55;
-        } else {  $cCur -= $rgi[1] * $rgi[1] * 60;
-        }
-        # Worse operate count
-        if ($rgi[2] > 0) {   $cCur += $rgi[2] * 40;
-        } else {  $cCur += $rgi[2] * 35;
-        }
+      # Factory efficiency calculation 
+      my @rgi;
+      $rgi[0] = 10 - $rsFactProd;
+      $rgi[1] = 10 - $rsFactBuild;
+      $rgi[2] = 10 - $rsFactOperate;
+      
+      # Worse production
+      my $cCur = 0;
+      if ($rgi[0] > 0) {   $cCur += $rgi[0] * 100;
+      } else { $cCur += $rgi[0] * 121; }      
+      # Worse build cost
+      if ($rgi[1] < 0) {    $cCur -= $rgi[1] * 55;
+      } else {  $cCur -= $rgi[1] * $rgi[1] * 60; }      
+      # Worse operate count
+      if ($rgi[2] > 0) {   $cCur += $rgi[2] * 40;
+      } else {  $cCur += $rgi[2] * 35; }
+      if ($cCur > 700) {  $cCur = 700 + int(($cCur - 700) / 3); }
+      # Extra penalty for ColOp >= 17 
+      if ($rgi[2] <= -7) {
+        if ($rgi[2] >= -11) {  $cCur -= 30 * (-6 - $rgi[2]);
+        } elsif ($rgi[2] >= -14) {  $cCur -= 75*3 + 45 * (-12 - $rgi[2]);
+        } else {  $cCur -= 120*3; }
+      }
 
-        if ($cCur > 700) {  $cCur = 700 + int(($cCur - 700) / 3); }
-        # Extra penalty for ColOp >= 17 
-        if ($rgi[2] <= -7) {
-            if ($rgi[2] >= -11) {  $cCur -= 30 * (-6 - $rgi[2]);
-            } elsif ($rgi[2] >= -14) {  $cCur -= 75*3 + 45 * (-12 - $rgi[2]);
-            } else {  $cCur -= 120*3;
-            }
-        }
+      # Extra penalty for FactProd >= 13
+      if ($rgi[0] <= -3) { $cCur -= (-2 - $rgi[0]) * 20 * 3; }
 
-        # Extra penalty for FactProd >= 13
-        if ($rgi[0] <= -3) { $cCur -= (-2 - $rgi[0]) * 20 * 3; }
+      $cPoints += $cCur;
 
-        $cPoints += $cCur;
+      # Cheap factories checkbox 
+      if (&bitTest($grbitAttr, $ibitRaceCheapFact)) {  $cPoints -= 175;   }
 
-        # Cheap factories checkbox 
-        if (&bitTest($grbitAttr, $ibitRaceCheapFact)) {  $cPoints -= 175;   }
+      # Mine efficiency calculation 
+      $rgi[0] = 10 - $rsMineProd;
+      $rgi[1] =  3 - $rsMineBuild;
+      $rgi[2] = 10 - $rsMineOperate;
 
-        # Mine efficiency calculation 
-        $rgi[0] = 10 - $rsMineProd;
-        $rgi[1] =  3 - $rsMineBuild;
-        $rgi[2] = 10 - $rsMineOperate;
-
-        $cCur = 0;
-        if ($rgi[0] > 0) {   $cCur += $rgi[0] * 100; # Worse production
-        } else {   $cCur += $rgi[0] * 169; } 
-                
-        if ($rgi[1] <= 0) { $cCur -= -80 + $rgi[1] * 65; # Worse build cost
-         } else { $cCur -= 360;  }
-        
-        if ($rgi[2] > 0) { $cCur += $rgi[2] * 40;  # Worse operate count
-        } else { $cCur += $rgi[2] * 35;
-        }
-        $cPoints += $cCur;
-    } else { $cPoints += 210; # AR gets a flat adjustment 
-    }
+      $cCur = 0;
+      if ($rgi[0] > 0) {   $cCur += $rgi[0] * 100; # Worse production
+      } else {   $cCur += $rgi[0] * 169; } 
+              
+      if ($rgi[1] <= 0) { $cCur -= -80 + $rgi[1] * 65; # Worse build cost
+       } else { $cCur -= 360;  }
+      
+      if ($rgi[2] > 0) { $cCur += $rgi[2] * 40;  # Worse operate count
+      } else { $cCur += $rgi[2] * 35;  }
+      $cPoints += $cCur;
+    } else { $cPoints += 210; }# AR gets a flat adjustment 
 
     # Primary racial trait cost 
     $cPoints -= $rgRacePrimaryTrait[$raMajor];
@@ -4679,12 +4954,11 @@ sub advantagePointsLeft {
     my $cBad = 0;
     $cGood = 0;
     for my $i (0 .. $ibitRaceLast) {
-        if (&bitTest($grbitAttr, $i)) {
-            if ($rgRaceAdvDisPts[$i] < 0) {  $cBad++;
-            } else {  $cGood++;
-            }
-            $cPoints += $rgRaceAdvDisPts[$i];
-        }
+      if (&bitTest($grbitAttr, $i)) {
+        if ($rgRaceAdvDisPts[$i] < 0) {  $cBad++;
+        } else {  $cGood++; }
+        $cPoints += $rgRaceAdvDisPts[$i];
+      }
     }
 
     if ($cBad + $cGood > 4) { $cPoints -= (($cBad + $cGood) * 10) * ($cBad + $cGood - 4); } # Penalize for too many traits
@@ -4693,9 +4967,9 @@ sub advantagePointsLeft {
 
     # NAS interaction with specific PRTs
     if (&bitTest($grbitAttr, $ibitRaceAdvScanner)) {
-        if    ($raMajor == $raMassAccel) { $cPoints -= 280; }
-        elsif ($raMajor == $raStealth)   { $cPoints -= 200; }
-        elsif ($raMajor == $raNone)      { $cPoints -= 40;  }
+      if    ($raMajor == $raMassAccel) { $cPoints -= 280; }
+      elsif ($raMajor == $raStealth)   { $cPoints -= 200; }
+      elsif ($raMajor == $raNone)      { $cPoints -= 40;  }
     }
 
     # Research cost calculation 
@@ -4704,14 +4978,14 @@ sub advantagePointsLeft {
         for my $i (0..5) {  $cCur += ($techBonus[$i] - 1); }
 
         if ($cCur > 0) {         # Net expensive research (more cheap than costly)
-            $cPoints -= $cCur * $cCur * 130;
-            if    ($cCur == 6) { $cPoints += (36 - 25) * 130; }
-            elsif ($cCur == 5) { $cPoints += (25 - 21) * 130; }
+          $cPoints -= $cCur * $cCur * 130;
+          if    ($cCur == 6) { $cPoints += (36 - 25) * 130; }
+          elsif ($cCur == 5) { $cPoints += (25 - 21) * 130; }
         } elsif ($cCur < 0) {    # Net cheap research
-            $cPoints += $rgRaceDisEnvPts[-$cCur - 1];
-            if (-$cCur > 4 && $rsResGen < 10) {  # Discourage double-dipping
-                $cPoints -= 190;
-            }
+          $cPoints += $rgRaceDisEnvPts[-$cCur - 1];
+          if (-$cCur > 4 && $rsResGen < 10) {  # Discourage double-dipping
+            $cPoints -= 190;
+          }
         }        
         if (&bitTest($grbitAttr, $ibitRaceTech3)) { $cPoints -= 180; }  # Expensive tech starts at 3 checkbox       
         if ($raMajor == $raMacintosh && $techBonus[0] == 2) { $cPoints -= 100; } # AR with cheap energy research penalty 
@@ -4724,128 +4998,127 @@ sub advantagePointsLeft {
 # _lInnateRaceHabitability(\@envCenter, \@envMin, \@envMax, $grbitAttr, $ibitTT)
 # Computes overall universe habitability score for a race.
 sub _lInnateRaceHabitability {
-    my ($envCenterRef, $envMinRef, $envMaxRef, $grbitAttr, $ibitRaceTerraform) = @_;
-    my @envCenter = @$envCenterRef;
-    my @envMin    = @$envMinRef;
-    my @envMax    = @$envMaxRef;
-    my $fTotalTerra = &bitTest($grbitAttr, $ibitRaceTerraform);
-    my @rgDelta = (0, 0, 0);
-    my $lInnate = 0.0;
+  my ($envCenterRef, $envMinRef, $envMaxRef, $grbitAttr, $ibitRaceTerraform) = @_;
+  my @envCenter = @$envCenterRef;
+  my @envMin    = @$envMinRef;
+  my @envMax    = @$envMaxRef;
+  my $fTotalTerra = &bitTest($grbitAttr, $ibitRaceTerraform);
+  my @rgDelta = (0, 0, 0);
+  my $lInnate = 0.0;
 
-    for my $iTerra (0..2) {
-        # Determine terraforming range for this pass 
-        my $pctTerra;
-        if    ($iTerra == 0) { $pctTerra = 0; }
-        elsif ($iTerra == 1) { $pctTerra = $fTotalTerra ? 8 : 5; }
-        else                 { $pctTerra = $fTotalTerra ? 17 : 15; }
+  for my $iTerra (0..2) {
+    # Determine terraforming range for this pass 
+    my $pctTerra;
+    if    ($iTerra == 0) { $pctTerra = 0; }
+    elsif ($iTerra == 1) { $pctTerra = $fTotalTerra ? 8 : 5; }
+    else                 { $pctTerra = $fTotalTerra ? 17 : 15; }
 
-        # Set up sampling ranges for each env dimension 
-        my (@rgBase, @rgInc, @rgSteps);
-        for my $i (0..2) {
-            if ($envCenter[$i] < 0) {
-                $rgBase[$i]  = 50;
-                $rgInc[$i]   = 11;
-                $rgSteps[$i] = 1;
-            } else {
-                $rgBase[$i] = $envMin[$i] - $pctTerra;
-                if ($rgBase[$i] < 0) { $rgBase[$i] = 0; }
-                my $iTry = $envMax[$i] + $pctTerra;
-                if ($iTry > 100) { $iTry = 100; }
-                $rgInc[$i]   = $iTry - $rgBase[$i];
-                $rgSteps[$i] = 11;
-            }
-        }
-
-        my $l3 = 0.0;
-        for my $ii (0 .. $rgSteps[0] - 1) {
-            my $iTry;
-            if ($ii == 0 || $rgSteps[0] <= 1) { $iTry = $rgBase[0];                
-            } else { $iTry = $rgBase[0] + int($ii * $rgInc[0] / ($rgSteps[0] - 1));
-            }
-
-            if ($iTerra == 0 || $envCenter[0] < 0) { # No adjustment                
-            } else {
-                my $iDelta = $envCenter[0] - $iTry;
-                if (abs($iDelta) <= $pctTerra) {  $iDelta = 0;
-                } elsif ($iDelta < 0) {  $iDelta += $pctTerra;
-                } else {  $iDelta -= $pctTerra;
-                }
-                $rgDelta[0] = $iDelta;
-                $iTry = $envCenter[0] - $iDelta;
-            }
-
-            my @testPlanet;
-            $testPlanet[0] = $iTry;
-            my $l2 = 0.0;
-
-            for my $jj (0 .. $rgSteps[1] - 1) {
-                if ($jj == 0 || $rgSteps[1] <= 1) {  $iTry = $rgBase[1];
-                } else {  $iTry = $rgBase[1] + int($jj * $rgInc[1] / ($rgSteps[1] - 1));
-                }
-
-                if ($iTerra == 0 || $envCenter[1] < 0) {
-                    # No adjustment
-                } else {
-                    my $iDelta = $envCenter[1] - $iTry;
-                    if (abs($iDelta) <= $pctTerra) {  $iDelta = 0;
-                    } elsif ($iDelta < 0) {  $iDelta += $pctTerra;
-                    } else {  $iDelta -= $pctTerra;
-                    }
-                    $rgDelta[1] = $iDelta;
-                    $iTry = $envCenter[1] - $iDelta;
-                }
-
-                $testPlanet[1] = $iTry;
-                my $l1 = 0;
-
-                for my $kk (0 .. $rgSteps[2] - 1) {
-                    if ($kk == 0 || $rgSteps[2] <= 1) {  $iTry = $rgBase[2];
-                    } else {  $iTry = $rgBase[2] + int($kk * $rgInc[2] / ($rgSteps[2] - 1));
-                    }
-
-                    if ($iTerra == 0 || $envCenter[2] < 0) { # No adjustment                        
-                    } else {  my $iDelta = $envCenter[2] - $iTry;
-                        if (abs($iDelta) <= $pctTerra) {  $iDelta = 0;
-                        } elsif ($iDelta < 0) {  $iDelta += $pctTerra;
-                        } else {  $iDelta -= $pctTerra;
-                        }
-                        $rgDelta[2] = $iDelta;
-                        $iTry = $envCenter[2] - $iDelta;
-                    }
-                    $testPlanet[2] = $iTry;
-
-                    my $pctDesire = _pctPlanetDesirability(\@testPlanet, \@envCenter, \@envMin, \@envMax );
-
-                    # Terraforming overshoot penalty
-                    my $iDeltaSum = $rgDelta[0] + $rgDelta[1] + $rgDelta[2];
-                    if ($iDeltaSum > $pctTerra) {
-                        $pctDesire -= ($iDeltaSum - $pctTerra);
-                        if ($pctDesire < 0) { $pctDesire = 0; }
-                    }
-
-                    $pctDesire *= $pctDesire;
-                    if    ($iTerra == 0) { $pctDesire *= 7; }
-                    elsif ($iTerra == 1) { $pctDesire *= 5; }
-                    else                 { $pctDesire *= 6; }
-                    $l1 += $pctDesire;
-                }
-
-                if ($envCenter[2] >= 0) { $l1 = int($l1 * $rgInc[2] / 100);  
-                } else {  $l1 = $l1 * 11;  }
-                $l2 += $l1;
-            }
-
-            if ($envCenter[1] >= 0) {  $l2 = $l2 * $rgInc[1] / 100;
-            } else {  $l2 = $l2 * 11;  }
-            $l3 += $l2;
-        }
-
-        if ($envCenter[0] >= 0) {  $l3 = $l3 * $rgInc[0] / 100;
-        } else {  $l3 = $l3 * 11;  }
-        $lInnate += $l3;
+    # Set up sampling ranges for each env dimension 
+    my (@rgBase, @rgInc, @rgSteps);
+    for my $i (0..2) {
+      if ($envCenter[$i] < 0) {
+        $rgBase[$i]  = 50;
+        $rgInc[$i]   = 11;
+        $rgSteps[$i] = 1;
+      } else {
+        $rgBase[$i] = $envMin[$i] - $pctTerra;
+        if ($rgBase[$i] < 0) { $rgBase[$i] = 0; }
+        my $iTry = $envMax[$i] + $pctTerra;
+        if ($iTry > 100) { $iTry = 100; }
+        $rgInc[$i]   = $iTry - $rgBase[$i];
+        $rgSteps[$i] = 11;
+      }
     }
 
-    return int($lInnate / 10.0 + 0.5);
+    my $l3 = 0.0;
+    for my $ii (0 .. $rgSteps[0] - 1) {
+      my $iTry;
+      if ($ii == 0 || $rgSteps[0] <= 1) { $iTry = $rgBase[0];                
+      } else { $iTry = $rgBase[0] + int($ii * $rgInc[0] / ($rgSteps[0] - 1));
+      }
+
+      if ($iTerra == 0 || $envCenter[0] < 0) { # No adjustment                
+      } else {
+        my $iDelta = $envCenter[0] - $iTry;
+        if (abs($iDelta) <= $pctTerra) {  $iDelta = 0;
+        } elsif ($iDelta < 0) {  $iDelta += $pctTerra;
+        } else {  $iDelta -= $pctTerra;
+        }
+        $rgDelta[0] = $iDelta;
+        $iTry = $envCenter[0] - $iDelta;
+      }
+
+      my @testPlanet;
+      $testPlanet[0] = $iTry;
+      my $l2 = 0.0;
+
+      for my $jj (0 .. $rgSteps[1] - 1) {
+        if ($jj == 0 || $rgSteps[1] <= 1) {  $iTry = $rgBase[1];
+        } else {  $iTry = $rgBase[1] + int($jj * $rgInc[1] / ($rgSteps[1] - 1));
+        }
+
+        if ($iTerra == 0 || $envCenter[1] < 0) {
+            # No adjustment
+        } else {
+          my $iDelta = $envCenter[1] - $iTry;
+          if (abs($iDelta) <= $pctTerra) {  $iDelta = 0;
+          } elsif ($iDelta < 0) {  $iDelta += $pctTerra;
+          } else {  $iDelta -= $pctTerra;
+          }
+          $rgDelta[1] = $iDelta;
+          $iTry = $envCenter[1] - $iDelta;
+        }
+
+        $testPlanet[1] = $iTry;
+        my $l1 = 0;
+
+        for my $kk (0 .. $rgSteps[2] - 1) {
+          if ($kk == 0 || $rgSteps[2] <= 1) {  $iTry = $rgBase[2];
+          } else {  $iTry = $rgBase[2] + int($kk * $rgInc[2] / ($rgSteps[2] - 1));
+          }
+
+          if ($iTerra == 0 || $envCenter[2] < 0) { # No adjustment                        
+          } else {  my $iDelta = $envCenter[2] - $iTry;
+            if (abs($iDelta) <= $pctTerra) {  $iDelta = 0;
+            } elsif ($iDelta < 0) {  $iDelta += $pctTerra;
+            } else {  $iDelta -= $pctTerra;
+            }
+            $rgDelta[2] = $iDelta;
+            $iTry = $envCenter[2] - $iDelta;
+          }
+          $testPlanet[2] = $iTry;
+
+          my $pctDesire = _pctPlanetDesirability(\@testPlanet, \@envCenter, \@envMin, \@envMax );
+
+          # Terraforming overshoot penalty
+          my $iDeltaSum = $rgDelta[0] + $rgDelta[1] + $rgDelta[2];
+          if ($iDeltaSum > $pctTerra) {
+            $pctDesire -= ($iDeltaSum - $pctTerra);
+            if ($pctDesire < 0) { $pctDesire = 0; }
+          }
+
+          $pctDesire *= $pctDesire;
+          if    ($iTerra == 0) { $pctDesire *= 7; }
+          elsif ($iTerra == 1) { $pctDesire *= 5; }
+          else                 { $pctDesire *= 6; }
+          $l1 += $pctDesire;
+        }
+
+        if ($envCenter[2] >= 0) { $l1 = int($l1 * $rgInc[2] / 100);  
+        } else {  $l1 = $l1 * 11;  }
+        $l2 += $l1;
+      }
+
+      if ($envCenter[1] >= 0) {  $l2 = $l2 * $rgInc[1] / 100;
+      } else {  $l2 = $l2 * 11;  }
+      $l3 += $l2;
+    }
+
+    if ($envCenter[0] >= 0) {  $l3 = $l3 * $rgInc[0] / 100;
+    } else {  $l3 = $l3 * 11;  }
+    $lInnate += $l3;
+  }
+  return int($lInnate / 10.0 + 0.5);
 }
 
 # _pctPlanetDesirability(\@planetEnv, \@raceCenter, \@raceMin, \@raceMax)
@@ -4858,38 +5131,36 @@ sub _pctPlanetDesirability {
     my $pctMod = 100 * 100;
 
     for my $i (0..2) {
-        my $iPlanet = $planetRef->[$i];
-        my $iPref   = $centerRef->[$i];
-        my $iMin    = $minRef->[$i];
-        my $iMax    = $maxRef->[$i];
+      my $iPlanet = $planetRef->[$i];
+      my $iPref   = $centerRef->[$i];
+      my $iMin    = $minRef->[$i];
+      my $iMax    = $maxRef->[$i];
 
-        if ($iMax < 0) {
-            $pctPos += 100 * 100;
-        } elsif ($iPlanet >= $iMin && $iPlanet <= $iMax) {
-            my $pctVar = abs($iPlanet - $iPref) * 100;
-            my ($d, $dPenalty);
-            if ($iPlanet < $iPref) {
-                $d = $iPref - $iMin;
-                $pctVar = int($pctVar / $d);
-                $dPenalty = ($iPref - $iPlanet) * 2 - $d;
-            } else {
-                $d = $iMax - $iPref;
-                $pctVar = int($pctVar / $d);
-                $dPenalty = ($iPlanet - $iPref) * 2 - $d;
-            }
-            $pctVar = 100 - $pctVar;
-            $pctPos += $pctVar * $pctVar;
-            if ($dPenalty > 0) {
-                $pctMod *= 2 * $d - $dPenalty;
-                $pctMod = int($pctMod / (2 * $d));
-            }
-        } elsif ($iPlanet < $iMin) {  $pctNeg += _min(15, $iMin - $iPlanet);
-        } else {  $pctNeg += _min(15, $iPlanet - $iMax);
+      if ($iMax < 0) {
+        $pctPos += 100 * 100;
+    } elsif ($iPlanet >= $iMin && $iPlanet <= $iMax) {
+        my $pctVar = abs($iPlanet - $iPref) * 100;
+        my ($d, $dPenalty);
+        if ($iPlanet < $iPref) {
+          $d = $iPref - $iMin;
+          $pctVar = int($pctVar / $d);
+          $dPenalty = ($iPref - $iPlanet) * 2 - $d;
+        } else {
+          $d = $iMax - $iPref;
+          $pctVar = int($pctVar / $d);
+          $dPenalty = ($iPlanet - $iPref) * 2 - $d;
         }
+        $pctVar = 100 - $pctVar;
+        $pctPos += $pctVar * $pctVar;
+        if ($dPenalty > 0) {
+          $pctMod *= 2 * $d - $dPenalty;
+          $pctMod = int($pctMod / (2 * $d));
+        }
+      } elsif ($iPlanet < $iMin) {  $pctNeg += _min(15, $iMin - $iPlanet);
+      } else {  $pctNeg += _min(15, $iPlanet - $iMax); }      
     }
 
     if ($pctNeg) {  return -$pctNeg;  }
-
     $pctPos = int(sqrt($pctPos / 3.0) + 0.9);
     $pctPos = int($pctPos * $pctMod / 10000);
 
@@ -4899,22 +5170,201 @@ sub _pctPlanetDesirability {
 # Convert unsigned byte (0-255) to signed char (-128 to 127)
 # 255 in the file = -1 (immune) in the C struct
 sub _toSigned {
-    my ($val) = @_;
-    return ($val > 127) ? $val - 256 : $val;
+  my ($val) = @_;
+  return ($val > 127) ? $val - 256 : $val;
 }
 
 sub _min {
-    my ($a, $b) = @_;
-    return $a < $b ? $a : $b;
+  my ($a, $b) = @_;
+  return $a < $b ? $a : $b;
 }
 
 sub _max {
-    my ($a, $b) = @_;
-    return $a > $b ? $a : $b;
+  my ($a, $b) = @_;
+  return $a > $b ? $a : $b;
 }
 
+sub dtString {
+  # Return the file type string for a given $dt value
+  my ($dt) = @_;
+  my %dtNames = (
+    0 => '.xy',
+    1 => '.x',
+    2 => '.hst',
+    3 => '.m',
+    4 => '.h',
+    5 => '.r',
+    6 => '.tlog',
+    7 => '.tchk',
+  );
+  return $dtNames{$dt} // 'unknown';
+}
 
+sub planetaryScanners {
+    my @scanners = (
+      'Viewer 50',       # 0  iplanetScan1
+      'Viewer 90',       # 1  iplanetScan2
+      'Scoper 150',      # 2  iplanetScan3
+      'Scoper 220',      # 3  iplanetScan4
+      'Scoper 280',      # 4  iplanetScan5
+      'Snooper 320X',    # 5  iplanetScan6
+      'Snooper 400X',    # 6  iplanetScan7
+      'Snooper 500X',    # 7  iplanetScan8
+      'Snooper 620X',    # 8  iplanetScan9
+      'SDI',             # 9  iplanetDef1
+      'Missile Battery', # 10 iplanetDef2
+      'Laser Battery',   # 11 iplanetDef3
+      'Planetary Shield',# 12 iplanetDef4
+      'Neutron Shield',  # 13 iplanetDef5
+      'Genesis Device',  # 14
+                         # 31 is "none"
+    );
+    return @scanners;
+}
 
+sub planetNames {
+  return (
+    '007', '14 Coli', '3M TA3', '409', '555-1212', '668', '90210', '911', '98053',
+    "A'po", 'Abacus', 'Abbott', 'Abdera', 'Abel', 'Abrams', 'Accord', 'Acid', 'Adams',
+    'Afterthought', 'Ajar', 'Albemuth', 'Alcoa', 'Alexander', 'All Work', 'Allegro',
+    'Allen', 'Allenby', 'Almagest', 'Almighty', 'Alpha Centauri', 'Alsea', 'Aluminum',
+    'Amontillado', 'America', 'Andante', 'Andromeda', 'Angst', 'Anthrax', 'Apple',
+    'Applegate', 'April', 'Aqua', 'Aquarius', 'Arafat', 'Arcade', 'Arctic', 'Arcturius',
+    'Argon', 'Ariel', 'Aries', 'Armonk', 'Armstrong', 'Arnold', 'Arpeggio', 'Asgard',
+    'Astair', 'Atropos', 'Auriga', 'Aurora', 'Autumn Leaves', 'Awk', 'Axelrod',
+    'Bach', 'Baggy', 'Bagnose', 'Baker', 'Bakwele', 'Balder', 'Baldrick', 'Ball Bearing',
+    'Bambi', 'Bar None', 'Barbecue', 'Barrow', 'Barry', 'Bart', 'Basil', 'Basket Case',
+    'Bath', 'Beacon', 'Beauregard', 'Beautiful', 'Bed Rock', 'Beethoven', 'Bentley',
+    'Berry', 'Beta', 'Betelgeuse', 'Bfe', 'Bidpai', 'Bilbo', 'Bilskirnir', 'Birthmark',
+    'Black Hole', 'Bladderworld', 'Blinken', 'Bloop', 'Blossom', 'Blue Ball', 'Blue Dwarf',
+    'Blue Giant', 'Blush', 'Bob', 'Boca Raton', 'Boethius', 'Bog', 'Bonaparte', 'Bone',
+    'Bones', 'Bonn', 'Bonus', 'Boolean', 'Bootes', 'Borges', 'Boron', 'Bountiful',
+    'Braddock', 'Bradley', 'Brass Rat', 'Brin', 'Bruski', 'Buckshot', 'Bufu', 'Burgoyne',
+    'Burrito', 'Burrow', 'Bush', 'Buttercup',
+    'Caelum', 'Cain', 'Calcium', 'Callipus', 'Cambridge', 'Cancer', 'Candide',
+    'Candy Corn', 'Canis Major', 'Canis Minor', 'Canterbury', 'Capricornus', 'Captain Jack',
+    'Carbon', 'Carcassonne', 'Carter', 'Carver', 'Cassiopeia', 'Castle', 'Cathlamet',
+    'Catnip', 'Celery', 'Celt', 'Centaurus', 'Cepheus', 'Cerberus', 'Ceres', 'Cern',
+    'Cetus', 'Challenger', 'Chamber', 'Chandrasekhar', 'Chaos', 'Charity', 'Chennault',
+    'Cherry', 'Cherub', 'Chinese Finger', 'Chlorine', 'Chopin', 'Chubs', 'Chunk',
+    'Cinnamon', 'Cirrus', 'Clapton', 'Clark', 'Clatsop', 'Clausewitz', 'Clay', 'Climax',
+    'Clinton', 'Clotho', 'Clover', 'Cochise', 'Coda', 'Code', 'Columbia', 'Columbus',
+    'Continental', 'Contra', 'Coolidge', 'Cootie', 'Copper', 'Core', 'Corner', 'Cornhusk',
+    'Cornwallis', 'Corvus', 'Cosine', 'Costello', 'Cotton Candy', 'Cougar', 'County Seat',
+    'Cousin Louie', 'Covenant', 'Coyote Corners', 'Crabby', 'Cramp', 'Crazy Horse',
+    'Crisp X', 'Croce', 'Crow', 'Crux', 'Curley', 'Custer', 'Cygnus',
+    'Dachshund', 'Daily', 'Daisy', 'Dalmatian', 'Darien', 'Dark Planet', 'Data', 'Dave',
+    'Dawn', 'Dayan', 'Deacon', 'Decatur', 'Deep Thought', 'Defect', 'Delta',
+    'Delta Delta Delta', 'Demski', 'Deneb', 'Denikin', 'Denon', 'Desert', 'Desolate',
+    'Devo', 'Devon IV', 'Dewey', 'Dharma', 'Diablo', 'Diamond', 'Diddley', 'Dill Weed',
+    'Dimna', 'Dimple', 'Dingleberry', 'Dingly Dell', 'Dinky', 'Dipstick', 'Discovery',
+    'Distopia', 'Ditto', 'Dive', 'Do Re Mi', 'Dog House', 'Dollar', 'Doodles', 'Doris',
+    'Double Tall Skinny', 'Dowding', 'Down And Out', 'Draco', 'Draft', 'Dry Spell',
+    'Dunsany', 'Dwarte', 'Dyson',
+    'Early', 'Earth', 'Esher', 'Eden', 'Eisenhower', 'Elder', 'Elephant Ear', 'Elron',
+    'Elsinore', 'Emerald', 'Emoclew', 'Emperium Gate', 'Empty', 'Endeavor', 'Eno',
+    'Enterprise', 'Epsilon', 'Equuleus', 'Erasmus', 'Eridanus', 'Escalator', 'Estes',
+    'Esther', 'Evergreen', 'Excel',
+    'Faith', 'False Hopes', 'Farragut', 'Fez', 'Finale', 'Finger', 'Fizbin',
+    'Flaming Poodle', 'Flapjack', 'Fleabite', 'Flint Stone', 'Fluorine', 'Floyd', 'Fluffy',
+    'Flutter Valve', 'Foamytap', 'Foch', 'Foggy Bottom', 'Foresight', 'Forest',
+    'Forget-Me-Not', 'Forgotten', 'Forrest', 'Forward', "Foucault's World", 'Fox Trot',
+    'Franklin', 'Frederick', 'Frost', 'Fubar', 'Fugue',
+    'Gaia 2', 'Galbraith', 'Gamma', 'Gangtok', 'Garcia', 'Garfunkel', 'Gargantua',
+    'Garlic', 'Garnet', 'Garp', 'Gas', 'Gasp', 'Gates', 'Gaye', 'Gemini', 'Genesis',
+    'Grendel', 'Genoa', 'Geronimo', 'Gertrude', 'Gladiolus', 'Gladsheim', 'Glenn',
+    'Globular Rex', 'Godel', 'Gold', 'Gollum', 'Goober', 'Goofy', 'Gorby', 'Gordon',
+    'Gornic', 'Gout', 'Graceland', 'Grant', 'Grape', 'Grappo', 'Graz', 'Green House',
+    'Greenbaum', 'Greene', 'Grep', 'Grey Matter', 'Grim Reaper', 'Grouse', 'Guano',
+    'Guderian', 'Gueneviere', 'Gunk',
+    'H2O', 'H2SO4', 'Hacker', 'Haig', 'Hal', 'Halsey', 'Hammer', 'Happy', 'Hard Ball',
+    'Harding', 'Harlequin', 'Harris', 'Harrison', "Hawking's Gut", 'Hay Seed', 'Heart',
+    'Heatwave', 'Heaven', 'Hedtke', 'Helium', 'Hell', 'Henbane', 'Hercules', 'Hermit',
+    'Heroin', 'Hexnut', 'Hiho', 'Hill', 'Himshaw', 'Hindsight', 'Ho Hum', 'Hodel', 'Hoe',
+    'Hoho', 'Hollywood', 'Homer', 'Homogeneous', 'Hoof And Mouth', 'Hoover', 'Hope',
+    'Horselover Fat', 'Hot Tip', 'Hoth', 'Houdini', 'Howe', 'Hoze-O-Rama', 'Huckleberry',
+    'Hull', 'Hummingbird', 'Humus', 'Hunt', 'Hurl', 'Hydra', 'Hydrogen', 'Hydroplane', 'Hyperbole',
+    'Icarus', 'Ice Patch', 'Iceball', 'Indy', 'Inferno', 'Infinity Junction', 'Innie',
+    'Insane', 'Inside-Out', 'Invisible', 'Io', 'Iodine',
+    'Jerilyn', 'Jersey', 'Joffre', 'Johnson', 'Jones', 'Jubitz', 'June', 'Juniper', 'Jupiter',
+    'K9', 'Kaa', 'Kalamazoo', 'Kalila', 'Kan', 'Kant', 'Kappa', 'Karhide', 'Kearny',
+    'Kennedy', 'Kepler', 'Kernel', 'Kha Karpo', 'Kidney', 'King', 'Kirk', 'Kirkland',
+    'Kitaro', 'Kitchener', 'Kiwi', 'Kline', 'Kludge', 'Knife', 'Knob', 'Squidcakes',
+    'Kornilov', 'Kosciusko', 'Kruger', 'Kulu', 'Kumquat', 'Kutuzov', 'Kwaidan',
+    'La Te Da', 'Lachesis', 'Lafayette', 'Lambda', 'Larry', 'Last Chance', 'Latte',
+    'Lavacious', 'Lawrence', 'Lazy B', 'Le Petit Jean', 'Lead', 'Lead Pants', 'Leaky Pipe',
+    'Lee', 'Lekgolo', 'Lemnitzer', 'Leo', 'Leo Minor', 'Leonardo', 'Lever', 'Leviathan',
+    'LGM 1', 'LGM 2', 'LGM 3', 'LGM 4', 'Lhasa', 'Libra', 'Limbo', 'Lincoln', 'Lingo',
+    'Linq', 'Lisa', 'Lithium', 'Little Brother', 'Little Sister', 'Liver',
+    "Lizard's Beak", 'Loan Shark', 'Logic', 'Loki', 'Longstreet', 'Lopsided', 'Love',
+    'LSD', 'Lube Job', 'Luigi', 'Lukundoo', 'Luscious', 'Lycra', 'Lynx', 'Lyra',
+    'M16', 'MacArthur', 'Macintosh', 'Macrohard', 'Magellan', 'Maggie', 'Mallard', 'Mamie',
+    'Mana', 'Mandelbrot', 'Mandrake', 'Maple Syrup', 'Marge', 'Marion', 'Marla',
+    'Marlborough', 'Mars', 'Marshall', 'Match', 'Mathilda', 'Maude', 'May', 'Mayberry',
+    'McBride', 'McCartney', 'McClellan', 'McFarquardt', 'McIntyre', 'Me', 'Meade', 'Medusa',
+    'Melthorne', 'Memmon', 'Memos', 'Mercury', 'Midgard', 'Midnight', 'Milky Way', 'Mirror',
+    'Misery', 'Mitchell', 'Mobius', 'Mocha', 'Moe', 'Mohlodi', 'Molalla', 'Moltke',
+    'Molybdenum', 'Money', 'Mongo', 'Montcalm', 'Montgomery', 'Moonbeam', 'Morgan',
+    'Moscow', 'Mother', 'Mountbatten', 'Mozart', 'Mu', 'Klaupaucius', 'Mundus', 'Mungle',
+    'Murat', 'Muskrat', 'Muspell', 'Mustang', 'Myopus',
+    'Nada', 'Nadir', 'Naledi', 'Narnia', 'Nastrond', 'Nawk', 'Nebulae', 'Neil', 'Nelson',
+    'Neon', 'Neptune', 'Nerd', 'Nessus', 'Nether Region', 'Neuronos', 'Neuter',
+    'Never Never Land', 'Nivenyrral', 'New', 'New Kalapuya', 'Ney', 'Nickel', 'Niflheim',
+    'Nifty', 'Nimitz', 'Nipso', 'Nirvana', 'Nitrogen', 'Triffid', 'No Exit', 'No Play',
+    'No Respect', 'No Return', 'No Vacancy', 'Noble Impulse', 'Nod', 'Nope', 'Norm',
+    'Notlob', 'Notorious', 'Nova', 'Novelty', 'Nowhere', 'Nu', 'Nylon',
+    'Oasis', 'Oh Ho Ho', 'Old', 'Ollie', 'Olympia', 'Omega', 'Oop Be Gone', 'Opus 10',
+    'Orange', 'Orbison', 'Oregano', 'Orion', 'Oshun', 'Outie', 'Oxygen', 'Ozone',
+    'Panacea', 'Pansy', 'Paradise', 'Parsley', 'Patton', 'PCP', 'Pearl', 'Peat Moss',
+    'Peekaboo', 'Pegasus', 'Penance', 'Penzance', 'Pantagruel', 'Perry', 'Perseus',
+    'Pershing', 'Pervo', 'Petra', 'Phaeton', 'Pheson', 'Phi', 'Phicol', 'Philistia', 'Pi',
+    'Pickett', 'Pickles', "Pilgrim's Harbor", 'Pin Prick', 'Pinball', 'PiR2', 'Pirate',
+    'Pisces', 'Pitstop', 'Prydun', 'Planet 10', 'Planet 9', 'Planet X', 'Pluto',
+    'Poly Gone', 'Poly Siren', 'Pop', 'Potassium', 'Pound', 'Presley', 'PreVious', 'Provo',
+    'Prude', 'Prune', 'Puberty', "Puddn'head", 'Puma', 'Purgatory', 'Puss Puss', 'Putty', 'Pyxidis',
+    'Qaphqa', 'Quark', 'Quarter', 'Quiche', 'Quick Lick', 'Quixote',
+    'Radian', 'Radish', 'Radium', 'Raisa', 'Raisin', 'Rake', 'Raster', "Raven's Eye",
+    'Reagan', 'Recalc', 'Red Ball', 'Red Dwarf', 'Red Giant', 'Red Storm', 'Redemption',
+    'Redmond', 'Register', 'Relight', 'Replica', 'Resistor', 'Resort', 'Revelation', 'Rex',
+    'Rhenium', 'Rho', 'Ricketts', 'Rickover', 'Right', 'Ripper Jack', 'Rock', 'Rockette',
+    'Rodney', 'Rogers', 'Romeo', 'Rommel', 'Roosevelt', 'Rough Shod', 'Rubber', 'Ruby',
+    'Rundstedt', 'Rutebaga', 'Rye',
+    'Saada', 'Sad', 'Saddam', 'Sadie', 'Sagittarius', 'Salamander', 'Salsa', 'Sam',
+    'Same Here', 'Samsonov', 'Sand Castle', 'Sands Of Time', 'Sapphire', 'Sartre', 'Saturn',
+    'Scandahoovia', 'Scarlett', 'Scat', 'Schubert', 'Schwiiing', 'Scorpius', 'Scotch',
+    'Scott', 'Scotts Valley', 'Scotty', 'Scud', 'Scurvy', 'Sea Squared', 'Sed', 'Selenium',
+    'Senility', 'Sequim 3', 'Serapa', 'Shaft', 'Shaggy Dog', 'Shangri-La', 'Shank',
+    'Shannon', 'Shanty', 'Scheherezade', 'Shelty', 'Sheridan', 'Sherman', 'Shinola',
+    'Ship Shape', 'Shoe Shine', 'Shrine', 'Siberia', 'Sigma', 'Silicon', 'Silver', 'Simon',
+    'Simple', 'Siren', 'Skink', 'Skid Row', 'Skidmark', 'Skloot', 'Skunk', 'Skynyrd',
+    'Slag', 'Slick', 'Slime', 'Slinky', 'Sludge', 'Smithers', 'Smorgasbord', 'Snack',
+    'Snafu', "Snake's Belly", 'Sniffles', 'Snots', 'Snuffles', 'Sodium', 'Sol', 'Spaatz',
+    'Spaceball', 'Sparta', 'Spay', 'Spearmint', 'Speed Bump', 'Sphairos', 'Sphere',
+    'Spitfire', 'Spittle', 'Split', 'Springfield', 'Spruance', 'Spuds', 'Sputnik', 'Staff',
+    'Stamp', 'Stanley', 'Status', 'Steeple', 'Stellar', 'Steppenwolf', 'Stilton',
+    'Stilwell', 'Sting', 'Stinky Socks', 'Stonehenge', 'Stove Top', 'Strange', 'Strauss',
+    'Strike 3', 'Stuart', 'Sulfur', 'Sutra', 'Swizzle Stick',
+    'Taco', 'Talking Desert', 'Tangent', 'Tanj', 'Tank Top', 'Tao', 'Tartaruga', 'Taton',
+    'Tattoo', 'Taurus', 'Tchaikovsky', 'Teela', 'Telly', 'Terrace', 'Texas', 'Thomas',
+    'Thyme', 'Tierra', "Tiger's Tail", 'Timbuktu', 'Timoshenko', 'Tirpitz', 'Tlon',
+    'Tongue', 'Toroid', 'Tough Luck', 'Trial', 'Trismegistus', 'Trog', 'Truck Stop',
+    'True Faith', 'Truman', 'Trurl', "Tsagigla'lal", 'Tull', "Turing's World",
+    'Tweedledee', 'Tweedledum', 'Twelfth Man', 'Tycho B',
+    'Ultima Thule', 'Underdog', 'Upsilon', 'Uqbar', 'Uranium', 'Uranus', 'Ursa Good',
+    'Ursa Major', 'Ursa Minor', 'Utgard', 'Utopia',
+    'Vacancy', 'Vacant', 'Valhalla', 'Vanilla', 'Vega', 'Venus', 'Verdi', 'Veritas',
+    'Virgin', 'Virgo', 'Viscous', 'Vista', 'Vivaldi', 'Vox',
+    'Waco', 'Wagner', 'Wainwright', 'Walla Walla', 'Wallaby', 'Wallace',
+    'Wammalammadingdong', "Wanker's Corner", 'Washington', 'Waterfall', 'Wavell', 'Weed',
+    'Wellington', 'Wendy', 'Where', 'Whiskey', "Whistler's Mother", 'Who', 'Wilbury',
+    'Wingnut', 'Winken', 'Winkle', 'Winky-Blinky', 'Winter', 'Witter', 'Wizzle', 'Wobbly',
+    'Wobegon', 'Wood Shed', 'Woody', 'Woozle', 'Worm', 'Wrench', 'Wrist Rocket', 'Wumpus',
+    'X-Lacks', 'X-Ray', 'Xenon',
+    'Y-Has', 'Ya Betcha', 'Yank', 'Yeager', 'Yes', 'Yoruba', 'Yuppie Puppy',
+    'Zahir', 'Zanzibar', 'Zappa', 'Zarquon', 'Zebra', 'Zed', 'Zeppelin', 'Zero', 'Zeta',
+    'Zhukovi', 'Ziggurat', 'Zippy', 'Zucchini', 'Zulu',
+  );
+}
 
 # CSV position 18 is fuel
 # 1,1,"Stargate 100/250",1,0,0,5,5,0,0,0,400,100,40,40,144,100,250,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
@@ -5120,5 +5570,5 @@ sub _max {
 # 14,15,"Trans-Galactic Mizer Scoop",15,4,0,16,0,0,0,11,20,5,2,13,11,0,0,0,0,0,0,0,0,0,0,70,84,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 # 14,16,"Galaxy Scoop",16,5,0,20,0,0,0,8,12,4,2,9,191,4,0,0,0,0,0,0,0,0,0,0,60,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
  
-
+1;
 
