@@ -6,7 +6,7 @@
 <ul>
 <li>Web-based game creation (incl. player management)
 <li>Uploading of externally-created (zipped) games
-<li>Computer AI Player support (via zipped games).
+<li>Computer AI Player support (via zipped games)
 <li>Daily and hourly options for turn generation
 <li>A player-pause system, permitting managed player pauses, much like timeouts in sports
 <li>Configurable forced turn generation
@@ -15,13 +15,15 @@
 <li>Shared user-submitted news content
 <li>Anonymous players
 <li>Configurable inactive player inactivation (and setting to Housekeeping AI)
-<li>Ability to download the game history (to recreate the .H file, view in retrospect, and/or recover from system failure)
-<li>Ability to download messages
+<li>Download the game history (to recreate the .H file, view in retrospect, and/or recover from system failure)
+<li>Download messages
 <li>Storage and viewing of race files
-<li>Ability to transfer players
-<li>Ability to reset a dropped player's Stars! password
+<li>Transfer players
+<li>Reset a dropped player's Stars! password
 <li>Providing a serial number for every user profile
 <li>Automatic pauses of games in case of a server Internet, reboot, or power outage
+<li>A client interface, to make it easier to <a href="/THClient.htm">programmatically read game status</a>
+<li>Team games (where team information is automatically merged)
 </ul>
 
 <P>TotalHost can sanitize Stars file information that could be exposed to other players:
@@ -47,11 +49,21 @@
 
 <P>Standalone Utilities
 <ul>
-<li>Reset password on various files (.r, .m, .x, .hst)
-<li>Read and uncorrupt race files
-<li>Export turn file messages
-<li>Fix & Clean turn files manually
+<li>StarsPWD: Reset password on various files (.r, .m, .x, .hst)
+<li>StarsRace: Read and uncorrupt race files
+<li>StarsPlanet: Output all planet information
+<li>StarsScore: Output player scores
+<li>StarsAI: Change player/AI status
+<li>StarsMSG: Export turn file messages
+<li>StarsFix/StarsClean: Fix & Clean turn files manually
 <li>Check turns for copy protection triggers
+<li>StarsGraph: Create graphs of player resources/score
+<li>StarsMoveXY: Move planets (and associated fleets) about
+<li>StarsShape: Modify StarsMoveXY data to create universes in shapes (spiral, arm, etc). 
+<li>StarsMerge: Merge .m (and .h) files
+<li>StarsMakeX: Create a (blank) submitted turn
+<li>StarsTrimM: Strip multi-turn data out of a .m file
+                                                      
 <li>Various other Perl CLI tools for analyzing and reporting on Stars! file data.
 </ul>
 
