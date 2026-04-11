@@ -5,8 +5,17 @@
 
 <body>
 <h2>Recent Changes to the TotalHost Site</h2>
-<ul>
-<li>260404 - updated the FEatures list with a ton of new features
+<ul> 
+<li>260411 - Theoretically improved .x upload times
+<li>260410 - MakeX (and new MakeXploit) don't cause usurper when creating more than one .x
+<li>260408 - Fixed a Fix bug that SS couldn't upload their own pop with a RB ship
+<li>260408 - Changed cheap starbase fix to just drop the design change
+<li>260407 - Fixed CA cleaning in a way that makes more sense 
+<li>260406 - Significant decryption performance improvement to not read in the data twice every time
+<li>260406 - Much more robust zip uploading
+<li>260405 - ForceGen now ALSO merges team .m files, cleans, and fixes appropriately
+<li>260405 - Game type now defaults to manual (3) if not set
+<li>260404 - Updated the Features list with a ton of new features
 <li>260404 - fixed right panel to not link to GalNEws when it's not configured for the game 
 <li>260404 - Updated StarsMerge.pl to merge .h files
 <li>260404 - Removed remaining dependencies on having clean and fix files in the folder (now 100% db-based)
@@ -15,19 +24,19 @@
 <li>260404 - fixed a bug in SharedM functionality
 <li>260404 - added team file display and merged turn file download. download.pl updated to include merged files.
 <li>260224 - Increased max file size for larger zip files  
-<li>260224 - added a select/deselect to the days and hours checkboxes
-<li>260224 - created StarsLastTurn, which strips multi-turn .m files down to single turn                                       
-<li>260223 - exposed TH client in the instructions
-<li>260223 - client now timezone-aware if logged in
+<li>260224 - Added a select/deselect to the days and hours checkboxes
+<li>260224 - Created StarsLastTurn, which strips multi-turn .m files down to single turn                                       
+<li>260223 - Exposed TH client in the instructions
+<li>260223 - Client now timezone-aware if logged in
 <li>260221 - Lock Game now only appears with 2 players 
 <li>260221 - Created StarsMakeX, which generates "Turn submitted" .x files for all players to speed up testing
 <li>260221 - Cleaned up data structure and code for StarsRace, StarsMsg, StarsMoveXY, and StarsPlanet
-<li>260220 - cleaned up StarsAI (and merged decryptAI)
-<li>260219 - updated getFileHeaderBlock to also return $dt (file type) to use it instead of file extensions (all over the place)
-<li>260219 - consolidated the show_turngeneration and show_schedule fucntions
-<li>260219 - stamped out a nubmer of "BUG" notes in StarsBlock.pm, mostly related to data structures being previously missing or unknown.
-<li>260218 - fleshed out the data on the old Dancing game. Changed to display player status even on finsihed games (just confusing to debug)
-<li>260217 - deduplicated a HST file scan between homeworlds and wormholes in StarsMoveXY
+<li>260220 - Cleaned up StarsAI (and merged decryptAI)
+<li>260219 - Updated getFileHeaderBlock to also return $dt (file type) to use it instead of file extensions (all over the place)
+<li>260219 - Consolidated the show_turngeneration and show_schedule fucntions
+<li>260219 - Stamped out a number of "BUG" notes in StarsBlock.pm, mostly related to data structures being previously missing or unknown
+<li>260218 - Fleshed out the data on the old Dancing game. Changed to display player status even on finsihed games (just confusing to debug)
+<li>260217 - Deduplicated a HST file scan between homeworlds and wormholes in StarsMoveXY
 <li>260217 - UI now supports creating team games and setting team players 
 <li>260216 - StarsShape now supports importing universe shapes from images as well as predefined shapes to set x,y coordinates for StarsMoveXY
 <li>260215 - StarsMerge now merges player files: planets, fleets, designs, objects, scores
@@ -37,7 +46,7 @@
 <li>260210 - Added leftover race advantage points to StarsRace and TH Profile > Race display. Fixed some block misalignment.
 <li>260207 - Fixed bug in StarsRace and StarsBlock for rgResSpent offsets 
 <li>260207 - The new Planet/MoveXY/Merge/Shapes functions now will keep the modified x coordinates for planets in ascending order by planet (required!)
-<li>260206 - added use FindBin;use lib $FindBin::Bin; to most everything to solve library problems on Windows
+<li>260206 - Added use FindBin;use lib $FindBin::Bin; to most everything to solve library problems on Windows
 <li>260206 - Added StarsMoveXY which can update planet (and fleet) coordinates. Updated StarsPlanet to better handle block 7 (Planets Block)
 <li>260206 - StarsByte updated to better display planet data from block 7
 <li>260205 - StarsPlanet now can read in, CSV, and export planet coordinates
