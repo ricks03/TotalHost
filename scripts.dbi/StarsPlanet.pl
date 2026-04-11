@@ -123,6 +123,8 @@ sub decryptBlockPlanet {
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+    my @data = @block[2..$#block];
+    
     if ($typeId == 8) { # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
@@ -136,11 +138,6 @@ sub decryptBlockPlanet {
     } else {
       # WHERE THE MAGIC HAPPENS
       # Everything else needs to be decrypted
-#       shift @block; # remove the first two elements of the array (formerly @data)
-#       shift @block; 
-#       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@block, $seedA, $seedB); 
-#       @decryptedData = @{ $decryptedData };
-      my @data = @block[2..$#block]; # Get data without header
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
 

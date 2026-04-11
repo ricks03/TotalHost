@@ -115,7 +115,14 @@ for my $byte (@$outBytes) {
   print $fh $byte;
 }
 close($fh);
-print "\nFile output: $newFile\n";
+# Print what happened
+my $f1 = (split(/\//, $file1))[-1];
+my $f2 = (split(/\//, $file2))[-1];
+my $fn = (split(/\//, $newFile))[-1];
+unless (defined $ENV{'GATEWAY_INTERFACE'}) {  # Don't print if called from the web
+  print "$f1 < $f2 => $fn\n";
+}
+#print "\nFile output: " . (split(/\//, $newFile))[-1] . "\n"; # print only the file name, not the path.
 
 sub readFile {
   my ($filename) = @_;
@@ -141,7 +148,7 @@ sub decryptA {
   my (@fileBytes) = @_;
   my $is_history = pop(@fileBytes);  # Last parameter is file type flag
   my @block;
-  my @data;
+  #my @data;
   my ($decryptedData, $padding);
   my @decryptedData;
   my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt );
@@ -175,8 +182,9 @@ sub decryptA {
   while ($offset < @fileBytes) {
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
-    @data  = @fileBytes[$offset+2 .. $offset+(2+$size)-1];
+    #@data  = @fileBytes[$offset+2 .. $offset+(2+$size)-1];
     @block = @fileBytes[$offset .. $offset+(2+$size)-1];
+    my @data = @block[2..$#block];
 
     if ($typeId == 8) {  # FileHeaderBlock - not encrypted
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
@@ -200,7 +208,7 @@ sub decryptA {
     } elsif ($typeId == 0) {  # FileFooterBlock - not encrypted
       @footer = @block;
 
-    } else {
+    } else { 
       # Everything else needs decryption
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB);
       @decryptedData = @{$decryptedData};
@@ -252,7 +260,7 @@ sub decryptA {
           }
           print "  decryptA: Starbase design -> player $designPlayer\n" if $debug;
           push @starbase_designs, [ $typeId, 1, $designPlayer, [@blockHeader], [@decryptedData], $padding ];
-        } else {
+        } else { 
           while ($ship_design_idx < @ship_design_counts
                  && $ship_design_counts[$ship_design_idx][1] <= 0) {
             $ship_design_idx++;
@@ -265,7 +273,6 @@ sub decryptA {
           print "  decryptA: Ship design -> player $designPlayer\n" if $debug;
           push @ship_designs, [ $typeId, 0, $designPlayer, [@blockHeader], [@decryptedData], $padding ];
         }
-
       } elsif ($typeId == 16 || $typeId == 17) {  # FleetBlock, PartialFleetBlock
         my $field1 = read16(\@decryptedData, 0);
         my $fleetId = $field1 & 0x1FF;
@@ -343,7 +350,7 @@ sub decryptB {
   my (@fileBytes) = @_;
   my $is_history = pop(@fileBytes);  # Last parameter is file type flag
   my @block;
-  my @data;
+  #my @data;
   my ($decryptedData, $padding);
   my @decryptedData;
   my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt );
@@ -368,9 +375,10 @@ sub decryptB {
   while ($offset < @fileBytes) {
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
-    @data  = @fileBytes[$offset+2 .. $offset+(2+$size)-1];
+    #@data  = @fileBytes[$offset+2 .. $offset+(2+$size)-1];
     @block = @fileBytes[$offset .. $offset+(2+$size)-1];
-
+    my @data = @block[2..$#block];
+    
     if ($typeId == 8) {  # FileHeaderBlock
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption($binSeed, $fShareware, $Player, $turn, $lidGame);
@@ -708,7 +716,7 @@ sub merge_and_write {
       $d[5] = ($newWord45 >> 8) & 0xFF;
 
       print "  merge: Owner Block 6: cPlanet=$owner_cPlanet cFleet=$owner_cFleet\n" if $debug;
-    } else {
+    } else { 
       # Non-owner: zero cPlanet and cFleet (reader zeroes them anyway)
       $d[2] = 0;
       $d[3] = 0;
@@ -911,8 +919,8 @@ sub mergeFleets {
           print "    mergeFleets: P1 wins duplicate fleet owner=$p1_ownerId id=$p1_fleetId (det $p1_det vs $p2_det)\n" if $debug;
         }
         $p2idx++;
-        last;      
-      } else {
+        last;   
+      } else {   
         last;
       }
     }
@@ -1089,7 +1097,7 @@ sub ConvertPlanetToPartial {
       $offset += 4;
       # Extract isb from lStarbase (bits 0-3)
       $isb = $lStarbase & 0x0F;
-    } else { 
+    } else {
       # detMore/detSome: 1 byte isb
       $isb = $data->[$offset++];
     }
@@ -1176,7 +1184,7 @@ sub ConvertPlanetToPartial {
   if ($need_fIncSurfMin) {
     # Build mineral bitmask
     my $minBitmask = 0;
-    for (my $i = 0; $i < 4; $i++) { # BUG: AI sais this should be 3
+    for (my $i = 0; $i < 3; $i++) { #for (my $i = 0; $i < 4; $i++) { # BUG: AI sais this should be 3
       my $val = $rgwtMin[$i];
       my $bits = 0;
       if ($val > 0) {
@@ -1184,7 +1192,7 @@ sub ConvertPlanetToPartial {
           $bits = 1;  # byte
         } elsif ($val <= 65535) {
           $bits = 2;  # short
-        } else {
+        } else { 
           $bits = 3;  # long
         }
       }
@@ -1194,7 +1202,7 @@ sub ConvertPlanetToPartial {
     $output[$offset++] = $minBitmask;
     
     # Write mineral values
-    for (my $i = 0; $i < 4; $i++) {  # BUG: AI says this should be 3
+    for (my $i = 0; $i < 3; $i++) { #for (my $i = 0; $i < 4; $i++) {  # BUG: AI says this should be 3
       my $val = $rgwtMin[$i];
       if ($val > 0) {
         if ($val <= 255) {
@@ -1202,7 +1210,7 @@ sub ConvertPlanetToPartial {
         } elsif ($val <= 65535) {
           $output[$offset++] = $val & 0xFF;
           $output[$offset++] = ($val >> 8) & 0xFF;
-        } else {
+        } else { 
           $output[$offset++] = $val & 0xFF;
           $output[$offset++] = ($val >> 8) & 0xFF;
           $output[$offset++] = ($val >> 16) & 0xFF;

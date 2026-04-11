@@ -100,22 +100,23 @@ my @outBytes = @{$outBytes};
 sub decryptScores2 {
   my (@fileBytes) = @_;
   my @block;
-  my @data;
-  my ($decryptedData, $encryptedBlock, $padding);
+  #my @data;
+  my ($decryptedData, $padding);
   my @decryptedData;
-  my @encryptedBlock;
+  #my @encryptedBlock;
   my @outBytes;
   my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
-  my ($seedA, $seedB, $seedX, $seedY);
+  my ($seedA, $seedB);
   my ($FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   while ($offset < @fileBytes) {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
-    @data   = @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    #@data   = @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-
+    my @data = @block[2..$#block];
+    
     if ($debug > 1) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     if ($typeId == 8) { # FileHeaderBlock, never encrypted
@@ -123,8 +124,6 @@ sub decryptScores2 {
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
-      $seedX = $seedA; # Used to reverse the decryption
-      $seedY = $seedB; # Used to reverse the decryption
       push @outBytes, @block;
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
       push @outBytes, @block;
@@ -166,10 +165,6 @@ sub decryptScores2 {
         print "\tVICTORY: planet:$vcPlanetControl,techlevel:$vcTechLevel,techfields:$vcTechFields,score:$vcScore,2nd:$vcScoreExcess,prod:$vcProduction,cap:$vcLargeShips,turns:$vcTurns\n";
       }
       # END OF MAGIC
-      # reencrypt the data for output
-#       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
-#       @encryptedBlock = @ { $encryptedBlock };
-#       push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
   }
@@ -185,7 +180,7 @@ sub lastTurnBytes {
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ($typeId, $size) = &parseBlock($FileValues, $offset);
     if ($typeId == 8) { $lastBlock8Offset = $offset; }
-    $offset += 2 + $size;
+    $offset = $offset + (2 + $size);
   }
   return @fileBytes[$lastBlock8Offset .. $#fileBytes];
 }

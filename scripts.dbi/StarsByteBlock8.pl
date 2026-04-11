@@ -100,7 +100,7 @@ my @outBytes = @{$outBytes};
 sub decryptBlock {
   my (@fileBytes) = @_;
   my @block;
-  my @data;
+  #my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
@@ -113,9 +113,10 @@ sub decryptBlock {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
-    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    #@data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-
+    my @data = @block[2..$#block];
+    
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) {  # File Header Block
       # Convert the nonencrypted Block 8 data
@@ -135,37 +136,37 @@ sub decryptBlock {
 #   Bit 2 (4) - Multiple turns in .m file
 #   Bit 3 (8) - Game over
 #   Bit 4 (16)- Shareware Version
-        my $rickMagic            = &read32(\@unshiftedData, 0);  print "Magic: $rickMagic\n";
-        #my $rickMagicStr        = &decodeBytesForStarsString(@unshiftedData[0..4]);  print "MagicStr: $rickMagicStr\n";  #Broken
-        #my $rickMagicStr        = unpack ("A4", $rickMagic);  print "MagicStr: $rickMagicStr\n";  #Broken
-        my $rickGameID           = &read32(\@unshiftedData, 4);  print "GameId: $rickGameID\n";
-        my $rickVersion          = &read16(\@unshiftedData, 8);  print "Version: $rickVersion\n";
-		      my $rickversionMajor = $rickVersion >> 12;         # First 4 bits
-          print "\tMajor: $rickversionMajor\n";
-		      my $rickversionMinor = ($rickVersion >> 5) & 0x7F; # Middle 7 bits
-          print "\tMinor: $rickversionMinor\n";
-		      my $rickversionIncrement = $rickVersion & 0x1F;    # Last 5 bits
-          print "\tIncrement: $rickversionIncrement\n";
-        my $rickTurnNumber       = &read16(\@unshiftedData, 10);  print "Turn Number: $rickTurnNumber\n";
-        my $rickplayerData             = &read16(\@unshiftedData, 12); print "PlayerData: $rickplayerData\n";
-          my $rickencryptionSalt = $rickplayerData >> 5;  # First 11 bits
-          print "\tSalt: $rickencryptionSalt\n";
-  		    my $rickplayerNumber = $rickplayerData & 0x1F;  # Last 5 bits
-          print "\tPlayer Number: $rickplayerNumber\n";
-        my $rickfiletype          = &read8($unshiftedData,14); print "FileType: $rickfiletype\n";
-    		my $rickflags = &read8($unshiftedData,15);
-      		my $rickunknownBits = (($rickflags >> 5) & 0x07);
-          print "\tUnknown: $rickunknownBits\n";
-      		my $rickturnSubmitted = ($rickflags & 1) > 0;
-          print "\tSubmitted: $rickturnSubmitted\n";
-      		my $rickhostUsing =     ($rickflags & (1 << 1)) > 0;
-          print "\tUsing: $rickhostUsing\n";
-      		my $rickmultipleTurns = ($rickflags & (1 << 2)) > 0;
-          print "\tMultiple: $rickmultipleTurns\n";
-      		my $rickgameOver =      ($rickflags & (1 << 3)) > 0;
-          print "\tGame Over: $rickgameOver\n";
-      		my $rickshareware =     ($rickflags & (1 << 4)) > 0;		
-          print "\tShareware: $rickshareware\n";
+      my $rickMagic            = &read32(\@unshiftedData, 0);  print "Magic: $rickMagic\n";
+      #my $rickMagicStr        = &decodeBytesForStarsString(@unshiftedData[0..4]);  print "MagicStr: $rickMagicStr\n";  #Broken
+      #my $rickMagicStr        = unpack ("A4", $rickMagic);  print "MagicStr: $rickMagicStr\n";  #Broken
+      my $rickGameID           = &read32(\@unshiftedData, 4);  print "GameId: $rickGameID\n";
+      my $rickVersion          = &read16(\@unshiftedData, 8);  print "Version: $rickVersion\n";
+	    my $rickversionMajor = $rickVersion >> 12;         # First 4 bits
+      print "\tMajor: $rickversionMajor\n";
+	    my $rickversionMinor = ($rickVersion >> 5) & 0x7F; # Middle 7 bits
+      print "\tMinor: $rickversionMinor\n";
+	    my $rickversionIncrement = $rickVersion & 0x1F;    # Last 5 bits
+      print "\tIncrement: $rickversionIncrement\n";
+      my $rickTurnNumber       = &read16(\@unshiftedData, 10);  print "Turn Number: $rickTurnNumber\n";
+      my $rickplayerData             = &read16(\@unshiftedData, 12); print "PlayerData: $rickplayerData\n";
+      my $rickencryptionSalt = $rickplayerData >> 5;  # First 11 bits
+      print "\tSalt: $rickencryptionSalt\n";
+		  my $rickplayerNumber = $rickplayerData & 0x1F;  # Last 5 bits
+      print "\tPlayer Number: $rickplayerNumber\n";
+      my $rickfiletype          = &read8($unshiftedData,14); print "FileType: $rickfiletype\n";
+  		my $rickflags = &read8($unshiftedData,15);
+    	my $rickunknownBits = (($rickflags >> 5) & 0x07);
+      print "\tUnknown: $rickunknownBits\n";
+    	my $rickturnSubmitted = ($rickflags & 1) > 0;
+      print "\tSubmitted: $rickturnSubmitted\n";
+    	my $rickhostUsing =     ($rickflags & (1 << 1)) > 0;
+      print "\tUsing: $rickhostUsing\n";
+    	my $rickmultipleTurns = ($rickflags & (1 << 2)) > 0;
+      print "\tMultiple: $rickmultipleTurns\n";
+    	my $rickgameOver =      ($rickflags & (1 << 3)) > 0;
+      print "\tGame Over: $rickgameOver\n";
+    	my $rickshareware =     ($rickflags & (1 << 4)) > 0;		
+      print "\tShareware: $rickshareware\n";
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);

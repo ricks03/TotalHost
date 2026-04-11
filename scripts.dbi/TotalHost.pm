@@ -55,7 +55,8 @@ our @EXPORT = qw(
 	UpdateLastTurn UpdateNextTurn FixNextTurnDST GenerateTurn clean_name
 	rp_list_games list_games LoadGamesInProgress
 	Make_CHK Read_CHK Valid_CHK Eval_CHK Eval_CHKLine 
-	Game_Backup File_Date Generate_Merged
+  Turns_Missing
+	Game_Backup File_Date MergeFiles
 	clean 
 	DaysToAdd ValidTurnTime ValidFreq CheckHolidays LoadHolidays ShowHolidays
   show_race_block
@@ -65,8 +66,9 @@ our @EXPORT = qw(
   create_graph print_legend
   show_schedule
   player_status_label
-  has_merged
 );
+#has_merged
+
 # Remarked out functions: FileData FixTime MakeGameStatus checkboxes checkboxnull
 #  showCategory
 # clean_filename
@@ -888,14 +890,14 @@ sub checknull {  # Make something null return 0 else return the value
 }
 
 sub list_games {
-	my ($sql, $type) = @_;
+	my ($sql, $type, @bind_params) = @_; #my ($sql, $type) = @_;
 	my $db = &DB_Open($dsn);
 	my $countgames=0;
   my $rp;
 	print qq|<h2>$type</h2>\n|;
 	print "<table border = 1>\n";
   print "<tr><th></th><th>Name</th><th>Status</th><th>Host</th><th>Schedule</th><th>Description</th></tr>\n";
-	if (my $sth = &DB_Call($db,$sql)) {
+	if (my $sth = &DB_Call($db,$sql,@bind_params)) { #if (my $sth = &DB_Call($db,$sql)) {
     while (my $row = $sth->fetchrow_hashref()) {
       $countgames++;
     	#($GameName, $GameFile, $GameStatus, $GameDescrip, $HostName, $NewsPaper) = ($row->{'GameName'}, $row->{'GameFile'}, $row->{'GameStatus'}, $row->{'GameDescrip'}, $row->{'HostName'}, $row->{'NewsPaper'});
@@ -934,12 +936,12 @@ sub list_games {
 }
 
 sub rp_list_games {
-	my ($sql, $type, $rp_default) = @_;
+	my ($sql, $type, $rp_default, @bind_params) = @_; #my ($sql, $type, $rp_default) = @_;
 	my $db = &DB_Open($dsn);
 	my $countgames=0;
 	print qq|<u>$type</u>\n|;
 	print "<table>\n";
-	if (my $sth = &DB_Call($db,$sql)) {
+	if (my $sth = &DB_Call($db,$sql,@bind_params)) { #if (my $sth = &DB_Call($db,$sql)) {
     while (my $row = $sth->fetchrow_hashref()) {
  			$countgames++;
  	    ($GameName, $GameFile, $GameStatus) = ($row->{'GameName'}, $row->{'GameFile'}, $row->{'GameStatus'});
@@ -981,11 +983,22 @@ sub Make_CHK { # Updates the .chk file for a game
   # Don't run if there's no HST file
   if (-e $HST_FILE) {
     my($CheckGame) = $WINE_executable . ' -v ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile\.hst";
+    #my($CheckGame) = $WINE_executable . ' -v ' . "$Dir_WINE$WINE_Games\\$GameFile\\$GameFile.hst";
 
     my $chkfile = "$Dir_Games/$GameFile/$GameFile" . '.chk';
-    sleep 2;
+    #sleep 2;
     &LogOut(200, "Make_CHK: Running for $GameFile, $CheckGame, $chkfile", $LogFile);  
+    my $before = time(); #Get the current time before creating the .chk file
     my $exit_status = &call_system($CheckGame,0); # Make_CHK
+    # wait for the chk file to change.
+    my $timeout = 4;
+    my $waited = 0;
+    while ($waited < $timeout) {
+      last if (-f $chkfile && (stat($chkfile))[9] > $before);
+      sleep 1;
+      $waited++;
+    }
+    if ($waited >= $timeout) { &LogOut(0, "Make_CHK: Timed out waiting for $chkfile", $ErrorLog); }
 
      # Wait if the .chk file is in use
     # BUG: AI Suggested replacement code
@@ -1017,13 +1030,12 @@ sub Read_CHK {
   if (-e $HST_FILE) {  # Make sure there's a HST file at all
     # If for some reason there's no .chk file, make one. 
     unless (-e $CHK_FILE ) { # Only execute if CHK_FILE does not exist
-      &Make_CHK($GameFile); &LogOut(100,"Read_CHK: Read_CHK running Make_CHK for $GameFile",$ErrorLog); # Read_CHK 
+      &Make_CHK($GameFile); &LogOut(100,"Read_CHK: Read_CHK running Make_CHK for $GameFile",$LogFile); # Read_CHK 
     } 
     my $chk_open = open (IN_CHK,$CHK_FILE) || &LogOut(0,"Read_CHK: Cannot open stupid .chk file $CHK_FILE for $GameFile",$ErrorLog);
     chomp (@CHK = <IN_CHK>);
    	close(IN_CHK);
     # Remove all occurrences of carriage return (^M)
-    # BUG: This should be tested and enabled
     #foreach my $line (@CHK) {     $line =~ s/\r//g;  }
   } else { &LogOut(400, "Read_CHK: no HST file $HST_FILE", $LogFile); }
  	return @CHK;
@@ -1036,12 +1048,18 @@ sub Valid_CHK {
 	my $CHK_FILE = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.chk';
 	my $HST_FILE = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.hst';
   my $error;
+  &LogOut(400,"valid_CHK: CHK_FILE: $CHK_FILE,  HST_FILE: $HST_FILE for  $GameFile",$LogFile);
   unless (-e $CHK_FILE ) { # Only execute if CHK_FILE does not exist
    &LogOut(0,"valid_CHK: .chk file $CHK_FILE for $GameFile does not exist.",$ErrorLog);
    return 0;
   } 
-  open (IN_CHK,$CHK_FILE) || &LogOut(0,"Valid_CHK: Cannot open stupid .chk file $CHK_FILE for $GameFile",$ErrorLog) and $error .=  "Cannot open stupid .chk file $CHK_FILE for $GameFile\n";
+  unless (open (IN_CHK,$CHK_FILE)) {
+    &LogOut(0,"Valid_CHK: Cannot open .chk file $CHK_FILE for $GameFile",$ErrorLog);
+    $error .=  "Cannot open .chk file for $GameFile\n";
+  }
+  
   chomp (@CHK = <IN_CHK>);
+  #foreach my $line (@CHK) { $line =~ s/\r//g; }
  	close(IN_CHK);
   # Does the 3rd line include "Year:"
   unless ($CHK[2] =~ /^\d{2}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2} - ".*?" Year:/) { $error .= "Missing Year: from CHK file\n"; }
@@ -1049,8 +1067,8 @@ sub Valid_CHK {
   foreach my $line (@CHK) { if ($line =~ /\bERROR\b/) {  $error .= "ERROR in .chk file\n"; } }
   if ($error) {
     &LogOut(0,"valid_CHK: $error in .chk file $CHK_FILE for $GameFile",$ErrorLog);
-    return 1;
-  } else { return 0; }
+    return 0;
+  } else { return 1; }
 }
 
 sub Eval_CHK { 
@@ -1060,8 +1078,9 @@ sub Eval_CHK {
 	my($ToGenerate) = 'True';	
 	if (-f $CHKFile) { #Check to see if .CHK file is there.
 		# Read in appropriate .CHK file
-		open (IN_CHK,$CHKFile) || &LogOut(0,'Eval_CHK: Cannot open .chk file $CHKFile',$ErrorLog);
+		open (IN_CHK,$CHKFile) || &LogOut(0,"Eval_CHK: Cannot open .chk file $CHKFile",$ErrorLog);
 		my(@CHK) = <IN_CHK>;
+    #foreach my $line (@CHK) { $line =~ s/\r//g; }
 	 	close(IN_CHK);
 		my($Position) = '3';
   		while (@CHK[$Position]) { # For each line, check to see if turn is not in
@@ -1078,9 +1097,9 @@ sub Eval_CHK {
 sub Eval_CHKLine { 
 # Evaluate one of the lines from a .chk file
 	my ($ChkResult) = @_;
-	my ($ChkStatus, $ChkName, $ChkId) = '';
+	my ($ChkStatus, $ChkName, $ChkId) = ('', '', '');
 	# Possible results: turned in, still out, not in the right game, dead, not on the right year, error, hack (hacked race)
-	foreach $key (keys(%TurnResult)) {  # This should be declared locally
+	foreach my $key (keys(%TurnResult)) {  # This should be declared locally
 		if (index($ChkResult, $key) >= 0 ) { $ChkStatus = $TurnResult{$key}; } # If the string includes the index value from %TurnResult
 	}
 	$ChkName = $ChkResult;
@@ -1093,6 +1112,48 @@ sub Eval_CHKLine {
     &LogOut(0,"Eval_CHKLine: Fail for no \$ChkResult in TurnResult array, $ChkResult",$ErrorLog);
     return "Error: $ChkResult"; 
   }
+}
+
+# Check to see if all the turns have arrived taking everything into account
+# Stars reported status, host-defined player status
+sub Turns_Missing {
+	my ($GameFile) = @_;
+	my $TurnsMissing = 0;
+	my @Status;
+  my @CHK;
+	my %Values;
+ 	my $CHKFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.chk';
+  &Make_CHK($GameFile);
+  
+	# Determine the number of players in the .chk File
+	if (-f $CHKFile) { #Check to see if .chk file is there.
+		&LogOut(200,"Turns_Missing: Reading .chk File $CHKFile",$LogFile);
+    @CHK = &Read_CHK($GameFile);
+    
+		for (my $i=3; $i <= @CHK - 1; $i++) { # Skip over starting lines
+			my $id = $i - 2;
+			$Status[$id] = $CHK[$i];
+		}
+	} else { &LogOut(0,'Turns_Missing: Cannot find .chk file - die die die ',$ErrorLog); die; }
+  
+	# Run through all the players in the database and check status	
+	$sql = qq|SELECT GameUsers.PlayerID, GameUsers.PlayerStatus FROM Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile WHERE GameUsers.GameFile = ? AND GameUsers.PlayerStatus=1;|;
+  my $db = &DB_Open($dsn);
+	if (my $sth = &DB_Call($db,$sql,$GameFile)) { 
+    while (my $row = $sth->fetchrow_hashref()) { 
+      %Values = %{$row};  
+			if ((index($Status[$Values{'PlayerID'}], 'turned in') == -1) && (index($Status[$Values{'PlayerID'}], 'dead') == -1)) { 
+        &LogOut(300,"Turns_Missing: OUT $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile); 
+        $TurnsMissing = 1;
+        last;  # Exit the while loop if TurnsMissing is true  
+      }
+			else { &LogOut(300,"Turns_Missing: IN $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile);  }
+		} 
+    $sth->finish(); 
+	}
+  &DB_Close($db);
+	if ($TurnsMissing) { &LogOut(200,"Turns_Missing: $TurnsMissing : .x files are missing for $GameFile",$LogFile) } else { &LogOut(200,"All .x files are in for $GameFile",$LogFile); }
+	return $TurnsMissing;
 }
 
 sub UpdateNextTurn { #Update the database for the time that the next turn should generate.
@@ -1188,6 +1249,7 @@ sub GenerateTurn { # Generate a turn and refresh files
   # Because Stars! does the forcegen, there are no backups of the interim turns
   
 	my($GenTurn) = $WINE_executable . ' -g' . $NumberofTurns . ' ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile\.hst";
+  #my($GenTurn) = $WINE_executable . ' -g' . $NumberofTurns . ' ' . "$Dir_WINE$WINE_Games\\$GameFile\\$GameFile.hst";
   #print "\tGenerating a turn for $GameFile\n";
   &LogOut(200, "GenerateTurn: Generating a turn for $GameFile for $GenTurn", $LogFile);    
 	my $exit_status = &call_system($GenTurn,2); # GenerateTurn
@@ -1220,8 +1282,7 @@ sub Game_Backup {  # Backup the current game folder
 	return $turn;
 }
 
-# Merged team files
-sub Generate_Merged {
+sub MergeFiles { # Merge team files
   my ($GameFile) = @_;
   use File::Copy;
   my $game_dir = $Dir_Games . '/' . $GameFile;
@@ -1236,7 +1297,7 @@ sub Generate_Merged {
     }
     $sth->finish();
   } else {
-    &LogOut(0, "Generate_Merged: Failed to query GameUsers for $GameFile", $ErrorLog);
+    &LogOut(0, "MergeFiles: Failed to query GameUsers for $GameFile", $ErrorLog);
     &DB_Close($db);
     return;
   }
@@ -1253,23 +1314,32 @@ sub Generate_Merged {
 
       # First merge: target.m + first_other.m -> merged_file
       my $other_m  = $game_dir . '/' . $GameFile . '.m' . $others[0];
-      my $cmd = "perl $Dir_Scripts/StarsMerge.pl $target_m $other_m $merged_file";
-      my $exit_code = &call_system($cmd, 2);
-      &LogOut(100, "Generate_Merged: $cmd (exit: $exit_code)", $LogFile);
+      #my $cmd = "perl $Dir_Scripts/StarsMerge.pl $target_m $other_m $merged_file";
+      #my $exit_code = &call_system($cmd, 2);
+      # To make this run correctly in the context of TurnMake.sh
+      my $cmd = "/usr/bin/env $PERL5LIB perl $Dir_Scripts/StarsMerge.pl $target_m $other_m $merged_file";
+      my $exit_code = system($cmd);
+      &LogOut(100, "MergeFiles: $cmd (exit: $exit_code)", $LogFile);
+      if (defined $ENV{'GATEWAY_INTERFACE'}) { 
+        print "<br>" . (split(/\//, $target_m))[-1] . " &lt; " . (split(/\//, $other_m))[-1] . " =&gt; " . (split(/\//, $merged_file))[-1] . "\n";
+      }
 
       # Subsequent merges build on the previous merged result
       for my $i (1..$#others) {
-        $other_m = $game_dir . '/' . $GameFile . '.m' . $others[$i];
-        $cmd = "perl $Dir_Scripts/StarsMerge.pl $merged_file $other_m $merged_file";
-        $exit_code = &call_system($cmd, 2);
-        &LogOut(100, "Generate_Merged: $cmd (exit: $exit_code)", $LogFile);
+        $other_m = $game_dir . '/' . $GameFile . '.m' . $others[$i];                
+#         $cmd = "perl $Dir_Scripts/StarsMerge.pl $merged_file $other_m $merged_file";                
+#         $exit_code = &call_system($cmd, 2);
+        # To make this run correctly in the context of TurnMake.sh
+        $cmd = "/usr/bin/env $PERL5LIB perl $Dir_Scripts/StarsMerge.pl $merged_file $other_m $merged_file";
+        $exit_code = system($cmd);
+        &LogOut(100, "MergeFiles: $cmd (exit: $exit_code)", $LogFile);
+        if (defined $ENV{'GATEWAY_INTERFACE'}) { 
+          print "<br>" . (split(/\//, $merged_file))[-1] . " &lt; " . (split(/\//, $other_m))[-1] . " =&gt; " . (split(/\//, $merged_file))[-1] . "\n";        
+        }
       }
     }
   }
 }
-
-
-
 
 sub File_Date {
 	($file) = @_;
@@ -1306,9 +1376,9 @@ sub DaysToAdd {
 	if (($SecOfDay < $DailyTimeSecs ) && (substr($DayFreq, $DayOfWeekToday, 1))) { return 0, $DayOfWeekToday; }
 
 	for (my $i=0; $i <7; $i++) { # If loop to prevent runaway of previous while statement so it can't check more than 7 times
-		if ($NextDayOfWeek eq '7') { $NextDayOfWeek = 0; } # loop back to the beginning of the week if necessary
+		if ($NextDayOfWeek == 7) { $NextDayOfWeek = 0; } # loop back to the beginning of the week if necessary
     	my($Tomorrow) = substr($DayFreq, $NextDayOfWeek, 1); #determine the value 0/1 for the next day
-		if ($Tomorrow ne '0') { #if a turn should be generated return num days to add
+		if ($Tomorrow != 0) { #if a turn should be generated return num days to add
 			&LogOut(200,"DaysToAdd: Need to add $DaysToAdd days to turn.",$LogFile);
 			return $DaysToAdd, $NextDayOfWeek;
 		}
@@ -1353,6 +1423,7 @@ sub ValidFreq { #is the hour or day valid
 	}
 }
 
+# BUG: Do we really need all the holiday code since it's not enabled (and unlikely to ever be enabled)
 sub CheckHolidays { #Check to see if today is a holiday, and return True or False
 	my($HolidaytoCheck, $db) = @_;
 	&LogOut(100,"CheckHolidays: Checking holidays for $HolidaytoCheck",$LogFile);
@@ -1479,19 +1550,32 @@ sub process_fix {
 
 sub process_game_status {
 	# Change the current game state and report such.
-  # BUG: Doesn't completely check authorization as Host, Player, Admin
 	my ($GameFile, $HostName, $state, $userlogin) = @_;
 	my $success = 0;
   my %GameValues; 
 	my $db = &DB_Open($dsn);
   # Get the information about the game in question
   # Since this can be reached by players (Pause) needs to not filter for $userlogin
-  $sql_local = qq|SELECT * FROM Games WHERE GameFile = \'$GameFile\';|;
-	if (my $sth = &DB_Call($db,$sql_local)) { 
+#   $sql_local = qq|SELECT * FROM Games WHERE GameFile = \'$GameFile\';|;
+# 	if (my $sth = &DB_Call($db,$sql_local)) { 
+  $sql_local = qq|SELECT * FROM Games WHERE GameFile = ?;|;
+  if (my $sth = &DB_Call($db,$sql_local,$GameFile)) {
     my $row = $sth->fetchrow_hashref(); %GameValues = %{$row}; 
     $sth->finish();
   }
+  
+  # Secure the changes to game state
   my $state_set = 0;
+  unless ($state eq 'Paused-Internet Outage' || $state eq 'Paused-Power Outage') {
+    unless ($GameValues{'HostName'} eq $userlogin || $userlogin eq $user_admin) {
+      unless ($state eq 'Pause' && $GameValues{'GamePause'}) {
+        &LogOut(0,"process_game_status: $userlogin not authorized for $state on $GameFile", $ErrorLog);
+        &DB_Close($db);
+        return 0;
+      }
+    }
+  }
+  
 	if ($state eq 'Pause') {
     if ($GameValues{'HostName'} eq $userlogin || $userlogin eq $user_admin) { # If only the host (or admin) can update the game
       $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$HostName\';|;
@@ -1685,6 +1769,19 @@ sub call_system {
   #if ($ENV{'GATEWAY_INTERFACE'}) {
   if ($ENV{'REQUEST_METHOD'}) {
     &LogOut(400,  "call_system: Running as CGI", $LogFile);
+#   } else {
+#     $call = "sudo -u $apache_user /usr/bin/env $PERL5LIB " . $call;
+#     &LogOut(400, "call_system: Running from CLI",$LogFile);
+#   }
+#   } else {
+#     my $current_user = &get_user();
+#     if ($current_user eq $apache_user) {
+#       $call = "/usr/bin/env $PERL5LIB " . $call;
+#       &LogOut(400, "call_system: Running from CLI already as $apache_user",$LogFile);
+#     } else {
+#       $call = "sudo -u $apache_user /usr/bin/env $PERL5LIB " . $call;
+#       &LogOut(400, "call_system: Running from CLI as $current_user, switching to $apache_user",$LogFile);
+#     }
   } else {
     $call = "sudo -u $apache_user /usr/bin/env $PERL5LIB " . $call;
     &LogOut(400, "call_system: Running from CLI",$LogFile);
@@ -1876,8 +1973,10 @@ sub show_schedule {
   if ($GameType == 3) { $output .= "Turns generated as required (manually).\n"; }
 #  elsif ($GameType == 4) { $output .= "Turns generate only when all turns are in.\n"; }
   elsif ($GameType == 2) {
-    if ($HourlyTime >= 1) {
+    if ($HourlyTime > 1) {
       $output .= " Turns generate every $HourlyTime hours";
+    } elsif ($HourlyTime == 1) {
+      $output .= " Turns generate every hour";
     } elsif ($HourlyTime < 1) {
       my $minutes = int(($HourlyTime * 60) + .5);
       $output .= " Turns generate every $minutes minutes";
@@ -1938,16 +2037,16 @@ sub player_status_label {
   if ($CHKLine && $CHKLine =~ /HACKER/) { print '<span style="color: red;"> (HACKED FILE) </span>'; }
 }
 
-sub has_merged {
-  # Folder has .merged files, which are used in team games. 
-    my ($dir) = @_;
-    opendir(my $dh, $dir) or die "Cannot open directory $dir: $!";
-    while (my $file = readdir($dh)) {
-        if ($file =~ /\.merged$/ && -f "$dir/$file") {
-            closedir($dh);
-            return 1;
-        }
-    }
-    closedir($dh);
-    return 0;
-}
+# sub has_merged {
+#   # Folder has .merged files, which are used in team games. 
+#     my ($dir) = @_;
+#     opendir(my $dh, $dir) or die "Cannot open directory $dir: $!";
+#     while (my $file = readdir($dh)) {
+#         if ($file =~ /\.merged$/ && -f "$dir/$file") {
+#             closedir($dh);
+#             return 1;
+#         }
+#     }
+#     closedir($dh);
+#     return 0;
+# }

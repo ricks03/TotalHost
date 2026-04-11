@@ -152,7 +152,7 @@ close (OUTFILE);
 sub decryptBlock {
   my (@fileBytes) = @_;
   my @block;
-  my @data;
+  #my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
@@ -166,14 +166,15 @@ sub decryptBlock {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
-    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    #@data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-
+    my @data = @block[2..$#block];
+    
     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) {  # File Header Block
        # Convert the nonencrypted Block 8 data
-       my ($unshiftedData, $padding) = &unshiftBytes(\@data); 
+       my ($unshiftedData) = &unshiftBytes(\@data); 
        my @unshiftedData = @{ $unshiftedData };
       &processData(\@unshiftedData,$typeId,$offset,$size, $inBlock);
 

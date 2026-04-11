@@ -117,7 +117,7 @@ while (read(StarFile, $FileValues, 1)) {
 close(StarFile);
 
 # Decrypt the data, block by block
-my ($outBytes) = &decryptPWD2(@fileBytes);
+my ($outBytes) = &decryptPWD(@fileBytes);
 if ($outBytes) {
   my @outBytes = @{$outBytes};
   
@@ -143,7 +143,7 @@ if ($outBytes) {
 sub decryptPWD2 {
   my (@fileBytes) = @_;
   my @block=();
-  my @data;
+  #my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
@@ -161,14 +161,15 @@ sub decryptPWD2 {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
-    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    #@data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-
+    my @data = @block[2..$#block];
+    
     if ($typeId == 8) {  # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
-      my ($unshiftedData) = &unshiftBytes(\@data); 
-      my @unshiftedData = @{ $unshiftedData };
+#      my ($unshiftedData) = &unshiftBytes(\@data); 
+#      my @unshiftedData = @{ $unshiftedData };
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption

@@ -202,7 +202,6 @@ sub check_wormhole_collisions { ### Check for wormhole collisions (.hst file onl
   return @warnings;
 }
 
-
 sub process_xy_file { ### Process .xy file (mode 0=display, 1=export, 2=import)
   my ($file, $coords_ref, $mode) = @_;  
   my @fileBytes;
@@ -257,6 +256,7 @@ sub decryptBlockXY {  ### Decrypt and process .xy file blocks
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ($typeId, $size) = &parseBlock($FileValues, $offset);
     @block = @fileBytes[$offset .. $offset+(2+$size)-1];
+    my @data = @block[2..$#block];
     
     if ($typeId == 8) {
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
@@ -276,14 +276,14 @@ sub decryptBlockXY {  ### Decrypt and process .xy file blocks
     } elsif ($typeId == 0) { ### FileFooterBlock
       push @outBytes, @block;
     } else {
-      my @data = @block[2..$#block];
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB);
       @decryptedData = @{$decryptedData};
       
       my @planetBytes;
       my @new_planetBytes;
       
-      if ($typeId == 7) { # Planet block - process coordinates        
+      if ($typeId == 7) { # Planet block - process coordinates   
+        # BUG: see decryptGameInfo to make this consnstent/complete.    
         $GameValues{'UniverseId'} = &read32(\@decryptedData, 0);
         my $mdSize = &read16(\@decryptedData, 4);
         $GameValues{'GalaxyXY'} = ($mdSize * 400) + 400;
@@ -458,6 +458,7 @@ sub decryptBlockFleet { # Decrypt and process fleet blocks in .hst or .m files
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ($typeId, $size) = &parseBlock($FileValues, $offset);
     @block = @fileBytes[$offset .. $offset+(2+$size)-1];
+    my @data = @block[2..$#block];
     
     if ($typeId == 8) { #FileHeaderBlock
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
@@ -476,7 +477,7 @@ sub decryptBlockFleet { # Decrypt and process fleet blocks in .hst or .m files
     } elsif ($typeId == 0) { # FileFooterBlock
       push @outBytes, @block;      
     } else {
-      my @data = @block[2..$#block];
+      #my @data = @block[2..$#block];
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB);
       @decryptedData = @{$decryptedData};
             
@@ -729,13 +730,13 @@ sub scan_hst_file { ### Extract homeworld planet IDs from block 6 in HST file
     my $fv = $fileBytes[$offset + 1] . $fileBytes[$offset];
     my ($typeId, $size) = &parseBlock($fv, $offset);
     my @block = @fileBytes[$offset .. $offset+(2+$size)-1];
-
+    my @data = @block[2..$#block];
+    
     if ($typeId == 8) {
       my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ($seedA, $seedB) = &initDecryption($binSeed, $fShareware, $Player, $turn, $lidGame);
 
     } elsif ($typeId != 0) {
-      my @data = @block[2..$#block];
       my ($decryptedData, $seedA_new, $seedB_new) = &decryptBytes(\@data, $seedA, $seedB);
       $seedA = $seedA_new;
       $seedB = $seedB_new;

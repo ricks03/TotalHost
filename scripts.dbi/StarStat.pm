@@ -129,7 +129,7 @@ sub Check_Version {
 	my ($ver, $File) = @_; 
 #	if ($ver eq '2.6jrc4') { 
 	if ($ver eq '2.83.0' || $ver  eq '2.6jrc4') { 
-  	&SLogOut(400,"Correct Check_Version: $File $version", $LogFile);
+  	&SLogOut(400,"Correct Check_Version: $File $ver", $LogFile);
 		return 1; 
 	} else { 
 		&SLogOut(0,"Incorrect version $ver ($Version{$ver}) in $File",$ErrorLog);

@@ -84,7 +84,7 @@ if ($File) {
   print $cgi->header(); # Create the HTML page header
   print qq|<meta HTTP-EQUIV="REFRESH" content="2; url=| . $WWW_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
   print $cgi->start_html;
-  $err .= "$userlogin: File too large or file Name must be provided." ;
+  $err .= "$userlogin: File too large or File Name must be provided." ;
   &LogOut(300,$err,$ErrorLog);
   print $err; 
   print $cgi->end_html;
@@ -238,20 +238,20 @@ sub ValidateFileUpload {
     # Validate the .x file
 	  # DT: 'Universe Definition (.xy) File', 'Player Log (.x) File', 'Host (.h) File', 'Player Turn (.m) File', 'Player History (.h) File', 'Race Definition (.r) File', 'Unknown (??) File'
     # $err results will display at the top of the game page when it refreshes, comma-delimited
-    if (!($dt == 1))                                { $err .= 'Not a Stars! .x file'; &LogOut(0,"ValidateFileUpload: Invalid .x file dt = $dt, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
+    if ($dt != 1)                                   { $err .= 'Not a Stars! .x file'; &LogOut(0,"ValidateFileUpload: Invalid .x file dt = $dt, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
     elsif (!(&Check_Magic($Magic, $File_Loc)))      { $err .= "Invalid Magic $Magic"; &LogOut(0,"ValidateFileUpload: Invalid Magic $Magic, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
     elsif (!(&Check_Version($ver, $File_Loc)))      { $err .= "Invalid Version $ver"; &LogOut(0,"ValidateFileUpload: Invalid version $ver, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
-    elsif (!(&Check_GameFile($file_prefix)))          { $err .= "Invalid Game File $file_prefix"; &LogOut(0,"ValidateFileUpload: Invalid game file $file_prefix for $userlogin, $client_ip",$ErrorLog); }
+    elsif (!(&Check_GameFile($file_prefix)))        { $err .= "Invalid Game File $file_prefix"; &LogOut(0,"ValidateFileUpload: Invalid game file $file_prefix for $userlogin, $client_ip",$ErrorLog); }
     # Check_Player checks the extension of the file against the starstat value of the player
   	elsif (!(&Check_Player($file_player,$iPlayer))) { $err .= 'Invalid Player ID'; &LogOut(0,"ValidateFileUpload: Invalid Player ID Turn file $File $File_Loc for $userlogin, $client_ip",$ErrorLog); }
-    # Check_Turn validates that this file is fo rthe correct turn.
-		elsif (!(&Check_Turn($file_prefix, $turn)))       { $err .= "Wrong Year! ($turn)"; &LogOut(0,"ValidateFileUpload: Invalid Year Turn file $File $File_Loc for $userlogin, $client_ip",$ErrorLog);}
+    # Check_Turn validates that this file is for the correct turn.
+		elsif (!(&Check_Turn($file_prefix, $turn)))     { $err .= "Wrong Year! ($turn)"; &LogOut(0,"ValidateFileUpload: Invalid Year Turn file $File $File_Loc for $userlogin, $client_ip",$ErrorLog);}
     # Check_GameID validates that the file is the correct file ID fo rthis game
-		elsif (!(&Check_GameID($file_prefix, $lidGame)))  { $err .= 'Wrong Game ID!'; &LogOut(0,"ValidateFileUpload: Invalid Game ID $file_prefix, $lidGame $File_Loc $File for $userlogin, $client_ip",$ErrorLog); }
+		elsif (!(&Check_GameID($file_prefix, $lidGame))) { $err .= 'Wrong Game ID!'; &LogOut(0,"ValidateFileUpload: Invalid Game ID $file_prefix, $lidGame $File_Loc $File for $userlogin, $client_ip",$ErrorLog); }
     # Check_User validates that this user is the correct user for this turn
 		elsif (!(&Check_User($file_prefix, $userlogin, $iPlayer)))  { $err .= "Wrong User!"; &LogOut(0,"ValidateFileUpload: Invalid User $file_prefix, $file_player,$iPlayer $File_Loc $File for $userlogin, $client_ip",$ErrorLog); }
     # Check that the turn won't trigger a serial/hardware conflict
-		elsif ($errSerial = &checkSerials($File_Loc))  { $err .= "$errSerial"; &LogOut(0,"ValidateFileUpload: Serial/hardware error $err $File_Loc for $userlogin, $client_ip",$ErrorLog); }
+		elsif ($errSerial = &checkSerials($File_Loc))   { $err .= "$errSerial"; &LogOut(0,"ValidateFileUpload: Serial/hardware error $err $File_Loc for $userlogin, $client_ip",$ErrorLog); }
 
     # If any critical errors have been reported, error. Delete the file.
     if ($err) { 
@@ -302,8 +302,12 @@ sub ValidateFileUpload {
           }
         }
  
+        #&Make_CHK($GameFile); # Once the .x file is uploaded, update the .chk file
+        my $turnsMissing = &Turns_Missing($GameFile); # Updates .chk file and checks if all turns are in. Runs MakeCHK.
         # If the game is AsAvailable, check to see if all Turns are in and whether we should generate. 
-        if ($GameValues{'AsAvailable'} == 1 ) { # Don't immediately generate As Available if the file generated warnings
+        #if ($GameValues{'AsAvailable'} == 1 ) { # Don't immediately generate As Available if the file generated warnings
+        # Don't immediately generate As Available if the file generated warnings
+        if ($GameValues{'AsAvailable'} == 1 && !$turnsMissing) { # Don't generate unless all turns are in
           if ($warning) {
             $err .= "Not immediately generating As Available game $file_prefix due to Warnings. Will generate on next turn check interval however.\n";
             &LogOut(100, "ValidateFileUpload: AsAvailable $err for $GameFile $userlogin", $LogFile);
@@ -321,9 +325,8 @@ sub ValidateFileUpload {
           	#sleep 2; # Stars is slow
           }
         }  else { # Update the .chk file if it's not an as available game where TurnMake handles it. 
-          &Make_CHK($GameFile); # Once the .x file is uploaded, update the .chk file
+          #&Make_CHK($GameFile); # Once the .x file is uploaded, update the .chk file
         }
-        
 
         # It's not running Make_CHK when AsAvailable but it will be run on TurnMake
         ###. This could mean running it twice, but at least it will run
@@ -349,12 +352,13 @@ sub ValidateFileUpload {
     my @extracted_files; # Store extracted files for later copying  
     my $xy_present = 0;
     my $hst_present = 0;
+    my @CHK; 
         
     my $file_size = -s $zip_file; # Get the size in bytes and don't unzip if it's too big
     # 16-player, zipped, is 40k in 2400, 52k in 2401 (with no turns submitted)
     if ($file_size >= 200 * 1024) { 
-      $err .= "The zip file is too large ($file_size bytes). It must be smaller than 50 KB.";
-      &LogOut(0,"The zip file $zip_file is too large ($file_size bytes). It must be smaller than 50 KB.", $ErrorLog); 
+      $err .= "The zip file is too large ($file_size bytes). It must be smaller than 200 KB.";
+      &LogOut(0,"The zip file $zip_file is too large ($file_size bytes). It must be smaller than 200 KB.", $ErrorLog); 
       $all_files_valid = 0;
     } 
     
@@ -363,89 +367,104 @@ sub ValidateFileUpload {
       $err .=  "Cannot read Zip file: $!";
       &LogOut(100,"Cannot read $zip_file: $!", $ErrorLog);  
       $all_files_valid = 0;
-    } 
-     
-    # Check for subdirectories in the zip file
-    foreach my $member ($zip->members()) {
-      if ($member->isDirectory()) {
-        $err .= "The zip file contains subdirectories, which are not allowed.";
-        &LogOut(100, "The zip file $member contains subdirectories, which are not allowed", $ErrorLog); 
-        $all_files_valid = 0;
-        last;
+    } else { 
+      # Check for subdirectories in the zip file
+      foreach my $member ($zip->members()) {
+        if ($member->isDirectory()) {
+          $err .= "The zip file contains subdirectories, which are not allowed.";
+          &LogOut(100, "The zip file $member contains subdirectories, which are not allowed", $ErrorLog); 
+          $all_files_valid = 0;
+          last;
+        } 
       } 
-    } 
-      
-    my @members = $zip->members();
-    foreach my $member (@members) {  
-      # Extract the file to the extraction directory
-      my $file_name = $member->fileName();
-      my $extracted_path = "$Dir_Upload/$file_name";
-      
-      # Prevent extraction of files outside the intended directory
-      if ($file_name =~ /\.\.|^\//) {
-          $err .= "Unsafe file $file_name. ";
-          &LogOut (0,"Skipping potentially unsafe file: $file_name", $ErrorLog);
+        
+      my @members = $zip->members();
+      foreach my $member (@members) {  
+        # Extract the file to the extraction directory
+        my $file_name = $member->fileName();
+        my $extracted_path = "$Dir_Upload/$file_name";
+        
+        # Prevent extraction of files outside the intended directory
+        if ($file_name =~ /\.\.|^\//) {
+            $err .= "Unsafe file $file_name. ";
+            &LogOut (0,"Skipping potentially unsafe file: $file_name", $ErrorLog);
+            $all_files_valid = 0;
+            next;
+        }
+        
+        $member->extractToFileNamed($extracted_path);
+        if (!$member) {
+          $err .= "Failed to extract $file_name: $!";
+          &LogOut(100,"Failed to extract $file_name: $!",$ErrorLog);
           $all_files_valid = 0;
           next;
+        } 
+        # Check if the file has a valid extension
+        my $valid_extensions = qr/\.((m\d{1,2})|xy|hst)$/i; # .m1 to .m99, .xy, or .hst
+        unless ($file_name =~ $valid_extensions) { 
+          $err .= "Invalid file extension for '$file_name'. Must be .m[n], .xy, or .hst. ";
+          &LogOut (0,"Invalid file extension for '$file_name'. Must be .m[n], .xy, or .hst. ", $ErrorLog); 
+          $all_files_valid = 0;
+          next;
+        }      
+        my ($base, $dir, $ext) = fileparse($file_name, qr/\.[^.]*/); # Extract file extension
+        $ext = lc($ext);  # Lower-case the extension   
+        if ($ext =~ /xy/) { $xy_present = 1; }
+        if ($ext =~ /hst/) { $hst_present = 1; }
+        
+        # Rename the file to the specified base name with its extension
+        my $new_file_path = "$Dir_Upload/$GameFile$ext";
+        
+        # Rename if necessary
+        if (!rename($extracted_path, $new_file_path)) { 
+          $err .= "Failed to rename $extracted_path to $new_file_path: $!";
+          &LogOut(100,"Failed to rename $extracted_path to $new_file_path: $!", $ErrorLog);
+          $all_files_valid = 0;  
+          next;
+        } 
+        $extracted_path = $new_file_path;  # Update the path after renaming
+        &LogOut(100,"Renamed $file_name to $GameFile$ext",$ErrorLog); 
+    
+        # Run validations using starstat and Check_Magic/Check_Version
+        # BUG: this should run against each file?
+        my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($extracted_path);
+        my $checkmagic = &Check_Magic($Magic, $extracted_path);
+        my $checkversion = &Check_Version($ver, $extracted_path);
+       
+        # If any file fails validation, stop processing
+        unless ($checkmagic && $checkversion) {
+          $err .= "Validation failed for file: $file_name. ";
+          &LogOut(100, "Validation failed for file: $file_name", $ErrorLog);
+          $all_files_valid = 0;
+          next;
+        }
+        # Keep track of the extracted files
+        push @extracted_files, $extracted_path if $checkmagic && $checkversion;
+      }  
+    }
+    
+    if ($all_files_valid) { 
+      if (!$xy_present) { $err .= 'No .xy file present. '; $all_files_valid = 0; }
+      if (!$hst_present) { $err .= 'No .hst file present. '; $all_files_valid = 0; }
+      
+      # some additional varification
+     if (scalar(@extracted_files) < 3 || scalar(@extracted_files) > 18) {
+        $err .= 'Invalid number of files in zip (must be between 3 and 18). ';
+        $all_files_valid = 0;
       }
-      
-      $member->extractToFileNamed($extracted_path);
-      if (!$member) {
-        $err .= "Failed to extract $file_name: $!";
-        &LogOut(100,"Failed to extract $file_name: $!",$ErrorLog);
-        $all_files_valid = 0;
-        next;
-      } 
-      # Check if the file has a valid extension
-      my $valid_extensions = qr/\.((m\d{1,2})|xy|hst)$/i; # .m1 to .m99, .xy, or .hst
-      unless ($file_name =~ $valid_extensions) { 
-        $err .= "Invalid file extension for '$file_name'. Must be .m[n], .xy, or .hst. ";
-        &LogOut (0,"Invalid file extension for '$file_name'. Must be .m[n], .xy, or .hst. ", $ErrorLog); 
-        $all_files_valid = 0;
-        next;
-      }      
-      my ($base, $dir, $ext) = fileparse($file_name, qr/\.[^.]*/); # Extract file extension
-      $ext = lc($ext);  # Lower-case the extension   
-      if ($ext =~ /xy/) { $xy_present = 1; }
-      if ($ext =~ /hst/) { $hst_present = 1; }
-      
-      # Rename the file to the specified base name with its extension
-      my $new_file_path = "$Dir_Upload/$GameFile$ext";
-      
-      # Rename if necessary
-      if (!rename($extracted_path, $new_file_path)) { 
-        $err .= "Failed to rename $extracted_path to $new_file_path: $!";
-        &LogOut(100,"Failed to rename $extracted_path to $new_file_path: $!", $ErrorLog);
-        $all_files_valid = 0;  
-        next;
-      } 
-      $extracted_path = $new_file_path;  # Update the path after renaming
-      &LogOut(100,"Renamed $file_name to $GameFile$ext",$ErrorLog); 
-  
-      # Run validations using starstat and Check_Magic/Check_Version
-      my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($extracted_path);
-      my $checkmagic = &Check_Magic($Magic, $extracted_path);
-      my $checkversion = &Check_Version($ver, $extracted_path);
-     
-      # If any file fails validation, stop processing
-      unless ($checkmagic && $checkversion) {
-        $err .= "Validation failed for file: $file_name. ";
-        &LogOut(100, "Validation failed for file: $file_name", $ErrorLog);
-        $all_files_valid = 0;
-        next;
-      }
-      # Keep track of the extracted files
-      push @extracted_files, $extracted_path if $checkmagic && $checkversion;
-    }  
-    # If all files passed validation, copy them to the final destination
-    # after some additional varification
-    if ($all_files_valid && $xy_present && $hst_present && scalar(@extracted_files) >= 3 && scalar(@extracted_files) <= 18) {
+    }
+    
+    # BUG: (not really). Trim all the .m files to single turn if they need trimming 
+    
+    # If all files passed validation, copy them to the final destination   
+    if ($all_files_valid) { 
       # Ensure the final destination directory exists
       if (!-d $final_destination_dir) { # Check if directory doesn't exist
         if (!mkdir $final_destination_dir) {
           $err .= 'Failed to create final destination directory. ';
+          $all_files_valid = 0;
           &LogOut(100, "Failed to create directory $final_destination_dir: $!", $ErrorLog);
-          exit 1; # Exit the script if directory creation fails
+          #exit 1; # Exit the script if directory creation fails
         } 
         &LogOut(100, "Created directory: $final_destination_dir", $ErrorLog);
       } 
@@ -453,26 +472,61 @@ sub ValidateFileUpload {
         my $destination_path = "$final_destination_dir/" . basename($file);
         if (!copy($file, $destination_path)) { 
           $err .= 'Failed to copy file to destination. ';
+          $all_files_valid = 0;
           &LogOut(100, "Failed to copy $file to $destination_path: $!", $ErrorLog);
           next;
         } 
         # Set permissions to 660
         if (!chmod 0660, $destination_path) { 
           $err .= 'Failed to set permissions for destination path. ';
+          $all_files_valid = 0;
           &LogOut(100,"Failed to set permissions for $destination_path: $!", $ErrorLog);
         } 
       }
+    }
+    
+    if ($all_files_valid) { 
       &LogOut(200, "Zip File: All files have been validated, unzipped, renamed (if needed), and copied to $final_destination_dir for ID: $id, GameFile: $GameFile", $LogFile);
-      &Make_Zip_Game($id, $GameFile);
+      # Get the values from the CHK file
+      @CHK = &Read_CHK($GameFile);
+      if (!&Valid_CHK($GameFile)) {
+        $err .= "CHK Fail generated an error for $GameFile. Please contact $mail_from.";
+        $all_files_valid = 0;
+        &LogOut(0,"ValidateFileUpload: CHK File not valid for $GameFile",$ErrorLog);
+      }
+    }  
+    if ($all_files_valid) {
+      &Make_Zip_Game($id, $GameFile, @CHK);
       # Redirect the UI to the Replace Player Player UI
+      $in{'lp'} = 'game';
       $in{'cp'} = 'Replace Player';  
-    } else {
-      if (!$xy_present) { $err .= 'No .xy file present. '; }
-      if (!$hst_present) { $err .= 'No .hst file present. '; }
+      $in{'rp'} = 'games_new';
+    } else {  # If the zip failed to upload, remove the partially-created game.
+      &LogOut(0,"ValidateFileUpload: Zip failed for $GameFile: $err",$ErrorLog);
+      $db = &DB_Open($dsn);
+      $sql = qq|DELETE FROM Games WHERE GameFile = ?;|;
+      if (my $sth = &DB_Call($db,$sql,$GameFile)) { $sth->finish(); }
+      &DB_Close($db);
+      &LogOut(0,"ValidateFileUpload: Deleted Game $GameFile from DB: $err",$ErrorLog);
+      
+      if (-d $final_destination_dir) { # Remove any moved game files
+        foreach my $file (glob("$final_destination_dir/*")) {
+          unlink $file or &LogOut(0,"ValidateFileUpload: Failed to delete $file: $!", $ErrorLog);
+        }
+        rmdir $final_destination_dir or &LogOut(0,"ValidateFileUpload: Failed to remove directory $final_destination_dir: $!", $ErrorLog);
+        &LogOut(0,"ValidateFileUpload: Removed game directory $final_destination_dir: $err", $ErrorLog);
+      }      
+      
       $err .= 'One or more files failed validation. No files were copied. ';
+      $err .= "Game $GameFile has been removed. Please try again.";
+      # Redirect to the create game page
+      $in{'lp'} = 'game';
+      $in{'cp'} = 'create_game';
+      $in{'rp'} = '';
       &LogOut(200,"One or more files failed validation. No files were copied, $err", $ErrorLog);
       return 0;
     }
+
     # Cleanup: Delete only the extracted files (not directories) and the orginal zip
     foreach my $file (@extracted_files) {
       if (-f $file) { unlink $file or &LogOut(0,"Zip File: Failed to delete $file: $!", $ErrorLog); } 
@@ -487,16 +541,16 @@ sub ValidateFileUpload {
 
 sub Make_Zip_Game {
   # Set up an uploaded, validated zip game. Get the player count from the .chk file
-  my ($id, $GameFile) = @_;  # $id is the logged-in user, and thus the host creating the game
+  my ($id, $GameFile, @CHK) = @_;  # $id is the logged-in user, and thus the host creating the game
   my $sql; 
-  # run Make_CHK
-  my @CHK = &Read_CHK($GameFile); # There's no .chk file in an uploaded game, but Read_CHK will make one
-  # Determine # of players
-  # BUG: If there's an ERROR in the .chk file I think this will screw up.
-  unless (&Valid_CHK($GameFile)) {
-    &LogOut(0,"Make_Zip_Game: CHK File not valid", $ErrorLog);
-    print "CHK Fail generated an error for $GameFile. Please contact $mail_from.\n"; 
-  } 
+#   # run Make_CHK
+#   my @CHK = &Read_CHK($GameFile); # There's no .chk file in an uploaded game, but Read_CHK will make one
+#   # Determine # of players
+#   unless (&Valid_CHK($GameFile)) {
+#     &LogOut(0,"Make_Zip_Game: CHK File not valid", $ErrorLog);
+#     $err .= "Valid_CHK generated an error for $GameFile. Please contact $mail_from.\n"; 
+#     return;
+#   } 
   my $num_players = (scalar @CHK) -3;  # There are 3 starting lines to a .chk file we need to remove
  
   # Get the game data for the game
@@ -618,20 +672,23 @@ sub Check_AI {
   my @fileBytes;
   open(StarFile, "<$filename");
   binmode(StarFile);
-  while (read(StarFile, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
+#   while (read(StarFile, $FileValues, 1)) {
+#     push @fileBytes, $FileValues; 
+#   }
+  # BUG: This change (from the above to the below) in theory radically improves performance, and it's in many places in STarsBlock.pm
+  my $raw;
+  read(StarFile, $raw, -s $filename);
+  @fileBytes = split(//, $raw);
   close(StarFile);
   my ($aiEnabled, $aiRace, $aiSkill) = &decryptBlockRaceAI(@fileBytes);  #values for aiRace and $aiSkill are strings
   &LogOut(200,"Check_AI: Filename: $filename, Enabled: $aiEnabled, Race: $aiRace, Skill: $aiSkill",$LogFile);
   return $aiEnabled, $aiRace, $aiSkill;
 }
 
-################################################################
 sub decryptBlockRaceAI { # mostly a duplicate of displayBlockRace and decryptBlockRace
   my (@fileBytes) = @_;
   my @block;
-  my @data;
+  #my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
@@ -647,16 +704,17 @@ sub decryptBlockRaceAI { # mostly a duplicate of displayBlockRace and decryptBlo
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
-    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    #@data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-
+    my @data = @block[2..$#block];
+    
     if ($typeId == 8) { # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
-    } else {
-      # Everything else needs to be decrypted
+    } elsif ($typeId == 0) { # FileFooterBlock, not encrypted - skip
+    } else {      # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
@@ -670,7 +728,7 @@ sub decryptBlockRaceAI { # mostly a duplicate of displayBlockRace and decryptBlo
           $aiEnabled = ($decryptedData[7] >> 1) & 0x01;
           if ($aiEnabled) {
             # bits 23 defines how good the AI will be:
-            $aiSkill = ($decryptedData[7] >> 2) & 0x03;  #00 - Easy, 01 - Standard, 10 - Harder, 11 - Expert
+            $aiSkill = ($decryptedData[7] >> 2) & 0x07; #$aiSkill = ($decryptedData[7] >> 2) & 0x03;  #00 - Easy, 01 - Standard, 10 - Harder, 11 - Expert
             # Bit 4 is always 0
             # bits 765 define which PRT AI to use: 
             # 000 - HE - Robotoids, 001 - SS - Turindromes, 010 - IS - Automitrons
@@ -688,7 +746,9 @@ sub decryptBlockRaceAI { # mostly a duplicate of displayBlockRace and decryptBlo
     } 
     $offset = $offset + (2 + $size); 
   } 
-  &LogOut(200, "Check_AI decryptBlockRaceAI: Enabled: $aiEnabled, Race: $aiRace[$aiRace] ($aiRace), Skill:  $aiSkill[$aiSkill] ($aiSkill)",$LogFile);
+  my $logRace  = $aiEnabled ? $aiRace[$aiRace]   : 'N/A';
+  my $logSkill = $aiEnabled ? $aiSkill[$aiSkill] : 'N/A';
+  &LogOut(200, "Check_AI decryptBlockRaceAI: Enabled: $aiEnabled, Race: $logRace ($aiRace), Skill: $logSkill ($aiSkill)", $LogFile);
   #return  $aiEnabled, $aiRace[$aiRace], $aiSkill[$aiSkill];
   return $aiEnabled, ($aiEnabled ? $aiRace[$aiRace] : ''), ($aiEnabled ? $aiSkill[$aiSkill] : '');
 } # end sub

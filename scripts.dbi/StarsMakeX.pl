@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 # StarsMakeX.pl
 # Create a blank .x file for all players. 
+# Uses serial EUIV5D8Q
 #
 # Version History
 # 260222  Version 1.0
@@ -23,10 +24,10 @@
 #
 # Creates blank .x (orders) files for all players in a Stars! game.
 # A "blank" .x file contains only:
-#   Block 8  - rtBOF            (file header,          16 bytes, unencrypted)
-#   Block 9  - rtLogHdr         (log header,            17 bytes, encrypted)
-#   Block 46 - SaveAndSubmitBlock ( 8 bytes,            encrypted)
-#   Block 0  - rtEOF            (end of file,            0 bytes, unencrypted)
+#   Block 8  - rtBOF              (file header, 16 bytes, unencrypted)
+#   Block 9  - rtLogHdr           (log header,  17 bytes, encrypted)
+#   Block 46 - SaveAndSubmitBlock ( 8 bytesm    encrypted)
+#   Block 0  - rtEOF              (end of file, 0 bytes, unencrypted)
 
 use strict;
 use warnings;
@@ -37,104 +38,117 @@ use StarsBlock;
 
 my $filename = $ARGV[0];
 unless ($filename) {
-  print "\n\nUsage: StarsMakeX.pl <game.hst>\n\n";
-  print "Creates a blank .x file for every player in the game.\n";
-  print "Example:\n\tStarsMakeX.pl c:\\stars\\mygame.hst\n\n";
+  print "\n\nUsage: StarsMakeX.pl <game.hst | game.mN>\n\n";
+  print "Given a .hst file: creates a blank .x file for every player in the game.\n";
+  print "Given a .m file:   creates a blank .x file for that player only.\n";
+  print "Examples:\n";
+  print "\tStarsMakeX.pl c:\\stars\\mygame.hst\n";
+  print "\tStarsMakeX.pl c:\\stars\\mygame.m3\n\n";
   print "Will not replace existing .x files\n";
   print "As always, back up your files before running any tool.\n";
   exit;
 }
-unless (-e $filename) { print "File $filename does not exist!\n"; exit; }
+unless (-f $filename) { print "File $filename does not exist!\n"; exit; }
 
 my ($prefix, $dir, $ext) = fileparse($filename, qr/\.[^.]*/);
 $dir =~ s/\\/\//g;
+my $is_m_file = ($ext =~ /^\.[mM]\d+$/);
 
-print "Reading HST: $filename\n";
-my @hstBytes;
-{
-  my $fv;
-  open(my $fh, '<', $filename) or die "Cannot open $filename: $!\n";
-  binmode $fh;
-  while (read($fh, $fv, 1)) { push @hstBytes, $fv; }
-  close $fh;
+unless ($is_m_file || $ext =~ /^\.hst$/i) {
+  die "Input must be a .hst or .m[n] file, got '$ext'\n";
 }
 
-# Parse block 8 (rtBOF) from the HST
-my $FileValues = $hstBytes[1] . $hstBytes[0];
-my ($typeId, $size) = parseBlock($FileValues, 0);
-die "Expected block 8 first in HST, got block $typeId\n" unless $typeId == 8;
+print "Reading $filename\n";
+my $FileValues;
+my @fileBytes;
+open(StarFile, "<$filename") or die "Cannot open $filename: $!\n";
+binmode(StarFile);
+while (read(StarFile, $FileValues, 1)) { push @fileBytes, $FileValues; }
+close(StarFile);
 
-my @headerBlock = @hstBytes[0 .. (2 + $size - 1)];
-my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt)
-    = getFileHeaderBlock(\@headerBlock);
+# Parse block 8 (rtBOF)
+$FileValues = $fileBytes[1] . $fileBytes[0];
+my ($typeId, $size) = &parseBlock($FileValues, 0);
+die "Expected block 8 first, got block $typeId\n" unless $typeId == 8;
 
+my @block = @fileBytes[0 .. (2 + $size - 1)];
+my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
+    
 print "  Game ID : $lidGame\n";
 print "  Turn    : " . ($turn + 2400) . "\n";
-print "  Magic   : $Magic\n";
 
-# Count players (one Block 6 per player in the HST)
-my $numPlayers = _count_players_in_hst(\@hstBytes);
-die "Could not determine player count from HST\n" unless $numPlayers > 0;
-print "  Players : $numPlayers\n\n";
-
-# Generate one .x file per player
-for my $playerNum (1 .. $numPlayers) {
-  my $playerIdx = $playerNum - 1;
-  my $xFile     = "${dir}${prefix}.x${playerNum}";
-
-  # Only create an xfile if none exists.
-  if (!-f $xFile) {
+if ($is_m_file) {  # .m file - generate only the .x file for this player
+  my $playerNum = $Player + 1;
+  my $xFile = "${dir}${prefix}.x${playerNum}";
+  print "  Player  : $playerNum\n\n";
+  if (-f $xFile) {
+    print "Player $playerNum .x file already exists\n";
+  } else {
     print "Writing player $playerNum -> $xFile\n";
-    my @outBytes = _make_x_file(\@headerBlock, $playerIdx);
-
-    open(my $ofh, '>:raw', $xFile) or die "Cannot write $xFile: $!\n";
-    print $ofh $_ for @outBytes;
-    close $ofh;
+    my @outBytes = &makeXFile(\@block, $Player);
+    open(OUTFILE, '>:raw', "$xFile") or die "Cannot write $xFile: $!\n";
+    print OUTFILE $_ for @outBytes;
+    close(OUTFILE);
+      }
+} else { # .hst file - generate for all players
+  my $numPlayers = &countPlayersInHST(\@fileBytes);
+  die "Could not determine player count from HST\n" unless $numPlayers > 0;
+  print "  Players : $numPlayers\n\n";
+  for my $playerNum (1 .. $numPlayers) {
+    my $playerIdx = $playerNum - 1;
+    my $xFile     = "${dir}${prefix}.x${playerNum}";
+    if (-f $xFile) {
+      print "Player $playerNum .x file already exists\n";
+    } else {
+      print "Writing player $playerNum -> $xFile\n";      my @outBytes = &makeXFile(\@block, $playerIdx);
+      open(OUTFILE, '>:raw', "$xFile") or die "Cannot write $xFile: $!\n";
+      print OUTFILE $_ for @outBytes;
+      close(OUTFILE);    
+    }
   }
 }
 
-# Clean up the TH .chk file so the display will refresh with game state.
+# Clean up the TH .chk file so the display will refresh with game state
 my $chkFile = "${dir}${prefix}.chk";
 if (-e $chkFile) {
   unlink $chkFile or warn "Could not remove $chkFile: $!\n";
   print "Removed $chkFile\n";
-} else { print "No .chk file $chkFile to remove\n"; }
+} else { print "No .chk file to remove\n"; }
 
 print "\nDone.\n";
 
 #####################################################3
-# _count_players_in_hst - count Block 6 (rtPlr) records, advancing PRNG
-sub _count_players_in_hst {
+sub countPlayersInHST {
   my ($fileBytes) = @_;
   my @fileBytes   = @{$fileBytes};
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
   my ($seedA, $seedB);
   my $offset = 0;
   my $count  = 0;
-
+  my @block;
   while ($offset < @fileBytes) {
     last if $offset + 2 > @fileBytes;
-    my $fv2 = $fileBytes[$offset + 1] . $fileBytes[$offset];
-    my ($tid, $sz) = parseBlock($fv2, $offset);
-    my @data;
-    @data = @fileBytes[$offset + 2 .. $offset + 2 + $sz - 1] if $sz > 0;
-
-    if ($tid == 8) {
-      my @blk = @fileBytes[$offset .. $offset + 2 + $sz - 1];
-      my ($bS, $fSW, $Plr, $Trn, $lid2) = getFileHeaderBlock(\@blk);
-      ($seedA, $seedB) = initDecryption($bS, $fSW, $Plr, $Trn, $lid2);
-    } elsif ($tid == 0) {
+    my $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+    my ($typeId, $size) = &parseBlock($FileValues, $offset);
+    @block = @fileBytes[$offset .. $offset+(2+$size)-1];
+    my @data = @block[2..$#block];
+    
+    if ($typeId == 8) {
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
+      ($seedA, $seedB) = &initDecryption($binSeed, $fShareware, $Player, $turn, $lidGame);
+    } elsif ($typeId == 0) {
       # rtEOF - unencrypted, nothing to do
-    } elsif (defined $seedA && $sz > 0) {
-      my ($dec, $sA, $sB) = decryptBytes(\@data, $seedA, $seedB);
-      ($seedA, $seedB) = ($sA, $sB);
-      $count++ if $tid == 6;
+    } elsif (defined $seedA && $size > 0) {
+      my ($decryptedData, $padding);
+      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB);
+      $count++ if $typeId == 6;
     }
-    $offset += 2 + $sz;
+    $offset = $offset + (2 + $size);
   }
   return $count;
 }
 
-# _make_x_file($headerBlockRef, $playerIdx)
+# makeXFile($headerBlockRef, $playerIdx)
 #
 # Block layout:
 #
@@ -163,20 +177,18 @@ sub _count_players_in_hst {
 #   wGen MUST be copied from the HST - Stars! checks rtbof.wGen == game.wGen
 #   for dtLog files and rejects with "not in right game" if they differ.
 #   fCrippled must also be copied (affects encryption seed derivation).
-sub _make_x_file {
+sub makeXFile {
   my ($headerBlockRef, $playerIdx) = @_;
-  my @hb = @{$headerBlockRef};
+  my @block = @{$headerBlockRef};
 
-  my ($binSeedH, $fSharewareH, $PlayerH, $turnH, $lidGameH, $MagicH)
-      = getFileHeaderBlock($headerBlockRef);
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
+  my $version   = ord($block[10]) | (ord($block[11]) << 8);
 
-  my $version   = ord($hb[10]) | (ord($hb[11]) << 8);
-
-  # Flags word from HST block 8 (RTBOF offset 14 = headerBlock index 16)
-  my $hst_flags = ord($hb[16]) | (ord($hb[17]) << 8);
-  my $wGen      = ($hst_flags >> 13) & 0x7;
-  my $fCrippled = ($hst_flags >> 12) & 0x1;
-
+  # Flags word (dts) from block 8 (RTBOF offset 14 = block index 16)
+  my $dts       = ord($block[16]) | (ord($block[17]) << 8);
+  my $wGen      = ($dts >> 13) & 0x7;
+  my $fCrippled = ($dts >> 12) & 0x1;
+  
   # Build flags word for the .x file:
   #   dt=1 (dtLog), fDone=1 (submitted), wGen and fCrippled copied from HST
   my $flags = 0x01             # dt = 1 (dtLog)
@@ -186,25 +198,25 @@ sub _make_x_file {
 
   # iPlayer:5 in bits 4:0, lSaltTime:11 in bits 15:5
   my $salt        = int(rand(2047)) & 0x7FF;
-  my $iPlayerWord = (($salt & 0x7FF) << 5) | ($playerIdx & 0x1F);
+  my $iPlayer = (($salt & 0x7FF) << 5) | ($playerIdx & 0x1F);
 
-  my $magic4 = substr($MagicH . "\x00\x00\x00\x00", 0, 4);
+  my $magic4 = substr($Magic . "\x00\x00\x00\x00", 0, 4);
 
   # --- Block 8 (rtBOF, 16 data bytes) --------------------------------------
   my @block8;
-  push @block8, &write16(_make_block_header(8, 16));
+  push @block8, &write16CHR(makeBlockHeader(8, 16));
   push @block8, split(//, $magic4);
-  push @block8, &write32($lidGameH);
-  push @block8, &write16($version);
-  push @block8, &write16($turnH);
-  push @block8, &write16($iPlayerWord);
-  push @block8, &write16($flags);
+  push @block8, &write32CHR($lidGame);
+  push @block8, &write16CHR($version);
+  push @block8, &write16CHR($turn);
+  push @block8, &write16CHR($iPlayer);
+  push @block8, &write16CHR($flags);
   die "block8 length error: " . scalar(@block8) . "\n" unless @block8 == 18;
 
   # Initialise encryption seeds from our own block 8
-  my ($bS, $fSW, $Plr, $Trn, $lid2) = getFileHeaderBlock(\@block8);
-  my ($seedX, $seedY) = initDecryption($bS, $fSW, $Plr, $Trn, $lid2);
-
+  ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block8);
+  my ($seedA, $seedB) = &initDecryption($binSeed, $fShareware, $Player, $turn, $lidGame);  
+  
   # --- Block 9 (rtLogHdr, 17 data bytes) -----------------------------------
   # struct _rtloghdr { short cbLog; long lSerialNumber; BYTE rgbConfig[11]; }
   # cbLog = total bytes between end of block 9 and start of block 0.
@@ -212,38 +224,36 @@ sub _make_x_file {
   my $cbLog = 10;
   my @data9 = (
     $cbLog & 0xFF, ($cbLog >> 8) & 0xFF,  # short cbLog (LE)
-    0, 0, 0, 0,                            # long lSerialNumber = 0
+    0xFF, 0xFF, 0xFF, 0xFF,                # long lSerialNumber = -1 (not loaded)
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,      # BYTE rgbConfig[11] = 0
   );
-  my @fakeBlk9 = (&write16(_make_block_header(9, 17)), map { chr($_) } @data9);
-  my ($enc9ref, $sX2, $sY2) = encryptBlock(\@fakeBlk9, \@data9, 0, $seedX, $seedY);
-  ($seedX, $seedY) = ($sX2, $sY2);
-
+  my @fakeBlk9 = (&write16CHR(makeBlockHeader(9, 17)), map { chr($_) } @data9);
+  my ($encryptedBlock);
+  ($encryptedBlock, $seedA, $seedB) = &encryptBlock(\@fakeBlk9, \@data9, 0, $seedA, $seedB); 
+  
   # --- Block 46 (SaveAndSubmitBlock, 8 data bytes, all zeros) --------------
   # Always 8 bytes in a .x file. cbLog above accounts for these 10 bytes (2+8).
   my @data46    = (0) x 8;
-  my @fakeBlk46 = (&write16(_make_block_header(46, 8)), map { chr($_) } @data46);
-  my ($enc46ref2) = encryptBlock(\@fakeBlk46, \@data46, 0, $seedX, $seedY);
-
+  my @fakeBlk46 = (&write16CHR(makeBlockHeader(46, 8)), map { chr($_) } @data46);
+  my ($encryptedBlock46) = &encryptBlock(\@fakeBlk46, \@data46, 0, $seedA, $seedB);
+  
   # --- Block 0 (rtEOF, 0 data bytes) ---------------------------------------
-  my @block0 = &write16(_make_block_header(0, 0));
+  my @block0 = &write16CHR(makeBlockHeader(0, 0));
 
-  return (@block8, @{$enc9ref}, @{$enc46ref2}, @block0);
-
+  return (@block8, @{$encryptedBlock}, @{$encryptedBlock46}, @block0);
 }
 
-sub _make_block_header {
+sub makeBlockHeader {
   my ($typeId, $size) = @_;
   return ($typeId << 10) | ($size & 0x3FF);
 }
 
-sub write16 {
+sub write16CHR {  # This is NOT the same as write16 in StarsBlock.pm as this one returns chr()
   my ($v) = @_;
   return chr($v & 0xFF), chr(($v >> 8) & 0xFF);
 }
 
-sub write32 {
+sub write32CHR {
   my ($v) = @_;
-  return chr( $v        & 0xFF), chr(($v >>  8) & 0xFF),
-         chr(($v >> 16) & 0xFF), chr(($v >> 24) & 0xFF);
+  return chr( $v & 0xFF), chr(($v >>  8) & 0xFF), chr(($v >> 16) & 0xFF), chr(($v >> 24) & 0xFF);
 }

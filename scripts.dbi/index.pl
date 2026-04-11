@@ -83,7 +83,7 @@ print $cgi->header();
 print "<P>\n";
 
 if ($id ) {
-%menu_left = 	(
+  %menu_left = 	(
 				"0About Us"			=> "$WWW_Scripts/index.pl?lp=home&cp=aboutus",
  				"1Features" 			=> "$WWW_Scripts/index.pl?cp=features",
 				"2TH FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
@@ -94,7 +94,7 @@ if ($id ) {
 # "3Game Defaults"	=> "$WWW_Scripts/index.pl?lp=home&cp=gamedefaults",
 # "3Game Policies"	=> "$WWW_Scripts/index.pl?lp=home&cp=policies",
 } elsif ($in{'lp'} eq 'home') {
-%menu_left = 	(
+  %menu_left = 	(
 				"0About Us"			=> "$WWW_Scripts/index.pl?lp=home&cp=aboutus",
  				"1Features" 			=> "$WWW_Scripts/index.pl?lp=home&cp=features",
 				"2TH FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
@@ -104,7 +104,7 @@ if ($id ) {
  				"9Log In" 			=> "$WWW_Scripts/index.pl?lp=home&cp=login_page",
 				);
 } else {
-# %menu_left = 	(
+#   %menu_left = 	(
 #  				"0Features" 			=> "$WWW_Scripts/index.pl?cp=features",
 #  				"1Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
 #  				"2Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create",
@@ -112,7 +112,7 @@ if ($id ) {
 #  				"4Logout" 			=> "$WWW_Scripts/index.pl?cp=logout",
 #  				);
 # 				"5Erase" 			=> "$WWW_Scripts/index.pl?cp=logoutfull"
-%menu_left = 	(
+  %menu_left = 	(
  				"1Log In" 			=> "$WWW_Scripts/index.pl?cp=login_page",
  				"2Sign Up" 			=> "$WWW_Scripts/index.pl?cp=create",
  				);
@@ -160,14 +160,13 @@ if ($in{'cp'} eq 'login_page') { &login_page;
 	&show_html($welcome);
 }
 
-if ($in{'rp'} eq 'something') {
+if  (!($in{'rp'})) { 
+  print qq|<td width="$rp_width"></td>\n|;
+} else { 
 	$sql = 'SELECT * from Games WHERE GameStatus = 2;';
 	print qq|<td width="$rp_width">\n|;
 	&list_games($sql, 'Games in Progress');
 	print "</td>\n";
-
-} elsif  (!($in{'rp'})) { print qq|<td width="$rp_width"></td>\n|;
-} else { print qq|<td width="$rp_width"></td>\n|;
 }
 
 #&html_right;

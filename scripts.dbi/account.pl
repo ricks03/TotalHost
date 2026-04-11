@@ -434,7 +434,7 @@ sub login {
     $session->param("userlogin", $User_Login);
     $session->param("email", $User_Email);
     $session->param("timezone", $User_Timezone);
-		$redirect = $WWW_Scripts . '/page.pl?lp=profile_game&cp=show_first_game';
+		$redirect = $WWW_Scripts . '/page.pl?lp=profile_game&cp=show_first_game&rp=my_games';
 		&print_redirect($cgi,$sessionid,$redirect);
   } else {
     &LogOut(100,"$submit_user failed to Log In",$LogFile);
