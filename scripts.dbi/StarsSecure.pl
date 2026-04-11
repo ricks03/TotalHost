@@ -93,7 +93,7 @@ if ($inFile && !($file =~ /^\Q$file_prefix\E\.[xX]\d{1,2}$/i)) { next; }  # Skip
   close(StarFile);
 
   # Decrypt the data, block by block
-  my @block9data = &decrypt_Serials(@fileBytes);
+  my @block9data = &decryptSerials(@fileBytes);
   if (@block9data) {
     $block9{$file} = [@block9data];
   } else { print "\tWarning: No serial data (Block 9) found in $file\n"; }
@@ -123,71 +123,59 @@ foreach my $file1 ( sort keys %block9 ) {
 } 
 
 exit;
+####################################################################
+# sub decrypt_Serials {
+#   my (@fileBytes) = @_;
+#   my @block;
+##   my @data;
+#   my ($decryptedData, $padding);
+#   my @decryptedData;
+#   my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
+#   my ($seedA, $seedB);
+#   my ($FileValues, $typeId, $size);
+#   my $offset = 0; #Start at the beginning of the file
+#   my ($serial, $hardware);
+#   
+#   while ($offset < @fileBytes) {
+#     # Get block info and data
+#     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
+#     ($typeId, $size) = &parseBlock($FileValues, $offset);
+#     # Increased performance by not defining @data AND @block and instead shifting @block twice
+#     #@data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+#     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
+#     my @data = @block[2..$#block];
+#
+#     if ($typeId == 8) { # File Header Block, never encrypted
+#       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block );
+#       ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
+#     } else {
+#       # Everything else needs to be decrypted
+##       shift @block; # Drop the first two entries so we wouldn't need @data; # or shift @array for 1..2;
+##       shift @block; # and instead could use @block
+#       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
+#       @decryptedData = @{ $decryptedData };
+#       # WHERE THE MAGIC HAPPENS
+#       if ($typeId == 9) {
+#         #// szWork[0] - szWork[3] : Label C:
+#         #// szWork[4] - szWork[5] : C: date/time of volume
+#         #// szWork[6] - szWork[8] : Label D:
+#         #// szWork[9]             : D: date/time of volume
+#         #// szWork[10]            : C: and D: drive size in 100's of MB
+#         $serial = &read32(\@decryptedData, 2);  # serial number, blocks 2-5
+#         $hardware = pack("C*", @decryptedData[6..16]); #get the hardware hash as a string
+#         return ($serial, $hardware); # might as well stop immediately
+#       }
+#       # END OF MAGIC
+#     }
+#     $offset = $offset + (2 + $size); 
+#   }
+#   return; # No block 9 found
+# }
 
-sub decrypt_Serials {
-  my (@fileBytes) = @_;
-  my @block;
-  my @data;
-  my ($decryptedData, $padding);
-  my @decryptedData;
-  my ($encryptedBlock, @encryptedBlock);
-  my @outBytes;
-  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
-  my ($seedA, $seedB, $seedX, $seedY);
-  my ($FileValues, $typeId, $size);
-  my $offset = 0; #Start at the beginning of the file
-  my ($serial,$hardware);
-  
-  # Because we're just reading a directory, validate that what we're reading
-  # is actually a Stars! file
-  $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
-  ($typeId, $size) = &parseBlock($FileValues, $offset);
-  @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-  ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block );
-  unless ($Magic eq 'J3J3') { print "\tNon-Stars! .x file detected. Exiting..."; exit;}
 
-  while ($offset < @fileBytes) {
-    # Get block info and data
-    $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
-    ($typeId, $size) = &parseBlock($FileValues, $offset);
-    # increased performance by not defining @data AND @block by shift'ing it twice
-    #    true across all the copies of this function
-    #@data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
-    @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
 
-    if ($typeId == 8) { # File Header Block, never encrypted
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block );
-      ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
-      $seedX = $seedA; # Used to reverse the decryption
-      $seedY = $seedB; # Used to reverse the decryption
-      push @outBytes, @block;
-    } else {
-      # Everything else needs to be decrypted
-       shift @block; # Drop the first two entries so we wouldn't need @data;
-       shift @block; # and instead could use @block
-      #($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
-      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@block, $seedA, $seedB); 
-      @decryptedData = @{ $decryptedData };
-      # WHERE THE MAGIC HAPPENS
-      if ($typeId == 9) {
-        #// szWork[0] - szWork[3] : Label C:
-        #// szWork[4] - szWork[5] : C: date/time of volume
-        #// szWork[6] - szWork[8] : Label D:
-        #// szWork[9]             : D: date/time of volume
-        #// szWork[10]            : C: and D: drive size in 100's of MB
 
-        $serial = &read32(\@decryptedData, 2);  # serial number, blocks 2-5
-        $hardware = pack("C*", @decryptedData[6..16]); #get the hardware hash as a string
-        return ($serial, $hardware); # might as well stop immediately
-      }
-      # END OF MAGIC
-      # reencrypt the data for output
-      ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
-      @encryptedBlock = @ { $encryptedBlock };
-      push @outBytes, @encryptedBlock;
-    }
-    $offset = $offset + (2 + $size); 
-  }
-  return(\@outBytes); # No block 9 found
-}
+
+
+
 

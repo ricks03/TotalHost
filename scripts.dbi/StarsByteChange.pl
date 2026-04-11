@@ -101,7 +101,7 @@ unless ($ARGV[1]) { print "Don't forget to rename $newFile\n"; }
 sub decryptBlock {
   my (@fileBytes) = @_;
   my @block;
-  my @data;
+  #my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
@@ -114,9 +114,10 @@ sub decryptBlock {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
-    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    #@data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-
+    my @data = @block[2..$#block];
+    
     if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\t"; }
     if ($debug) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
@@ -133,7 +134,7 @@ sub decryptBlock {
       $seedY = $seedB; # Used to reverse the decryption
       push @outBytes, @block;
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
-      my ($unshiftedData, $padding) = &unshiftBytes(\@data); 
+      my ($unshiftedData) = &unshiftBytes(\@data); 
       my @unshiftedData = @{ $unshiftedData };
       &processData(\@unshiftedData,$typeId,$offset,$size, $inBlock);
 

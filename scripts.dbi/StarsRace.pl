@@ -109,7 +109,7 @@ if ($outBytes) {
 sub decryptBlockRace { # mostly a duplicate of displayBlockRace
   my (@fileBytes) = @_;
   my @block;
-  my @data;
+  #my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
@@ -124,9 +124,10 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
-    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    #@data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-
+    my @data = @block[2..$#block];
+    
     if ($typeId == 8) { # FileHeaderBlock, never encrypted
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8

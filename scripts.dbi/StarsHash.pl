@@ -92,22 +92,23 @@ my @outBytes = @{$outBytes};
 sub decryptBlock {
   my (@fileBytes) = @_;
   my @block;
-  my @data;
+  #my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
   my @outBytes;
   my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
-  my ( $seedA, $seedB, $seedX, $seedY);
+  my ( $seedA, $seedB);
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
   while ($offset < @fileBytes) {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
-    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    #@data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-
+    my @data = @block[2..$#block];
+    
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) {  # File Header Block
       # Convert the nonencrypted Block 8 data

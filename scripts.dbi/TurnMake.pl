@@ -41,12 +41,12 @@ $CurrentEpoch = time();
 
 # my $environment = "TurnMake: Environment: PATH: $ENV{'PATH'}, DISPLAY: $ENV{'DISPLAY'}, PERL5LIB: $ENV{'PERL5LIB'}, WINEPREFIX: $ENV{'WINEPREFIX'}";
 # print "$environment\n";
-&LogOut (400, $environment, $LogFile);
+#&LogOut (400, $environment, $LogFile);
 
 # Open the database
 $db = &DB_Open($dsn);
 
-# Only load the holiday infromation once, so we can reuse it.
+# Only load the holiday information once, so we can reuse it.
 #@Holiday = &LoadHolidays($db); #Load the dates for the holidays
 
 # If a single game is specified, process only that game
@@ -349,7 +349,7 @@ sub CheckandUpdate {
 				($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
 				# Check to see if it's a force gen game, and if so increase the number of times the game will generate unless first two turns
 				my($NumberofTurns) = 1;
-				if ($GameData[$LoopPosition]{'ForceGen'} == 1 && $HST_Turn ne '2400' && $HST_Turn ne '2401') {
+				if ($GameData[$LoopPosition]{'ForceGen'} == 1 && $HST_Turn != 2400 && $HST_Turn != 2401) {
 					$NumberofTurns = $GameData[$LoopPosition]{'ForceGenTurns'};
 					$NumberofTimes = $GameData[$LoopPosition]{'ForceGenTimes'} -1;
 					# Update NumberofTimes
@@ -371,7 +371,7 @@ sub CheckandUpdate {
         print "\tGenerating turn for $GameData[$LoopPosition]{'GameFile'}\n"; # If running from the CLI, output that a turn is being generated
         &GenerateTurn($NumberofTurns, $GameData[$LoopPosition]{'GameFile'}); 
         sleep 2; # Give a moment if a turn is generated.
-        if ($GameData[$LoopPosition]{'Teams'}) { &Generate_Merged($GameData[$LoopPosition]{'GameFile'}); }
+        if ($GameData[$LoopPosition]{'Teams'}) { &MergeFiles($GameData[$LoopPosition]{'GameFile'}); }
         
         # Decrement the delay if we ended up generating due to As Available.
         if ($GameData[$LoopPosition]{'AsAvailable'} == 1 && $GameData[$LoopPosition]{'DelayCount'} > 0) {
@@ -472,46 +472,6 @@ sub CheckandUpdate {
     } elsif ($GameData[$LoopPosition]{'GameStatus'} == 4) { print "\tGame $GameData[$LoopPosition]{'GameFile'} Paused\n"; } 
     $LoopPosition++;	#Now increment to check the next game
   }   
-}
-
-# Check to see if all the turns have arrived taking everything into account
-# Stars reported status, host-defined player status
-sub Turns_Missing {
-	my ($GameFile) = @_;
-	my $TurnsMissing = 0;
-	my @Status;
-  my @CHK;
-	my %Values;
- 	my $CHKFile = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.chk';
-  &Make_CHK($GameFile);
-  
-	# Determine the number of players in the .chk File
-	if (-f $CHKFile) { #Check to see if .chk file is there.
-		&LogOut(200,"Turns_Missing: Reading .chk File $CHKFile",$LogFile);
-    @CHK = &Read_CHK($GameFile);
-    
-		for (my $i=3; $i <= @CHK - 1; $i++) { # Skip over starting lines
-			my $id = $i - 2;
-			$Status[$id] = $CHK[$i];
-		}
-	} else { &LogOut(0,'Turns_Missing: Cannot find .chk file - die die die ',$ErrorLog); die; }
-  
-	# Run through all the players in the database and check status	
-	$sql = qq|SELECT GameUsers.PlayerID, GameUsers.PlayerStatus FROM Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile WHERE GameUsers.GameFile = ? AND GameUsers.PlayerStatus=1;|;
-	if (my $sth = &DB_Call($db,$sql,$GameFile)) { 
-    while (my $row = $sth->fetchrow_hashref()) { 
-      %Values = %{$row};  
-			if ((index($Status[$Values{'PlayerID'}], 'turned in') == -1) && (index($Status[$Values{'PlayerID'}], 'dead') == -1)) { 
-        &LogOut(300,"Turns_Missing: OUT $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile); 
-        $TurnsMissing = 1;
-        last;  # Exit the while loop if TurnsMissing is true  
-      }
-			else { &LogOut(300,"Turns_Missing: IN $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile);  }
-		} 
-    $sth->finish(); 
-	}
-	if ($TurnsMissing) { &LogOut(200,"Turns_Missing: $TurnsMissing : .x files are missing for $GameFile",$LogFile) } else { &LogOut(200,"All .x files are in for $GameFile",$LogFile); }
-	return $TurnsMissing;
 }
 
 # Pause a game that a turn hasn't been taken in too long based on $max_inactivity

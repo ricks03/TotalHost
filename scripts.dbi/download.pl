@@ -103,8 +103,8 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
 	$db = &DB_Open($dsn);
 	my %GameValues;
 	if (my $sth = &DB_Call($db,$sql,$gamefile,$userlogin,$turn_id)) { 
-    my $row = $sth->fetchrow_hashref(); 
-    %GameValues = %{$row};
+    #my $row = $sth->fetchrow_hashref();     %GameValues = %{$row};
+    if (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row}; }
 #		while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
     $sth->finish();
     $outputfile = $Dir_Games . '/' . $GameValues{'GameFile'} . '/' . $file;
@@ -112,13 +112,13 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
 	else { &error("download: ERROR: Finding user $userlogin to download file $file"); }
   # If the player was found, and not banned from the game (which could get them 
   # access if they hacked the URL
-	if ($GameValues{'GameFile'} && $GameValues{'PlayerStatus'} ne '3') { $download_ok = 1; }
+	if ($GameValues{'GameFile'} && $GameValues{'PlayerStatus'} != 3) { $download_ok = 1; }
 	else {
 	#see if they are in the game, and the game permits anyone in the game to download
 		$sql = qq|SELECT Games.GameFile, Games.SharedM, User.User_ID FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=?) AND ((User.User_Login)=?) AND ((Games.SharedM)=1));|;
 		if (my $sth = &DB_Call($db,$sql,$gamefile,$userlogin)) { 
-      my $row = $sth->fetchrow_hashref();
-      %GameValues = %{$row};
+      #my $row = $sth->fetchrow_hashref();       %GameValues = %{$row};
+      if (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row}; }
 #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
       $sth->finish();
 		} 
@@ -134,8 +134,8 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
     $sql = qq|SELECT Games.GameFile, Games.HostName, User.User_Login, Games.HostAccess FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=?) AND ((Games.HostName)=?));|;  
 		my $playeringame = 0; 
 		if (my $sth = &DB_Call($db,$sql,$gamefile,$userlogin)) { 
-      my $row = $sth->fetchrow_hashref(); 
-      %GameValues = %{$row};
+      my $row = $sth->fetchrow_hashref();        %GameValues = %{$row};
+      if (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row}; }
       if ($GameValues{'HostName'} eq $GameValues{'User_Login'} ) { $playeringame = 1; }
       $sth->finish();
 		} 
@@ -153,18 +153,18 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
     $db = &DB_Open($dsn);
     my %GameValues;
     if (my $sth = &DB_Call($db,$sql,$gamefile,$userlogin,$turn_id)) {
-        my $row = $sth->fetchrow_hashref();
-        %GameValues = %{$row};
+        my $row = $sth->fetchrow_hashref();         %GameValues = %{$row};
+        if (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row}; }
         $sth->finish();
         $outputfile = $Dir_Games . '/' . $GameValues{'GameFile'} . '/' . $file;
     }
     else { &error("download: ERROR: Finding user $userlogin to download file $file"); }
-    if ($GameValues{'GameFile'} && $GameValues{'PlayerStatus'} ne '3') { $download_ok = 1; }
+    if ($GameValues{'GameFile'} && $GameValues{'PlayerStatus'} != 3) { $download_ok = 1; }
     else {
       $sql = qq|SELECT Games.GameFile, Games.SharedM, User.User_ID FROM User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) AND (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login WHERE (((Games.GameFile)=?) AND ((User.User_Login)=?) AND ((Games.SharedM)=1));|;
       if (my $sth = &DB_Call($db,$sql,$gamefile,$userlogin)) {
-          my $row = $sth->fetchrow_hashref();
-          %GameValues = %{$row};
+          my $row = $sth->fetchrow_hashref();             %GameValues = %{$row};
+          if (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row}; }
           $sth->finish();
       }
       else { &error("ERROR: Finding user $userlogin to download shared merged file"); }

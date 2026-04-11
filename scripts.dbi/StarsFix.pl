@@ -129,6 +129,12 @@ if (-e "$listPrefix.hst.waypoint" ) {
 #  &printList(\%waypointList);
 } else { print "No waypoint file detected.\n"; }
 
+my %planetList;
+if (-e "$listPrefix.hst.planet") {
+  my $planetList = &readList("$listPrefix.hst.planet");
+  %planetList = %$planetList;
+} else { print "No planet file detected. Cannot check SS Pop Steal planet ownership.\n"; }
+
 # read lastPlayer
 my $lastPlayer = -1; # storing the last player # for 10th Starbase
 if (-e "$listPrefix.hst.last" && $file_type =~ /x/i) {
@@ -152,16 +158,16 @@ while (read(STARFILE, $FileValues, 1)) {
 close(STARFILE);
 
 # Decrypt the data, block by block, and process it
-my ($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList);
 # Include the directory to handle the difference between TH and standalone 
-#($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer) = &decryptFix(dirname($filename), $filename, \@fileBytes,\%fleetList, \%queueList, \%designList, \%$waypointList, $lastPlayer);
-($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer) = &decryptFix(dirname($filename), $filename, \@fileBytes,\%fleetList, \%queueList, \%designList, \%waypointList, $lastPlayer);
+my ($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $planetList);
+($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer, $planetList) = &decryptFix(dirname($filename), $filename, \@fileBytes,\%fleetList, \%queueList, \%designList, \%waypointList, $lastPlayer);
 my @outBytes = @{$outBytes};
-%warning    = %$warning; # Tracking warnings generated
-%fleetList  = %$fleetList;
-%queueList  = %$queueList;
-%designList = %$designList;
+%warning      = %$warning;
+%fleetList    = %$fleetList;
+%queueList    = %$queueList;
+%designList   = %$designList;
 %waypointList = %$waypointList;
+%planetList   = %$planetList;
 
 # Deal with the results.
  # If this isn't a .x file, update the associated List files
@@ -190,6 +196,10 @@ if ($file_type =~ /hst/i || $file_type =~ /M/i ) {
 #    print "Printing Waypoint List...\n";
 #    &printList(\%waypointList);
     &writeList("$listPrefix.hst.waypoint", \%waypointList);
+  }
+  
+  if (%planetList) {
+    &writeList("$listPrefix.hst.planet", \%planetList);
   }
   
   if ($lastPlayer) {# Store the last player value for 10th Starbase for a .x pass

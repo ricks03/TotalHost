@@ -100,7 +100,7 @@ my @outBytes = @{$outBytes};
 sub decryptBlock {
   my (@fileBytes) = @_;
   my @block;
-  my @data;
+  #my @data;
   my ($decryptedData, $encryptedBlock, $padding);
   my @decryptedData;
   my @encryptedBlock;
@@ -113,9 +113,10 @@ sub decryptBlock {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ( $typeId, $size ) = &parseBlock($FileValues, $offset);
-    @data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
+    #@data =   @fileBytes[$offset+2 .. $offset+(2+$size)-1]; # The non-header portion of the block
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
-
+    my @data = @block[2..$#block];
+    
     #if ($debug) { print "\nBLOCK typeId: $typeId, Offset: $offset, Size: $size\n"; }
     if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
