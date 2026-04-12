@@ -3454,14 +3454,14 @@ sub decryptFix {
           }
         }
 
-        # Store task waypoint data
-        %waypoint = (
-          warp => $warp,
-          taskId => $taskId,
-          targetType => $targetType,
-          validTask => $validTask,
-          noAutoTrack => $noAutoTrack,
-        );
+        # Store task waypoint data. The hash is already fully built by line 3408, and the task-specific fields are added to it during the Block 19 section. 
+#         %waypoint = (
+#           warp => $warp,
+#           taskId => $taskId,
+#           targetType => $targetType,
+#           validTask => $validTask,
+#           noAutoTrack => $noAutoTrack,
+#         );
         $waypoint{$ownerId}{$fleetId}{$waypointId} = { %waypoint };
         
         # Check if waypoint destination needs to be updated
@@ -3950,7 +3950,7 @@ sub decryptFix {
         # OwnerId of 127 is none (deep space), OwnerId of 0 is a planet if typeId = 1
         #$fromOwnerId = $decryptedData[1] >> 1;
         $fromOwnerId = ($decryptedData[1] >> 1) & 0x0F;
-        $toOwnerId = $decryptedData[3] >> 1;
+        $toOwnerId = $decryptedData[3] >> & 0x0F;
         # toId of 511 is deep space
         $fromId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
         $toId = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 1) << 8);
