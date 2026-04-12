@@ -249,7 +249,8 @@ sub ValidateFileUpload {
     # Check_GameID validates that the file is the correct file ID fo rthis game
 		elsif (!(&Check_GameID($file_prefix, $lidGame))) { $err .= 'Wrong Game ID!'; &LogOut(0,"ValidateFileUpload: Invalid Game ID $file_prefix, $lidGame $File_Loc $File for $userlogin, $client_ip",$ErrorLog); }
     # Check_User validates that this user is the correct user for this turn
-		elsif (!(&Check_User($file_prefix, $userlogin, $iPlayer)))  { $err .= "Wrong User!"; &LogOut(0,"ValidateFileUpload: Invalid User $file_prefix, $file_player,$iPlayer $File_Loc $File for $userlogin, $client_ip",$ErrorLog); }
+		#elsif (!(&Check_User($file_prefix, $userlogin, $iPlayer)))  { $err .= "Wrong User!"; &LogOut(0,"ValidateFileUpload: Invalid User $file_prefix, $file_player,$iPlayer $File_Loc $File for $userlogin, $client_ip",$ErrorLog); }
+    elsif ($userlogin ne $user_admin && !(&Check_User($file_prefix, $userlogin, $iPlayer)))  { $err .= "Wrong User!"; &LogOut(0,"ValidateFileUpload: Invalid User $file_prefix, $file_player,$iPlayer $File_Loc $File for $userlogin, $client_ip",$ErrorLog); }
     # Check that the turn won't trigger a serial/hardware conflict
 		elsif ($errSerial = &checkSerials($File_Loc))   { $err .= "$errSerial"; &LogOut(0,"ValidateFileUpload: Serial/hardware error $err $File_Loc for $userlogin, $client_ip",$ErrorLog); }
 
