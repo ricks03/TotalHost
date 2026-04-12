@@ -293,12 +293,17 @@ sub decryptA {
         
       } elsif ($typeId == 43) {  # ObjectBlock
         # Parse object ID
+#         my $idFull = ($decryptedData[0] & 0xFF) | (($decryptedData[1] & 0xFF) << 8);
+#         my $objectId = $idFull & 0x1FF;  # 9 bits
+#         my $ownerId = ($idFull >> 9) & 0x0F;  # 4 bits
+#         my $objectType = ($idFull >> 13) & 0x07;  # 3 bits
+#         my @newHeader = makeBlockHeader(43, scalar(@decryptedData));
+#         push @objects, [ $typeId, $objectId, $ownerId, [@newHeader], [@decryptedData] ];
         my $idFull = ($decryptedData[0] & 0xFF) | (($decryptedData[1] & 0xFF) << 8);
-        my $objectId = $idFull & 0x1FF;  # 9 bits
         my $ownerId = ($idFull >> 9) & 0x0F;  # 4 bits
         my $objectType = ($idFull >> 13) & 0x07;  # 3 bits
         my @newHeader = makeBlockHeader(43, scalar(@decryptedData));
-        push @objects, [ $typeId, $objectId, $ownerId, [@newHeader], [@decryptedData] ];
+        push @objects, [ $typeId, $idFull, $ownerId, [@newHeader], [@decryptedData] ];        
       } elsif ($typeId == 30) {  # BattlePlanBlock
         push @battle_plans, [ $typeId, 0, 0, [@blockHeader], [@decryptedData], $padding ];
       } elsif ($typeId == 32) {  # CountersBlock (.H files) - P1 only
@@ -488,15 +493,20 @@ sub decryptB {
         }
       } elsif ($typeId == 43) {  # ObjectBlock
         # Parse object ID from first 2 bytes
+#         my $idFull = ($decryptedData[0] & 0xFF) | (($decryptedData[1] & 0xFF) << 8);
+#         my $objectId = $idFull & 0x1FF;  # 9 bits
+#         my $ownerId = ($idFull >> 9) & 0x0F;  # 4 bits
+#         my $objectType = ($idFull >> 13) & 0x07;  # 3 bits        
+#         my @newHeader = makeBlockHeader(43, scalar(@decryptedData));
+#         print "  decryptB: Object id=$objectId owner=$ownerId type=$objectType\n" if $debug;
+#         push @objects, [ $typeId, $objectId, $ownerId, [@newHeader], [@decryptedData] ];
         my $idFull = ($decryptedData[0] & 0xFF) | (($decryptedData[1] & 0xFF) << 8);
-        my $objectId = $idFull & 0x1FF;  # 9 bits
         my $ownerId = ($idFull >> 9) & 0x0F;  # 4 bits
         my $objectType = ($idFull >> 13) & 0x07;  # 3 bits
         
         my @newHeader = makeBlockHeader(43, scalar(@decryptedData));
-        print "  decryptB: Object id=$objectId owner=$ownerId type=$objectType\n" if $debug;
-        push @objects, [ $typeId, $objectId, $ownerId, [@newHeader], [@decryptedData] ];
-        
+        print "  decryptB: Object idFull=$idFull owner=$ownerId type=$objectType\n" if $debug;
+        push @objects, [ $typeId, $idFull, $ownerId, [@newHeader], [@decryptedData] ];        
        } elsif ($typeId == 45) {  # PlayerScoresBlock
         # Parse player ID from first 2 bytes
         my $wWord = ($decryptedData[0] & 0xFF) | (($decryptedData[1] & 0xFF) << 8);
@@ -1354,7 +1364,7 @@ sub mergeObjects {
       print "    mergeObjects: added P2 object id=$objId\n" if $debug;
     }
   }   
-  return sort { $a->[1] <=> $b->[1] } values %p1_by_id; # Return sorted by ID
+  return sort { $a->[1] <=> $b->[1] } values %p1_by_id; # Return sorted by idFull
 }
 
 sub mergeScores {
