@@ -476,7 +476,7 @@ sub decryptBlockPlanet {
             if ($display) { print "route: $idRoute\n"; }        
           }
 
-          if ($typeId == 14 && ($dt = 4 || $dt == 7)) { # Only in rtPlanetB
+          if ($typeId == 14 && ($dt == 4 || $dt == 7)) { # Only in rtPlanetB
               $turn_number = &read16(\@decryptedData, $index);
               if ($display) { print "Discovered: $turn_number (" . ($turn_number + 2400) . ")\n"; } 
               $index +=2; 
