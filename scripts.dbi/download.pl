@@ -140,6 +140,7 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
       $sth->finish();
 		} 
     if ($GameValues{'HostName'} eq $userlogin && !$playeringame && $GameValues{'HostAccess'}) { $download_ok = 1; }
+    if ($userlogin eq $user_admin) { $download_ok = 1; }
     $outputfile = "$Dir_Games/$gamefile/$file";
   }
 	&DB_Close($db);
@@ -170,13 +171,19 @@ if ($file =~ /^(\w+[\w.-]+\.xy)$/) {
       else { &error("ERROR: Finding user $userlogin to download shared merged file"); }
       if ($GameValues{'GameFile'}) { 
         $download_ok = 1; 
-        $outputfile = $Dir_Games . '/' . $gamefile . '/' . $file;
+        $outputfile = "$Dir_Games/$gamefile/$file";
       }
-    }    
-    &DB_Close($db);
+    }
+    unless ($download_ok == 1) { # Permit admin
+      if ($userlogin eq $user_admin) {
+        $download_ok = 1;
+        $outputfile = "$Dir_Games/$gamefile/$file";
+      }
+    }
+    &DB_Close($db);    
+    
     # Strip .merged so the browser saves it as gamename.m1, not gamename.m1.merged
     $file =~ s/\.merged$//i;
-
 
 # If it's a .r[n] file, validate who wants it before they get it
 #} elsif (($file =~ /^(\w+[\w.-]+\.R\d{1,2})$/) || ($file =~ /^(\w+[\w.-]+\.r\d{1,2})$/)) { 
