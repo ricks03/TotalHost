@@ -1393,7 +1393,8 @@ sub show_game {
             my $isSolo = ($PlayerValues{'Team'} == 0 || !$PlayerValues{'Team'});
             if ($isSolo) { print qq|<td></td>\n|; }
             elsif (-f $MFileMerged) { print qq|<td align="center">$mmergedlink</td>\n|; }
-            else { print qq|<td align="center" title="Merged file will be available after the next turn is generated">(pending)</td>\n|; }
+            #else { print qq|<td align="center" title="Merged file will be available after the next turn is generated">(pending)</td>\n|; }
+            else { print qq|<td align="center" title="Merged file will be available after the next turn is generated">$del(pending)$del2</td>\n|; }
           }
           
     			print qq|<td>|; # Display the number of years included in the .m file
@@ -1409,17 +1410,18 @@ sub show_game {
         
         if ($GameValues{'Teams'}) {  # Print the team if this is a team game
           my $displayTeam = ($PlayerValues{'Team'} == 0 || !$PlayerValues{'Team'}) ? 'Solo' : "Team $PlayerValues{'Team'}";
-          print qq|<td>$displayTeam</td>|;
+          print qq|<td>$del$displayTeam$del2</td>|;
         }
  
         print '<td>';
         if (-f $XFile) {  
   				my $file_date = -M $XFile;
   				$file_date = &SubmitTime($file_date);
-  				print "$file_date\n";
-  			} else { print "Not Submitted\n"; }         
+  				print "$del$file_date$del2\n";
+  			} else { print "${del}Not Submitted${del2}\n"; }         
         #Display the player status
-        &player_status_label($PlayerValues{'PlayerStatus'}, $CHK_Status, $PlayerValues{'PlayerID'}, $CHK[$Position]);          
+        #&player_status_label($PlayerValues{'PlayerStatus'}, $CHK_Status, $PlayerValues{'PlayerID'}, $CHK[$Position]); 
+        &player_status_label($PlayerValues{'PlayerStatus'}, $CHK_Status, $PlayerValues{'PlayerID'}, $CHK[$Position], $del, $del2);         
         print "</td>\n";
       
         # Display the Remove Password button if applicable, checking Host and Admin
