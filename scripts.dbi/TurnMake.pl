@@ -371,7 +371,7 @@ sub CheckandUpdate {
         print "\tGenerating turn for $GameData[$LoopPosition]{'GameFile'}\n"; # If running from the CLI, output that a turn is being generated
         &GenerateTurn($NumberofTurns, $GameData[$LoopPosition]{'GameFile'}); 
         sleep 2; # Give a moment if a turn is generated.
-        if ($GameData[$LoopPosition]{'Teams'}) { &MergeFiles($GameData[$LoopPosition]{'GameFile'}); }
+        if ($mergeFiles && $GameData[$LoopPosition]{'Teams'}) { &MergeFiles($GameData[$LoopPosition]{'GameFile'}); }
         
         # Decrement the delay if we ended up generating due to As Available.
         if ($GameData[$LoopPosition]{'AsAvailable'} == 1 && $GameData[$LoopPosition]{'DelayCount'} > 0) {

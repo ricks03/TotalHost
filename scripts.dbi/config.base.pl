@@ -27,6 +27,8 @@ $logging = 300;
 $cleanFiles = 1; # enable sanitizing player information 
 # Fixing negates or warns for bug effects
 $fixFiles = 1; # enable exploit detection/correction
+# Merging combines .m files for 2 or more players. 
+$mergeFiles = 1; #enable team merging of files. 
 
 # Where the accounts logs go
 $Dir_Log = '/home/th/logs';
