@@ -270,8 +270,10 @@ sub decryptBlockRace { # mostly a duplicate of displayBlockRace
           $electronicsLevelPointsSincePrevLevel     = &read32(\@decryptedData, 48); # (4 bytes) #Always 0 in race file
           $biologyLevelPointsSincePrevLevel         = &read32(\@decryptedData, 52); # (4 bytes) #Always 0 in race file
           $researchPercentage    = $decryptedData[56]; # defaults to 15
-          $currentResourcePriority = $decryptedData[57] >> 4; # (right 4 bits) [same, energy ..., lowest]  #Always 0 in race file
-          $nextResourcePriority  = $decryptedData[57] & 0x0F; # (left 4 bits)  #Always 0 in race file
+#           $currentResourcePriority = $decryptedData[57] >> 4; # (right 4 bits) [same, energy ..., lowest]  #Always 0 in race file
+#           $nextResourcePriority  = $decryptedData[57] & 0x0F; # (left 4 bits)  #Always 0 in race file
+          $currentResourcePriority = $decryptedData[57] & 0x0F; # low nibble = iTechCur (current research field)
+          $nextResourcePriority    = $decryptedData[57] >> 4;   # high nibble = iTechNext (next research field)
           $researchPointsPreviousYear = &read32(\@decryptedData, 58); # (4 bytes)  #Always 0 in race file
           $resourcePerColonist = $decryptedData[62]; # ? 55? 
           $producePerFactory = $decryptedData[63];
