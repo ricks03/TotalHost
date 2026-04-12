@@ -2585,6 +2585,7 @@ sub edit_game {
 	for (my $i=0; $i <7; $i++) {
 		my $pos = substr($GameValues{'DayFreq'},$i,1);
 		print qq|<INPUT type="checkbox" name="$WeekDays[$i]" value="$pos" | . &button_help("DayFreq") . qq| $Checked[$pos]>$WeekDays[$i] |;
+		#print qq|<INPUT type="checkbox" name="$WeekDays[$i]" value="1" | . &button_help("DayFreq") . qq| $Checked[$pos]>$WeekDays[$i] |;
 	}
 	print qq|</TD>\n|;
 	print qq|</TR></TABLE>\n|;
@@ -2599,9 +2600,9 @@ sub edit_game {
 			if ($i/12 == int($i/12)) { print "</tr><tr>"; }
 			my $pos = substr($GameValues{'HourFreq'},$i,1);
 			print qq|<td><INPUT type="checkbox" name="$name" value="$pos" onFocus="Help( 'HourFreq' )"  onMouseOver="Help( \'HourFreq\' )" onMouseOut="Help( \'blank\' )" $Checked[$pos]>$i:00<td>\n|;
+			#print qq|<td><INPUT type="checkbox" name="$name" value="1" onFocus="Help( 'HourFreq' )"  onMouseOver="Help( \'HourFreq\' )" onMouseOut="Help( \'blank\' )" $Checked[$pos]>$i:00<td>\n|;
 		}
 		print "</tr></table>\n";
-	}
 
 print <<eof; 
 <script>
@@ -2612,8 +2613,9 @@ function toggleCheckboxes(checked) {
 </script> 
 eof
 
-  print qq|<button type="button" onclick="toggleCheckboxes(true)"| . &button_help("SelectAll") . qq|>Select All</button>\n|;
-  print qq|<button type="button" onclick="toggleCheckboxes(false)"| . &button_help("DeselectAll") . qq|>Deselect All</button>\n|;  
+    print qq|<button type="button" onclick="toggleCheckboxes(true)"| . &button_help("SelectAll") . qq|>Select All</button>\n|;
+    print qq|<button type="button" onclick="toggleCheckboxes(false)"| . &button_help("DeselectAll") . qq|>Deselect All</button>\n|; 
+  } 
 	print qq|<P>\n|;
 	print qq|<INPUT type="checkbox" name="ForceGen" | . &button_help("EnableForceGen") . qq| $Checked[$GameValues{'ForceGen'}]>Enable Force Generate for\n|;
 	# If ForceGenTurns isn't set, make the default 2. 
