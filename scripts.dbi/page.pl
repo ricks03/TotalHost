@@ -1977,6 +1977,12 @@ sub process_game_launch {
 		}
     $sth->finish();
 	}
+  if ($GameValues{'HostName'} ne $userlogin && $userlogin ne $user_admin) {
+    &LogOut(0,"process_game_launch: Unauthorized attempt by $userlogin on $GameFile",$ErrorLog);
+    &DB_Close($db);
+    return 0;
+  }  
+  
 
 	# Confirm that there are enough players to launch, otherwise abort. 
 	if ($counter >= $min_players) {
