@@ -3950,7 +3950,7 @@ sub decryptFix {
         # OwnerId of 127 is none (deep space), OwnerId of 0 is a planet if typeId = 1
         #$fromOwnerId = $decryptedData[1] >> 1;
         $fromOwnerId = ($decryptedData[1] >> 1) & 0x0F;
-        $toOwnerId = $decryptedData[3] >> & 0x0F;
+        $toOwnerId = ($decryptedData[3] >> 1) & 0x0F;
         # toId of 511 is deep space
         $fromId = ($decryptedData[0] & 0xFF) + (($decryptedData[1] & 1) << 8);
         $toId = ($decryptedData[2] & 0xFF) + (($decryptedData[3] & 1) << 8);
