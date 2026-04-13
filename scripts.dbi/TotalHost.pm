@@ -1580,7 +1580,9 @@ sub process_game_status {
     if ($GameValues{'HostName'} eq $userlogin || $userlogin eq $user_admin) { # If only the host (or admin) can update the game
       $sql = qq|UPDATE Games SET GameStatus = 4 WHERE GameFile = \'$GameValues{'GameFile'}\' AND HostName=\'$HostName\';|;
     } elsif ($GameValues{'GamePause'} ) {       # If players are allowed to pause the game
-      $sql = qq|UPDATE Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile SET Games.GameStatus = 4 WHERE (GameUsers.User_Login=\'$userlogin\' AND Games.GameFile=\'$GameFile\' AND Games.GamePause=1) OR (Games.GameFile=\'$GameFile\') AND (Games.HostName=\'$userlogin\');|;
+      #$sql = qq|UPDATE Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile SET Games.GameStatus = 4 WHERE (GameUsers.User_Login=\'$userlogin\' AND Games.GameFile=\'$GameFile\' AND Games.GamePause=1) OR (Games.GameFile=\'$GameFile\') AND (Games.HostName=\'$userlogin\');|;
+      $sql = qq|UPDATE Games INNER JOIN GameUsers ON Games.GameFile = GameUsers.GameFile SET Games.GameStatus = 4 WHERE ((GameUsers.User_Login=\'$userlogin\' AND Games.GameFile=\'$GameFile\' AND Games.GamePause=1) OR (Games.GameFile=\'$GameFile\') AND (Games.HostName=\'$userlogin\'));|;
+      
     }
     $GameValues{'GameStatus'} = 4; # When used later
     $state_set = 1;
@@ -2028,12 +2030,12 @@ sub show_schedule {
 }
 
 sub player_status_label {
-  my ($PlayerStatus, $CHK_Status, $PlayerID, $CHKLine) = @_;
-  if    ($PlayerStatus == 4)  { print ' (Idle)'; }
-  elsif ($PlayerStatus == 3)  { print ' (Banned)'; }
-  elsif ($PlayerStatus == 2)  { print ' (Inactive-Housekeeping AI)'; }
-  elsif ($PlayerID eq '')     { print ' (Computer AI)'; }
-  if ($CHK_Status eq 'Deceased') { print ' -Deceased'; }
+  my ($PlayerStatus, $CHK_Status, $PlayerID, $CHKLine, $del, $del2) = @_;
+  if    ($PlayerStatus == 4)  { print "$del (Idle)$del2"; }
+  elsif ($PlayerStatus == 3)  { print "$del (Banned)$del2"; }
+  elsif ($PlayerStatus == 2)  { print "$del (Inactive-Housekeeping AI)$del2"; }
+  elsif ($PlayerID eq '')     { print "$del (Computer AI)$del2"; }
+  if ($CHK_Status eq 'Deceased') { print "$del -Deceased$del2"; }
   if ($CHKLine && $CHKLine =~ /HACKER/) { print '<span style="color: red;"> (HACKED FILE) </span>'; }
 }
 

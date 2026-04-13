@@ -3433,12 +3433,7 @@ sub process_restore {
     &LogOut(0, "process_restore: Invalid restore_year '$restore_year' for $GameFile by $userlogin", $ErrorLog);
     return;
   }  
-  # Prevent unauthorized access
-  if ($userlogin ne $HostName && $userlogin ne $user_admin) {
-    &LogOut(0,"process_restore: Unauthorized attempt. Hostname: $HostName, GameFile: $GameFile, User Login: $userlogin",$ErrorLog); 
-    return;
-  }
-  
+
   my $db = &DB_Open($dsn);
   #$sql = qq|SELECT * FROM Games WHERE GameFile = '$GameFile';|;
   my $sql = qq|SELECT * FROM Games WHERE GameFile = ?;|;
@@ -3447,6 +3442,12 @@ sub process_restore {
     $sth->finish();
   }
 	&DB_Close($db);
+  
+  # Prevent unauthorized access
+  if ($userlogin ne $GameValues{'HostName'} && $userlogin ne $user_admin) {
+    &LogOut(0,"process_restore: Unauthorized attempt. Hostname: $GameValues{'HostName'}, GameFile: $GameFile, User Login: $userlogin",$ErrorLog); 
+    return;
+  }
   
 	print "<br>Restoring Game Year $restore_year for: $GameValues{'GameName'}....\n";
 	&LogOut(49, "Restoring Game Year $restore_year for $GameFile",$LogFile);
@@ -4027,6 +4028,12 @@ sub process_team_update {
     $sth->finish();
   }
   
+  if ($GameStatus{'HostName'} ne $userlogin && $userlogin ne $user_admin) {
+    &LogOut(0,"process_team_update: Unauthorized attempt by $userlogin on $GameFile",$ErrorLog);
+    &DB_Close($db);
+    return;
+  }
+  
   &LogOut(400, "process_team_update: $GameFile, $HostName, $NewTeamStatus, $PlayerID", $LogFile);
   #  Update the database
   $sql = qq|UPDATE GameUsers INNER JOIN Games ON GameUsers.GameFile = Games.GameFile SET GameUsers.Team = ? WHERE Games.GameFile = ? AND GameUsers.PlayerID = ?;|;
@@ -4165,13 +4172,6 @@ sub process_remove_password {
   require StarsBlock;  
   require File::Copy;
   
-  # Double check authorization
-  if ($userlogin ne $HostName && $userlogin ne $user_admin) {
-    &LogOut(0,"process_remove_password: Unauthorized attempt. Hostname: $HostName, GameFile: $GameFile, User Login: $userlogin",$ErrorLog); 
-    print "Unauthorized Attempt. Your access has been logged.\n";
-    return;
-  }
-  
   # Get the relevant Game Data
  	my $sql = qq|SELECT * FROM Games WHERE HostName = ? AND GameFile = ?;|;
   my $db = &DB_Open($dsn);
@@ -4179,6 +4179,15 @@ sub process_remove_password {
     my $row = $sth->fetchrow_hashref(); { %GameValues = %{$row};   } 
     $sth->finish();
   }
+  
+  # Double check authorization
+  if ($userlogin ne $GameValues{'HostName'} && $userlogin ne $user_admin) {
+    &LogOut(0,"process_remove_password: Unauthorized attempt. Hostname: $GameValues{'HostName'}, GameFile: $GameFile, User Login: $userlogin",$ErrorLog); 
+    print "Unauthorized Attempt. Your access has been logged.\n";
+    &DB_Close($db);
+    return;
+  }
+  
   # Backup the existing .m file
   my $Backup_Source_File      = $Dir_Games . '/' .  $GameValues{'GameFile'} . '/' . $GameValues{'GameFile'} . '.m' . $PlayerID;
   my $Backup_Destination_File = $Backup_Source_File . '.bak'; 
