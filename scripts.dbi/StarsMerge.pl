@@ -1359,9 +1359,29 @@ sub mergeObjects {
   # Add P2 objects that aren't in P1
   for my $rec (@$p2_objects) {
     my $objId = $rec->[1];
+#     if (!exists $p1_by_id{$objId}) {
+#       $p1_by_id{$objId} = $rec;
+#       print "    mergeObjects: added P2 object id=$objId\n" if $debug;
+#     }
+
     if (!exists $p1_by_id{$objId}) {
       $p1_by_id{$objId} = $rec;
       print "    mergeObjects: added P2 object id=$objId\n" if $debug;
+    } elsif ((($objId >> 13) & 0x07) == 2) {
+      #Wormhole "been through" bitmask merging
+      # Wormhole: OR grbitPlr (offset 8-9) and grbitPlrTrav (offset 10-11)
+      my @p1data = @{$p1_by_id{$objId}->[4]};
+      my @p2data = @{$rec->[4]};
+      my $merged_grbitPlr     = (($p1data[8]  & 0xFF) | (($p1data[9]  & 0xFF) << 8))
+                              | (($p2data[8]  & 0xFF) | (($p2data[9]  & 0xFF) << 8));
+      my $merged_grbitPlrTrav = (($p1data[10] & 0xFF) | (($p1data[11] & 0xFF) << 8))
+                              | (($p2data[10] & 0xFF) | (($p2data[11] & 0xFF) << 8));
+      $p1data[8]  =  $merged_grbitPlr & 0xFF;
+      $p1data[9]  = ($merged_grbitPlr  >> 8) & 0xFF;
+      $p1data[10] =  $merged_grbitPlrTrav & 0xFF;
+      $p1data[11] = ($merged_grbitPlrTrav >> 8) & 0xFF;
+      $p1_by_id{$objId}->[4] = \@p1data;
+      print "    mergeObjects: wormhole id=$objId grbitPlr=$merged_grbitPlr grbitPlrTrav=$merged_grbitPlrTrav\n" if $debug;
     }
   }   
   return sort { $a->[1] <=> $b->[1] } values %p1_by_id; # Return sorted by idFull
