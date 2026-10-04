@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Apr 13, 2026 at 03:00 AM
+-- Generation Time: Oct 04, 2026 at 05:16 AM
 -- Server version: 10.11.14-MariaDB-0ubuntu0.24.04.1
 -- PHP Version: 8.3.6
 
@@ -65,7 +65,8 @@ CREATE TABLE `Games` (
   `PublicMessages` tinyint(1) DEFAULT 0,
   `Teams` tinyint(1) NOT NULL DEFAULT 0,
   `Exploit` tinyint(4) NOT NULL DEFAULT 0 COMMENT 'fix file',
-  `Sanitize` tinyint(4) NOT NULL DEFAULT 0 COMMENT 'clean file'
+  `Sanitize` tinyint(4) NOT NULL DEFAULT 0 COMMENT 'clean file',
+  `GameVersion` varchar(8) NOT NULL DEFAULT '2.6jrc4'
 ) ENGINE=Aria DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
 -- --------------------------------------------------------
