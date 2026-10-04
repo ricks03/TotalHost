@@ -70,22 +70,26 @@ sub starstat {
 	my ($dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware); 
 
 	($filename) = @_; 
-	open(StarFile, "$filename");
+	#open(StarFile, "$filename");
+  unless (open(StarFile, '<', $filename)) {
+	  warn "starstat: cannot open $filename: $!\n";
+	  return;
+	}
 	binmode(StarFile);
 	read(StarFile, $FileValues, 22);
 	close(StarFile);
 
-	$unpack = 'SA4LSSsS';
+	my $unpack = 'SA4LSSsS';
 	#$Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts
-	@FileValues = unpack($unpack,$FileValues);
+	my @FileValues = unpack($unpack,$FileValues);
 	($Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts) = @FileValues;
 	# Game Version
 	$ver = dec2bin($ver);
-	$verInc = substr($ver,11,5);
-	$verMinor = substr($ver,4,7);
-	$verMajor = substr($ver,0,4);
-	$verMajor = bin2dec($verMajor);
-	$verMinor = bin2dec($verMinor);
+	my $verInc = substr($ver,11,5);
+	my $verMinor = substr($ver,4,7);
+	my $verMajor = substr($ver,0,4);
+	my $verMajor = bin2dec($verMajor);
+	my $verMinor = bin2dec($verMinor);
 	$verInc = bin2dec($verInc);
 	$ver = $verMajor . "." . $verMinor . "." . $verInc;
 	$ver = &Fix_Version($ver);
@@ -126,9 +130,12 @@ sub starstat {
 }
 
 sub Check_Version {
-	my ($ver, $File) = @_; 
+	my ($ver, $File, $GameVersion) = @_; 
 #	if ($ver eq '2.6jrc4') { 
 	if ($ver eq '2.83.0' || $ver  eq '2.6jrc4') { 
+  	&SLogOut(400,"Correct Check_Version: $File $ver", $LogFile);
+		return 1;
+  } elsif ($ver eq '2.84.0' || $ver  eq '2.8x64') { 
   	&SLogOut(400,"Correct Check_Version: $File $ver", $LogFile);
 		return 1; 
 	} else { 
@@ -264,11 +271,19 @@ sub ValidateFile {
 	if ($file_type eq 'r') {
 		# check the file for information
 		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
-		if ( &Check_Magic($Magic, $File_Loc) && &Check_Version($ver, $File_Loc)) {
+		if ( &Check_Magic($Magic, $File_Loc) && &Check_Version($ver, $File_Loc, $GameVersion)) {
 			if ( $dt == 5) { #print "Valid Race File\n"; 
 				return $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware;
-			} else { &SLogOut(0,"$File_Loc Not a Race ( .r1) File",$ErrorLog); return $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware;} 
-		} else { &SLogOut(0,"$File_Loc Not a valid Race ( .r1 ) file",$ErrorLog); return $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware; }
+			} else { 
+        &SLogOut(0,"$File_Loc Not a Race ( .r1) File",$ErrorLog); 
+        #return $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware;
+        return 0;
+      } 
+		} else { 
+      &SLogOut(0,"$File_Loc Not a valid Race ( .r1 ) file",$ErrorLog); 
+      #return $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware; 
+      return 0;
+    }
 	# Log files
 	} elsif ($file_type eq 'x') {
 		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
@@ -303,8 +318,12 @@ sub SLogOut {
 
 	if ($Logging <= $logging) { 
 		$PrintString = localtime(time()) . " : $Logging : " . $PrintString;
-		open (LOGFILE, ">>$LogFileDate");
-		print LOGFILE "$PrintString\n\n";
-		close LOGFILE;
+# 		open (LOGFILE, ">>$LogFileDate");
+# 		print LOGFILE "$PrintString\n\n";
+# 		close LOGFILE;
+    if (open (LOGFILE, '>>', $LogFileDate)) {
+		  print LOGFILE "$PrintString\n\n";
+		  close LOGFILE;
+		} else { warn "SLogOut: cannot open $LogFileDate: $!\n"; }
 	}
 }

@@ -129,7 +129,7 @@ $default_mindelay = 5;
 @fGameOver = ('Game In Progress', 'Game Over'); 
 @fShareware = ('Registered','Shareware'); 
 @fInUse = ('Host instance not using file','Host instance using file'); # No idea what this value is.
-%Version = ('1.2a' => '1.1a', '2.65' => '2.0a', '2.81j' => '2.6i', '2.83.0' => '2.6jrc4');
+%Version = ('1.2a' => '1.1a', '2.65' => '2.0a', '2.81j' => '2.6i', '2.83.0' => '2.6jrc4', '2.84.0' => '2.8x64');
 
 # Permit displaying checkboxes or not depending on variable
 @Checked = ('','CHECKED');

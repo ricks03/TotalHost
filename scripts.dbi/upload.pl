@@ -56,7 +56,7 @@ my($User_Login) = $in{'User_Login'};
 my($RaceName) = $in{'RaceName'};
 my($RaceDescrip) = $in{'RaceDescrip'};
 my $err = ''; 
-my $valid_file = 0; # assume the file is not a valid file
+my $sql;
 my $client_ip = $ENV{'REMOTE_ADDR'};
 
 my $cgi = CGI->new; # Create the new CGI Session     
@@ -73,16 +73,29 @@ my $userlogin = $session->param("userlogin");
 #print $cgi->header(); # Create a page header
  
 # If there was an uploaded file
+use URI::Escape;
+my $safeGameFile = uri_escape($GameFile // '');
+my $safeFile     = uri_escape($in{'File'} // '');
+my $safeName     = uri_escape($in{'Name'} // '');
+my $safeLp       = uri_escape($in{'lp'}   // '');
+my $safeCp       = uri_escape($in{'cp'}   // '');
+my $safeRp       = uri_escape($in{'rp'}   // '');
+my $safeErr      = uri_escape($err        // '');
+my $newPage = "$WWW_Scripts/page.pl?GameFile=$safeGameFile&File=$safeFile&Name=$safeName&lp=$safeLp&cp=$safeCp&rp=$safeRp&status=$safeErr";
+$newPage =~ s/[\r\n]//g;  # belt-and-suspenders
+
 if ($File) {
-  $valid_file = &ValidateFileUpload($File);
-  my $newPage = qq|$WWW_Scripts/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err|;
+  my $valid_file = &ValidateFileUpload($File);
   # Redirect to newPage, which solves for reloading the page retaking the action.
   # Nothing can print before this or it breaks.
   #  print $cgi->redirect($newPage);  # Doesn't work
-  print "Location: $newPage\n\n";
+#   my $newPage = qq|$WWW_Scripts/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err|;
+#   print "Location: $newPage\n\n";
+  print "Location: $newPage\r\n\r\n";
 } else { 
   print $cgi->header(); # Create the HTML page header
-  print qq|<meta HTTP-EQUIV="REFRESH" content="2; url=| . $WWW_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
+  #print qq|<meta HTTP-EQUIV="REFRESH" content="2; url=| . $WWW_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
+  print qq|<meta HTTP-EQUIV="REFRESH" content="2; url=| . $newPage . qq|">|;
   print $cgi->start_html;
   $err .= "$userlogin: File too large or File Name must be provided." ;
   &LogOut(300,$err,$ErrorLog);
@@ -150,7 +163,7 @@ sub ValidateFileUpload {
   		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
   
       my $checkmagic = &Check_Magic($Magic, $File_Loc);
-      my $checkversion = &Check_Version($ver, $File_Loc);   
+      my $checkversion = &Check_Version($ver, $File_Loc, $GameVersion);   
   		if ( $checkmagic && $checkversion ) { # If this is indeed a valid Stars file
   			if ( $dt == 5 ) { # If it is a race file
   				# If the file doesn't exist already
@@ -201,7 +214,6 @@ sub ValidateFileUpload {
               if (-f $File_Loc ) { unlink $File_Loc; &LogOut(0,"Race file $File_Loc unlinked: $err", $ErrorLog);} #user-input cleaned as much as I can. 
               return 0;
 						}
-						return 0;
   				} else {
   					$err .= "<b>ERROR: Race File: $File already exists. Delete the race that uses that file (or rename the file you are uploading) and try again!</b>";
             if (-f $File_Loc ) { unlink $File_Loc or &LogOut(0,"Race File: $File already exists, failed to unlink", $ErrorLog); }  # Delete the temp file
@@ -240,7 +252,7 @@ sub ValidateFileUpload {
     # $err results will display at the top of the game page when it refreshes, comma-delimited
     if ($dt != 1)                                   { $err .= 'Not a Stars! .x file'; &LogOut(0,"ValidateFileUpload: Invalid .x file dt = $dt, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
     elsif (!(&Check_Magic($Magic, $File_Loc)))      { $err .= "Invalid Magic $Magic"; &LogOut(0,"ValidateFileUpload: Invalid Magic $Magic, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
-    elsif (!(&Check_Version($ver, $File_Loc)))      { $err .= "Invalid Version $ver"; &LogOut(0,"ValidateFileUpload: Invalid version $ver, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
+    elsif (!(&Check_Version($ver, $File_Loc, $GameVersion)))      { $err .= "Invalid Version $ver"; &LogOut(0,"ValidateFileUpload: Invalid version $ver, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
     elsif (!(&Check_GameFile($file_prefix)))        { $err .= "Invalid Game File $file_prefix"; &LogOut(0,"ValidateFileUpload: Invalid game file $file_prefix for $userlogin, $client_ip",$ErrorLog); }
     # Check_Player checks the extension of the file against the starstat value of the player
   	elsif (!(&Check_Player($file_player,$iPlayer))) { $err .= 'Invalid Player ID'; &LogOut(0,"ValidateFileUpload: Invalid Player ID Turn file $File $File_Loc for $userlogin, $client_ip",$ErrorLog); }
@@ -256,9 +268,9 @@ sub ValidateFileUpload {
 
     # If any critical errors have been reported, error. Delete the file.
     if ($err) { 
-      &LogOut(0, "ValidateFileUpload: Error $err, $errSerial , $client_ip", $ErrorLog); 
+      &LogOut(0, "ValidateFileUpload: Error $err, $client_ip", $ErrorLog); 
       # Pass the results to $err for display
-      $err = 	$File . " not a valid .x[n] file: $err $errSerial. DISCARDING FILE"; 
+      $err = 	$File . " not a valid .x[n] file: $err. DISCARDING FILE"; 
       if (-f $File_Loc ) { unlink $File_Loc or &LogOut(0,"Not a valid .x[n] file, failed to unlink", $ErrorLog); } #user-input cleaned as much as I can. 
       return 0; 
     } else {&LogOut(300, "ValidateFileUpload: No errors for $in{'GameFile'}", $LogFile); }
@@ -308,7 +320,8 @@ sub ValidateFileUpload {
         # If the game is AsAvailable, check to see if all Turns are in and whether we should generate. 
         #if ($GameValues{'AsAvailable'} == 1 ) { # Don't immediately generate As Available if the file generated warnings
         # Don't immediately generate As Available if the file generated warnings
-        if ($GameValues{'AsAvailable'} == 1 && !$turnsMissing) { # Don't generate unless all turns are in
+        my $is_cgi = defined $ENV{'GATEWAY_INTERFACE'}; # Check to see if this is called from the web server to protect TurnMake.pl
+        if ($GameValues{'AsAvailable'} == 1 && !$turnsMissing && $is_cgi) { # Don't generate unless all turns are in
           if ($warning) {
             $err .= "Not immediately generating As Available game $file_prefix due to Warnings. Will generate on next turn check interval however.\n";
             &LogOut(100, "ValidateFileUpload: AsAvailable $err for $GameFile $userlogin", $LogFile);
@@ -386,15 +399,18 @@ sub ValidateFileUpload {
         my $extracted_path = "$Dir_Upload/$file_name";
         
         # Prevent extraction of files outside the intended directory
-        if ($file_name =~ /\.\.|^\//) {
+        #if ($file_name =~ /\.\.|^\//) {
+        if ($file_name =~ m{(^|/|\\)\.\.(/|\\|$)} || $file_name =~ m{^[/\\]}) {
             $err .= "Unsafe file $file_name. ";
             &LogOut (0,"Skipping potentially unsafe file: $file_name", $ErrorLog);
             $all_files_valid = 0;
             next;
         }
         
-        $member->extractToFileNamed($extracted_path);
-        if (!$member) {
+        #$member->extractToFileNamed($extracted_path);
+        #if (!$member) {
+        my $status = $member->extractToFileNamed($extracted_path);
+        if ($status != AZ_OK) {
           $err .= "Failed to extract $file_name: $!";
           &LogOut(100,"Failed to extract $file_name: $!",$ErrorLog);
           $all_files_valid = 0;
@@ -430,7 +446,7 @@ sub ValidateFileUpload {
         # BUG: this should run against each file?
         my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($extracted_path);
         my $checkmagic = &Check_Magic($Magic, $extracted_path);
-        my $checkversion = &Check_Version($ver, $extracted_path);
+        my $checkversion = &Check_Version($ver, $extracted_path, $GameVersion);
        
         # If any file fails validation, stop processing
         unless ($checkmagic && $checkversion) {
@@ -631,10 +647,13 @@ sub Save_File {
   # Since for some reason some browsers (IE6) include it
   use File::Basename;
   if ($File) { 
-    $FileName = basename($File); 
+    my $FileName = basename($File); 
     my $File_Loc = $Dir_Upload . '/' . $FileName;  #write out the race file to where it is supposed to go.
     &LogOut(100,"Writing out $FileName / $File to $File_Loc for $userlogin",$LogFile);
-    open (OUTFILE,">$File_Loc") || &LogOut(0,"Error writing file $File_Loc for $userlogin, $client_ip",$ErrorLog);
+    unless (open (OUTFILE, '>', $File_Loc)) {
+        &LogOut(0,"Error writing file $File_Loc for $userlogin, $client_ip", $ErrorLog);
+        return;
+    }   
     binmode(OUTFILE);
     while (read($File,$data,1024)) { print OUTFILE $data;   }
     close(OUTFILE); 
@@ -648,11 +667,16 @@ sub Save_File {
 sub Check_User {
   # Confirm the user submitting the file is actually in the game and the correct player
   my ($file_prefix, $user_login, $playerId) = @_;
+  my %GameValues;
   my $sql = qq|SELECT * from GameUsers WHERE User_Login = ? AND GameFile = ? AND PlayerID = ?;|;
   my $db=&DB_Open($dsn);
+#   if (my $sth = &DB_Call($db,$sql, $user_login, $file_prefix, $playerId)) { 
+#     my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};
+#     $sth->finish();  
+#   }
   if (my $sth = &DB_Call($db,$sql, $user_login, $file_prefix, $playerId)) { 
-    my $row = $sth->fetchrow_hashref(); %GameValues = %{$row};
-    $sth->finish();  
+      if (my $row = $sth->fetchrow_hashref()) { %GameValues = %{$row}; }
+      $sth->finish();  
   }
   &DB_Close($db);
   if ($GameValues{'User_Login'} eq $user_login) { 
@@ -668,19 +692,9 @@ sub Check_AI {
   # Determine if the .m file is an AI player.
   # mostly a duplicate of displayBlockRace and decryptBlockRace 
 	my ($filename) = @_; 
-  # Read in the binary Stars! file, byte by byte
-  my $FileValues;
-  my @fileBytes;
-  open(StarFile, "<$filename");
-  binmode(StarFile);
-#   while (read(StarFile, $FileValues, 1)) {
-#     push @fileBytes, $FileValues; 
-#   }
-  # BUG: This change (from the above to the below) in theory radically improves performance, and it's in many places in STarsBlock.pm
-  my $raw;
-  read(StarFile, $raw, -s $filename);
-  @fileBytes = split(//, $raw);
-  close(StarFile);
+  
+  my @fileBytes = &readFile($filename);
+  
   my ($aiEnabled, $aiRace, $aiSkill) = &decryptBlockRaceAI(@fileBytes);  #values for aiRace and $aiSkill are strings
   &LogOut(200,"Check_AI: Filename: $filename, Enabled: $aiEnabled, Race: $aiRace, Skill: $aiSkill",$LogFile);
   return $aiEnabled, $aiRace, $aiSkill;
