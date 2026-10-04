@@ -1806,6 +1806,7 @@ sub show_client {
     # Print Game Name (and Year if applicable)
 		print "<br>game-name=$GameValues{'GameName'}\n";
 		print "<br>short-game-name=$GameValues{'GameFile'}\n";
+		print "<br>game-version=$GameValues{'GameVersion'}\n";
     # We need this early to display the year
     if ($GameValues{'GameStatus'} != 7 && $GameValues{'GameStatus'} != 6  && $GameValues{'GameStatus'} != 0) { 
   		($Magic, $lidGame, $ver, $HST_Turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($HSTFile);
