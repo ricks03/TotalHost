@@ -62,6 +62,7 @@ $ENV{'DISPLAY'} = ':99';
 $ENV{'PERL5LIB'} = '/var/www/totalhost/scripts';
 $PERL5LIB =  "PERL5LIB=$ENV{'PERL5LIB'}";
 $WINE_executable = '/usr/bin/wine c:\\stars.exe';  # Using Linux path for Stars! will fail.   
+$Stars26k_executable = '/home/totalhost/stars/stars26k/stars-host'; # Stars! 2.6k (native Linux)
 $apache_user  = 'www-data';  # Linux user account
 
 # Location of ImageMagic convert applications
@@ -129,7 +130,7 @@ $default_mindelay = 5;
 @fGameOver = ('Game In Progress', 'Game Over'); 
 @fShareware = ('Registered','Shareware'); 
 @fInUse = ('Host instance not using file','Host instance using file'); # No idea what this value is.
-%Version = ('1.2a' => '1.1a', '2.65' => '2.0a', '2.81j' => '2.6i', '2.83.0' => '2.6jrc4', '2.84.0' => '2.8x64');
+%Version = ('1.2a' => '1.1a', '2.65' => '2.0a', '2.81j' => '2.6i', '2.83.0' => '2.6jrc4', '2.84.0' => '2.6k');
 
 # Permit displaying checkboxes or not depending on variable
 @Checked = ('','CHECKED');

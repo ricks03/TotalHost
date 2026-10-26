@@ -2029,6 +2029,7 @@ sub process_game_launch {
 		}
 		# Read the DEF file in, and push it back out with the race file information	
 		my $def_file = "$Dir_Games/$GameFile/$GameFile.def"; 
+    my $GameVersion = &Game_Version($GameFile);
 		my @def_data = ();
 		if (-f $def_file) { #Check to see if .def file is there.
 			open (IN_FILE,$def_file) || &LogOut(0,"process_game_launch: cannot open $def_file!", $ErrorLog);
@@ -2057,7 +2058,13 @@ sub process_game_launch {
           if (my $row = $sth->fetchrow_hashref()) { %UserValues = %{$row}; }
           $sth->finish();
 		    }
-				$path = "$Dir_WINE$WINE_Races\\$UserValues{'User_File'}\\$GameUserData[$i]{'RaceFile'}";
+				#$path = "$Dir_WINE$WINE_Races\\$UserValues{'User_File'}\\$GameUserData[$i]{'RaceFile'}";
+        if ($GameVersion eq '2.6k') {
+          $path = "$Dir_Races/$UserValues{'User_File'}/$GameUserData[$i]{'RaceFile'}";
+        } else {
+          $path = "$Dir_WINE$WINE_Races\\$UserValues{'User_File'}\\$GameUserData[$i]{'RaceFile'}";
+        }
+
 				print OUT_FILE "$path\n";
 			}
 			# Print out the remaining game data
@@ -2080,7 +2087,14 @@ sub process_game_launch {
 		# important if for some reasons Stars! hangs (like a corrupt race file).
     # If this just won't work, try rebooting the PC because Stars! is hung up somewhere (at least, fixed it once)
     # We need to add another slash here for the wine CLI
-  	my ($CreateGame) = $WINE_executable . ' -a ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile\.df2";   # Need the extra \\s
+  	#my ($CreateGame) = $WINE_executable . ' -a ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile\.df2";   # Need the extra \\s
+    my $CreateGame;
+    if ($GameVersion eq '2.6k') {
+      $CreateGame = "$Stars26k_executable -a $Dir_Games/$GameFile/$GameFile.df2";
+    } else {
+      $CreateGame = $WINE_executable . ' -a ' . "$Dir_WINE\\$WINE_Games\\\\$GameFile\\\\$GameFile\.df2";   # Need the extra \\s
+    }
+
 		&LogOut(50, "Creating Game $CreateGame", $LogFile);
     #chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
 		#system(1,$CreateGame);
@@ -2543,7 +2557,7 @@ sub edit_game {
 	if ($type eq 'create') {
 	  print qq|<td><SELECT name=\"GameVersion\">|;
 		print qq|<OPTION value="2.6jrc4" SELECTED>2.6jrc4</OPTION>\n|;
-#		print qq|<OPTION value="2.8">2.8 (32-bit)</OPTION>\n|;
+		print qq|<OPTION value="2.6k">2.6k</OPTION>\n|;
 	  print qq|</SELECT></td>|;
 	} elsif ($type eq 'edit') {
     print qq|<td>$GameValues{'GameVersion'}</td>|;
@@ -2721,8 +2735,16 @@ eof
 	print qq|<TD><INPUT type="checkbox" name="SharedM" | . &button_help("SharedM") . qq| $Checked[$GameValues{'SharedM'}]>Shared M Files	</TD>\n|;
 	print qq|<TD><INPUT type="checkbox" name="HostAccess" | . &button_help("HostAccess") . qq| $Checked[$GameValues{'HostAccess'}]>Host Access    </TD>\n|;
 	print qq|</TR><TR>\n|;
-  print qq|<TD><INPUT type="checkbox" name="Exploit" | . &button_help("Exploit") . qq| $Checked[$GameValues{'Exploit'}]>Exploit Detection</TD>\n|;
-  print qq|<TD><INPUT type="checkbox" name="Sanitize" | . &button_help("Sanitize") . qq| $Checked[$GameValues{'Sanitize'}]>Sanitize Player Files</TD>\n|;
+  #print qq|<TD><INPUT type="checkbox" name="Exploit" | . &button_help("Exploit") . qq| $Checked[$GameValues{'Exploit'}]>Exploit Detection</TD>\n|;
+  #print qq|<TD><INPUT type="checkbox" name="Sanitize" | . &button_help("Sanitize") . qq| $Checked[$GameValues{'Sanitize'}]>Sanitize Player Files</TD>\n|;
+  if ($type eq 'edit' && $GameValues{'GameVersion'} eq '2.6k') {  # 2.6k fixed the exploits and player file leaks, so there's nothing to choose
+    print qq|<TD colspan="2">Exploit Detection / Sanitize: not needed in 2.6k</TD>\n|;
+  } else {
+    my $only = ($type eq 'create') ? ' (2.6jrc4 only)' : '';
+    print qq|<TD><INPUT type="checkbox" name="Exploit" | . &button_help("Exploit") . qq| $Checked[$GameValues{'Exploit'}]>Exploit Detection$only</TD>\n|;
+    print qq|<TD><INPUT type="checkbox" name="Sanitize" | . &button_help("Sanitize") . qq| $Checked[$GameValues{'Sanitize'}]>Sanitize Player Files$only</TD>\n|;
+  }
+  
   print qq|<TD><INPUT type="checkbox" name="PublicMessages" | . &button_help("PublicMessages") . qq| $Checked[$GameValues{'PublicMessages'}]>Public Messages</TD>\n|;
 	print qq|</TR><TR>\n|;
   print qq|<TD><INPUT type="checkbox" name="Teams" | . &button_help("Teams") . qq| $Checked[$GameValues{'Teams'}]>Teams</TD>\n|;
@@ -2864,8 +2886,7 @@ sub update_game {
 	else {$in{'GameName'} = &clean($in{'GameName'}); }
   
   my $GameVersion = $in{'GameVersion'};
-  if ($GameVersion eq '') { $GameVersion = '2.6jrc4'; }
-	else {$GameVersion = &clean($GameVersion); }
+  unless ($GameVersion eq '2.6jrc4' || $GameVersion eq '2.6k') { $GameVersion = '2.6jrc4'; }
 
 	$in{'GameDescrip'} = &clean($in{'GameDescrip'});
   
@@ -2920,12 +2941,17 @@ sub update_game {
   }
   
   # Enable/disable List functionality for Fix
- 	my $Exploit = &checkboxnull($in{'Exploit'}); # Not a DB entry
-  
-  if (!($Exploit)) { &updateList($in{'GameFile'}, 0); 
-  } else { &updateList($in{'GameFile'}, 1); }  
-    
-  my $Sanitize = &checkboxnull($in{'Sanitize'});
+#  	my $Exploit = &checkboxnull($in{'Exploit'}); # Not a DB entry
+#   if (!($Exploit)) { &updateList($in{'GameFile'}, 0); 
+#   } else { &updateList($in{'GameFile'}, 1); }  
+#   my $Sanitize = &checkboxnull($in{'Sanitize'});
+   my $Exploit = &checkboxnull($in{'Exploit'}); # Not a DB entry
+   my $Sanitize = &checkboxnull($in{'Sanitize'});
+   # 2.6k fixed the exploits and player file leaks, so these are always off
+   my $SavedVersion = ($in{'type'} eq 'create') ? $GameVersion : &Game_Version($in{'GameFile'});
+  if ($SavedVersion eq '2.6k') { $Exploit = 0; $Sanitize = 0; }
+  if (!($Exploit)) { &updateList($in{'GameFile'}, 0);
+  } else { &updateList($in{'GameFile'}, 1); }
   
   # If messages have been disabled, delete the .messages file
 	my $PublicMessages = &checkboxnull($in{'PublicMessages'}); 
@@ -2971,8 +2997,7 @@ sub update_game {
         AutoInactive = ?, 
         Teams = ?, 
         Exploit = ?,
-        Sanitize = ?, 
-        GameVersion = ?
+        Sanitize = ?
       WHERE GameFile = ?|;
                 
     my @bind_params = (
@@ -2982,7 +3007,7 @@ sub update_game {
       $HostMod, $HostForceGen, $NoDuplicates, $GameRestore, 
       $AnonPlayer, $GamePause, $GameDelay, $NumDelay, $MinDelay, 
       $ObserveHoliday, $NewsPaper, $SharedM, $HostAccess, $PublicMessages, 
-      $in{'Notes'}, $MaxPlayers, $AutoInactive, $Teams, $Exploit, $Sanitize, $GameVersion, $in{'GameFile'}
+      $in{'Notes'}, $MaxPlayers, $AutoInactive, $Teams, $Exploit, $Sanitize, $in{'GameFile'}
     );  
     
     # Store new game conditions
@@ -3163,7 +3188,14 @@ eof
 sub create_game_def {
 	my ($GameFile) = @_;
 	my $GameDEF = $Dir_Games . '/' . $GameFile . '/' . $GameFile . '.def';
-	my $GameXY = $Dir_WINE . "$WINE_Games\\$GameFile\\$GameFile.xy";
+	#my $GameXY = $Dir_WINE . "$WINE_Games\\$GameFile\\$GameFile.xy";
+  my $GameXY;
+  if (&Game_Version($GameFile) eq '2.6k') {
+          $GameXY = "$Dir_Games/$GameFile/$GameFile.xy";
+  } else {
+          $GameXY = $Dir_WINE . "$WINE_Games\\$GameFile\\$GameFile.xy";
+  }
+  
 	my $GameDEFCreate = ">" . $GameDEF;
 
 	# Write To file
@@ -3312,7 +3344,13 @@ sub read_def {
       my @GameValues = &decryptGameInfo(@fileBytes);
 
       # Append the game name
-      push @GameValues, "$Dir_WINE$WINE_Games\\$GameFile\\$GameFile.xy";
+      #push @GameValues, "$Dir_WINE$WINE_Games\\$GameFile\\$GameFile.xy";
+      if (&Game_Version($GameFile) eq '2.6k') {
+        push @GameValues, "$Dir_Games/$GameFile/$GameFile.xy";
+      } else {
+        push @GameValues, "$Dir_WINE$WINE_Games\\$GameFile\\$GameFile.xy";
+      }
+      
       # export a new  .df2 (full with player info) file
       open(my $fh, '>', "$df2_file") or &LogOut(0, "Cannot open file: $!", $ErrorLog);
       foreach my $value (@GameValues) { print $fh "$value\n"; }
@@ -3346,6 +3384,7 @@ sub read_def {
 		my ($vc_meet, $vc_minyears) = split(' ',$def_data[$skip+7]);
 		my $gamefile = $def_data[$skip+8];
 		my @Vals = ();
+    push (@Vals, "Stars! " . &Game_Version($GameFile));
 		push (@Vals, "$Universe_Size[$univ_size] Universe");
 	 	push (@Vals, "$Density[$univ_dense] Density");
 		push (@Vals, "$Positions[$univ_start] Players");

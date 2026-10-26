@@ -131,15 +131,23 @@ sub starstat {
 
 sub Check_Version {
 	my ($ver, $File, $GameVersion) = @_; 
+  if ($GameVersion) {
+        if ($ver eq $GameVersion) {
+                &SLogOut(400,"Correct Check_Version: $File $ver matches game $GameVersion", $LogFile);
+                return 1;
+        }
+        &SLogOut(0,"Version $ver in $File does not match game version $GameVersion",$ErrorLog);
+        return 0;
+  }
 #	if ($ver eq '2.6jrc4') { 
 	if ($ver eq '2.83.0' || $ver  eq '2.6jrc4') { 
   	&SLogOut(400,"Correct Check_Version: $File $ver", $LogFile);
 		return 1;
-  } elsif ($ver eq '2.84.0' || $ver  eq '2.8x64') { 
+  } elsif ($ver eq '2.84.0' || $ver  eq '2.6k') { 
   	&SLogOut(400,"Correct Check_Version: $File $ver", $LogFile);
 		return 1; 
 	} else { 
-		&SLogOut(0,"Incorrect version $ver ($Version{$ver}) in $File",$ErrorLog);
+		&SLogOut(0,"Incorrect version $ver in $File",$ErrorLog);
 		return 0; 
 	}
 }

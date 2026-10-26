@@ -38,6 +38,9 @@
 
 use strict; 
 use warnings;
+our ($Dir_Games, $Dir_Graphs, $WINE_executable, $Stars26k_executable, $Dir_WINE, $WINE_Games,
+     $StarMapper_Year, $StarMapper_Password, $StarMapper_URL,
+     $MapOutFile, $DataOutFile, $ImgOutFile, $imagemagick, $starmapper);
 use FindBin;
 use lib $FindBin::Bin;
 
@@ -82,7 +85,6 @@ my $destdir = $sourcedir . '.mov';
 my $moviePath = $Dir_Graphs . '/movies';
 
 #StarMapper
-my $DataOutFile;
 my @numbers;
 my $number; 
 my $file1;
@@ -123,7 +125,8 @@ foreach $dirname (@AllDirs) {
       } else { die ".hst file $HST not found\n"; }
     }
     # Only for the .m files
-    if ($filename =~ /^(\w+[\w.-]+\.[Mm]\d{1,2})$/) { 
+    #if ($filename =~ /^(\w+[\w.-]+\.[Mm]\d{1,2})$/) { 
+    if ($filename =~ /^([\w.-]+\.[Mm]\d{1,2})$/) {
       my $MFile = "$destdir/$dirname/$filename";
       print "\tRemoving Password: $MFile\n";
       # Remove the password
@@ -141,8 +144,15 @@ foreach $dirname (@AllDirs) {
 # Generate the Stars! data files
 #   Generate the .map file (need only one)
 #   Stars! -dm mygame.m1    <-- Dump the universe definition and exit
+my $GameVersion = &Game_Version($GameFile);
+
 my $map;
-$map = $WINE_executable . ' -dm ' .  "$Dir_WINE\\$WINE_Games\\\\$GameFile\.mov" . "\\\\2400\\\\$GameFile" . '.m' . $numbers[0];
+#$map = $WINE_executable . ' -dm ' .  "$Dir_WINE\\$WINE_Games\\\\$GameFile\.mov" . "\\\\2400\\\\$GameFile" . '.m' . $numbers[0];
+if ($GameVersion eq '2.6k') {
+  $map = "$Stars26k_executable -dm $destdir/2400/$GameFile.m$numbers[0]";
+} else {
+  $map = $WINE_executable . ' -dm ' .  "$Dir_WINE\\$WINE_Games\\\\$GameFile\.mov" . "\\\\2400\\\\$GameFile" . '.m' . $numbers[0];
+}
 
 print "DM: $map\n";
 
@@ -171,7 +181,13 @@ foreach $dirname (@AllDirs) { # Dirname is the year value
     # 		$pla .= ' -dp ' . $destdir . '\\' . $dirname . '\\' . $GameFile . '.m' . $number;
     # 		$file1 = $destdir . '\\' . $dirname . '\\' . $GameFile . '.p' . $number;
     #     $file2 = $destdir . '\\' . $GameFile . ' ' . $dirname . '.p' . $number;  
-    $pla = $WINE_executable . " -dp $Dir_WINE\\$WINE_Games\\\\$GameFile\.mov\\\\$dirname\\\\$GameFile" . '.m' . $number;
+    #$pla = $WINE_executable . " -dp $Dir_WINE\\$WINE_Games\\\\$GameFile\.mov\\\\$dirname\\\\$GameFile" . '.m' . $number;
+    if ($GameVersion eq '2.6k') {
+      $pla = "$Stars26k_executable -dp $destdir/$dirname/$GameFile.m$number";
+    } else {
+      $pla = $WINE_executable . " -dp $Dir_WINE\\$WINE_Games\\\\$GameFile\.mov\\\\$dirname\\\\$GameFile" . '.m' . $number;
+    }
+    
     print "DP: $pla\n";
     $file1 = "$destdir/$dirname/$GameFile" . '.p' . $number;
     $file2 = "$destdir/$GameFile $dirname" . '.p' . $number;
@@ -190,7 +206,8 @@ foreach $dirname (@AllDirs) { # Dirname is the year value
 # configure the Starmapper ini file
 #$DataOutFile = $destdir . '\\' . $GameFile . '.ini';
 $DataOutFile = $destdir . '/' . $GameFile . '.ini';
-open (INIFILE, ">$DataOutFile");
+#open (INIFILE, ">$DataOutFile");
+open (INIFILE, '>', $DataOutFile) or die "Cannot write $DataOutFile: $!\n";
 print INIFILE "; Starmapper ini file for $GameFile\n";
 print INIFILE "[players]\n";
 # display all of the players in the starmapper format
@@ -240,7 +257,8 @@ close INIFILE;
 # my $starmapper = 'd:\th\utils\starmapper\starmapper121\starmapper.bat';
 #$DataOutFile = $destdir . '\\' . 'starmapper_' . $GameFile . '.bat';
 $MapOutFile = $destdir . '/' . 'Starmapper_' . $GameFile . '.sh';
-open (MAPFILE, ">$MapOutFile");
+#open (MAPFILE, ">$MapOutFile");
+open (MAPFILE, '>', $MapOutFile) or die "Cannot write $MapOutFile: $!\n";
 my $mapfile = $starmapper . " $GameFile";
 foreach $number (@numbers) { $mapfile .= " $number"; }
 print MAPFILE $mapfile . "\n";
@@ -252,7 +270,8 @@ $exit_status = &call_system($MapOutFile); # Run starmapper
 # Initialize the Image command file
 if (-f $MapOutFile) {
   $ImgOutFile = $destdir . '/image_' . $GameFile . '.sh';
-  open (IMGFILE, ">$ImgOutFile");
+  #open (IMGFILE, ">$ImgOutFile");
+  open (IMGFILE, '>', $ImgOutFile) or die "Cannot write $ImgOutFile: $!\n";
   # Create an animated gif from the Starmapper .PCX files.
   # my $imagemagick = 'C:\Program Files\ImageMagick-6.8.3-Q16\convert';
   #print IMGFILE "\"" . $imagemagick . "\"" . " -loop 1 -delay 100 " . " \"$destdir\\$GameFile *.PCX\" $moviePath" . '\\movie_' . "$GameFile.gif\n";
@@ -260,7 +279,7 @@ if (-f $MapOutFile) {
   close IMGFILE;
   chmod 0770, $ImgOutFile;
   $exit_status = &call_system($ImgOutFile);  # Run imagemagic (requires successful starmapper)
-  $GifFile = "$Dir_Graphs/movies/$GameFile.gif";
+  my $GifFile = "$Dir_Graphs/movies/$GameFile.gif";
   chmod 0440, $GifFile; 
 } else { print "Can\'t create $ImgOutFile, because $MapOutFile is missing"; }
 

@@ -29,7 +29,7 @@
 @fGameOver = ('Game In Progress', 'Game Over'); 
 @fShareware = ('Registered','Shareware'); 
 @fInUse = ('Host instance not using file','Host instance using file'); 
-%Version = ('1.2a' => '1.1a', '2.65' => '2.0a', '2.81j' => '2.6i', '2.83.0' => '2.6jrc4');
+%Version = ('1.2a' => '1.1a', '2.65' => '2.0a', '2.81j' => '2.6i', '2.83.0' => '2.6jrc4', '2.84.0' => '2.6k');
 
 use constant  dtXY   => 0; 
 use constant  dtLog  => 1; 
@@ -68,7 +68,7 @@ $unpack = "SA4LSSsS";
 @FileValues = unpack($unpack,$FileValues);
 ($Header, $Magic, $lidGame, $ver, $turn, $iPlayer, $dts) = @FileValues;
 
-unless ( $Magic ne 'J3J3' ) { die "StarStat: $filename does not appear to be a Stars! File.\n"; }
+unless ( $Magic eq 'J3J3' ) { die "StarStat: $filename does not appear to be a Stars! File.\n"; }
 
 print join(',', @FileValues) . "\n";
 #print "Header\t$Header\n"; #Header
@@ -94,19 +94,30 @@ print "Version:\t$ver (" . $Version{$ver} . ")\n";
 $turn=$turn + 2400;
 print "turn:\t$turn\n";
 
-# Player Number
-$iPlayer = &dec2bin($iPlayer);
-$iPlayer = substr($iPlayer,11,5);
-$iPlayer = bin2dec($iPlayer);
-#$iPlayer = $iPlayer & 0x1F;
-$iPlayer=$iPlayer +1; # Correcting for 0-15
-print "iPlayer:\t$iPlayer\n"; 
+# # Player Number
+# $iPlayer = &dec2bin($iPlayer);
+# $iPlayer = substr($iPlayer,11,5);
+# $iPlayer = bin2dec($iPlayer);
+# #$iPlayer = $iPlayer & 0x1F;
+# $iPlayer=$iPlayer +1; # Correcting for 0-15
+# print "iPlayer:\t$iPlayer\n"; 
+# 
+# # Encryption seed
+# # (0 in the File Header Block)
+# $binSeed = substr($iPlayer,0,11);
+# $seed = bin2dec($binSeed);
+# print "Seed:\t$seed\n"; 
 
-# Encryption seed
-# (0 in the File Header Block)
-$binSeed = substr($iPlayer,0,11);
-$seed = bin2dec($binSeed);
-print "Seed:\t$seed\n"; 
+# Player / seed share the 16-bit field
+my $iPlayerBin = &dec2bin($iPlayer);
+# Seed: top 11 bits
+my $binSeed    = substr($iPlayerBin, 0, 11);
+my $seed       = bin2dec($binSeed);
+# Player: bottom 5 bits, 1-indexed for display
+my $playerBits = substr($iPlayerBin, 11, 5);
+$iPlayer       = bin2dec($playerBits) + 1;
+print "iPlayer:\t$iPlayer\n";
+print "Seed:\t$seed\n";
 
 # dts
 # Convert DTS to binary so we can pull the values back out

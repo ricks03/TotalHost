@@ -246,13 +246,17 @@ sub ValidateFileUpload {
     }
  		my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($File_Loc);
     my $errSerial;
+ 
+    # Get the Stars! version this game was created with
+    my $GameVersion = &Game_Version($file_prefix);
+    
 		&LogOut(300,"ValidateFileUpload: DTS2: $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware, $client_ip", $LogFile);
     # Validate the .x file
 	  # DT: 'Universe Definition (.xy) File', 'Player Log (.x) File', 'Host (.h) File', 'Player Turn (.m) File', 'Player History (.h) File', 'Race Definition (.r) File', 'Unknown (??) File'
     # $err results will display at the top of the game page when it refreshes, comma-delimited
     if ($dt != 1)                                   { $err .= 'Not a Stars! .x file'; &LogOut(0,"ValidateFileUpload: Invalid .x file dt = $dt, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
     elsif (!(&Check_Magic($Magic, $File_Loc)))      { $err .= "Invalid Magic $Magic"; &LogOut(0,"ValidateFileUpload: Invalid Magic $Magic, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
-    elsif (!(&Check_Version($ver, $File_Loc, $GameVersion)))      { $err .= "Invalid Version $ver"; &LogOut(0,"ValidateFileUpload: Invalid version $ver, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
+    elsif (!(&Check_Version($ver, $File_Loc, $GameVersion)))      { $err .= "Wrong Stars! version $ver (this game uses $GameVersion)"; &LogOut(0,"ValidateFileUpload: Invalid version $ver, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
     elsif (!(&Check_GameFile($file_prefix)))        { $err .= "Invalid Game File $file_prefix"; &LogOut(0,"ValidateFileUpload: Invalid game file $file_prefix for $userlogin, $client_ip",$ErrorLog); }
     # Check_Player checks the extension of the file against the starstat value of the player
   	elsif (!(&Check_Player($file_player,$iPlayer))) { $err .= 'Invalid Player ID'; &LogOut(0,"ValidateFileUpload: Invalid Player ID Turn file $File $File_Loc for $userlogin, $client_ip",$ErrorLog); }
@@ -367,6 +371,7 @@ sub ValidateFileUpload {
     my $xy_present = 0;
     my $hst_present = 0;
     my @CHK; 
+    my $GameVersion = &Game_Version($GameFile); # All files in the zip must match the game's version
         
     my $file_size = -s $zip_file; # Get the size in bytes and don't unzip if it's too big
     # 16-player, zipped, is 40k in 2400, 52k in 2401 (with no turns submitted)
@@ -450,7 +455,7 @@ sub ValidateFileUpload {
        
         # If any file fails validation, stop processing
         unless ($checkmagic && $checkversion) {
-          $err .= "Validation failed for file: $file_name. ";
+          $err .= "Validation failed for file: $file_name" . ($checkversion ? '' : " (Stars! version $ver, this game uses $GameVersion)") . '. ';
           &LogOut(100, "Validation failed for file: $file_name", $ErrorLog);
           $all_files_valid = 0;
           next;
