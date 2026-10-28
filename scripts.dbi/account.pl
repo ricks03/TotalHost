@@ -129,7 +129,7 @@ sub add_user {
 	my $User_Password = $in{'User_Password'};
   
   # Check to see that fields were filled out
-  if ($User_First && $User_Last && $User_Login && $User_Email && $valid_email && $pass_temp && (length($pass_temp) > $min_password_length)) {
+  if ($User_First && $User_Last && $User_Login && $User_Email && $valid_email && $pass_temp && (length($pass_temp) >= $min_password_length)) {
   
   	my $db = &DB_Open($dsn);
   	my $Date =&GetTimeString();
@@ -137,31 +137,55 @@ sub add_user {
   	my $passhash = sha1_hex($hash); 
   	#my $sql = qq|INSERT INTO User (`User_Login`, `User_Last`, `User_First`, `User_Password`, `User_Email`, `User_Timezone`, `User_Status`, `User_Creation`, `User_Modified`, `EmailTurn`, `EmailList`) VALUES ('$User_Login','$User_Last','$User_First','$passhash', '$User_Email', 'America/New_York', -5,'$Date','$Date', 1, 1);|;
   	#if (my $sth = &DB_Call($db,$sql)) { 
-    my $sql = qq|INSERT INTO User (`User_Login`, `User_Last`, `User_First`, `User_Password`, `User_Email`, `User_Timezone`, `User_Status`, `User_Creation`, `User_Modified`, `EmailTurn`, `EmailList`) VALUES (?,?,?,?,?,?,-5,?,?, 1, 1);|;
-    if (my $sth = &DB_Call($db,$sql,$User_Login,$User_Last,$User_First,$passhash,$User_Email,$timezone,$Date,$Date)) {
-      print "<P>Done!  Check your email to activate your account. \n";
+    # Check for an existing account with this email or User ID before trying to create one
+    my ($Dup_Email, $Dup_Login, $Existing_Login, $Existing_Password, $Existing_Email, $Existing_Status);
+    my $sql = 'SELECT User_Login, User_Password, User_Email, User_Status FROM User WHERE User_Email=? OR User_Login=?;';
+    if (my $sth = &DB_Call($db,$sql,$User_Email,$User_Login)) {
+      while (my @row = $sth->fetchrow_array()) {
+        my ($Row_Login, $Row_Password, $Row_Email, $Row_Status) = @row;
+        if (lc($Row_Email) eq lc($User_Email)) {
+          $Dup_Email = 1;
+          ($Existing_Login, $Existing_Password, $Existing_Email, $Existing_Status) = ($Row_Login, $Row_Password, $Row_Email, $Row_Status);
+        } else { $Dup_Login = 1; }
+      }
       $sth->finish();
     }
-  	else { 
-      print '<P>Error creating account. Duplicate User ID?'; 
-      &LogOut(10,"ERROR: Adding New User $in{'User_Login'} $in{'User_Email'}",$ErrorLog);
+
+    if ($Dup_Email) {
+      if ($Existing_Status == -5) {
+        # Account was created but never activated; send the activation link again
+        print "<P>An account for $User_Email already exists, but has not been activated yet. The activation email has been sent again.\n";
+        &send_activation($Existing_Login, $Existing_Password, $Existing_Email);
+      } else {
+        # Account exists; remind the user of their User ID
+        print "<P>An account for $User_Email already exists. A reminder of your User ID has been sent to that address.\n";
+        print qq|<P>You can <a href=$WWW_Scripts/index.pl?cp=login_page>Log In</a> or <a href=$WWW_Scripts/index.pl?cp=reset_user>Reset your password</a>.|;
+        $Subject = $mail_prefix . 'Account Reminder';
+        $Message = "\n\nA request was submitted to create a new account for this email address, but you already have one.\n";
+        $Message .= "Your User ID is: $Existing_Login\n";
+        $Message .= "If you have forgotten your password, you can reset it here:\n";
+        $Message .= $WWW_HomePage . $WWW_Scripts . '/index.pl?cp=reset_user';
+        $smtp = &Mail_Open;
+        &Mail_Send($smtp, $Existing_Email, $mail_from, $Subject, $Message);
+        &Mail_Close($smtp);
+      }
+      &LogOut(100,"Account creation for existing email $User_Email (existing User ID $Existing_Login, attempted $User_Login)",$LogFile);
+    } elsif ($Dup_Login) {
+      print "<P>The User ID $User_Login is already taken. Please go back and choose another.\n";
+      &LogOut(100,"Account creation for existing User ID $User_Login",$LogFile);
+    } else {
+      $sql = qq|INSERT INTO User (`User_Login`, `User_Last`, `User_First`, `User_Password`, `User_Email`, `User_Timezone`, `User_Status`, `User_Creation`, `User_Modified`, `EmailTurn`, `EmailList`) VALUES (?,?,?,?,?,?,-5,?,?, 1, 1);|;
+      if (my $sth = &DB_Call($db,$sql,$User_Login,$User_Last,$User_First,$passhash,$User_Email,$timezone,$Date,$Date)) {
+        $sth->finish();
+        print "<P>Done!  Check your email to activate your account. \n";
+        &send_activation($User_Login, $passhash, $User_Email);
+      } else {
+        # Only send the activation email if the account was actually created
+        print '<P>Error creating account. Please try again, or contact the site administrator.';
+        &LogOut(10,"ERROR: Adding New User $User_Login $User_Email",$ErrorLog);
+      }
     }
-  	# add an entry in the temp file to expect the account to be activated
-  	&DB_Close($db);
-  	# email user to activate the account
-  	# Hash password before sending it back out
-  	$hash = $passhash . $secret_key;
-  	$tmphash = sha1_hex($hash); 
-  	
-  	$Subject = $mail_prefix . 'Account Creation';
-  	$Message = "\n\nA request was submitted to create an account $User_Login.\n";
-  	$Message .= "To activate your account, select the link below:\n";
-  	$Message .= $WWW_HomePage . $WWW_Scripts . '/account.pl?action=activate_user&user=' . $in{'User_Login'} . '&new=' . $tmphash;
-  	$smtp = &Mail_Open;
-  	&Mail_Send($smtp, $in{'User_Email'}, $mail_from, $Subject, $Message); # email user
-  	&Mail_Send($smtp, $mail_from, $mail_from, $Subject, $Message); # notify site host
-  	&Mail_Close($smtp);
-  	&LogOut(100,"Add Mail sent to $in{'User_Email'}",$LogFile);
+    &DB_Close($db);
   
   } else {
     # tell the user they screwed up
@@ -171,12 +195,29 @@ sub add_user {
     unless ($User_Last)  { print "<li>Last Name is a required field.</li>\n"; }
     unless ($User_Login) { print "<li>User ID is a required field.</li>\n"; }
     unless ($User_Email) { print "<li>Email Address is a required field.</li>\n";}
-    unless ($pass_temp && (length($pass_temp) > $min_password_length))  { print "<li>Password is a required field and at least $min_password_length characters.</li>\n";}
+    unless ($pass_temp && (length($pass_temp) >= $min_password_length))  { print "<li>Password is a required field and at least $min_password_length characters.</li>\n";}
     if ($User_Email && !$valid_email) { print "<li>The email address you entered ( $User_Email ) does not detect as valid.</li>\n";  }
     print "</ul>\n";
     print "<P>Please try again!\n";
-    &LogOut(100,"Account: User1: $User_First, User2: $User_Last, Login: $User_Login, Email: $User_Email, Pass: $pass_temp",$ErrorLog);
+    &LogOut(100,"Account: User1: $User_First, User2: $User_Last, Login: $User_Login, Email: $User_Email, Pass length: " . length($pass_temp),$ErrorLog);
   }
+}
+
+sub send_activation {
+  # Email the activation link for a pending (User_Status=-5) account
+  my ($User_Login, $passhash, $User_Email) = @_;
+  # Hash password before sending it back out
+  my $hash = $passhash . $secret_key;
+  my $tmphash = sha1_hex($hash);
+  $Subject = $mail_prefix . 'Account Creation';
+  $Message = "\n\nA request was submitted to create an account $User_Login.\n";
+  $Message .= "To activate your account, select the link below:\n";
+  $Message .= $WWW_HomePage . $WWW_Scripts . '/account.pl?action=activate_user&user=' . $User_Login . '&new=' . $tmphash;
+  $smtp = &Mail_Open;
+  &Mail_Send($smtp, $User_Email, $mail_from, $Subject, $Message); # email user
+  &Mail_Send($smtp, $mail_from, $mail_from, $Subject, $Message); # notify site host
+  &Mail_Close($smtp);
+  &LogOut(100,"Add Mail sent to $User_Email",$LogFile);
 }
 
 sub activate_user {
@@ -188,10 +229,10 @@ sub activate_user {
   # 240923
   #$sql = "SELECT User.User_ID, User.User_Login, User.User_Password, User.User_Email FROM User;";
   # Can only activate users that aren't active
-  $sql = 'SELECT User.User_ID, User.User_Login, User.User_Password, User.User_Email FROM User WHERE User_Status=-5;';
+  $sql = 'SELECT User.User_ID, User.User_Login, User.User_Password, User.User_Email, User.User_Timezone FROM User WHERE User_Status=-5;';
   if (my $sth = &DB_Call($db, $sql)) {
     while (my @row = $sth->fetchrow_array()) {
-    	($User_ID, $User_Login, $User_Password, $User_Email) = @row;
+    	($User_ID, $User_Login, $User_Password, $User_Email, $User_Timezone) = @row;
        
     	# Hashing password with secret key
     	my $hash = $User_Password . $secret_key;
@@ -409,7 +450,7 @@ sub login {
       # Hashing the submitted password with the secret key
       $hash = $submit_hash . $secret_key;
       $passhash = sha1_hex($hash);
-      &LogOut(300, "Attempting a match on B: $User_Login 2: $User_Password 3: $passhash 4: $submit_hash 5: $passhash", $LogFile);
+      &LogOut(300, "Attempting a match on B: $User_Login", $LogFile);
       # Check for a match
       if ($User_Password eq $passhash && $submit_user eq $User_Login) {
         $id = $User_ID;
