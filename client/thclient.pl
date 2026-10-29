@@ -15,6 +15,7 @@ use Getopt::Long;
 use POSIX qw(strftime);
 use Cwd qw(getcwd);
 use File::Copy qw(copy);
+use File::Basename qw(dirname);
 
 # Usage: thclient.pl [--config file] [--once] [--play GameFile[.mN]]
 #   --once  run a single pass and exit (for Task Scheduler / cron)
@@ -44,6 +45,13 @@ unless (do $ConfigFile) { die "Cannot load $ConfigFile: " . ($@ || $!) . "\n"; }
 my $PollMinutes   = $Config{PollMinutes}   || 10;   # how often to ask the server for new turns
 my $UploadSeconds = $Config{UploadSeconds} || 15;   # how often to look for a changed .x file
 
+# TotalHost asks clients not to check for new turns more than once every 5 minutes.
+# The time of the last check is kept in a file, so repeated --once runs are held to it too.
+my $MinPollMinutes = 5;
+my $PollRequested  = $PollMinutes;
+$PollMinutes = $MinPollMinutes if $PollMinutes < $MinPollMinutes;
+my $LastPollFile = dirname($ConfigFile) . '/.thclient.lastpoll';
+
 # Set when a login fails; cleared at the next server poll so a bad password isn't retried every request
 my $LoginFailed = 0;
 
@@ -65,10 +73,10 @@ my $ua = LWP::UserAgent->new(
 if ($Config{Proxy}) { $ua->proxy(['http', 'https'], $Config{Proxy}); }
 else { $ua->env_proxy; }
 
-# Fetch and parse page.pl?client=java for one game
+# Fetch and parse page.pl?client=th for one game
 sub get_status {
   my ($GameFile) = @_;
-  my $res = $ua->get("$Config{Server}/scripts/page.pl?client=java&GameFile=$GameFile");
+  my $res = $ua->get("$Config{Server}/scripts/page.pl?client=th&GameFile=$GameFile");
   return (error => 'HTTP ' . $res->status_line) unless $res->is_success;
   my $body = $res->decoded_content;
   # A truncated page means the script died partway through
@@ -274,7 +282,16 @@ sub check_upload {
 }
 
 # Ask the server about each game and download any new turns
+# Skipped if the last check (by this or any other THClient run) was under $MinPollMinutes ago
 sub poll_server {
+  my $last = -f $LastPollFile ? (stat($LastPollFile))[9] : 0;
+  my $wait = $last + $MinPollMinutes * 60 - time();
+  if ($wait > 0) {
+    note("Last server check was under $MinPollMinutes minutes ago; next check in " . int(($wait + 59) / 60) . ' minute(s)');
+    return 0;
+  }
+  if (open(my $fh, '>', $LastPollFile)) { close($fh); }
+  utime(undef, undef, $LastPollFile);
   $LoginFailed = 0;
   foreach my $game (@{ $Config{Games} }) {
     my %status = get_status($game->{GameFile});
@@ -282,6 +299,7 @@ sub poll_server {
     check_download($game, \%status);
     show_summary($game, \%status);
   }
+  return 1;
 }
 
 # Look for changed .x files to upload; this is local only, so it can run often
@@ -299,11 +317,13 @@ if ($Play) {
 }
 
 note("THClient started for $Config{User_Login} on $Config{Server}: " . scalar(@{ $Config{Games} }) . ' game(s)');
-poll_server();
+note("PollMinutes $PollRequested is below the TotalHost minimum; using $MinPollMinutes") if $PollRequested < $MinPollMinutes;
+my $Polled = poll_server();
 poll_uploads();
 exit if $Once;
 
-my $NextServerPoll = time() + $PollMinutes * 60;
+# If the first check was skipped for the rate limit, try again as soon as it allows
+my $NextServerPoll = $Polled ? time() + $PollMinutes * 60 : (stat($LastPollFile))[9] + $MinPollMinutes * 60;
 while (1) {
   sleep($UploadSeconds);
   poll_uploads();

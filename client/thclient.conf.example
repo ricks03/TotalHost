@@ -4,7 +4,7 @@
   Server        => 'https://totalhost.starsautohost.org',
   User_Login    => 'yourlogin',
   Password      => 'yourpassword',
-  PollMinutes   => 10,    # how often to check the server for new turns
+  PollMinutes   => 10,    # how often to check the server for new turns (minimum 5)
   UploadSeconds => 15,    # how often to look for a newly saved .x file
   LogFile       => '',    # optional, e.g. 'C:/Stars/thclient.log'
   Proxy         => '',    # optional, e.g. 'http://proxyhost:8080'; otherwise uses http_proxy/https_proxy

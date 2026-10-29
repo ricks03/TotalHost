@@ -72,7 +72,9 @@ with the same GameFile and Dir and different Player numbers.
 Other settings (the defaults are fine):
 
   Server         https://totalhost.starsautohost.org
-  PollMinutes    how often to ask TotalHost for new turns (default 10)
+  PollMinutes    how often to ask TotalHost for new turns (default 10,
+                 minimum 5; THClient never checks more often than every
+                 5 minutes, even when run repeatedly with --once)
   UploadSeconds  how often to look for a newly saved .x file (default 15;
                  this only looks at your disk, not the server)
   LogFile        also append all messages to this file, e.g. 'C:/THClient/thclient.log'
@@ -170,6 +172,11 @@ Run every 10 minutes instead, from Task Scheduler:
   .thclient.GameFile.xN       marks which version of your .x was last
                               uploaded. Delete it to force a re-upload.
   GameFile.mN.tmp             only while a download is in progress
+
+And next to thclient.conf:
+
+  .thclient.lastpoll          the time of the last server check, used to
+                              keep checks at least 5 minutes apart
 
 
 8. Troubleshooting
