@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StarsShape Pattern Examples</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0e27;
+            color: #e0e0e0;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 {
+            text-align: center;
+            color: #4fc3f7;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #90caf9;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .pattern-card {
+            background: #1a1f3a;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        .pattern-title {
+            color: #64b5f6;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .pattern-command {
+            font-family: 'Courier New', monospace;
+            background: #0d1117;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #7cb342;
+            margin-bottom: 10px;
+        }
+        canvas {
+            width: 100%;
+            height: 300px;
+            background: #050810;
+            border-radius: 4px;
+            cursor: crosshair;
+        }
+        .info {
+            font-size: 12px;
+            color: #b0bec5;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>StarsShape.pl Pattern Gallery</h1>
+    <div class="subtitle">Visualization of all available galaxy formation patterns</div>
+    
+    <div class="grid">
+        <div class="pattern-card">
+            <div class="pattern-title">Spiral-2 (Two-Arm Spiral)</div>
+            <div class="pattern-command">StarsShape.pl coords.csv spiral-2</div>
+            <canvas id="spiral2"></canvas>
+            <div class="info">Classic barred spiral with two symmetric arms rotating outward from center</div>
+        </div>
+
+        <div class="pattern-card">
+            <div class="pattern-title">Spiral-3 (Three-Arm Spiral)</div>
+            <div class="pattern-command">StarsShape.pl coords.csv spiral-3</div>
+            <canvas id="spiral3"></canvas>
+            <div class="info">Tri-spiral formation with three arms distributed evenly around the galactic core</div>
+        </div>
+
+        <div class="pattern-card">
+            <div class="pattern-title">Spiral-4 (Four-Arm Spiral)</div>
+            <div class="pattern-command">StarsShape.pl coords.csv spiral-4</div>
+            <canvas id="spiral4"></canvas>
+            <div class="info">Complex multi-arm spiral with four distinct spiral arms</div>
+        </div>
+
+        <div class="pattern-card">
+            <div class="pattern-title">Rings-3 (Three Concentric Rings)</div>
+            <div class="pattern-command">StarsShape.pl coords.csv rings-3</div>
+            <canvas id="rings3"></canvas>
+            <div class="info">Planets distributed in three orbital rings around a central point</div>
+        </div>
+
+        <div class="pattern-card">
+            <div class="pattern-title">Rings-5 (Five Concentric Rings)</div>
+            <div class="pattern-command">StarsShape.pl coords.csv rings-5</div>
+            <canvas id="rings5"></canvas>
+            <div class="info">Dense ring structure with five distinct orbital bands</div>
+        </div>
+
+        <div class="pattern-card">
+            <div class="pattern-title">Cluster-3 (Three Clusters)</div>
+            <div class="parameter-command">StarsShape.pl coords.csv cluster-3</div>
+            <canvas id="cluster3"></canvas>
+            <div class="info">Three distinct planetary clusters distributed around the galaxy</div>
+        </div>
+
+        <div class="pattern-card">
+            <div class="pattern-title">Cluster-6 (Six Clusters)</div>
+            <div class="pattern-command">StarsShape.pl coords.csv cluster-6</div>
+            <canvas id="cluster6"></canvas>
+            <div class="info">Six separate star clusters forming a hexagonal pattern</div>
+        </div>
+
+        <div class="pattern-card">
+            <div class="pattern-title">Bar Spiral</div>
+            <div class="pattern-command">StarsShape.pl coords.csv barspiral</div>
+            <canvas id="barspiral"></canvas>
+            <div class="info">Central bar structure with two spiral arms extending from the ends</div>
+        </div>
+
+        <div class="pattern-card">
+            <div class="pattern-title">Elliptical-30 (Dense Core)</div>
+            <div class="pattern-command">StarsShape.pl coords.csv elliptical-30</div>
+            <canvas id="elliptical30"></canvas>
+            <div class="info">Elliptical galaxy with 30% mean radius - dense central concentration</div>
+        </div>
+
+        <div class="pattern-card">
+            <div class="pattern-title">Elliptical-60 (Spread Out)</div>
+            <div class="pattern-command">StarsShape.pl coords.csv elliptical-60</div>
+            <canvas id="elliptical60"></canvas>
+            <div class="info">Elliptical galaxy with 60% mean radius - more dispersed distribution</div>
+        </div>
+
+        <div class="pattern-card">
+            <div class="pattern-title">Grid</div>
+            <div class="pattern-command">StarsShape.pl coords.csv grid</div>
+            <canvas id="grid"></canvas>
+            <div class="info">Organized grid-based sectors with randomized positions within each cell</div>
+        </div>
+    </div>
+
+    <script>
+        // Simulation parameters matching Perl script
+        const NUM_PLANETS = 150;
+        const UNIVERSE_SIZE = 2000; // Huge
+        const CENTER = UNIVERSE_SIZE / 2;
+        const MAX_RADIUS = UNIVERSE_SIZE * 0.45;
+        const MIN_SEPARATION = 5;
+
+        function drawPattern(canvasId, generateFunc) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width = canvas.offsetWidth * 2;
+            const height = canvas.height = canvas.offsetHeight * 2;
+            
+            ctx.fillStyle = '#050810';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Generate coordinates
+            const coords = generateFunc();
+            
+            // Apply separation enforcement (simplified)
+            ensureSeparation(coords, MIN_SEPARATION);
+            
+            // Find bounds for scaling
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            coords.forEach(c => {
+                minX = Math.min(minX, c.x);
+                maxX = Math.max(maxX, c.x);
+                minY = Math.min(minY, c.y);
+                maxY = Math.max(maxY, c.y);
+            });
+            
+            const rangeX = maxX - minX;
+            const rangeY = maxY - minY;
+            const scale = Math.min(width / rangeX, height / rangeY) * 0.85;
+            const offsetX = (width - rangeX * scale) / 2 - minX * scale;
+            const offsetY = (height - rangeY * scale) / 2 - minY * scale;
+            
+            // Draw grid
+            ctx.strokeStyle = '#0f1520';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 10; i++) {
+                const x = (width / 10) * i;
+                const y = (height / 10) * i;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+            
+            // Draw planets
+            coords.forEach((coord, i) => {
+                const x = coord.x * scale + offsetX;
+                const y = coord.y * scale + offsetY;
+                
+                // Glow effect
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, 8);
+                gradient.addColorStop(0, '#4fc3f7');
+                gradient.addColorStop(0.5, '#2196f3');
+                gradient.addColorStop(1, 'rgba(33, 150, 243, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Core
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function createSpiral(arms) {
+            const coords = [];
+            for (let i = 0; i < NUM_PLANETS; i++) {
+                const arm = i % arms;
+                const armAngle = (2 * Math.PI * arm) / arms;
+                const t = i / NUM_PLANETS;
+                const radius = MAX_RADIUS * Math.sqrt(t);
+                const angle = armAngle + t * 4 * Math.PI;
+                
+                const r = radius + (Math.random() * 20 - 10);
+                const a = angle + (Math.random() * 0.3 - 0.15);
+                
+                coords.push({
+                    x: CENTER + r * Math.cos(a),
+                    y: CENTER + r * Math.sin(a)
+                });
+            }
+            return coords;
+        }
+
+        function createRings(numRings) {
+            const coords = [];
+            const planetsPerRing = Math.floor(NUM_PLANETS / numRings);
+            const remainder = NUM_PLANETS % numRings;
+            
+            for (let ring = 0; ring < numRings; ring++) {
+                const count = planetsPerRing + (ring < remainder ? 1 : 0);
+                const radius = MAX_RADIUS * (ring + 1) / numRings;
+                
+                for (let i = 0; i < count; i++) {
+                    const angle = (2 * Math.PI * i) / count + Math.random() * 0.2 - 0.1;
+                    const r = radius + Math.random() * 15 - 7.5;
+                    
+                    coords.push({
+                        x: CENTER + r * Math.cos(angle),
+                        y: CENTER + r * Math.sin(angle)
+                    });
+                }
+            }
+            return coords;
+        }
+
+        function createClusters(numClusters) {
+            const coords = [];
+            const clusterCenters = [];
+            
+            for (let i = 0; i < numClusters; i++) {
+                const angle = (2 * Math.PI * i) / numClusters + Math.random() * 0.5 - 0.25;
+                const distance = UNIVERSE_SIZE * (0.2 + Math.random() * 0.2);
+                clusterCenters.push({
+                    x: CENTER + distance * Math.cos(angle),
+                    y: CENTER + distance * Math.sin(angle)
+                });
+            }
+            
+            const planetsPerCluster = Math.floor(NUM_PLANETS / numClusters);
+            const remainder = NUM_PLANETS % numClusters;
+            
+            for (let c = 0; c < numClusters; c++) {
+                const count = planetsPerCluster + (c < remainder ? 1 : 0);
+                const clusterRadius = UNIVERSE_SIZE * 0.08;
+                
+                for (let i = 0; i < count; i++) {
+                    const angle = Math.random() * 2 * Math.PI;
+                    const radius = Math.random() * clusterRadius;
+                    
+                    coords.push({
+                        x: clusterCenters[c].x + radius * Math.cos(angle),
+                        y: clusterCenters[c].y + radius * Math.sin(angle)
+                    });
+                }
+            }
+            return coords;
+        }
+
+        function createBarSpiral() {
+            const coords = [];
+            const barCount = Math.floor(NUM_PLANETS * 0.3);
+            const spiralCount = NUM_PLANETS - barCount;
+            const barLength = UNIVERSE_SIZE * 0.25;
+            
+            for (let i = 0; i < barCount; i++) {
+                const t = (i / barCount) - 0.5;
+                coords.push({
+                    x: CENTER + barLength * t,
+                    y: CENTER + (Math.random() * 20 - 10)
+                });
+            }
+            
+            for (let i = 0; i < spiralCount; i++) {
+                const arm = i % 2;
+                const armAngle = arm * Math.PI;
+                const t = i / spiralCount;
+                const radius = MAX_RADIUS * 0.4 + MAX_RADIUS * 0.6 * Math.sqrt(t);
+                const angle = armAngle + t * 3 * Math.PI;
+                
+                coords.push({
+                    x: CENTER + radius * Math.cos(angle),
+                    y: CENTER + radius * Math.sin(angle)
+                });
+            }
+            return coords;
+        }
+
+        function createElliptical(meanPct) {
+            const coords = [];
+            const minRadius = UNIVERSE_SIZE * 0.1;
+            
+            for (let i = 0; i < NUM_PLANETS; i++) {
+                const r = gaussianRadius(minRadius, MAX_RADIUS, meanPct);
+                const angle = Math.random() * 2 * Math.PI;
+                const a = r;
+                const b = r * 0.8;
+                
+                coords.push({
+                    x: CENTER + a * Math.cos(angle),
+                    y: CENTER + b * Math.sin(angle)
+                });
+            }
+            return coords;
+        }
+
+        function gaussianRadius(minRadius, maxRadius, meanPct) {
+            const u1 = Math.random();
+            const u2 = Math.random();
+            const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+            
+            const range = maxRadius - minRadius;
+            const meanFraction = meanPct / 100.0;
+            const stddevFraction = meanFraction / 2.0;
+            
+            let radius = minRadius + range * (meanFraction + z * stddevFraction);
+            radius = Math.max(minRadius, Math.min(maxRadius, radius));
+            
+            return radius;
+        }
+
+        function createGrid() {
+            const coords = [];
+            const gridSize = Math.floor(Math.sqrt(NUM_PLANETS)) + 1;
+            const cellSize = UNIVERSE_SIZE / gridSize;
+            
+            for (let i = 0; i < NUM_PLANETS; i++) {
+                const row = Math.floor(i / gridSize);
+                const col = i % gridSize;
+                
+                coords.push({
+                    x: col * cellSize + Math.random() * cellSize * 0.8 + cellSize * 0.1,
+                    y: row * cellSize + Math.random() * cellSize * 0.8 + cellSize * 0.1
+                });
+            }
+            return coords;
+        }
+
+        function ensureSeparation(coords, minDist) {
+            const minDistSq = minDist * minDist;
+            
+            for (let iter = 0; iter < 100; iter++) {
+                let collisionFound = false;
+                
+                for (let i = 0; i < coords.length; i++) {
+                    for (let j = i + 1; j < coords.length; j++) {
+                        const dx = coords[i].x - coords[j].x;
+                        const dy = coords[i].y - coords[j].y;
+                        const distSq = dx * dx + dy * dy;
+                        
+                        if (distSq < minDistSq && distSq > 0) {
+                            collisionFound = true;
+                            const dist = Math.sqrt(distSq);
+                            const push = (minDist - dist) / 2;
+                            const pushX = (dx / dist) * push;
+                            const pushY = (dy / dist) * push;
+                            
+                            coords[i].x += pushX;
+                            coords[i].y += pushY;
+                            coords[j].x -= pushX;
+                            coords[j].y -= pushY;
+                        }
+                    }
+                }
+                
+                if (!collisionFound) break;
+            }
+        }
+
+        // Draw all patterns
+        drawPattern('spiral2', () => createSpiral(2));
+        drawPattern('spiral3', () => createSpiral(3));
+        drawPattern('spiral4', () => createSpiral(4));
+        drawPattern('rings3', () => createRings(3));
+        drawPattern('rings5', () => createRings(5));
+        drawPattern('cluster3', () => createClusters(3));
+        drawPattern('cluster6', () => createClusters(6));
+        drawPattern('barspiral', createBarSpiral);
+        drawPattern('elliptical30', () => createElliptical(30));
+        drawPattern('elliptical60', () => createElliptical(60));
+        drawPattern('grid', createGrid);
+    </script>
+</body>
+</html>
