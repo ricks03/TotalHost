@@ -80,12 +80,15 @@ my $safeName     = uri_escape($in{'Name'} // '');
 my $safeLp       = uri_escape($in{'lp'}   // '');
 my $safeCp       = uri_escape($in{'cp'}   // '');
 my $safeRp       = uri_escape($in{'rp'}   // '');
-my $safeErr      = uri_escape($err        // '');
-my $newPage = "$WWW_Scripts/page.pl?GameFile=$safeGameFile&File=$safeFile&Name=$safeName&lp=$safeLp&cp=$safeCp&rp=$safeRp&status=$safeErr";
+#my $safeErr      = uri_escape($err        // '');
+#my $newPage = "$WWW_Scripts/page.pl?GameFile=$safeGameFile&File=$safeFile&Name=$safeName&lp=$safeLp&cp=$safeCp&rp=$safeRp&status=$safeErr";
+# status is appended after ValidateFileUpload sets $err
+my $newPage = "$WWW_Scripts/page.pl?GameFile=$safeGameFile&File=$safeFile&Name=$safeName&lp=$safeLp&cp=$safeCp&rp=$safeRp&status=";
 $newPage =~ s/[\r\n]//g;  # belt-and-suspenders
 
 if ($File) {
   my $valid_file = &ValidateFileUpload($File);
+  $newPage .= uri_escape($err // '');
   # Redirect to newPage, which solves for reloading the page retaking the action.
   # Nothing can print before this or it breaks.
   #  print $cgi->redirect($newPage);  # Doesn't work
@@ -353,7 +356,7 @@ sub ValidateFileUpload {
 				return 1; 
 			} else { 
         # If the file failed to move, report and remove. 
-        $err .= "<P>File failed to move!\n";
+        $err .= "File failed to move!\n";
 				&LogOut(0,"ValidateFileUpload: File $File $File_Loc, $file_prefix failed to move for $userlogin, $client_ip",$ErrorLog);
         if (-f $File_Loc ) { unlink $File_Loc or &LogOut(0,"File $File $File_Loc, $file_prefix failed to move for $userlogin, failed to unlink", $ErrorLog);} #user-input cleaned as much as I can. 
         return 0;

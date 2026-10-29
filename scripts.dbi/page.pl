@@ -61,7 +61,9 @@ my $cookie = $cgi->cookie('TotalHost');
 #my $session = CGI::Session->new("driver:File", $cgi, {Directory=>"$Dir_Sessions"});
 my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
 my $sessionid = $session->id unless $sessionid;
-&validate($cgi,$session) unless ($in{'client'} eq 'java');
+# API clients: java = the modified AutoHost Java client, th = THClient
+my $api_client = ($in{'client'} eq 'java' || $in{'client'} eq 'th');
+&validate($cgi,$session) unless $api_client;
 
 print $cgi->header();
 # Get the User ID and User Login from the Cookie.
@@ -107,8 +109,8 @@ my $timezone = $session->param('timezone');
 # # # For this unique to work, each form will need to set a hidden value for unique (page.pl and TotalHost.pm)
 
 
-# API output for the Java client
-if ($in{'client'} eq 'java') {
+# API output for the client
+if ($api_client) {
     print "<html><body>\n";
     &show_client($in{'GameFile'});
     print "</body></html>\n";
@@ -1792,14 +1794,22 @@ sub show_client {
         #			while ( my ($key, $value) = each(%GameValues) ) { print "<br>$key => $value\n"; }
       $sth->finish();
 		}
+    
+
+    # Game not found: report it rather than defaulting to an empty "Pending Start" record
+    unless ($GameValues{'GameFile'}) {
+      print "<br>error=Game not found\n";
+      &DB_Close($db);
+      return;
+    }
 
     # Display the Game Status Data
-    if ($in{'status'}) { 
-      &display_warning($in{'status'}); 
-      # Display the warning if the error still exists
-      if ($in{'status'} =~ /bug/ && $in{'status'} !~ /Fixed/) { $status .= qq|You can resubmit a corrected .x file to remove alert.|; }
-    }
-    $status .= $in{'status'};
+#     if ($in{'status'}) { 
+#       &display_warning($in{'status'}); 
+#       # Display the warning if the error still exists
+#       if ($in{'status'} =~ /bug/ && $in{'status'} !~ /Fixed/) { $status .= qq|You can resubmit a corrected .x file to remove alert.|; }
+#     }
+#     $status .= $in{'status'};
     
     my $tz = $timezone || 'America/New_York'; # In case we aren't logged in to get that info
     
@@ -1839,7 +1849,8 @@ sub show_client {
     #Display when the last turn was generated if it was.
     unless ($GameValues{'GameStatus'} == 7 || $GameValues{'GameStatus'} == 0 )  {
   		if ($GameValues{'LastTurn'}) { 
-        my $dtlast = DateTime->from_epoch(epoch => $GameValues{'LastTurn'}, time_zone => $timezone);
+        #my $dtlast = DateTime->from_epoch(epoch => $GameValues{'LastTurn'}, time_zone => $timezone);
+        my $dtlast = DateTime->from_epoch(epoch => $GameValues{'LastTurn'}, time_zone => $tz);
         print "<br>last-gen=" . $dtlast->strftime('%Y-%m-%d %H:%M:%S %Z') . "\n";
   		} else { print "<br>last-gen=No turns have been generated yet.\n"; }
     } 
@@ -1890,11 +1901,12 @@ sub show_client {
           $sth->finish();
         }
   			# Modify display based on player status. If the player isn't active indicate such
-        print "<br>player" . $Player . "-race=$CHK_Name";
+        print "<br>player" . $Player . "-race=$CHK_Name\n";
                 
-  			if ($CHK_Status eq 'Wrong Year') { 	print "<br><font color=red>$CHK_Status</font>\n"; 
-  			} else { print "<br>player" . $Player . "-turn=$CHK_Status"; }
-
+  			#if ($CHK_Status eq 'Wrong Year') { 	print "<br><font color=red>$CHK_Status</font>\n"; 
+  			#} else { print "<br>player" . $Player . "-turn=$CHK_Status"; }
+        print "<br>player" . $Player . "-turn=$CHK_Status";
+        
         # Display the number of years included in the .m file
   			if ($TurnYears > 1) { print " ($TurnYears years)"; }
                  
@@ -4464,6 +4476,8 @@ sub display_warning {
     print "<font color=red>\n";
     @warnings = split (',',$warning);
     foreach my $warned (@warnings) {
+      # status comes from the URL, so never print it as HTML
+      $warned =~ s/&/&amp;/g; $warned =~ s/</&lt;/g; $warned =~ s/>/&gt;/g; $warned =~ s/"/&quot;/g;
 #      print "<li>$warned</li>\n";
       print "<P>$warned</P>\n";
     } 
