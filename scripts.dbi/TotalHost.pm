@@ -1020,7 +1020,7 @@ sub Make_CHK { # Updates the .chk file for a game
     my $timeout = 4;
     my $waited = 0;
     while ($waited < $timeout) {
-      last if (-f $chkfile && (stat($chkfile))[9] > $before);
+      last if (-f $chkfile && (stat($chkfile))[9] >= $before);
       sleep 1;
       $waited++;
     }
