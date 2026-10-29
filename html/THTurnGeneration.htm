@@ -26,18 +26,16 @@ a new turn will be generated, and the next due date will be set.
 
 <P>If <i>Observe Holidays</i> has been selected, when a Next turn is set, it will advance over the holiday to the next day that is acceptable according to <i>Days to Generate</i>.
 
-<P>If <i>As Available</i> has been selected for the game, turns will be generated whenever all turns have been submitted, regardless of any other set values. The clock will advance, UNLESS the game is currently flagged as "Delayed". 
-
 <li>Turns generated Hourly</li>
 
-<P>For Turns Generated Hourly, turns will be generated whenever the hosting program checkes for turns (normally every 10 minutes), and finds that the current time is later than the time when the turn was due to be generated. The time will then advance the appropriate number of hours. 
+<P>For Turns Generated Hourly, turns will be generated whenever the hosting program checks for turns (normally every 10 minutes), and finds that the current time is later than the time when the turn was due to be generated. The time will then advance the appropriate number of hours. 
 
 <P><B>Exceptions:</b>
 
 If the next scheduled turn is an invalid Hour, Day or a Holiday (where applicable), the next time will advance until the Hour and Day is valid, and then advance in hours until the hour is also valid.
 <P>If <i>As Available</i> has been selected for the game, turns will be generated whenever all turns have been submitted. The hourly count will reset.
 
-<P>For the <i>Days to Generate</i> value, turns will only be generated on selected days. If a turn falls on a day where it should not generate, it will advance one hour at a time until the day is ok. For the <i>Hours to Generate</i> value, the time will be advanced one hour at a time until is hits an allowable hour.
+<P>For the <i>Days to Generate</i> value, turns will only be generated on selected days. If a turn falls on a day where it should not generate, it will advance one hour at a time until the day is ok. For the <i>Hours to Generate</i> value, the time will be advanced one hour at a time until it reaches an allowable hour.
 
 <P>If <i>Observe Holidays</i> has been selected, the game will advance one hour at a time until it no longer believes it to be a holiday.
 

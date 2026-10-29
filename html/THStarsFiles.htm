@@ -1,14 +1,14 @@
 <html>
 <body>
 <h2>Stars! Files</h2>
-<p>Mostly plagiarized from XyliGUN's thread <i><a rel="nofollow" class="external text" href="http://forum.starsautohost.org/sahforum2/index.php?t=msg&amp;th=4879&amp;rid=78&amp;S=5e1760ef736aaec585e53e97111af1c1">Inside of Stars! Files</a></i> at <a href="/wiki/HWF" title="HWF" class="mw-redirect">HWF</a> and <a href="https://wiki.starsautohost.org/wiki/Files_Used_in_Stars!#Ini_file_--_stars.ini_.28in_the_Windows_directory.29">Files Used in Stars!</a> on AutoHost.
+<p>Mostly plagiarized from XyliGUN's thread <i><a rel="nofollow" class="external text" href="http://forum.starsautohost.org/sahforum2/index.php?t=msg&amp;th=4879&amp;rid=78&amp;S=5e1760ef736aaec585e53e97111af1c1">Inside of Stars! Files</a></i> at <a href="https://wiki.starsautohost.org/wiki/HWF" title="HWF" class="mw-redirect">HWF</a> and <a href="https://wiki.starsautohost.org/wiki/Files_Used_in_Stars!#Ini_file_--_stars.ini_.28in_the_Windows_directory.29">Files Used in Stars!</a> on AutoHost.
 <p>Stars! stores all game information in several files: game.xy, game.hst, game.m*, game.x*, game.h*, where * is a player number. 
 <P>Most importantly, the game file (.m), the history (.h) file, and universe file (.xy) must be in the same directory. Also, the .ini file has some useful additions/changes.
 </p>
 
 <dl><dt>gamename.hst</dt>
 
-<dd>Host file, which contains almost a full state of the game/universe, ‘almost’ except planets locations and their names (which are stored in game.xy only). This is a main file, which game engine uses to generate the next turn. This file should be available only to the person playing the host, and is not required to take a turn. If the file is password-protected, you will be asked for a password.</dd>
+<dd>Host file, which contains almost a full state of the game/universe, ï¿½almostï¿½ except planets locations and their names (which are stored in game.xy only). This is a main file, which game engine uses to generate the next turn. This file should be available only to the person playing the host, and is not required to take a turn. If the file is password-protected, you will be asked for a password.</dd>
 
 <dl><dt>gamename.xy</dt>
 
@@ -19,11 +19,11 @@
 
 <dl><dt>gamename.m[n]</dt>
 
-<dd>where [n] is a number from 1 to 16, representing the player number. This is the individual file for each player, containing all the data about that player's race and state of the player's empire at the beginning of a turn. It is a sort of filtered gamename.hst file, which contains only the partial game/universe state known/available to the specific player. There is one thing that is present in .m file and never present in the .hst file: game events (like you build X factories on planet Y) and players’ messages. Note: some of these events are not stored in files at all, but generated  by game client when turn is opened (like for example: you have found a new planet).</dd></dl>
+<dd>where [n] is a number from 1 to 16, representing the player number. This is the individual file for each player, containing all the data about that player's race and state of the player's empire at the beginning of a turn. It is a sort of filtered gamename.hst file, which contains only the partial game/universe state known/available to the specific player. There is one thing that is present in .m file and never present in the .hst file: game events (like you build X factories on planet Y) and playersï¿½ messages. Note: some of these events are not stored in files at all, but generated  by game client when turn is opened (like for example: you have found a new planet).</dd></dl>
 
 <dl><dt>gamename.x[n]</dt>
 
-<dd>The player actions log, which contains all of the actions player performed working on a turn. Compared to the .m file, which actually contains just a static data (planet x has y minerals), the .x file actually contains the specific actions (load x minerals to ship y). Note: even if you will do a number of opposite actions, they won’t be ‘merged’, but all of them will be included into x file (let’s say you  check and uncheck explosive minefield continuously 100 times in row, this will results in 200 actions recorded into x file: 100 for check action and 100 for uncheck action). This file is submitted, either automatically or manually, to the host program. The host adds the changes to the player's .mN file, and returns that file to the player when the new turn is generated. The host needs these files to update the information about each player from the .hst file before turn generation. Each time the player opens (or continues) a game, the .mN file is loaded. If a corresponding log file exists, it will also be loaded to update the game's current state.
+<dd>The player actions log, which contains all of the actions player performed working on a turn. Compared to the .m file, which actually contains just a static data (planet x has y minerals), the .x file actually contains the specific actions (load x minerals to ship y). Note: even if you will do a number of opposite actions, they wonï¿½t be ï¿½mergedï¿½, but all of them will be included into x file (letï¿½s say you  check and uncheck explosive minefield continuously 100 times in row, this will results in 200 actions recorded into x file: 100 for check action and 100 for uncheck action). This file is submitted, either automatically or manually, to the host program. The host adds the changes to the player's .mN file, and returns that file to the player when the new turn is generated. The host needs these files to update the information about each player from the .hst file before turn generation. Each time the player opens (or continues) a game, the .mN file is loaded. If a corresponding log file exists, it will also be loaded to update the game's current state.
 </dd></dl>
 
 <dl><dt>gamename.h[n]</dt>
@@ -39,13 +39,13 @@
 
 <dl><dt>gamename.map</dt>
 
-<dd>Universe dump file, which contains tab-separated values suitable for loading into a spreadsheet program such as MS Excel containing a complete listing of every planet's ID, X coordinate, Y coordinate and name in the current game universe. This file remains the same throughout a game. To create a universe dump file click on <b>Dump to Text File(Universe Information)</b> in the <b>Report</b> menu or use the <a href="/wiki/Options_for_Launching_Stars!" title="Options for Launching Stars!">-dm option</a> when launching Stars!.</dd></dl>
+<dd>Universe dump file, which contains tab-separated values suitable for loading into a spreadsheet program such as MS Excel containing a complete listing of every planet's ID, X coordinate, Y coordinate and name in the current game universe. This file remains the same throughout a game. To create a universe dump file click on <b>Dump to Text File(Universe Information)</b> in the <b>Report</b> menu or use the <a href="https://wiki.starsautohost.org/wiki/Options_for_Launching_Stars!" title="Options for Launching Stars!">-dm option</a> when launching Stars!.</dd></dl>
 
 <dl><dt>gamename.pla or gamename.p[n]</dt>
 
 <dd>Planet dump file, which contains tab-separated values suitable for loading into a spreadsheet program such as MS Excel containing a complete listing of every planet's ID, X coordinate, Y coordinate and name in the current game universe.  
 
-</p><p>To create a planet dump file click on <b>Dump to Text File(Universe Information)</b> in the <b>Report</b> menu or use the <a href="/wiki/Options_for_Launching_Stars!" title="Options for Launching Stars!">-dm option</a> when launching Stars!.
+</p><p>To create a planet dump file click on <b>Dump to Text File(Universe Information)</b> in the <b>Report</b> menu or use the <a href="https://wiki.starsautohost.org/wiki/Options_for_Launching_Stars!" title="Options for Launching Stars!">-dm option</a> when launching Stars!.
 
 The data contained changes each turn as your knowledge of each planet changes. gamename.pla contains the following information (if known) for each planet:
 <table>
@@ -105,7 +105,7 @@ The data contained changes each turn as your knowledge of each planet changes. g
 </dd>
 
 <dl><dt>gamename.f[n] or gamename.fle</dt>
-<dd>Fleet Data dump file, which contains tab-separated values suitable for loading into a spreadsheet program such as MS Excel containing a complete listing of all your fleets and any of your opponents' fleets you have scanner coverage of(ie you can see them). The data contained changes each turn. To create a fleet data dump file click on <b>Dump to Text File(Fleet Information)</b> in the <b>Report</b> menu or use the <a href="/wiki/Options_for_Launching_Stars!" title="Options for Launching Stars!">-df option</a> when launching Stars!. gamename.fle contains the following information (if known) for each fleet:
+<dd>Fleet Data dump file, which contains tab-separated values suitable for loading into a spreadsheet program such as MS Excel containing a complete listing of all your fleets and any of your opponents' fleets you have scanner coverage of(ie you can see them). The data contained changes each turn. To create a fleet data dump file click on <b>Dump to Text File(Fleet Information)</b> in the <b>Report</b> menu or use the <a href="https://wiki.starsautohost.org/wiki/Options_for_Launching_Stars!" title="Options for Launching Stars!">-df option</a> when launching Stars!. gamename.fle contains the following information (if known) for each fleet:
 <table>
 <tr>
 <td>
@@ -177,7 +177,7 @@ If you have included newreports=1 in the [Misc] section of your stars.ini, gamen
 <h4>newreports</h4>
 <p>Adding newreports=1 to the [Misc] section will give increased information in your text dumps and change the name of the dump files from gamename.pla to gamename.p## (## being the player number)
 </p>
-<ul><li> generally recommended and required by some <a href="/wiki/Utilities" title="Utilities">utilities</a></li></ul>
+<ul><li> generally recommended and required by some <a href="https://wiki.starsautohost.org/wiki/Utilities" title="Utilities">utilities</a></li></ul>
 <h4>logging</h4>
 <ul><li>(Version j or higher only)</li></ul>
 <p>Adding Logging=1 in the [Misc] section of the stars.ini file will turn on logging for all command-line actions. Enabling logging will prevent any dialogs, alerts or other user interface elements from halting an automatic turn server. Logging is ignored if the host dialog or player interface is visible. It is only meaningful for command line actions such as turn generation and game creation via a .def file. A .log file looks like this:
@@ -190,10 +190,10 @@ If you have included newreports=1 in the [Misc] section of your stars.ini, gamen
   09/30/98 15:48:37 - Generating year 2402
   09/30/98 15:48:41 - Succeeded
 </pre>
-<p>There are a large number of possible things that might get recorded in a log file including any error message that could normaly pop up during turn generation. You can also enable logging by use of the -l <a href="/wiki/Options_for_Launching_Stars!" title="Options for Launching Stars!">commandline option</a>.
+<p>There are a large number of possible things that might get recorded in a log file including any error message that could normaly pop up during turn generation. You can also enable logging by use of the -l <a href="https://wiki.starsautohost.org/wiki/Options_for_Launching_Stars!" title="Options for Launching Stars!">commandline option</a>.
 </p>
 <h4>fonts</h4>
-<p>Adding (or editing) a [fonts] section can cure some <a href="/wiki/Known_Bugs#Font_Problems_When_Using_a_Non-English_Version_of_Windows" title="Known Bugs">font problems</a>. Here are the default settings for the various languages, though others can be substituted. 
+<p>Adding (or editing) a [fonts] section can cure some <a href="https://wiki.starsautohost.org/wiki/Known_Bugs#Font_Problems_When_Using_a_Non-English_Version_of_Windows" title="Known Bugs">font problems</a>. Here are the default settings for the various languages, though others can be substituted. 
 </p><p>English: 
 </p>
 <dl><dd>[fonts]</dd>
@@ -246,7 +246,7 @@ Russian:
 </p><p><b>Vista/7</b>: [drive]:\users\[user]\AppData\Local\VirtualStore\Windows
 </p>
 <h3>When the ini file is Written</h3>
-<p>The stars.ini file is written the first time you play Stars and save a game. If you start Stars! and exit from the splash screen without saving a game, the file isn't written. You can delete this file, if you find a need. This will cause Stars! to ask for your registration number again, however. An absent ini file is just one of the conditions that triggers <a href="/wiki/Copy_Protection" title="Copy Protection">Stars! copy protection</a>.</p>
+<p>The stars.ini file is written the first time you play Stars and save a game. If you start Stars! and exit from the splash screen without saving a game, the file isn't written. You can delete this file, if you find a need. This will cause Stars! to ask for your registration number again, however. An absent ini file is just one of the conditions that triggers <a href="https://wiki.starsautohost.org/wiki/Copy_Protection" title="Copy Protection">Stars! copy protection</a>.</p>
 
 </body>
 </html>
