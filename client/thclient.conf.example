@@ -1,0 +1,22 @@
+# thclient.conf.example - copy to thclient.conf and fill in your settings
+# Keep this file private: it holds your TotalHost password.
+%Config = (
+  Server        => 'https://totalhost.starsautohost.org',
+  User_Login    => 'yourlogin',
+  Password      => 'yourpassword',
+  PollMinutes   => 10,    # how often to check the server for new turns
+  UploadSeconds => 15,    # how often to look for a newly saved .x file
+  LogFile       => '',    # optional, e.g. 'C:/Stars/thclient.log'
+  Proxy         => '',    # optional, e.g. 'http://proxyhost:8080'; otherwise uses http_proxy/https_proxy
+  # Stars! itself, for --play, PlayOnNewTurn and DumpFiles
+  StarsExe      => 'C:/Stars/stars.exe',
+  DumpFiles     => 0,     # 1 = write planet (.pN), fleet (.fN) and map dumps after each new turn
+  PlayOnNewTurn => 0,     # 1 = open Stars! when a new turn is downloaded
+  # One entry per game and player: GameFile is the short game ID, Player your player number,
+  # Dir the folder Stars! opens the game from. Optional per entry:
+  #   StarsPassword => race password, so Stars! can open the turn for dumps and --play
+  #   Upload        => 0 to download only and never upload this player's .x
+  Games         => [
+    { GameFile => 'f9606109', Player => 3, Dir => 'C:/Stars/f9606109' },
+  ],
+);
