@@ -46,9 +46,9 @@ $max_forcegen = 50; # The maxumum number of turns that can be force generated.
 # ODBC (default)
 $dsn = 'TotalHost';
 # MYSQL/MariaDB
-$DB_NAME = 'totalhost';
-$DB_USER = 'totalhostdb';
-$DB_PASSWORD = '86poYcuCDcIsehW6apCt';
+$DB_NAME = 'database';
+$DB_USER = 'totalhost';
+$DB_PASSWORD = 'password';
 $DB_HOST = 'localhost';
 
 $executable= 'd:/th/stars!/stars26j/stars.exe';
