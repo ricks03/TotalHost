@@ -1,0 +1,177 @@
+TotalHost setup (Linux, MariaDB/MySQL, DBI)
+=============================================
+
+This covers a fresh install of the DBI version (the scripts in beta/scripts,
+which are the current ones). setup.odbc.txt describes the old Windows/ODBC
+install and is not needed.
+
+The paths below are the defaults in config.base.pl. The beta site uses
+/var/www/beta (web) and /home/beta (data) instead; use whatever you set in
+config.pl.
+
+
+1. What the server needs
+------------------------
+
+- Linux with Apache (CGI enabled) and MariaDB or MySQL.
+- Perl 5, with these modules (from your distribution's packages or CPAN):
+    Archive::Zip, CGI, CGI::Carp, CGI::Session, DBI, DBD::mysql, DateTime,
+    DateTime::TimeZone, Digest::SHA1, Email::Valid, File::Copy::Recursive,
+    GD, GD::Graph, LWP::Simple, MIME::Lite, Net::SMTP, URI::Escape
+  (Fcntl, File::Basename, File::Copy, File::Find, File::Path, FindBin and
+  POSIX come with Perl.)
+- Stars! to generate turns, either:
+    - the native Linux 2.6k host ($Stars26k_executable), or
+    - Wine with stars.exe ($WINE_executable). Wine needs a display; the
+      scripts use DISPLAY :99 (set in config.pl), so run a virtual display
+      such as Xvfb :99.
+- Optional: ImageMagick ($imagemagick) and Starmapper with Java ($starmapper)
+  for end-of-game movies; a mail server if $mail_present = 1.
+
+
+2. Folders
+----------
+
+Web folder ($Dir_Root, default /var/www/html):
+    scripts/            the contents of beta/scripts
+    Notes/              the .htm help pages
+    images/             site images
+    Downloads/graphs/   score graphs of finished games (written by the site)
+    Downloads/movies/   end-of-game movies (written by the site)
+    index.html and the other top-level pages from beta/
+
+Data folder ($Dir_User, default /home/totalhost), not reachable from the web:
+    sessions/   login sessions
+    upload/     files while they are being uploaded and checked
+    games/      one folder per game, used for turn generation
+    download/   history zips while they are being sent
+    races/      one folder per user, for race files
+    utils/      the contents of beta/utils (TurnMake.sh, maintenance, perms)
+    logs/       or wherever $Dir_Log points
+    serialC.txt           Stars! serial numbers given to new users ($File_Serials)
+    strings_planets.txt   planet names ($File_Planets)
+
+Everything the site writes must belong to the web server user
+($apache_user, usually www-data). utils/perms.sh sets the owner and
+permissions on games/, races/ and utils/; run it after copying files in.
+
+
+3. config.pl
+------------
+
+Copy config.base.pl to config.pl in the scripts folder and set at least:
+
+- $WWW_HomePage    the site's address, e.g. https://totalhost.example.com
+- $Dir_Root, $Dir_User, $Dir_Log, and $ENV{'PERL5LIB'} (the scripts folder)
+- $DB_NAME, $DB_USER, $DB_PASSWORD, $DB_HOST
+- $secret_key      a long random string. Set it once, before anyone signs up:
+                   it is part of every stored password, so changing it later
+                   stops every existing password working.
+- $user_admin      the login name that gets admin rights. Whoever registers
+                   that name first becomes admin, so register it yourself
+                   straight after setup.
+- $Stars26k_executable or $WINE_executable (and $Dir_WINE, $WINE_Games,
+  $WINE_Races for Wine)
+- $mail_present, $mail_server, $mail_from, $mail_prefix
+- $logging         100 for normal use. 300 and above also writes password
+                   hashes to the SQL log.
+- $timezone        the site's time zone, e.g. America/New_York. The server's
+                   own time zone should match, because turn times are worked
+                   out in server time.
+
+config.pl holds the database password and $secret_key. Never put it anywhere
+public: not in the GitHub repository, and not in the Stars*.exe tools (see
+section 8).
+
+
+4. Database
+-----------
+
+    CREATE DATABASE totalhost;
+    CREATE USER 'thuser'@'localhost' IDENTIFIED BY '<a new password>';
+    GRANT ALL PRIVILEGES ON totalhost.* TO 'thuser'@'localhost';
+
+Load the tables:
+
+    mysql totalhost < database.dbi/totalhost_structure.sql
+
+The lookup tables (_PlayerStatus, _GameStatus, _GameType, _UserStatus,
+_Version) are created empty, but the site needs their rows: game pages list
+no players without _PlayerStatus. Copy them from a working site:
+
+    mysqldump --no-create-info totalhost _PlayerStatus _GameStatus _GameType _UserStatus _Version > lookup.sql
+
+or add them by hand (the player status text must match exactly):
+
+    INSERT INTO `_PlayerStatus` (`PlayerStatus`, `PlayerStatus_txt`) VALUES
+    (1, 'Active'), (2, 'Inactive'), (3, 'Banned'), (4, 'Idle');
+
+    INSERT INTO `_GameStatus` (`GameStatus`, `GameStatus_TXT`) VALUES
+    (0, 'Pending Start'), (1, 'Pending Closed'), (2, 'Active'), (3, 'Delayed'), (4, 'Paused'),
+    (5, 'Need Replacement'), (6, 'Creation in Progress'), (7, 'Awaiting Players'), (9, 'Finished');
+
+    INSERT INTO `_GameType` (`GameType`, `GameType_txt`) VALUES
+    (1, 'Daily'), (2, 'Hourly'), (3, 'As Required');
+
+    INSERT INTO `_UserStatus` (`User_Status`, `User_Status_txt`, `User_Status_Detail`) VALUES
+    (-5, 'Pending', 'Account not yet activated'), (1, 'Active', ''), (2, 'Reset', 'Password reset requested');
+
+
+5. Apache
+---------
+
+Run the scripts folder as CGI, and let the web run only the five page
+scripts. Everything else in that folder is a library or a command-line tool,
+and some of those tools rewrite game files if run with arguments.
+
+    <Directory "/var/www/html/scripts">
+        Options +ExecCGI
+        AddHandler cgi-script .pl
+        <FilesMatch ".*">
+            Require all denied
+        </FilesMatch>
+        <FilesMatch "^(index|account|page|upload|download)\.pl$">
+            Require all granted
+        </FilesMatch>
+    </Directory>
+
+Check: /scripts/index.pl loads; /scripts/StarStat.pm and
+/scripts/StarsRace.pl return 403.
+
+
+6. Cron
+-------
+
+Turn generation runs from cron, as the web server user. Edit the paths in the
+utils/*.sh scripts to match your folders, then:
+
+    */10 * * * *   /home/totalhost/utils/TurnMake.sh
+
+utils/maintenance.sh (maintenance.pl) checks the games and races folders
+against the database and lower-cases file names; run it by hand, or from cron
+as often as you like. utils/perms.sh resets file owners and permissions.
+
+Old login sessions are removed by the site itself as pages are viewed.
+
+
+7. First run
+------------
+
+1. Open the site and register the $user_admin login. Activate it from the
+   email (or set User_Status to 1 in the User table if mail is not set up).
+2. Log in and check the Admin entry appears in the menu.
+3. Upload a race file, create a game, join it with two accounts, and start
+   it. Generate a turn (Force Gen) and check the turn files download.
+
+
+8. Building the Stars*.exe tools
+--------------------------------
+
+The Windows tools are built with PAR::Packer (pp) from the scripts folder:
+
+    pp -I . -o StarsRace.exe StarsRace.pl
+
+pp packs config.pl into every .exe (StarsBlock.pm and StarStat.pm load it).
+Build from a copy of the scripts folder whose config.pl has $DB_PASSWORD and
+$secret_key set to '', so the .exe files carry no secrets. The tools do not
+use either value.
