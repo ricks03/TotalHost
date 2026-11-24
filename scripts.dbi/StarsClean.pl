@@ -92,7 +92,6 @@ my @pluralRaceName;
 my @resetRace =  ( 81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 );
 
 ##########  
-my @fileBytes;
 my @mFiles;      
 my $inName = $ARGV[0]; # input file
 my $outName = $ARGV[1];
@@ -132,7 +131,7 @@ if (-d $inName) {
   while (defined ($file = readdir BIN)) {
     next if $file =~ /^\.\.?$/; # skip . and ..
     next unless ($file =~  /(^.*\.[Mm]\d*$)/); #prefiltering for .m files
-    $fullName = $inName . '\\' . $file;
+    $fullName = $inName . '/' . $file;
     push @mFiles, $fullName;
   }
 } elsif (-e $inName) { 
@@ -153,15 +152,8 @@ foreach my $filename (@mFiles) {
   $dir  = dirname($filename);         # c:\stars
   $dir =~ s/\\/\//g;  # normalize to forward slashes
   ($ext) = $basefile =~ /(\.[^.]+)$/; # .m  extension
-  # Read in the binary Stars! file, byte by byte
-  my $FileValues;
-  @fileBytes = ();
-  open(StarFile, "<$filename" );
-  binmode(StarFile);
-  while ( read(StarFile, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
-  close(StarFile);
+  
+  my @fileBytes = &readFile($filename);
   
   # Decrypt the data, block by block
   my ($outBytes, $needsCleaning) = &decryptClean(\@fileBytes, 1);
@@ -170,19 +162,37 @@ foreach my $filename (@mFiles) {
   # Create the output file name(s)
   # taking into account the paths provided. 
   my $newFile; 
-  if (-e $inName) {
-    # if the outName was defined
-    if ($outName) {   $newFile = $outName;  } 
-    # Otherwise, safety first
-    else { $newFile = $dir . '/' . $basefile . '.clean'; }
-  } elsif (-d $inName && $inName eq $outName ) {
-    # if inName was a directory, and outName is the same location
-    # overwrite the existing files
+  
+  
+#   if (-e $inName) {
+#     # if the outName was defined
+#     if ($outName) {   $newFile = $outName;  } 
+#     # Otherwise, safety first
+#     else { $newFile = $dir . '/' . $basefile . '.clean'; }
+#   } elsif (-d $inName && $inName eq $outName ) {
+#     # if inName was a directory, and outName is the same location
+#     # overwrite the existing files
+#     $newFile = $dir . '/' . $basefile;
+#   } elsif (-d $outName) {
+#     # Otherwise create the files in the new location.   
+#     $newFile = $outName . '/' . $basefile; 
+#   } else { die "What happened to the name?\n"; }
+  if (-d $inName && defined($outName) && $inName eq $outName) {
+    # inName is a directory and outName is the same directory: overwrite in place
     $newFile = $dir . '/' . $basefile;
-  } elsif (-d $outName) {
-    # Otherwise create the files in the new location.   
-    $newFile = $outName . '/' . $basefile; 
-  } else { die "What happened to the name?\n"; }
+  } elsif (-d $inName && defined($outName) && -d $outName) {
+    # inName is a directory and outName is a different existing directory
+    $newFile = $outName . '/' . $basefile;
+  } elsif (-d $inName) {
+    # inName is a directory, no outName given: create .clean siblings
+    $newFile = $dir . '/' . $basefile . '.clean';
+  } elsif (-f $inName) {
+    # inName is a single file
+    if (defined($outName)) { $newFile = $outName; }
+    else { $newFile = $dir . '/' . $basefile . '.clean'; }
+  } else {
+    die "What happened to the name?\n";
+  }   
   
   # Output the Stars! File with modified data
   # Don't do unless it needs Cleaning

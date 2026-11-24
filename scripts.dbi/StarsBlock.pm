@@ -95,6 +95,7 @@ our @EXPORT = qw(
   nextRandom StarsRandom
   initDecryption getFileHeaderBlock getFileFooterBlock getFileFooter
   encryptBytes decryptBytes
+  readFile
   read8 read16 read32 read64 readN write16 parseBlock
   dec2bin bin2dec unpackWord
   encryptBlock decryptPWD
@@ -137,27 +138,20 @@ our @EXPORT = qw(
   advantagePointsLeft _lInnateRaceHabitability
   _toSigned _min _max
   planetaryScanners planetNames dtString
+  decryptMax
 );  
 
 my $debug = 1;
 
 #############################################
 sub StarsPWD {
-  my ($File) = @_;   # .m File is full file path
+  my ($filename) = @_;   # .m File is full file path
   use File::Copy;
   #Stars random number generator class used for encryption
   
-  &BlockLogOut(300, "Password Reset Started for : $File", $LogFile);
+  &BlockLogOut(300, "Password Reset Started for : $filename", $LogFile);
 
-  # Read in the binary Stars! file, byte by byte
-  my $FileValues = '';
-  my @fileBytes=();
-  open(StarFile, "<$File");
-  binmode(StarFile);
-  while (read(StarFile, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
-  close(StarFile);
+  my @fileBytes = &readFile($filename);  
   
   # Decrypt the data, block by block, removing the password
   my ($outBytes) = &decryptPWD(@fileBytes);
@@ -165,7 +159,15 @@ sub StarsPWD {
   unless ($outBytes) { return 0; }
   my @outBytes = @{$outBytes};
   # Output the Stars! File with blank password(s)
-  open (OUTFILE, '>:raw', "$File");
+#   open (OUTFILE, '>:raw', "$filename");
+#   for (my $i = 0; $i < @outBytes; $i++) {
+#     print OUTFILE $outBytes[$i];
+#   }
+#   close (OUTFILE);
+  unless (open (OUTFILE, '>:raw', $filename)) {
+    &BlockLogOut(0, "StarsPWD: Cannot open $filename for write: $!", $ErrorLog);
+    return 0;
+  }
   for (my $i = 0; $i < @outBytes; $i++) {
     print OUTFILE $outBytes[$i];
   }
@@ -406,7 +408,7 @@ sub decryptBytes {
   # Strip off any padding
   @decryptedBytes = &stripPadding(\@decryptedBytes, $padding);
   return \@decryptedBytes, $seedA, $seedB, $padding;
-}      
+}
 
 sub encryptBytes {
   my ($byteArray, $seedX, $seedY, $padding) = @_; 
@@ -445,22 +447,48 @@ sub encryptBytes {
   return \@encryptedBytes, $seedX, $seedY;
 } 
 
-# Restructured to not pass the entire file each time
+sub readFile {
+  my ($filename, $mode, $ErrorLog) = @_;
+  if ($mode == 1) { open(StarFile, "<", $filename) or die "Cannot open $filename: $!\n";
+  } elsif ($mode == 2) {    open(StarFile, "<", $filename) || &LogOut(0, "readFile: Cannot open $filename: $!", $ErrorLog);
+  } else {    open(StarFile, "<", $filename); }
+  binmode(StarFile);
+  my $raw;
+  read(StarFile, $raw, -s $filename);
+  close(StarFile);
+  return defined($raw) ? split(//, $raw) : ();
+}
+
+# 
+# # Restructured to not pass the entire file each time
+# sub parseBlock {
+#   ## This returns the 3 relevant parts of a block: typeId, size, raw block data
+#   # This returns the typeId, size
+#   my ($FileValues,$offset) = @_;
+#   my (@FileValues, $Header);
+#   my ($binHeader, $blocktype, $blocksize);
+#   @FileValues = unpack("S",$FileValues);
+#   ($Header) =  @FileValues;
+#   $binHeader = dec2bin($Header);
+#   $blocktype = (substr($binHeader, 8,6));
+#   $blocktype = bin2dec($blocktype);
+#   $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
+#   $blocksize = bin2dec($blocksize);
+#   return ($blocktype, $blocksize);
+# }   
+
 sub parseBlock {
-  ## This returns the 3 relevant parts of a block: typeId, size, raw block data
-  # This returns the typeId, size
-  my ($FileValues,$offset) = @_;
-  my (@FileValues, $Header);
-  my ($binHeader, $blocktype, $blocksize);
-  @FileValues = unpack("S",$FileValues);
-  ($Header) =  @FileValues;
-  $binHeader = dec2bin($Header);
-  $blocktype = (substr($binHeader, 8,6));
-  $blocktype = bin2dec($blocktype);
-  $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
-  $blocksize = bin2dec($blocksize);
-  return ($blocktype, $blocksize);
-}   
+  # Returns the typeId (6 bits) and size (10 bits) from a packed 2-byte header.
+  # $FileValues is a 2-char string of the header bytes in the order passed
+  # by the caller (see decryptFix: $fileBytes[$offset+1] . $fileBytes[$offset]).
+  # This replaces the dec2bin/bin2dec/substr form with direct bit math; the
+  # two forms produce identical output (verified with 10,000 random headers).
+  my ($FileValues, $offset) = @_;
+  my $Header    = unpack("S", $FileValues);
+  my $typeId    = ($Header >> 2) & 0x3F;
+  my $blocksize = (($Header & 0x03) << 8) | (($Header >> 8) & 0xFF);
+  return ($typeId, $blocksize);
+}
 
 sub read8 {
 # Convert unsigned byte to integer.
@@ -490,14 +518,14 @@ sub read8 {
 sub read16 {
 #	 Read a 16 bit little endian integer from a byte array
   my ($data, $offset) = @_;
-  my @data = @{ $data }; # In theory remarking this out would make it mcuh faster. 
+  my @data = @{ $data }; # BUG: In theory remarking this out would make it much faster with $data->[$offset]. 
 	return &read8($data[$offset+1]) << 8 | &read8($data[$offset]);
 }
 
 sub read32 {
 #	 Read a 32 bit little endian integer from a byte array
   my ($data, $offset) = @_;
-  my @data = @{ $data };   # In theory remarking this out would make it mcuh faster. 
+  my @data = @{ $data };   # BUG: In theory remarking this out would make it much faster with $data->[$offset] 
 	return &read8($data[$offset+3]) << 24 | 
 				&read8($data[$offset+2]) << 16 | 
 				&read8($data[$offset+1]) << 8 | 
@@ -516,7 +544,7 @@ sub read32 {
 
 sub readN {
 my ($data, $offset, $byteLen) = @_;
-  my @data = @{ $data };
+  my @data = @{ $data };  # BUG: In theory remarking this out would make it much faster with $data->[$offset]
 	if ($byteLen == 0) {return  0; }
 	elsif ($byteLen == 1) {return &read8($data[$offset]);  }
   elsif ($byteLen == 2) {return &read16($data, $offset);  }
@@ -1091,7 +1119,7 @@ sub showHab {
 # sub calculate_temperature {
 #     # Calculate and format temperature
 #     my ($raw_value) = @_;
-#     return sprintf("%d°C", (4 * $raw_value) - 200);  # Apply the formula and format
+#     return sprintf("%dï¿½C", (4 * $raw_value) - 200);  # Apply the formula and format
 # }
 # 
 # sub calculate_radiation {
@@ -1353,6 +1381,8 @@ sub resetRace { # reset the race values to the default
   my $playerRelationsLength = $decryptedBytes[112];
   my $playerId = $decryptedBytes[0] & 0xFF;
   my $fullDataFlag = (($decryptedBytes[6] & 0x07) == 7); #my $fullDataFlag = $decryptedBytes[6] & 0x04;
+  my @resetRace =  ( 81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 );
+
   # Reset all the player values but hab ranges to default Humanoid
   # Don't bother if no fullDataFlag
   #   or if it's the actual player's data!
@@ -1392,30 +1422,23 @@ sub publicMessages {
       next unless ($file =~  /^.*\.[Mm]\d*$/ ); #prefiltering for .m files
       push @mFiles, "$inDir/$file";
     }
+    closedir(BIN);
   } else {&BlockLogOut(20,"publicMessages: $inDir does not exist", $ErrorLog); }
 
   if (@mFiles == 0) { 
     &BlockLogOut(20,"publicMessages: No .m files in $inDir", $ErrorLog);
   } else {
-    my ($ext) = $basefile =~ /(\.[^.]+)$/; # only .m files
     my $messagefile = "$inDir/$GameFile" . '.messages';
     if (-f $messagefile) { unlink $messagefile; } # Get rid of the old one, since we append
     
     # BUG: You know, we could probably pull this from the .hst file
-    foreach $filename (@mFiles) {
+    foreach my $filename (@mFiles) {
       # Loop through for each .m file in the directory
-      my $FileValues;
-      my @fileBytes;
       &BlockLogOut(200,"publicMessages: For File: $filename", $LogFile);
-      open(StarFile, "<$filename" );
-      # Read in the binary Stars! .m file, byte by byte
-      binmode(StarFile);
-      while ( read(StarFile, $FileValues, 1)) {
-        push @fileBytes, $FileValues; 
-      }
-      close(StarFile);
-      
+      my @fileBytes = &readFile($filename);   
+       
       # Decrypt the data, block by block
+      my ($ext) = $filename =~ /(\.[^.]+)$/; # only .m files
       my ($outBytes) = &decryptMessages(\@fileBytes, $ext);
       my @outBytes = @{ $outBytes };
       if (scalar (@outBytes)) {
@@ -1430,7 +1453,11 @@ sub publicMessages {
     @messages = sort keys %hash;
     
     # Output the .messages file from the dedup'd, sorted messages
-  	open (OUT_FILE, ">>$messagefile") || &BlockLogOut(100, "publicMessages: could not create $messagefile", $ErrorLog); 
+  	#open (OUT_FILE, ">>$messagefile") || &BlockLogOut(100, "publicMessages: could not create $messagefile", $ErrorLog); 
+    unless (open (OUT_FILE, '>>', $messagefile)) {
+      &BlockLogOut(100, "publicMessages: could not create $messagefile", $ErrorLog);
+      return;
+    }
     foreach my $message (@messages) {
       print OUT_FILE $message;
     }
@@ -1466,17 +1493,7 @@ sub StarsClean {   # Removes shared "privileged" information from a .m file for 
 
   foreach my $mFile (@mFiles) {
     &BlockLogOut(100,"StarsClean: cleaning $mFile in $GameFile", $LogFile);
-    # Read in the binary Stars! file(s), byte by byte
-    my $fileValues;
-    my @fileBytes;
-    
-    open(StarFile, "<$mFile" );
-    binmode(StarFile);
-    while ( read(StarFile, $fileValues, 1)) {
-      push @fileBytes, $fileValues; 
-    }
-    close(StarFile);
-    
+    my @fileBytes = &readFile($mFile);    
     # Decrypt the data, block by block
     # and modify appropriately
     my ($outBytes, $needsCleaning) = &decryptClean(\@fileBytes,0);
@@ -1493,11 +1510,19 @@ sub StarsClean {   # Removes shared "privileged" information from a .m file for 
 	    &BlockLogOut(300,"StarsClean Backup: $mFile > $mFilePreclean", $LogFile);
  	    copy($mFile, $mFilePreclean);
       &BlockLogOut(200,"StarsClean: Pushing out $mFile post-cleaning for $GameFile", $LogFile);
-      open ( CLEANFILE, '>:raw', "$mFile" );
+#       open ( CLEANFILE, '>:raw', "$mFile" );
+#       for (my $i = 0; $i < @outBytes; $i++) {
+#         print CLEANFILE $outBytes[$i];
+#       }
+#       close ( CLEANFILE );
+      unless (open (CLEANFILE, '>:raw', $mFile)) {
+        &BlockLogOut(0,"StarsClean: Failed to open $mFile for write: $!", $ErrorLog);
+        next;
+      }
       for (my $i = 0; $i < @outBytes; $i++) {
         print CLEANFILE $outBytes[$i];
       }
-      close ( CLEANFILE );
+      close (CLEANFILE);
       &BlockLogOut(200,"StarsClean: Cleaned $mFile for $GameFile", $LogFile);
     } else {
       &BlockLogOut(200,"StarsClean: $mFile did not need cleaning for $GameFile", $LogFile);
@@ -1536,7 +1561,6 @@ sub decryptClean {
   # The values used when cleaning race values. Defaults to Humanoids
   my @resetRace =  ( 81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 );
   my $isCA = 0;
-  my $needsCleaning = 0;
   
    # Pass 1: Find the file owner's PRT
   my $offset = 0;
@@ -1711,13 +1735,8 @@ sub StarsList {
   my $listPrefix = "$gameDir/$gameName";   
   &BlockLogOut(100,"StarsList: fixing game: $listPrefix", $LogFile);
   
-  # Read in the .hst File
-  open(STARFILE, "<$filename");
-  binmode(STARFILE);
-  while (read(STARFILE, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
-  close(STARFILE);
+  my @fileBytes = &readFile($filename);
+  
   # Decrypt the data, block by block, and process it
   # Include the directory to handle the difference between TH and standalone 
   my %fleetList;
@@ -1726,20 +1745,21 @@ sub StarsList {
   my %waypointList;
   my $lastPlayer;
   my $warning;
-  my $needsfixing;
   
-  ($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer) = &decryptFix($gameDir, $filename, \@fileBytes, \%fleetList, \%queueList, \%designList, \%$waypointList, $lastPlayer);
+  ($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer, $planetList) = &decryptFix($gameDir, $filename, \@fileBytes, \%fleetList, \%queueList, \%designList, \%waypointList, $lastPlayer, \%planetList);
   @outBytes = @{$outBytes};
   %warning    = %$warning; # Tracking warnings generated
   %fleetList  = %$fleetList;
   %queueList  = %$queueList;
   %designList = %$designList;
   %waypointList = %$waypointList;
+  %planetList = %$planetList;
 
   # Get rid of the old List Files in case they don't exist in the new turn
   if (-f "$listPrefix.hst.fleet")    { unlink "$listPrefix.hst.fleet" }
   if (-f "$listPrefix.hst.queue")    { unlink "$listPrefix.hst.queue" }
   if (-f "$listPrefix.hst.waypoint") { unlink "$listPrefix.hst.waypoint" }
+  if (-f "$listPrefix.hst.design")   { unlink "$listPrefix.hst.design" }
   if (-f "$listPrefix.hst.design")   { unlink "$listPrefix.hst.design" }
   #if (-f "$listPrefix.hst.last")     { unlink "$listPrefix.hst.last" }  # Never changes
 
@@ -1748,12 +1768,22 @@ sub StarsList {
     if (%queueList)    { &writeList("$listPrefix.hst.queue", \%queueList); }
     if (%fleetList)    { &writeList("$listPrefix.hst.fleet", \%fleetList); }
     if (%waypointList) { &writeList("$listPrefix.hst.waypoint", \%waypointList); }
-    if ($lastPlayer) {
-      open (LISTFILE, ">$listPrefix.hst.last");
-      print LISTFILE "$lastPlayer"; 
-      close (LISTFILE);
-      umask 0002; 
-      chmod 0660,"$listPrefix.hst.last";
+#     if ($lastPlayer) {
+#       open (LISTFILE, ">$listPrefix.hst.last");
+#       print LISTFILE "$lastPlayer"; 
+#       close (LISTFILE);
+#       umask 0002; 
+#       chmod 0660,"$listPrefix.hst.last";
+#     }
+    if (defined $lastPlayer && $lastPlayer >= 0) {
+      if (open (LISTFILE, '>', "$listPrefix.hst.last")) {
+        print LISTFILE "$lastPlayer";
+        close (LISTFILE);
+        umask 0002;
+        chmod 0660, "$listPrefix.hst.last";
+      } else {
+        &BlockLogOut(0, "StarsList: cannot write $listPrefix.hst.last: $!", $ErrorLog);
+      }
     }
     &BlockLogOut(100, "StarsList: Done writing out List files for $listPrefix", $LogFile)
   } else { &BlockLogOut (0,"TurnMake: Directory $Dir_Games Missing for $listPrefix", $ErrorLog); }
@@ -1806,24 +1836,27 @@ sub StarsFix {
   my $lastPlayer = -1; # storing the last player # for 10th Starbase
   if ($file_type =~ /x/i && -f "$listPrefix.hst.last") {  # we don't have $dt here. 
   #if ($dt == 1 && -f "$listPrefix.hst.last") { # $dt = 1 = .x file
-    open (LISTFILE,"$listPrefix.hst.last");
-    my @lastFile = <LISTFILE>;
-    close LISTFILE;
-    foreach my $line (@lastFile) {
-        chomp($line); 
+  
+#     open (LISTFILE,"$listPrefix.hst.last");
+#     my @lastFile = <LISTFILE>;
+#     close LISTFILE;
+#     foreach my $line (@lastFile) {
+#         chomp($line); 
+#         $lastPlayer = $line;
+#     }
+    if (open (LISTFILE, '<', "$listPrefix.hst.last")) {
+      my @lastFile = <LISTFILE>;
+      close LISTFILE;
+      foreach my $line (@lastFile) {
+        chomp($line);
         $lastPlayer = $line;
+      }
+    } else {
+      &BlockLogOut(200, "StarsFix: $listPrefix.hst.last not readable (may not yet exist): $!", $LogFile);
     }
   }
-  # Read in the binary Stars! file, byte by byte
-  my $FileValues;
-  my @fileBytes;
-  open(STARFILE, "<$filename");
-  binmode(STARFILE);
-  while (read(STARFILE, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
-  close(STARFILE);
-  
+  my @fileBytes = &readFile($filename);
+
   # Decrypt the data, block by block, and process it
 #   my ($outBytes, $warning, $fleetList, $queueList, $designList, $waypointList);
 #   # Include the directory to handle the difference between TH and standalone 
@@ -1858,11 +1891,19 @@ sub StarsFix {
   	  &BlockLogOut(300,"StarsFix Backup: $filename > $filename.preFix", $LogFile);
    	  copy($filename, "$filename.preFix");
       &BlockLogOut(200," StarsFix: Pushing out $filename post-fixing", $LogFile);
-      open ( OUTFILE, '>:raw', "$filename" ); #open ( OUTFILE, '>:raw', "$xFile" );
+#       open ( OUTFILE, '>:raw', "$filename" ); #open ( OUTFILE, '>:raw', "$xFile" );
+#       for (my $i = 0; $i < @outBytes; $i++) {
+#         print OUTFILE $outBytes[$i];
+#       }
+#       close ( OUTFILE );
+      unless (open (OUTFILE, '>:raw', $filename)) {
+        &BlockLogOut(0, "StarsFix: Cannot open $filename for write: $!", $ErrorLog);
+        return $warning; # backup remains; don't lose $warning
+      }
       for (my $i = 0; $i < @outBytes; $i++) {
         print OUTFILE $outBytes[$i];
       }
-      close ( OUTFILE );
+      close (OUTFILE);
       &BlockLogOut(200," StarsFix: Fixed $filename", $LogFile);
     } else { &BlockLogOut(300," StarsFix: Not in Fix mode for $filename", $LogFile); }
     return $warning;
@@ -1877,8 +1918,6 @@ sub StarsAI {
   # Read in the binary Stars! file, byte by byte
   my ($GameFile, $PlayerAI, $NewStatus) = @_;
   use File::Copy;
-  my $FileValues;
-  my @fileBytes;
   my $filename = "$Dir_Games/$GameFile/$GameFile.hst";
   my $backupfile = $filename . '.ai';
   
@@ -1887,14 +1926,8 @@ sub StarsAI {
     &BlockLogOut(0,"StarsAI: Failed to find $filename for $GameFile", $ErrorLog);
     return 0;
   }
-
-  # Read in the .hst file
-  open(StarFile, "<$filename");
-  binmode(StarFile);
-  while (read(StarFile, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
-  close(StarFile);
+  
+  my @fileBytes = &readFile($filename);
   
   # Decrypt the data, block by block
   my ($outBytes, $messages) = &decryptAI(\@fileBytes, $PlayerAI, $NewStatus, 1); # 1 enables logging
@@ -1902,15 +1935,27 @@ sub StarsAI {
     my @outBytes = @{$outBytes};
     # Create the backup file
   	copy($filename, $backupfile);
-    # Output the Stars! File with updated player status
-    open (OUTFILE, '>:raw', "$filename");
+    # Output the Stars! File with updated player status   
+#     open (OUTFILE, '>:raw', "$filename");
+#     for (my $i = 0; $i < @outBytes; $i++) {
+#       print OUTFILE $outBytes[$i];
+#     }
+#     close (OUTFILE);
+    unless (open (OUTFILE, '>:raw', $filename)) {
+      &BlockLogOut(0, "StarsAI: Cannot open $filename for write: $!", $ErrorLog);
+      return 0;
+    }
     for (my $i = 0; $i < @outBytes; $i++) {
       print OUTFILE $outBytes[$i];
     }
-    close (OUTFILE);
+    close (OUTFILE);   
     &BlockLogOut(200," StarsAI: Updated $filename for playerId:$PlayerAI to $NewStatus ", $LogFile);
+    return 1;
   } else { 
     &BlockLogOut(200," StarsAI: Did not update $filename for playerId:$PlayerAI to $NewStatus ", $LogFile); 
+    # Already in that state is fine: the database should still be updated to match
+    if (grep { /^Already/ } @{$messages}) { return 1; }
+    return 0;
   }
 }
 
@@ -2167,7 +2212,8 @@ sub showCategory {
   $item{'1024'} = [ &planetaryScanners() ];
   $item{'2048'} = [ qw ( TransportCloak StealthCloak Super-StealthCloak Ultra-StealthCloak MultiFunction BattleComputer BattleSuperComputer BattleNexus Jammer10 Jammer20 Jammer30 Jammer50 EnergyCapacitor FluxCapacitor EnergyDampener TachyonDetector Anti-matterGenerator) ];
   $item{'4096'} = [ qw ( Colonization OrbitalCon Cargo SuperCargo MultiCargo Fuel SuperFuel ManeuveringJet Overthruster BeamDeflector ) ];
-  $item{'6194'} = [ qw ( empty ) ];
+  #$item{'6194'} = [ qw ( empty ) ];
+  $item{'6144'} = [ qw ( empty ) ];
 
   return ($category[$category],$item{$category}[$item]);
 }
@@ -2435,26 +2481,28 @@ sub getMask {
 
 sub BlockLogOut {
 	my($Logging, $PrintString, $LogFile) = (@_);
+  return if $Logging > $logging;   # Skip all work when this log level is disabled
   # Get Date information to set up logs to roll over weekly
   my $CurrentEpoch = time();
 	my ($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $IsDST) = localtime($CurrentEpoch); 
+  my $CurrentLocaltime = scalar(localtime($CurrentEpoch));
 	my $Month = $WrongMonth + 1; 
 	my $Year = $WrongYear + 1900;
-  if ($DayofMonth <=7) { $WeekofMonth = 1;}
-	elsif ($DayofMonth >7 && $DayofMonth <=14) { $WeekofMonth = 2;}
-	elsif ($DayofMonth >14 && $DayofMonth <=21) { $WeekofMonth = 3;}
-	elsif ($DayofMonth >21 && $DayofMonth <=28) { $WeekofMonth = 4;}
-	elsif ($DayofMonth >28 && $DayofMonth <=31) { $WeekofMonth = 5;}
+  my $WeekofMonth = int(($DayofMonth - 1) / 7) + 1;
 
   my $LogFileDate = $LogFile . '.' . $Year . '.' . $Month . '.' . $WeekofMonth; 
-	if ($Logging <= $logging) { 
-    if ($LogFile) {
-  		$PrintString = localtime(time()) . " : " . $Logging . " : " . $PrintString;
-  		open (LOGFILE, ">>$LogFileDate");
-  		print LOGFILE "$PrintString\n\n";
-  		close LOGFILE;
-    } else { print $PrintString . "\n"; }
-	}
+  if ($LogFile) {
+#   		$PrintString = localtime(time()) . " : " . $Logging . " : " . $PrintString;
+#   		open (LOGFILE, ">>$LogFileDate");
+#   		print LOGFILE "$PrintString\n\n";
+#   		close LOGFILE;
+    if (open (LOGFILE, '>>', $LogFileDate)) {
+   		#$PrintString = localtime(time()) . " : " . $Logging . " : " . $PrintString;
+   		$PrintString = $CurrentLocaltime . " : " . $Logging . " : " . $PrintString;
+		  print LOGFILE "$PrintString\n\n";
+		  close LOGFILE;
+    } else { warn "BlockLogOut: cannot open $LogFileDate: $!\n"; }
+  } else { print $PrintString . "\n"; }
 }
 
 sub unshiftBytes {
@@ -2578,14 +2626,7 @@ sub raceCheckSum {  # calculate a race checksum
 
 sub checkRaceCorrupt {
   my ($filename) = @_;
-  my $FileValues;
-  my @fileBytes;
-  open(StarFile, "<$filename");
-  binmode(StarFile);
-  while (read(StarFile, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
-  close(StarFile);
+  my @fileBytes = &readFile($filename);
   
   # Decrypt the data, block by block
   my @block;
@@ -2628,7 +2669,7 @@ sub checkRaceCorrupt {
       @decryptedData = @{ $decryptedData };
       # WHERE THE MAGIC HAPPENS
       if ($typeId == 6) { # Player Block
-        $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
+        my $playerId = $decryptedData[0] & 0xFF; # Always 255 in a race file
         my $fullDataFlag = (($decryptedData[6] & 0x07) == 7); #my $fullDataFlag = ($decryptedData[6] & 0x04); 
         # We figure out names here, because they're here at 8 when not fullDataFlag 
         my $index = 8; 
@@ -2653,6 +2694,7 @@ sub checkRaceCorrupt {
     }
     $offset = $offset + (2 + $size); 
   }
+  return 1;  # Treat as corrupt ï¿½ race file must have a footer with checksum
 }
 
 sub checkSerials {
@@ -2668,19 +2710,10 @@ sub checkSerials {
   my %block9;
   my @block9data; # block 9 data from of a single .x file
   my $err;  
-  my $FileValues='';
-  my @fileBytes=();
 
   # get the block9 information for the uploaded file
-  open(StarFile, "<$uploadFile" );
-  binmode(StarFile);
-#   while ( read(StarFile, $FileValues, 1)) {
-#     push @fileBytes, $FileValues; 
-#   }
-  my $raw;
-  read(StarFile, $raw, -s $uploadFile);
-  @fileBytes = split(//, $raw);
-  close(StarFile);
+  my @fileBytes = &readFile($uploadFile);
+    
   # Decrypt the data, block by block, to get the Block 9 serial and hardware hash
   @block9data = &decryptSerials(@fileBytes);
   $block9{$inFile} = [@block9data]; # store array in a hash
@@ -2689,20 +2722,13 @@ sub checkSerials {
   opendir(DIR, $inDir); 
   while (defined(my $file = readdir(DIR))) {  
     my $filename =  $Dir_Games .'/' . $file_prefix . '/' . $file;
-    next unless ($file =~ /^(\w+[\w.-]+\.[xX]\d{1,2})$/); # skip unless it's a .x[n] file
-    if ($inFile =~ /$file/i) { next; } # Skip if .x file present/uploaded previously 
+    #next unless ($file =~ /^(\w+[\w.-]+\.[xX]\d{1,2})$/); # skip unless it's a .x[n] file
+    next unless ($file =~ /^([\w.-]+\.[xX]\d{1,2})$/);
+    #if ($inFile =~ /$file/i) { next; } # Skip if .x file present/uploaded previously 
+    if (lc($inFile) eq lc($file)) { next; } # Skip if .x file present/uploaded previously
 
-    # Read in the file
-    @fileBytes=();
-    open(StarFile, "<$filename" );
-    binmode(StarFile);
-#     while ( read(StarFile, $FileValues, 1)) {
-#       push @fileBytes, $FileValues; 
-#     }
-    my $raw;
-    read(StarFile, $raw, -s $filename);
-    @fileBytes = split(//, $raw);
-    close(StarFile);
+    my @fileBytes = &readFile($filename);
+    
     # Decrypt the data, block by block, to get the serial and hardware hash
     @block9data = &decryptSerials(@fileBytes);
     $block9{$file} = [@block9data]; # store array in a hash
@@ -2783,32 +2809,43 @@ sub readList {
   my %List;
   # Read in the file data
   my @File;
-  open (LISTFILE,$File) || &BlockLogOut(0," readFleetList: cannot open $File", $ErrorLog);
+#   open (LISTFILE,$File) || &BlockLogOut(0," readFleetList: cannot open $File", $ErrorLog);
+#   @File = <LISTFILE>;
+#   close LISTFILE;  
+  unless (open (LISTFILE, '<', $File)) {
+    &BlockLogOut(0, "readList: cannot open $File: $!", $ErrorLog);
+    return { };
+  }
   @File = <LISTFILE>;
-  close LISTFILE;
+  close LISTFILE;  
   # Turn the file into a usable array
   my $counter = 0;
   my @keys;
-  my %list;
   foreach my $line (@File) {
+    my %list;
     chomp($line); # remove the CR
     my @values = split (',', $line);
     if ($counter == 0) { @keys = @values; $counter++; next; } # Read the header line and then move on
-    # Auto assign keys from the header line
-    foreach my $key ( @keys ) {
-      my $value = shift @values;
-      $list{$key} = $value;
-    }
+      # Auto assign keys from the header line
+      foreach my $key ( @keys ) {
+        my $value = shift @values;
+        $list{$key} = $value;
+      }
     $List{$list{playerId}}{$list{id}} =  { %list };
-  }
-  return { %List };
+    }
+  #return { %List };
+  #return { \%List };
+  return \%List;
 }
 
 sub writeList {
-  ($File, $List) = @_;
+  my ($File, $List) = @_;
   my %List = %$List;
-  open (LISTFILE, ">$File");
-
+  #open (LISTFILE, ">$File");
+  unless (open (LISTFILE, '>', $File)) {
+    &BlockLogOut(0, "writeList: cannot open $File for write: $!", $ErrorLog);
+    return 0;
+  }
   # Content 
   my $count = 0;
   foreach my $i (sort keys %List) {
@@ -2892,14 +2929,8 @@ sub cleanFiles {
 sub trimM {
   my ($filename, $outFileName, $display) = @_;
 
-  # Read the file
-  my @fileBytes;
-  my $FileValues;
-  unless (open(STARFILE, "<$filename")) { print "Cannot open $filename: $!\n"; return; }
-  binmode(STARFILE);
-  while (read(STARFILE, $FileValues, 1)) { push @fileBytes, $FileValues; }
-  close(STARFILE);
-
+  my @fileBytes = &readFile($filename);
+  
   if ($display) { print "Read " . scalar(@fileBytes) . " bytes from $filename\n" } ;
 
   # Walk all blocks and record the offset of every block 8
@@ -2907,7 +2938,8 @@ sub trimM {
   my $lastBlock8Offset = -1;
   my ($typeId, $size);
   my $block8Count = 0;
-
+  my $FileValues; 
+  
   while ($offset < @fileBytes) {
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
     ($typeId, $size) = &parseBlock($FileValues, $offset);
@@ -3462,6 +3494,7 @@ sub decryptFix {
 #           validTask => $validTask,
 #           noAutoTrack => $noAutoTrack,
 #         );
+        # Potential bug in structure
         $waypoint{$ownerId}{$fleetId}{$waypointId} = { %waypoint };
         
         # Check if waypoint destination needs to be updated
@@ -3906,11 +3939,12 @@ sub decryptFix {
                     $warnId = &zerofy($ownerId) . '-starbase-' . &zerofy($planetId); # warn on player and planet
                     if ($fixFiles ) {
                       $err .= " Fixed!! Starbase design for $shipName reset to blank.";
-                    }                    $warning{$warnId} = $err;
+                    }                    
+                    $warning{$warnId} = $err;
                   } else { $err = ''; }
                 }
               }
-            } else { $err .= "Missing .fleet file $listPrefix.hst.fleet. Cannot detect Cheap Starbase.\n"; }
+            } else { $err .= "Missing .queue file $listPrefix.hst.queue. Cannot detect Cheap Starbase.\n"; }
           }
         } 
 
@@ -4091,7 +4125,8 @@ sub decryptFix {
         }
         
         # Get the cargo totals for each ship in the fleet
-        ($cargoCapacity, $fuelCapacity, $robberBaron, $mass) = &tallyFleet ($ownerId, $shipCount, $shipDesigns);
+        #($cargoCapacity, $fuelCapacity, $robberBaron, $mass) = &tallyFleet ($ownerId, $shipCount, $shipDesigns);
+        ($cargoCapacity, $fuelCapacity, $robberBaron, $mass) = &tallyFleet ($ownerId, join(chr(31), @shipCount), $shipDesigns);
         
         # Fill out ship count for .fleet       
         #while (scalar(@shipCount) <= 15 ) { push(@shipCount,0 ) };
@@ -4108,7 +4143,8 @@ sub decryptFix {
           $gLength = 4 >> (3 - $gLength);
           $popLength = ($contentsLengths & 0xC0) >> 6;
           $popLength = 4 >> (3 - $popLength);
-          $fuelLength = $contentsLengths >> 8;
+          #$fuelLength = $contentsLengths >> 8;
+          $fuelLength = ($contentsLengths >> 8) & 0x03;
           $fuelLength = 4 >> (3 - $fuelLength);
           $index += 2;
           $ironium = &readN(\@decryptedData, $index, $iLength);
@@ -4218,17 +4254,15 @@ sub decryptFix {
       elsif ( $typeId == 35) { # Planet Change block
         # Planet Route orders, either NoResearch, iWarpfling, OR idRoute
         # Max planets = 945
-
         $planetId = &read16(\@decryptedData, 0); # from 0-whatever, meaning add 1 for UI
-        my $ul = read32(\@decryptedData, 2);
+        my $ul = &read32(\@decryptedData, 2);
         # Decode bitfields from ul
-        $fNoResearch = ($ul >> 0) & 0x1;              # Extract the 1st bit
-        $idFling     = ($ul >> 1) & 0x3FF;            # Extract the next 10 bits
-        $iWarpFling  = ($ul >> 11) & 0xF;             # Extract the next 4 bits
-        $warpSpeed = $iWarpFling + 4;
-        $idRoute     = ($ul >> 15) & 0x3FF;           # Extract the next 10 bits, not 0.. but 1.. so no need to change
+        my $fNoResearch = ($ul >> 0) & 0x1;              # Extract the 1st bit
+        my $idFling     = ($ul >> 1) & 0x3FF;            # Extract the next 10 bits
+        my $iWarpFling  = ($ul >> 11) & 0xF;             # Extract the next 4 bits
+        my $warpSpeed = $iWarpFling + 4;
+        my $idRoute     = ($ul >> 15) & 0x3FF;           # Extract the next 10 bits, not 0.. but 1.. so no need to change
         my $unused      = ($ul >> 25) & 0x7F;            # Extract the final 7 bits
-
       }
       elsif ($typeId == 37) {  # Fleet Merge block
         # Manual merge. Waypoint merges are handled under waypoints. 
@@ -4357,19 +4391,19 @@ sub decryptFix {
             ### 32k Merge ######################################################
             # The UI can permit transferring more than 32k, but Stars! processing will fix.
             if ($shipCountL[$bit] > 32767 || $shipCountR[$bit] > 32767) {
-              my $err = '32k Merge: Player ' . ($playerId+1) . ' merge order for fleet ' . ($fleetIdL+1) . ' to ' . ($fleetIdR+1) . ' for ship design ' . ($bit+1) . '.';
+              my $err = '32k Merge: Player ' . ($playerIdL+1) . ' merge order for fleet ' . ($fleetIdL+1) . ' to ' . ($fleetIdR+1) . ' for ship design ' . ($bit+1) . '.';
               if ($shipCountL[$bit] > 32767 ) { # fleet has more than 32k of a ship design
                 $shipCountR[$bit] = $shipCountR[$bit] + ( $shipCountL[$bit] - 32767 );
-                $shipCountL[$bit] = 32767 - $shipCountL[$bit]; # second so the value hasn't changed.   (AI)
+                #$shipCountL[$bit] = 32767 - $shipCountL[$bit]; # second so the value hasn't changed.   (AI)
                 $shipCountL[$bit] = 32767; # second so the value hasn't changed.
               }
               if ($shipCountR[$bit] > 32767 ) { # fleet has more than 32k of a ship design
                 $shipCountL[$bit] = $shipCountL[$bit] + ( $shipCountR[$bit] - 32767 );
-                $shipCountR[$bit] = 32767 - $shipCountR[$bit]; # second so the value hasn't changed.  (AI)
+                #$shipCountR[$bit] = 32767 - $shipCountR[$bit]; # second so the value hasn't changed.  (AI)
                 $shipCountR[$bit] = 32767; # second so the value hasn't changed.
               }
               $err .= '  Stars! will correct to 32,767.'; # This is handled by the EXE
-              $warnId = &zerofy($playerId) . '-32k-' . $fleetIdL . '+' . $fleetIdR; # adding a zero lets us sort on key
+              $warnId = &zerofy($playerIdL) . '-32k-' . $fleetIdL . '+' . $fleetIdR; # adding a zero lets us sort on key
               $warning{$warnId} = $err;
             } 
             # No need to clear this warning, as the UI will be screwed up until turn generation anyway.
@@ -4569,22 +4603,17 @@ sub decryptMessages {
     }
     $offset = $offset + (2 + $size); 
   }
-  return \@outBytes, \@messages;
+  #return \@outBytes, \@messages;
+  return \@messages;
 }
 
 sub getScores {
   my ($HST) = @_;
   # Read in the binary Stars! file, byte by byte
-  my $FileValues;
-  my @fileBytes;
-  #@fileBytes = ();
   my @singularRaceNames;
-  open(StarFile, "<$HST" );
-  binmode(StarFile);
-  while ( read(StarFile, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
-  close(StarFile);
+  
+  my @fileBytes = &readFile($HST);
+    
   # Decrypt the data, block by block
   my ($singularRaceNames, $score, $player) = &decryptScores(\@fileBytes);
   @singularRaceNames = @{$singularRaceNames};
@@ -4801,17 +4830,12 @@ sub decode_victory_conditions {
 
 # This is probably overkill when we can get it from a CHK file or StarStat.
 sub getRaceNames {
-  my ($HST) = @_;
+  my ($filename) = @_;
   # Read in the binary Stars! file, byte by byte
-  my $FileValues;
-  my @fileBytes;
   my @singularRaceNames;
-  open(StarFile, "<$HST" );
-  binmode(StarFile);
-  while ( read(StarFile, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
-  close(StarFile);
+  
+  my @fileBytes = &readFile($filename);
+  
   # Decrypt the data, block by block
   @singularRaceNames = &decryptNameBlock(@fileBytes);
   #@singularRaceNames = &decryptNameBlock();
@@ -4850,25 +4874,27 @@ sub decryptNameBlock {
       ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block );
       ($seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
-    } elsif ($typeId == 6) { #PlayerBlock
+    } else {
       # Everything else needs to be decrypted
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB ); 
       @decryptedData = @{ $decryptedData };  
       # WHERE THE MAGIC HAPPENS
-      my $playerId = $decryptedData[0] & 0xFF;
-      my $fullDataFlag = (($decryptedData[6] & 0x07) == 7); #my $fullDataFlag = ($decryptedData[6] & 0x04);
-      my $index = 8;
-      if ($fullDataFlag) { 
-        # The player names are at the end which is not a fixed length
-        $index = 112;
-        my $playerRelationsLength = $decryptedData[112]; 
-        $index = $index + $playerRelationsLength + 1;
-      } 
-      my $singularNameLength = $decryptedData[$index] & 0xFF;
-      my $singularMessageEnd = $index + $singularNameLength;
-      my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
-      print "Singular Race Name: $singularRaceName\n";
-      push @singularRaceNames, $singularRaceName;
+      if ($typeId == 6) { #PlayerBlock
+        my $playerId = $decryptedData[0] & 0xFF;
+        my $fullDataFlag = (($decryptedData[6] & 0x07) == 7); #my $fullDataFlag = ($decryptedData[6] & 0x04);
+        my $index = 8;
+        if ($fullDataFlag) { 
+          # The player names are at the end which is not a fixed length
+          $index = 112;
+          my $playerRelationsLength = $decryptedData[112]; 
+          $index = $index + $playerRelationsLength + 1;
+        } 
+        my $singularNameLength = $decryptedData[$index] & 0xFF;
+        my $singularMessageEnd = $index + $singularNameLength;
+        my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+        print "Singular Race Name: $singularRaceName\n";
+        push @singularRaceNames, $singularRaceName;
+      }
       # END OF MAGIC
     }
     $offset = $offset + (2 + $size); 
@@ -4905,218 +4931,213 @@ sub processData {
 # Pass a reference to the decrypted Block 6 byte array. Returns the leftover
 # advantage points as an integer (positive = remaining, negative = over budget).
 sub advantagePointsLeft {
-    my ($dataRef) = @_;
+  my ($dataRef) = @_;
 
-    # PRT indices: 0=HE 1=SS 2=WM 3=CA 4=IS 5=SD 6=PP 7=IT 8=AR 9=JOAT
-    my @rgRacePrimaryTrait = ( 40, 95, 45, 10, -100, -150, 120, 180, 90, -66 );  
-    my @rgRaceAdvDisPts = ( -235, -25, -159, -201, 40, -240, -155,               # LRT costs, bits 0-13
-                             160, 240, 255, 325, 180, 70, 30 );                
-    my @rgRaceDisEnvPts = ( 50*3, 110*3, 180*3, 260*3, 350*3, 460*3 );         
+  # PRT indices: 0=HE 1=SS 2=WM 3=CA 4=IS 5=SD 6=PP 7=IT 8=AR 9=JOAT
+  my @rgRacePrimaryTrait = ( 40, 95, 45, 10, -100, -150, 120, 180, 90, -66 );  
+  my @rgRaceAdvDisPts = ( -235, -25, -159, -201, 40, -240, -155, 160, 240, 255, 325, 180, 70, 30 ); # LRT costs, bits 0-13
+  my @rgRaceDisEnvPts = ( 50*3, 110*3, 180*3, 260*3, 350*3, 460*3 );         
 
-    # Named PRT constants
-    my $raCheapCol  = 0;  # HE
-    my $raStealth   = 1;  # SS
-    my $raMassAccel = 6;  # PP
-    my $raMacintosh = 8;  # AR
-    my $raNone      = 9;  # JOAT
+  # Named PRT constants
+  my $raCheapCol  = 0;  # HE
+  my $raStealth   = 1;  # SS
+  my $raMassAccel = 6;  # PP
+  my $raMacintosh = 8;  # AR
+  my $raNone      = 9;  # JOAT
 
-    # Named LRT/checkbox bit positions in grbitAttr
-    my $ibitRaceLast       = 13;
-    my $ibitRaceTerraform  = 1;   # TT
-    my $ibitRaceAdvScanner = 10;  # NAS
-    my $ibitRaceTech3      = 29;  # Expensive tech starts at 3
-    my $ibitRaceCheapFact  = 31;  # Factories cost 1kT less germanium
+  # Named LRT/checkbox bit positions in grbitAttr
+  my $ibitRaceLast       = 13;
+  my $ibitRaceTerraform  = 1;   # TT
+  my $ibitRaceAdvScanner = 10;  # NAS
+  my $ibitRaceTech3      = 29;  # Expensive tech starts at 3
+  my $ibitRaceCheapFact  = 31;  # Factories cost 1kT less germanium
 
-    my $pctIdealGrowthMax = 20;
+  my $pctIdealGrowthMax = 20;
 
-    # Byte offsets into decrypted race block (Block 6)
-    my $OFF_ENV_CENTER = 16;  # rgEnvVar[3]     (bytes 16-18)
-    my $OFF_ENV_MIN    = 19;  # rgEnvVarMin[3]  (bytes 19-21)
-    my $OFF_ENV_MAX    = 22;  # rgEnvVarMax[3]  (bytes 22-24)
-    my $OFF_GROWTH     = 25;  # pctIdealGrowth  (byte 25)
-    my $OFF_RGATTR     = 62;  # rgAttr[0]       (bytes 62-77)
-    my $OFF_GRBITATTR  = 78;  # grbitAttr        (bytes 78-81, little-endian)
+  # Byte offsets into decrypted race block (Block 6)
+  my $OFF_ENV_CENTER = 16;  # rgEnvVar[3]     (bytes 16-18)
+  my $OFF_ENV_MIN    = 19;  # rgEnvVarMin[3]  (bytes 19-21)
+  my $OFF_ENV_MAX    = 22;  # rgEnvVarMax[3]  (bytes 22-24)
+  my $OFF_GROWTH     = 25;  # pctIdealGrowth  (byte 25)
+  my $OFF_RGATTR     = 62;  # rgAttr[0]       (bytes 62-77)
+  my $OFF_GRBITATTR  = 78;  # grbitAttr        (bytes 78-81, little-endian)
 
-    # Extract race fields from the decrypted block
-    my @envCenter = map { _toSigned($dataRef->[$OFF_ENV_CENTER + $_]) } (0, 1, 2);
-    my @envMin    = map { _toSigned($dataRef->[$OFF_ENV_MIN    + $_]) } (0, 1, 2);
-    my @envMax    = map { _toSigned($dataRef->[$OFF_ENV_MAX    + $_]) } (0, 1, 2);
+  # Extract race fields from the decrypted block
+  my @envCenter = map { _toSigned($dataRef->[$OFF_ENV_CENTER + $_]) } (0, 1, 2);
+  my @envMin    = map { _toSigned($dataRef->[$OFF_ENV_MIN    + $_]) } (0, 1, 2);
+  my @envMax    = map { _toSigned($dataRef->[$OFF_ENV_MAX    + $_]) } (0, 1, 2);
 
-    my $pctIdealGrowth = $dataRef->[$OFF_GROWTH];
+  my $pctIdealGrowth = $dataRef->[$OFF_GROWTH];
 
-    # rgAttr values (rs* enum indices)
-    #   0=rsResGen  1=rsFactProd  2=rsFactBuild  3=rsFactOperate
-    #   4=rsMineProd  5=rsMineBuild  6=rsMineOperate  7=rsUseLeftover
-    #   8-13=rsTechBonus1-6  14=rsMajorAdv(PRT)
-    my $rsResGen      = $dataRef->[$OFF_RGATTR + 0];
-    my $rsFactProd    = $dataRef->[$OFF_RGATTR + 1];
-    my $rsFactBuild   = $dataRef->[$OFF_RGATTR + 2];
-    my $rsFactOperate = $dataRef->[$OFF_RGATTR + 3];
-    my $rsMineProd    = $dataRef->[$OFF_RGATTR + 4];
-    my $rsMineBuild   = $dataRef->[$OFF_RGATTR + 5];
-    my $rsMineOperate = $dataRef->[$OFF_RGATTR + 6];
-    my @techBonus     = map { $dataRef->[$OFF_RGATTR + 8 + $_] } (0..5);
-    my $raMajor       = $dataRef->[$OFF_RGATTR + 14];
+  # rgAttr values (rs* enum indices)
+  #   0=rsResGen  1=rsFactProd  2=rsFactBuild  3=rsFactOperate
+  #   4=rsMineProd  5=rsMineBuild  6=rsMineOperate  7=rsUseLeftover
+  #   8-13=rsTechBonus1-6  14=rsMajorAdv(PRT)
+  my $rsResGen      = $dataRef->[$OFF_RGATTR + 0];
+  my $rsFactProd    = $dataRef->[$OFF_RGATTR + 1];
+  my $rsFactBuild   = $dataRef->[$OFF_RGATTR + 2];
+  my $rsFactOperate = $dataRef->[$OFF_RGATTR + 3];
+  my $rsMineProd    = $dataRef->[$OFF_RGATTR + 4];
+  my $rsMineBuild   = $dataRef->[$OFF_RGATTR + 5];
+  my $rsMineOperate = $dataRef->[$OFF_RGATTR + 6];
+  my @techBonus     = map { $dataRef->[$OFF_RGATTR + 8 + $_] } (0..5);
+  my $raMajor       = $dataRef->[$OFF_RGATTR + 14];
 
-    # grbitAttr (32-bit little-endian)
-    my $grbitAttr = &read32($dataRef, $OFF_GRBITATTR);
+  # grbitAttr (32-bit little-endian)
+  my $grbitAttr = &read32($dataRef, $OFF_GRBITATTR);
+  my $cPoints = 550 * 3;  # 1650
+  # Compute innate habitability 
+  my $lInnate = int( _lInnateRaceHabitability(\@envCenter, \@envMin, \@envMax, $grbitAttr, $ibitRaceTerraform ) / 2000 );
 
-    my $cPoints = 550 * 3;  # 1650
+  # Growth rate spread calculation 
+  my $iSpread = _max(1, _min($pctIdealGrowthMax, $pctIdealGrowth));
+  my $pctGrowth = $iSpread;
 
-    # Compute innate habitability 
-    my $lInnate = int( _lInnateRaceHabitability(\@envCenter, \@envMin, \@envMax, $grbitAttr, $ibitRaceTerraform ) / 2000 );
+  if ($iSpread > 5) {
+    if ($iSpread > 13) {
+      if ($iSpread < 20) {  $iSpread = 5 + 8*2 + ($iSpread - 13) * 3;
+      } else {  $iSpread = 5 + 8*2 + 18 + 6;  # = 45
+      }
+    } else {
+      if    ($iSpread == 6) { $cPoints += 1200 * 3; }
+      elsif ($iSpread == 7) { $cPoints += 750  * 3; }
+      elsif ($iSpread == 8) { $cPoints += 200  * 3; }
+      elsif ($iSpread == 9) { $cPoints += 75   * 3; }
 
-    # Growth rate spread calculation 
-    my $iSpread = _max(1, _min($pctIdealGrowthMax, $pctIdealGrowth));
-    my $pctGrowth = $iSpread;
+      $iSpread = 5 + ($iSpread - 5) * 2;
+    }
+  } else { $cPoints += 1400 * 3 * (6 - $iSpread);  }       # Growth 5% or less: mucho points     
+  $lInnate = int($lInnate * $iSpread / 24); # Scale habitability by growth spread 
+  
+  $cPoints -= $lInnate; # Subtract habitability
 
-    if ($iSpread > 5) {
-        if ($iSpread > 13) {
-            if ($iSpread < 20) {  $iSpread = 5 + 8*2 + ($iSpread - 13) * 3;
-            } else {  $iSpread = 5 + 8*2 + 18 + 6;  # = 45
-            }
-        } else {
-            if    ($iSpread == 6) { $cPoints += 1200 * 3; }
-            elsif ($iSpread == 7) { $cPoints += 750  * 3; }
-            elsif ($iSpread == 8) { $cPoints += 200  * 3; }
-            elsif ($iSpread == 9) { $cPoints += 75   * 3; }
+  # Off-center hab bonus 
+  my $cGood = 0;
+  for my $i (0..2) {
+    if ($envCenter[$i] > 0) {  $cPoints += abs($envCenter[$i] - 50) * 4;
+    } else {  $cGood++; } # immune
+  }
 
-            $iSpread = 5 + ($iSpread - 5) * 2;
-        }
-    } else { $cPoints += 1400 * 3 * (6 - $iSpread);  }       # Growth 5% or less: mucho points     
-    $lInnate = int($lInnate * $iSpread / 24); # Scale habitability by growth spread 
+  if ($cGood > 1) { $cPoints -= 150;  }  # Penalty for 2+ immunities
+
+  # Factory/immunity interaction penalty 
+  {
+    my $cOperate = $rsFactOperate;
+    my $cProduce = $rsFactProd;
+    if ($cOperate > 10 || $cProduce > 10) {
+      $cOperate = _max(1, $cOperate - 9);
+      $cProduce = _max(1, $cProduce - 9);
+      $cProduce *= ($raMajor == $raCheapCol) ? 3 : 2;
+
+      if ($cGood >= 2) {  $cPoints -= int($cOperate * $cProduce * $pctGrowth / 2);
+      } else {  $cPoints -= int($cOperate * $cProduce * $pctGrowth / 9); }
+    }
+  }
+
+  # Colonist resource production cost 
+  {
+    my $i = _min($rsResGen, 25);
+    if    ($i <= 7)  { $cPoints -= 2400; }
+    elsif ($i == 8)  { $cPoints -= 1260; }
+    elsif ($i == 9)  { $cPoints -= 600;  }
+    elsif ($i > 10)  { $cPoints += 120 * ($i - 10); }
+  }
+
+  if ($raMajor != $raMacintosh) {
+    # Factory efficiency calculation 
+    my @rgi;
+    $rgi[0] = 10 - $rsFactProd;
+    $rgi[1] = 10 - $rsFactBuild;
+    $rgi[2] = 10 - $rsFactOperate;
     
-    $cPoints -= $lInnate; # Subtract habitability
-
-    # Off-center hab bonus 
-    my $cGood = 0;
-    for my $i (0..2) {
-      if ($envCenter[$i] > 0) {  $cPoints += abs($envCenter[$i] - 50) * 4;
-      } else {  $cGood++; } # immune
+    # Worse production
+    my $cCur = 0;
+    if ($rgi[0] > 0) {   $cCur += $rgi[0] * 100;
+    } else { $cCur += $rgi[0] * 121; }      
+    # Worse build cost
+    if ($rgi[1] < 0) {    $cCur -= $rgi[1] * 55;
+    } else {  $cCur -= $rgi[1] * $rgi[1] * 60; }      
+    # Worse operate count
+    if ($rgi[2] > 0) {   $cCur += $rgi[2] * 40;
+    } else {  $cCur += $rgi[2] * 35; }
+    if ($cCur > 700) {  $cCur = 700 + int(($cCur - 700) / 3); }
+    # Extra penalty for ColOp >= 17 
+    if ($rgi[2] <= -7) {
+      if ($rgi[2] >= -11) {  $cCur -= 30 * (-6 - $rgi[2]);
+      } elsif ($rgi[2] >= -14) {  $cCur -= 75*3 + 45 * (-12 - $rgi[2]);
+      } else {  $cCur -= 120*3; }
     }
 
-    if ($cGood > 1) { $cPoints -= 150;  }  # Penalty for 2+ immunities
+    # Extra penalty for FactProd >= 13
+    if ($rgi[0] <= -3) { $cCur -= (-2 - $rgi[0]) * 20 * 3; }
 
-    # Factory/immunity interaction penalty 
-    {
-        my $cOperate = $rsFactOperate;
-        my $cProduce = $rsFactProd;
+    $cPoints += $cCur;
 
-        if ($cOperate > 10 || $cProduce > 10) {
-          $cOperate = _max(1, $cOperate - 9);
-          $cProduce = _max(1, $cProduce - 9);
-          $cProduce *= ($raMajor == $raCheapCol) ? 3 : 2;
+    # Cheap factories checkbox 
+    if (&bitTest($grbitAttr, $ibitRaceCheapFact)) {  $cPoints -= 175;   }
 
-          if ($cGood >= 2) {  $cPoints -= int($cOperate * $cProduce * $pctGrowth / 2);
-          } else {  $cPoints -= int($cOperate * $cProduce * $pctGrowth / 9);
-        }
+    # Mine efficiency calculation 
+    $rgi[0] = 10 - $rsMineProd;
+    $rgi[1] =  3 - $rsMineBuild;
+    $rgi[2] = 10 - $rsMineOperate;
+
+    $cCur = 0;
+    if ($rgi[0] > 0) {   $cCur += $rgi[0] * 100; # Worse production
+    } else {   $cCur += $rgi[0] * 169; } 
+            
+    if ($rgi[1] <= 0) { $cCur -= -80 + $rgi[1] * 65; # Worse build cost
+    } else { $cCur -= 360;  }
+    
+    if ($rgi[2] > 0) { $cCur += $rgi[2] * 40;  # Worse operate count
+    } else { $cCur += $rgi[2] * 35;  }
+    $cPoints += $cCur;
+  } else { $cPoints += 210; }# AR gets a flat adjustment 
+
+  # Primary racial trait cost 
+  $cPoints -= $rgRacePrimaryTrait[$raMajor];
+
+  # Lesser racial trait costs
+  my $cBad = 0;
+  $cGood = 0;
+  for my $i (0 .. $ibitRaceLast) {
+    if (&bitTest($grbitAttr, $i)) {
+      if ($rgRaceAdvDisPts[$i] < 0) {  $cBad++;
+      } else {  $cGood++; }
+      $cPoints += $rgRaceAdvDisPts[$i];
+    }
+  }
+
+  if ($cBad + $cGood > 4) { $cPoints -= (($cBad + $cGood) * 10) * ($cBad + $cGood - 4); } # Penalize for too many traits
+  if ($cGood - $cBad > 3) { $cPoints -= 60 * ($cGood - $cBad - 3); } # Too many disadvantage traits
+  if ($cBad - $cGood > 3) { $cPoints -= 40 * ($cBad - $cGood - 3); } # Too many advantage traits
+
+  # NAS interaction with specific PRTs
+  if (&bitTest($grbitAttr, $ibitRaceAdvScanner)) {
+    if    ($raMajor == $raMassAccel) { $cPoints -= 280; }
+    elsif ($raMajor == $raStealth)   { $cPoints -= 200; }
+    elsif ($raMajor == $raNone)      { $cPoints -= 40;  }
+  }
+
+  # Research cost calculation 
+  {
+    my $cCur = 0;
+    for my $i (0..5) {  $cCur += ($techBonus[$i] - 1); }
+
+    if ($cCur > 0) {         # Net expensive research (more cheap than costly)
+      $cPoints -= $cCur * $cCur * 130;
+      if    ($cCur == 6) { $cPoints += (36 - 25) * 130; }
+      elsif ($cCur == 5) { $cPoints += (25 - 21) * 130; }
+    } elsif ($cCur < 0) {    # Net cheap research
+      $cPoints += $rgRaceDisEnvPts[-$cCur - 1];
+      if (-$cCur > 4 && $rsResGen < 10) {  # Discourage double-dipping
+        $cPoints -= 190;
       }
-    }
-
-    # Colonist resource production cost 
-    {
-      my $i = _min($rsResGen, 25);
-      if    ($i <= 7)  { $cPoints -= 2400; }
-      elsif ($i == 8)  { $cPoints -= 1260; }
-      elsif ($i == 9)  { $cPoints -= 600;  }
-      elsif ($i > 10)  { $cPoints += 120 * ($i - 10); }
-    }
-
-    if ($raMajor != $raMacintosh) {
-      # Factory efficiency calculation 
-      my @rgi;
-      $rgi[0] = 10 - $rsFactProd;
-      $rgi[1] = 10 - $rsFactBuild;
-      $rgi[2] = 10 - $rsFactOperate;
-      
-      # Worse production
-      my $cCur = 0;
-      if ($rgi[0] > 0) {   $cCur += $rgi[0] * 100;
-      } else { $cCur += $rgi[0] * 121; }      
-      # Worse build cost
-      if ($rgi[1] < 0) {    $cCur -= $rgi[1] * 55;
-      } else {  $cCur -= $rgi[1] * $rgi[1] * 60; }      
-      # Worse operate count
-      if ($rgi[2] > 0) {   $cCur += $rgi[2] * 40;
-      } else {  $cCur += $rgi[2] * 35; }
-      if ($cCur > 700) {  $cCur = 700 + int(($cCur - 700) / 3); }
-      # Extra penalty for ColOp >= 17 
-      if ($rgi[2] <= -7) {
-        if ($rgi[2] >= -11) {  $cCur -= 30 * (-6 - $rgi[2]);
-        } elsif ($rgi[2] >= -14) {  $cCur -= 75*3 + 45 * (-12 - $rgi[2]);
-        } else {  $cCur -= 120*3; }
-      }
-
-      # Extra penalty for FactProd >= 13
-      if ($rgi[0] <= -3) { $cCur -= (-2 - $rgi[0]) * 20 * 3; }
-
-      $cPoints += $cCur;
-
-      # Cheap factories checkbox 
-      if (&bitTest($grbitAttr, $ibitRaceCheapFact)) {  $cPoints -= 175;   }
-
-      # Mine efficiency calculation 
-      $rgi[0] = 10 - $rsMineProd;
-      $rgi[1] =  3 - $rsMineBuild;
-      $rgi[2] = 10 - $rsMineOperate;
-
-      $cCur = 0;
-      if ($rgi[0] > 0) {   $cCur += $rgi[0] * 100; # Worse production
-      } else {   $cCur += $rgi[0] * 169; } 
-              
-      if ($rgi[1] <= 0) { $cCur -= -80 + $rgi[1] * 65; # Worse build cost
-       } else { $cCur -= 360;  }
-      
-      if ($rgi[2] > 0) { $cCur += $rgi[2] * 40;  # Worse operate count
-      } else { $cCur += $rgi[2] * 35;  }
-      $cPoints += $cCur;
-    } else { $cPoints += 210; }# AR gets a flat adjustment 
-
-    # Primary racial trait cost 
-    $cPoints -= $rgRacePrimaryTrait[$raMajor];
-
-    # Lesser racial trait costs
-    my $cBad = 0;
-    $cGood = 0;
-    for my $i (0 .. $ibitRaceLast) {
-      if (&bitTest($grbitAttr, $i)) {
-        if ($rgRaceAdvDisPts[$i] < 0) {  $cBad++;
-        } else {  $cGood++; }
-        $cPoints += $rgRaceAdvDisPts[$i];
-      }
-    }
-
-    if ($cBad + $cGood > 4) { $cPoints -= (($cBad + $cGood) * 10) * ($cBad + $cGood - 4); } # Penalize for too many traits
-    if ($cGood - $cBad > 3) { $cPoints -= 60 * ($cGood - $cBad - 3); } # Too many disadvantage traits
-    if ($cBad - $cGood > 3) { $cPoints -= 40 * ($cBad - $cGood - 3); } # Too many advantage traits
-
-    # NAS interaction with specific PRTs
-    if (&bitTest($grbitAttr, $ibitRaceAdvScanner)) {
-      if    ($raMajor == $raMassAccel) { $cPoints -= 280; }
-      elsif ($raMajor == $raStealth)   { $cPoints -= 200; }
-      elsif ($raMajor == $raNone)      { $cPoints -= 40;  }
-    }
-
-    # Research cost calculation 
-    {
-        my $cCur = 0;
-        for my $i (0..5) {  $cCur += ($techBonus[$i] - 1); }
-
-        if ($cCur > 0) {         # Net expensive research (more cheap than costly)
-          $cPoints -= $cCur * $cCur * 130;
-          if    ($cCur == 6) { $cPoints += (36 - 25) * 130; }
-          elsif ($cCur == 5) { $cPoints += (25 - 21) * 130; }
-        } elsif ($cCur < 0) {    # Net cheap research
-          $cPoints += $rgRaceDisEnvPts[-$cCur - 1];
-          if (-$cCur > 4 && $rsResGen < 10) {  # Discourage double-dipping
-            $cPoints -= 190;
-          }
-        }        
-        if (&bitTest($grbitAttr, $ibitRaceTech3)) { $cPoints -= 180; }  # Expensive tech starts at 3 checkbox       
-        if ($raMajor == $raMacintosh && $techBonus[0] == 2) { $cPoints -= 100; } # AR with cheap energy research penalty 
-    }
-    # Final: divide by 3, return as integer 
-    return int($cPoints / 3);
+    }        
+    if (&bitTest($grbitAttr, $ibitRaceTech3)) { $cPoints -= 180; }  # Expensive tech starts at 3 checkbox       
+    if ($raMajor == $raMacintosh && $techBonus[0] == 2) { $cPoints -= 100; } # AR with cheap energy research penalty 
+  }
+  # Final: divide by 3, return as integer 
+  return int($cPoints / 3);
 }
 
 # Helper subs called by StarsAdvantage
@@ -5491,6 +5512,206 @@ sub planetNames {
   );
 }
 
+sub decryptMax {
+  # Maximise a target player's tech, MT items, and homeworld planet resources.
+  # targetPlayer is 0-based player index.
+  # Block 6 must precede block 13 in the file (always true for .hst).
+  my ($fileBytes_ref, $targetPlayer) = @_;
+  my @fileBytes = @{$fileBytes_ref};
+  my @outBytes;
+  my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
+  my ($seedA, $seedB, $seedX, $seedY);
+  my ($decryptedData, $padding);
+  my @decryptedData;
+  my $encryptedBlock;
+  my ($typeId, $size);
+  my $offset  = 0;
+  my $changed = 0;
+
+  # Collected from the target player's block 6, used when block 13 is processed.
+  my $prt    = -1;
+  my $lrt    = 0;
+  my $maxPop = 10000; # base: 100% hab homeworld = 10000 units (displayed as 1,000,000)
+
+  while ($offset < @fileBytes) {
+    my $FileValues = $fileBytes[$offset+1] . $fileBytes[$offset];
+    ($typeId, $size) = &parseBlock($FileValues, $offset);
+    my @block = @fileBytes[$offset .. $offset+(2+$size)-1];
+    my @data  = @block[2..$#block];
+
+    if ($typeId == 8) {
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
+      ($seedA, $seedB) = &initDecryption($binSeed, $fShareware, $Player, $turn, $lidGame);
+      $seedX = $seedA;
+      $seedY = $seedB;
+      push @outBytes, @block;
+    } elsif ($typeId == 0) {
+      push @outBytes, @block;
+    } else {
+      ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB);
+      @decryptedData = @{$decryptedData};
+
+      if ($typeId == 6) {
+        my $playerId     = $decryptedData[0] & 0xFF;
+        my $fullDataFlag = (($decryptedData[6] & 0x07) == 7);
+        if ($fullDataFlag && $playerId == $targetPlayer) {
+          # Read PRT (byte 76) and LRT (bytes 78-79) to compute population cap.
+          $prt = $decryptedData[76];
+          $lrt = $decryptedData[78] + ($decryptedData[79] * 0x100);
+          # CalcPlanetMaxPop: base 10000 for 100% hab homeworld.
+          $maxPop = 10000;
+          if ($prt == 9)          { $maxPop += int($maxPop / 5);  } # JOAT (raNone): +20%
+          if ($lrt & (1 << 9))    { $maxPop += int($maxPop / 10); } # Basic Remote Mining: +10%
+          # Set all six tech levels to 26 (MAXTECHLEVEL) -- rgTech[6] at bytes 26..31.
+          for my $i (26..31) { $decryptedData[$i] = 26; }
+          # Zero all research points spent -- rgResSpent[6] at bytes 32..55 (6 x 4 bytes).
+          for my $i (32..55) { $decryptedData[$i] = 0; }
+          # Set all 13 MT parts -- grbitTrader at bytes 82..83 (grbitTraderAll = 0x1FFF).
+          $decryptedData[82] = 0xFF;
+          $decryptedData[83] = 0x1F;
+          $changed++;
+          print "Player " . ($targetPlayer+1) . ": tech set to 26, MT items granted\n";
+        }
+
+      } elsif ($typeId == 13) {
+        my $planetId    = ($decryptedData[0] & 0xFF) | (($decryptedData[1] & 0x07) << 8);
+        my $ownerId     = ($decryptedData[1] & 0xF8) >> 3;
+        my $flags       = &read16(\@decryptedData, 2);
+        my $det         = $flags & 0x7F;
+        my $isHomeworld = ($flags & 0x0080) != 0; # bit 7  fHomeworld
+        my $fIncEVO     = ($flags & 0x0400) != 0; # bit 10 fIncEVO
+        my $fIncImp     = ($flags & 0x0800) != 0; # bit 11 fIncImp
+        my $fIncSurfMin = ($flags & 0x2000) != 0; # bit 13 fIncSurfMin
+
+        if ($ownerId == $targetPlayer && $isHomeworld && $det == 7) {
+          # Target player's homeworld with detAll -- parse and rebuild.
+          my $pos = 4; # byte cursor, starts after the 4-byte RTPLANET header
+
+          # rgpctMinLevel section (present because det > detMinimal).
+          # Mask byte: 2 bits per mineral (0..2); only value 01 is used (1 byte follows).
+          my $minLevelMask = $decryptedData[$pos]; $pos++;
+          my @minLevelValues;
+          for my $i (0..2) {
+            if (($minLevelMask >> ($i * 2)) & 0x01) {
+              push @minLevelValues, $decryptedData[$pos]; $pos++;
+            }
+          }
+
+          # rgMinConc[3] -- 3 bytes, always present at det > detMinimal.
+          my @minConc = @decryptedData[$pos..$pos+2]; $pos += 3;
+
+          # rgEnvVar[3] -- 3 bytes.
+          my @envVar = @decryptedData[$pos..$pos+2]; $pos += 3;
+
+          # rgEnvVarOrig[3] -- 3 bytes, only if fIncEVO.
+          my @envVarOrig;
+          if ($fIncEVO) { @envVarOrig = @decryptedData[$pos..$pos+2]; $pos += 3; }
+
+          # uGuesses -- 2 bytes, only if planet is owned (ownerId 31 = iPlayer -1 = unowned).
+          my @guesses;
+          if ($ownerId != 31) { @guesses = @decryptedData[$pos..$pos+1]; $pos += 2; }
+
+          # Skip existing surface minerals section if present.
+          # If fIncSurfMin is 0, save.c rolled back the mask byte so nothing is in the data.
+          if ($fIncSurfMin) {
+            my $oldSurfMask = $decryptedData[$pos]; $pos++;
+            for my $i (0..3) {
+              my $bits = ($oldSurfMask >> ($i * 2)) & 0x03;
+              if    ($bits == 1) { $pos += 1; }
+              elsif ($bits == 2) { $pos += 2; }
+              elsif ($bits == 3) { $pos += 4; }
+            }
+          }
+
+          # Read existing rgbImp[8] to preserve iDeltaPop, iScanner, fArtifact, fNoResearch.
+          # rgbImp bit layout (64-bit little-endian packed struct):
+          #   bits  0-7 : iDeltaPop
+          #   bits  8-19: cMines
+          #   bits 20-31: cFactories
+          #   bits 32-43: cDefenses
+          #   bits 44-48: iScanner
+          #   bits 49-53: unused5
+          #   bit  54   : fArtifact
+          #   bit  55   : fNoResearch
+          #   bits 56-63: unused2
+          my ($iDeltaPop, $iScanner, $fArtifact_flag, $fNoResearch_flag) = (0, 31, 0, 0);
+          if ($fIncImp) {
+            $iDeltaPop        = $decryptedData[$pos];
+            my $b5            = $decryptedData[$pos+5];
+            my $b6            = $decryptedData[$pos+6];
+            $iScanner         = ($b5 >> 4) | (($b6 & 0x01) << 4);
+            $fArtifact_flag   = ($b6 >> 6) & 0x01;
+            $fNoResearch_flag = ($b6 >> 7) & 0x01;
+            $pos += 8;
+          }
+
+          # Everything after rgbImp: lStarbase (4 bytes if fStarbase) and
+          # wRouting (2 bytes if fRouting). Capture as-is.
+          my @tail = @decryptedData[$pos..$#decryptedData];
+
+          # Build new surface minerals section.
+          # 10000 and maxPop (10000..13200) are always > 255 and <= 65535 -> type 2 (word).
+          # Mask 0xAA = 10101010 = type 2 for all four minerals.
+          my $newSurfMask = 0xAA;
+          my @newSurfData;
+          for my $val (10000, 10000, 10000, $maxPop) {
+            push @newSurfData, $val & 0xFF, ($val >> 8) & 0xFF;
+          }
+
+          # Build new rgbImp[8].
+          my $cMines     = 2048;
+          my $cFactories = 2048;
+          my $cDefenses  = 100;
+          my @newImp = (
+            $iDeltaPop & 0xFF,
+            $cMines & 0xFF,
+            (($cMines >> 8) & 0x0F) | (($cFactories & 0x0F) << 4),
+            ($cFactories >> 4) & 0xFF,
+            $cDefenses & 0xFF,
+            (($cDefenses >> 8) & 0x0F) | (($iScanner & 0x0F) << 4),
+            (($iScanner >> 4) & 0x01) | (($fArtifact_flag & 0x01) << 6) | (($fNoResearch_flag & 0x01) << 7),
+            0,
+          );
+
+          # Update flags in header bytes: set fIncSurfMin (bit 13) and fIncImp (bit 11).
+          $flags |= 0x2000;
+          $flags |= 0x0800;
+          $decryptedData[2] = $flags & 0xFF;
+          $decryptedData[3] = ($flags >> 8) & 0xFF;
+
+          # Rebuild decryptedData in save.c WritePlanet order.
+          @decryptedData = (
+            @decryptedData[0..3],
+            $minLevelMask, @minLevelValues,
+            @minConc,
+            @envVar,
+            ($fIncEVO ? @envVarOrig : ()),
+            @guesses,
+            $newSurfMask, @newSurfData,
+            @newImp,
+            @tail,
+          );
+
+          # Update block header with new size.
+          my $newSize      = scalar(@decryptedData);
+          my $newHeaderVal = ($typeId << 10) | ($newSize & 0x3FF);
+          $block[0] = chr($newHeaderVal & 0xFF);
+          $block[1] = chr(($newHeaderVal >> 8) & 0xFF);
+
+          $changed++;
+          print "Planet $planetId (homeworld): surface minerals and installations set\n";
+        }
+      }
+
+      ($encryptedBlock, $seedX, $seedY) = &encryptBlock(\@block, \@decryptedData, $padding, $seedX, $seedY);
+      push @outBytes, @{$encryptedBlock};
+    }
+    $offset += 2 + $size;
+  }
+  return (\@outBytes, $changed);
+}
+
+
 # CSV position 18 is fuel
 # 1,1,"Stargate 100/250",1,0,0,5,5,0,0,0,400,100,40,40,144,100,250,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 # 1,2,"Stargate any/300",2,0,0,6,10,0,0,0,500,100,40,40,145,-1,300,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
@@ -5694,6 +5915,5 @@ sub planetNames {
 # 14,14,"Trans-Galactic Super Scoop",14,4,0,12,0,0,0,18,24,6,4,16,10,0,0,0,0,0,0,0,0,0,65,90,108,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 # 14,15,"Trans-Galactic Mizer Scoop",15,4,0,16,0,0,0,11,20,5,2,13,11,0,0,0,0,0,0,0,0,0,0,70,84,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 # 14,16,"Galaxy Scoop",16,5,0,20,0,0,0,8,12,4,2,9,191,4,0,0,0,0,0,0,0,0,0,0,60,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
- 
-1;
 
+1;

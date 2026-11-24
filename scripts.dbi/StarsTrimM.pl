@@ -78,16 +78,18 @@ if ($file_type =~ /hst/i) {
 
   # Get .m files in year subdirectories
   my @yearDirs = grep { /^\d{4}$/ && -d "$gameDir/$_" } @entries;
+  
   for my $yearDir (@yearDirs) {
     opendir(my $ydh, "$gameDir/$yearDir") or next;
     push @mFiles, map { "$gameDir/$yearDir/$_" } grep { /^$gameName\.m([1-9]|1[0-6])$/i } readdir($ydh);
     closedir($ydh);
   }
-  for my $yearDir (@yearDirs) {
-    opendir(my $ydh, "$gameDir/$yearDir") or next;
-    push @mFiles, map { "$gameDir/$yearDir/$_" } grep { /\.m\d+$/i } readdir($ydh);
-    closedir($ydh);
-  }  
+#   for my $yearDir (@yearDirs) {
+#     opendir(my $ydh, "$gameDir/$yearDir") or next;
+#     push @mFiles, map { "$gameDir/$yearDir/$_" } grep { /\.m\d+$/i } readdir($ydh);
+#     closedir($ydh);
+#   }  
+  
   my $total = scalar(@mFiles);
   print "Found $total .m file(s) under $gameDir\n\n";
   for my $mFile (sort @mFiles) {

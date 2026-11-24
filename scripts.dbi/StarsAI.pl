@@ -70,10 +70,10 @@ if (!($filename)) {
   exit;
 }
 # Validate that the file exists
-if (-d $ARGV[0]) { print "$filename is a directory!\n"; exit; }
-unless (-e $ARGV[0]) { print "File $filename does not exist!\n"; exit; }
-if ( defined ($ARGV[1] )) {
-  if ($ARGV[1] > 16 || $ARGV[1] < 1) { die "Player must be between 1 and 16\n"; }
+if (-d $filename) { print "$filename is a directory!\n"; exit; }
+unless (-e $filename) { print "File $filename does not exist!\n"; exit; }
+if ( defined ($playerAI )) {
+  if ($playerAI > 16 || $playerAI < 1) { die "Player must be between 1 and 16\n"; }
 } 
 
 # Simpler to use 1-16 above because a null is a 0;
@@ -95,15 +95,7 @@ $dir  = dirname($filename);         # c:\stars
 $dir =~ s/\\/\//g;  # normalize to forward slashes
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
 
-# Read in the binary Stars! file, byte by byte
-my $FileValues;
-my @fileBytes;
-open(StarFile, "<$filename");
-binmode(StarFile);
-while (read(StarFile, $FileValues, 1)) {
-  push @fileBytes, $FileValues; 
-}
-close(StarFile);
+my @fileBytes = &readFile($filename);
 
 # Decrypt the data, block by block
 my ($outBytes, $messages) = &decryptAI(\@fileBytes, $playerAI, $newStatus, 0); # logging

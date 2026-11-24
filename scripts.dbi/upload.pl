@@ -37,19 +37,31 @@ use StarsBlock;# eval'd at compile time
 
 # 16 player Zip file is 52k, formerly max 25K posts
 # Must be larger than all other filze sizes
-$CGI::POST_MAX=1024 * 200;  
+$CGI::POST_MAX=1024 * 300;  
 
 # Read in the post values and clean them a bit
 #foreach my $field (param()) { 	$in{$field} = &clean(param($field)); }
 my %in;
 foreach my $field (param()) {
-   my $value = param($field);  # Get the values for the current parameter in list context
-   $in{$field} = clean($value);  # Clean and assign to %in hash
+  my $value = param($field);  # Get the values for the current parameter in list context
+  $in{$field} = clean($value);  # Clean and assign to %in hash
+  my $value = param($field);  # Get the values for the current parameter in list context
+  # 'File' is the upload file handle. clean() would turn it into a plain string
+  # if the name had a character it strips, and the upload would save as empty.
+  if ($field eq 'File') { $in{$field} = $value; next; }
+  $in{$field} = clean($value);  # Clean and assign to %in hash
 }
 
 my($File) = $in{'File'};
 my($GameName) = $in{'GameName'};
 my($GameFile) = $in{'GameFile'};
+# GameFile ends up in file paths and command lines. Nothing else gets past here.
+if (defined($GameFile) && $GameFile ne '' && !&valid_gamefile($GameFile)) {
+  &LogOut(0,"upload.pl: Invalid GameFile rejected: $GameFile, $ENV{'REMOTE_ADDR'}",$ErrorLog);
+  print "Content-type: text/html\n\n";
+  print "<html><body>Invalid Game File.</body></html>\n";
+  exit;
+}
 my($NextTurn) = $in{'NextTurn'};
 my($GameStatus) = $in{'GameStatus'};
 my($User_Login) = $in{'User_Login'};
@@ -61,8 +73,8 @@ my $client_ip = $ENV{'REMOTE_ADDR'};
 
 my $cgi = CGI->new; # Create the new CGI Session     
 my $cookie = $cgi->cookie('TotalHost');  # Get the cookie information
-my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
-my $sessionid = $session->id unless $sessionid;
+my $session = CGI::Session->load("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
+my $sessionid = $session->id;
 
 # make the user values handy and easy to use
 my $id = $session->param("userid");
@@ -70,25 +82,38 @@ my $userlogin = $session->param("userlogin");
 
 &validate($cgi,$session); # Confirm user or Display error and end.
 
+# Cross-site request protection: uploads must be a POST sent from this site
+if ($ENV{'REQUEST_METHOD'} ne 'POST' || &cross_site_request()) {
+  &LogOut(0,"upload.pl: Request could not be verified for $userlogin, $client_ip",$ErrorLog);
+  print $cgi->header();
+  print "<html><body>That upload could not be verified. Go back, reload the page and try again.</body></html>\n";
+  exit;
+}
+
 #print $cgi->header(); # Create a page header
  
 # If there was an uploaded file
 use URI::Escape;
-my $safeGameFile = uri_escape($GameFile // '');
-my $safeFile     = uri_escape($in{'File'} // '');
-my $safeName     = uri_escape($in{'Name'} // '');
-my $safeLp       = uri_escape($in{'lp'}   // '');
-my $safeCp       = uri_escape($in{'cp'}   // '');
-my $safeRp       = uri_escape($in{'rp'}   // '');
-#my $safeErr      = uri_escape($err        // '');
-#my $newPage = "$WWW_Scripts/page.pl?GameFile=$safeGameFile&File=$safeFile&Name=$safeName&lp=$safeLp&cp=$safeCp&rp=$safeRp&status=$safeErr";
-# status is appended after ValidateFileUpload sets $err
-my $newPage = "$WWW_Scripts/page.pl?GameFile=$safeGameFile&File=$safeFile&Name=$safeName&lp=$safeLp&cp=$safeCp&rp=$safeRp&status=";
-$newPage =~ s/[\r\n]//g;  # belt-and-suspenders
+sub build_newpage {
+  my $safeGameFile = uri_escape($GameFile // '');
+  my $safeFile     = uri_escape($in{'File'} // '');
+  my $safeName     = uri_escape($in{'Name'} // '');
+  my $safeLp       = uri_escape($in{'lp'}   // '');
+  my $safeCp       = uri_escape($in{'cp'}   // '');
+  my $safeRp       = uri_escape($in{'rp'}   // '');
+  #my $safeErr      = uri_escape($err        // '');
+  #my $newPage = "$WWW_Scripts/page.pl?GameFile=$safeGameFile&File=$safeFile&Name=$safeName&lp=$safeLp&cp=$safeCp&rp=$safeRp&status=$safeErr";
+  # status is appended after ValidateFileUpload sets $err
+  #my $newPage = "$WWW_Scripts/page.pl?GameFile=$safeGameFile&File=$safeFile&Name=$safeName&lp=$safeLp&cp=$safeCp&rp=$safeRp&status=";
+  my $newPage = "$WWW_Scripts/page.pl?GameFile=$safeGameFile&File=$safeFile&Name=$safeName&lp=$safeLp&cp=$safeCp&rp=$safeRp&status=" . uri_escape($err // '');
+  $newPage =~ s/[\r\n]//g;  # belt-and-suspenders
+  return $newPage;
+}
 
 if ($File) {
   my $valid_file = &ValidateFileUpload($File);
-  $newPage .= uri_escape($err // '');
+  #$newPage .= uri_escape($err // '');
+  my $newPage = &build_newpage();
   # Redirect to newPage, which solves for reloading the page retaking the action.
   # Nothing can print before this or it breaks.
   #  print $cgi->redirect($newPage);  # Doesn't work
@@ -96,11 +121,15 @@ if ($File) {
 #   print "Location: $newPage\n\n";
   print "Location: $newPage\r\n\r\n";
 } else { 
+  my $newPage = &build_newpage();
   print $cgi->header(); # Create the HTML page header
   #print qq|<meta HTTP-EQUIV="REFRESH" content="2; url=| . $WWW_Scripts . qq|/page.pl?GameFile=$GameFile&File=$in{'File'}&Name=$in{'Name'}&lp=$in{'lp'}&cp=$in{'cp'}&rp=$in{'rp'}&status=$err">|;
-  print qq|<meta HTTP-EQUIV="REFRESH" content="2; url=| . $newPage . qq|">|;
+  #print qq|<meta HTTP-EQUIV="REFRESH" content="2; url=| . $newPage . qq|">|;
+  if ($cgi->cgi_error()) { $err .= "The file is too large to upload (the limit is 300 KB)."; }
+  else { $err .= "No file was selected."; }
+  print qq|<meta HTTP-EQUIV="REFRESH" content="2; url=| . $newPage . uri_escape($err) . qq|">|;
   print $cgi->start_html;
-  $err .= "$userlogin: File too large or File Name must be provided." ;
+  #$err .= "$userlogin: File too large or File Name must be provided." ;
   &LogOut(300,$err,$ErrorLog);
   print $err; 
   print $cgi->end_html;
@@ -123,6 +152,7 @@ sub ValidateFileUpload {
     # Don't give users the file location
     $err .= "Invalid File Type by $userlogin"; 
     &LogOut(0, "Invalid File Type for $File_Loc by $userlogin: $file_type, $file_ext, $client_ip", $ErrorLog); 
+    if ($File_Loc && -f $File_Loc) { unlink $File_Loc; } # Don't keep it
     return 0;
   }   
   
@@ -133,6 +163,11 @@ sub ValidateFileUpload {
       $err .= "The .r file is too large ($file_size bytes). It must be smaller than 25 KB.";
       &LogOut(0,"ValidateFileUpload: .r file $File_Loc is too large ($file_size bytes) for $userlogin, $client_ip", $ErrorLog);
       if (-f $File_Loc) { unlink $File_Loc or &LogOut(0,"upload: Large .r file, failed to unlink", $ErrorLog); }
+      return 0;
+    }
+    if (length($RaceName) > 50 || length($RaceDescrip) > 50) {
+      $err .= "The race name and description can be at most 50 characters each.\n";
+      if (-f $File_Loc) { unlink $File_Loc; }
       return 0;
     }
     # Check to make sure the Race Name was entered
@@ -154,9 +189,16 @@ sub ValidateFileUpload {
           return 0;    
       }
       
+      # It has to be a Stars! race file before the race itself can be checked
+      my ($rMagic, $rlidGame, $rver, $rturn, $riPlayer, $rdt) = &starstat($File_Loc);
+      unless (&Check_Magic($rMagic, $File_Loc) && $rdt == 5) {
+        $err .= uc($File) . " is not a Stars! race file.\n";
+        if (-f $File_Loc) { unlink $File_Loc; }
+        return 0;
+      }
       # Check to see if the race file is corrupt
       if (&checkRaceCorrupt($File_Loc)) {
-        $err .= 'This race file is corrupt! Caused by making the plural name too short. Recreate the race or fix it with StarsRace.exe !!';
+       $err .= 'This race file is corrupt! Caused by making the plural name too short. Recreate the race or fix it with StarsRace.exe !!';
         &LogOut (0, "ValidateFileUpload: Race file $File_Loc corrupt for $userlogin",$ErrorLog);
         if (-f $File_Loc ) { unlink $File_Loc or &LogOut(0,"Race file $File_Loc corrupt for $userlogin, failed to unlink", $ErrorLog); } #user-input cleaned as much as I can. 
         return 0;
@@ -195,7 +237,6 @@ sub ValidateFileUpload {
    		    my $Race_Destination = "$racefiledir/$File"; 
    				if (not(-f $Race_Destination)) { #if the file does not already exist
 						if (&Move_Race($File_Loc, $Race_Destination)) { # move the race to its final location
-							$err .= "Race File $File Uploaded.\n";
 							&LogOut(200,"ValidateFileUpload: $File $File_Loc moved to $Race_Destination for $userlogin: $err", $LogFile);
         			# Add the new race to the database
     					$db = &DB_Open($dsn);
@@ -205,9 +246,17 @@ sub ValidateFileUpload {
       					#$err .= "Database updated"; # This causes a crash. No idea why
       					&LogOut(200, "ValidateFileUpload: Race Database Updated for User: $userlogin, File: $File, $err",$LogFile);
                 $sth->finish();
+                $err .= "Race File $File Uploaded.\n";
+
+#     					} else {
+#     						$err .= "File $File failed to insert into database. Had you entered a race name?";
+#     						&LogOut(0,"ValidateFileUpload: Failed to insert $File into database for $userlogin: $err, $client_ip", $ErrorLog);
+#               }
     					} else {
     						$err .= "File $File failed to insert into database. Had you entered a race name?";
     						&LogOut(0,"ValidateFileUpload: Failed to insert $File into database for $userlogin: $err, $client_ip", $ErrorLog);
+              # Don't leave a file with no race behind it
+              if (-f $Race_Destination) { unlink $Race_Destination; }
               }
     					&DB_Close($db);
 							return 1; 
@@ -218,7 +267,7 @@ sub ValidateFileUpload {
               return 0;
 						}
   				} else {
-  					$err .= "<b>ERROR: Race File: $File already exists. Delete the race that uses that file (or rename the file you are uploading) and try again!</b>";
+  					$err .= "Race File: $File already exists. Delete the race that uses that file (or rename the file you are uploading) and try again!";
             if (-f $File_Loc ) { unlink $File_Loc or &LogOut(0,"Race File: $File already exists, failed to unlink", $ErrorLog); }  # Delete the temp file
   					&LogOut(0, "ValidateFileUpload: Race File: $File $File_Loc already exists at $Race_Destination: $err, $client_ip", $ErrorLog); 
   					return 0; 
@@ -238,6 +287,8 @@ sub ValidateFileUpload {
     } else {
        $err .= 'You must enter a Race Name for your race (this field is independent of the name in the file). Try Again!';
        &LogOut(0, "Upload: No race name entered for $userlogin, $client_ip",$ErrorLog);
+       if ($File_Loc && -f $File_Loc) { unlink $File_Loc; } # Don't keep it
+       return 0;
     }
 	} elsif ($file_type eq 'x') { # A turn file
     my $file_size = -s $File_Loc;
@@ -252,6 +303,22 @@ sub ValidateFileUpload {
  
     # Get the Stars! version this game was created with
     my $GameVersion = &Game_Version($file_prefix);
+#     my $GameStatusNow = '';
+#     my $db = &DB_Open($dsn);
+#     if (my $sth = &DB_Call($db, qq|SELECT GameStatus FROM Games WHERE GameFile = ?;|, $file_prefix)) {
+#         ($GameStatusNow) = $sth->fetchrow_array(); $sth->finish(); 
+#     }
+#     &DB_Close($db); 
+    my $GameStatusNow = '';
+    my $PlayerStatusNow = '';
+    my $db = &DB_Open($dsn);
+    if (my $sth = &DB_Call($db, qq|SELECT GameStatus FROM Games WHERE GameFile = ?;|, $file_prefix)) {
+        ($GameStatusNow) = $sth->fetchrow_array(); $sth->finish();
+    }
+    if (my $sth = &DB_Call($db, qq|SELECT PlayerStatus FROM GameUsers WHERE GameFile = ? AND PlayerID = ?;|, $file_prefix, $iPlayer)) {
+        ($PlayerStatusNow) = $sth->fetchrow_array(); $sth->finish();
+    }
+    &DB_Close($db);
     
 		&LogOut(300,"ValidateFileUpload: DTS2: $Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware, $client_ip", $LogFile);
     # Validate the .x file
@@ -259,8 +326,10 @@ sub ValidateFileUpload {
     # $err results will display at the top of the game page when it refreshes, comma-delimited
     if ($dt != 1)                                   { $err .= 'Not a Stars! .x file'; &LogOut(0,"ValidateFileUpload: Invalid .x file dt = $dt, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
     elsif (!(&Check_Magic($Magic, $File_Loc)))      { $err .= "Invalid Magic $Magic"; &LogOut(0,"ValidateFileUpload: Invalid Magic $Magic, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
-    elsif (!(&Check_Version($ver, $File_Loc, $GameVersion)))      { $err .= "Wrong Stars! version $ver (this game uses $GameVersion)"; &LogOut(0,"ValidateFileUpload: Invalid version $ver, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
     elsif (!(&Check_GameFile($file_prefix)))        { $err .= "Invalid Game File $file_prefix"; &LogOut(0,"ValidateFileUpload: Invalid game file $file_prefix for $userlogin, $client_ip",$ErrorLog); }
+    elsif (!(&Check_Version($ver, $File_Loc, $GameVersion)))      { $err .= "Wrong Stars! version $ver (this game uses $GameVersion)"; &LogOut(0,"ValidateFileUpload: Invalid version $ver, $File_Loc for $userlogin, $client_ip",$ErrorLog); }
+    elsif ($GameStatusNow == 9)                     { $err .= 'This game has finished'; &LogOut(100,"ValidateFileUpload: Turn for finished game $file_prefix from $userlogin, $client_ip",$ErrorLog); }
+    elsif ($PlayerStatusNow == 2)                   { $err .= 'This player is Inactive and played by the AI'; &LogOut(100,"ValidateFileUpload: Turn for Inactive player $iPlayer in $file_prefix from $userlogin, $client_ip",$ErrorLog); }
     # Check_Player checks the extension of the file against the starstat value of the player
   	elsif (!(&Check_Player($file_player,$iPlayer))) { $err .= 'Invalid Player ID'; &LogOut(0,"ValidateFileUpload: Invalid Player ID Turn file $File $File_Loc for $userlogin, $client_ip",$ErrorLog); }
     # Check_Turn validates that this file is for the correct turn.
@@ -310,7 +379,8 @@ sub ValidateFileUpload {
         my $warning; 
         if ($fixFiles && $GameValues{'Exploit'} == 1) { 
           &LogOut(300, "ValidateFileUpload: fixFiles: $fixFiles, $File_Loc, $client_ip", $LogFile); 
-          my $gameDir = "$Dir_Games/$GameFile";
+          #my $gameDir = "$Dir_Games/$GameFile";
+          my $gameDir = "$Dir_Games/$file_prefix";
           $warning = &StarsFix($gameDir, "$gameDir/$file_prefix.$file_ext", $turn);
           &LogOut(200, "ValidateFileUpload: $gameDir, $warning, $client_ip", $LogFile); 
           if ($warning) {
@@ -323,7 +393,9 @@ sub ValidateFileUpload {
         }
  
         #&Make_CHK($GameFile); # Once the .x file is uploaded, update the .chk file
-        my $turnsMissing = &Turns_Missing($GameFile); # Updates .chk file and checks if all turns are in. Runs MakeCHK.
+        #my $turnsMissing = &Turns_Missing($GameFile); # Updates .chk file and checks if all turns are in. Runs MakeCHK.
+        my $turnsMissing = &Turns_Missing($file_prefix); # Updates .chk file and checks if all turns are in. Runs MakeCHK.
+
         # If the game is AsAvailable, check to see if all Turns are in and whether we should generate. 
         #if ($GameValues{'AsAvailable'} == 1 ) { # Don't immediately generate As Available if the file generated warnings
         # Don't immediately generate As Available if the file generated warnings
@@ -335,12 +407,24 @@ sub ValidateFileUpload {
           } else {
             # Run TurnMake for the game. TurnMake will handle for emails, .chk file, etc.
             #my $MakeTurn = "perl -I $Dir_Scripts $Dir_Scripts/TurnMake.pl $GameFile >/dev/null";
-            my $MakeTurn = "$PerlLocation -I $Dir_Scripts $Dir_Scripts/TurnMake.pl $GameFile >/dev/null";
+#             my $MakeTurn = "$PerlLocation -I $Dir_Scripts $Dir_Scripts/TurnMake.pl $GameFile >/dev/null";
+#             &LogOut(100, "ValidateFileUpload: Calling system for $MakeTurn", $LogFile);
+#             #chdir($WINE_path) or &LogOut(0,"Cannot change directory: $WINE_path",$ErrorLog);
+#             my $exit_status = system($MakeTurn); # Starting system with 1 makes it launch asynchronously, in case Stars! hangs
+            # List form, so nothing in $file_prefix can be read as a shell command.
+            # Use the game from the validated file name, not the form value.
+            my @MakeTurn = ($PerlLocation, '-I', $Dir_Scripts, "$Dir_Scripts/TurnMake.pl", $file_prefix);
+            my $MakeTurn = join(' ', @MakeTurn); # for the log lines
             &LogOut(100, "ValidateFileUpload: Calling system for $MakeTurn", $LogFile);
-            #chdir($WINE_path) or &LogOut(0,"Cannot change directory: $WINE_path",$ErrorLog);
             # There's a recursion problem when calling TurnMake using call_system, because then TurnMake calls TurnMake.
             # Don't need to use sudo, because this is being called by apache2, running as www-data
-            my $exit_status = system($MakeTurn); # Starting system with 1 makes it launch asynchronously, in case Stars! hangs
+            # TurnMake prints progress. Send that to /dev/null or it breaks the redirect header.
+            open(my $oldout, '>&', \*STDOUT);
+            open(STDOUT, '>', '/dev/null');
+            my $exit_status = system(@MakeTurn);
+            open(STDOUT, '>&', $oldout);
+            close($oldout);
+
             #if ($exit_status > 0) { $makeCHKrun = 1; }  # Since TurnMake.pl could run Make_CHK, no need to run it twice
             &LogOut(0, "ValidateFileUpload: Ending call: $MakeTurn, Exit Status: $exit_status", $LogFile); 
           	#sleep 2; # Stars is slow
@@ -364,8 +448,27 @@ sub ValidateFileUpload {
 		}
 	# Zip files
 	} elsif ($file_type eq 'z') {  # Check_Filetype checks the first letter
+    # A zip can only be uploaded by the host (or admin), into a game that is still being created (GameStatus 6) and has no host file yet.
+    my %ZipGame;
+    $db = &DB_Open($dsn);
+    $sql = qq|SELECT GameFile, HostName, GameStatus FROM Games WHERE GameFile = ?;|;
+    if (my $sth = &DB_Call($db,$sql,$GameFile)) {
+      if (my $row = $sth->fetchrow_hashref()) { %ZipGame = %{$row}; }
+      $sth->finish();
+    }
+    &DB_Close($db);
+    my $zip_hst = "$Dir_Games/$GameFile/$GameFile.hst";
+    unless ($ZipGame{'GameFile'} && $ZipGame{'GameFile'} eq $GameFile
+            && ($ZipGame{'HostName'} eq $userlogin || $userlogin eq $user_admin)
+            && $ZipGame{'GameStatus'} == 6 && !(-f $zip_hst)) {
+      $err .= 'You can only upload a zip file to a game you are creating.';
+      &LogOut(0,"ValidateFileUpload: Unauthorized zip upload to $GameFile by $userlogin, $client_ip",$ErrorLog);
+      if (-f $File_Loc) { unlink $File_Loc or &LogOut(0,"upload: Unauthorized zip, failed to unlink", $ErrorLog); }
+      return 0;
+    }
+  
 		# Extract Zip files and check all the files inside
-    use Archive::Zip;    
+    use Archive::Zip qw( :ERROR_CODES ); # Used for zip/compression. Imports AZ_OK   
     # Path to the zip file and the destination directory
     my $zip_file = $File_Loc;
     my $final_destination_dir = $Dir_Games . "/$GameFile";
@@ -375,26 +478,30 @@ sub ValidateFileUpload {
     my $hst_present = 0;
     my @CHK; 
     my $GameVersion = &Game_Version($GameFile); # All files in the zip must match the game's version
+    my $ZipVersion = '';  # The version of the files in the zip. They must all match each other.
         
     my $file_size = -s $zip_file; # Get the size in bytes and don't unzip if it's too big
     # 16-player, zipped, is 40k in 2400, 52k in 2401 (with no turns submitted)
     if ($file_size >= 200 * 1024) { 
-      $err .= "The zip file is too large ($file_size bytes). It must be smaller than 200 KB.";
+      $err .= "The zip file is too large ($file_size bytes). It must be smaller than 200 KB.\n";
       &LogOut(0,"The zip file $zip_file is too large ($file_size bytes). It must be smaller than 200 KB.", $ErrorLog); 
       $all_files_valid = 0;
     } 
     
-    my $zip = Archive::Zip->new($zip_file);
-    if (!$zip) { # Open the zip file
-      $err .=  "Cannot read Zip file: $!";
+    #my $zip = Archive::Zip->new($zip_file);
+    my $zip = $all_files_valid ? Archive::Zip->new($zip_file) : undef;
+    if ($all_files_valid && !$zip) { # Open the zip file
+      #$err .=  "Cannot read Zip file: $!";
+      $err .=  "That is not a zip file Stars! TotalHost can read.\n";
       &LogOut(100,"Cannot read $zip_file: $!", $ErrorLog);  
       $all_files_valid = 0;
-    } else { 
+    } elsif ($zip) { 
       # Check for subdirectories in the zip file
       foreach my $member ($zip->members()) {
-        if ($member->isDirectory()) {
-          $err .= "The zip file contains subdirectories, which are not allowed.";
-          &LogOut(100, "The zip file $member contains subdirectories, which are not allowed", $ErrorLog); 
+        #if ($member->isDirectory()) {
+        if ($member->isDirectory() || $member->fileName() =~ m{[/\\]}) {
+          $err .= "Files in the zip cannot be inside folders.\n";
+          &LogOut(100, "Files in the zip cannot be inside folders.", $ErrorLog); 
           $all_files_valid = 0;
           last;
         } 
@@ -427,8 +534,8 @@ sub ValidateFileUpload {
         # Check if the file has a valid extension
         my $valid_extensions = qr/\.((m\d{1,2})|xy|hst)$/i; # .m1 to .m99, .xy, or .hst
         unless ($file_name =~ $valid_extensions) { 
-          $err .= "Invalid file extension for '$file_name'. Must be .m[n], .xy, or .hst. ";
-          &LogOut (0,"Invalid file extension for '$file_name'. Must be .m[n], .xy, or .hst. ", $ErrorLog); 
+          $err .= "Invalid file extension for '$file_name'. Must be .m[n] .xy or .hst. ";
+          &LogOut (0,"Invalid file extension for '$file_name'. Must be .m[n] .xy or .hst. ", $ErrorLog); 
           $all_files_valid = 0;
           next;
         }      
@@ -442,7 +549,7 @@ sub ValidateFileUpload {
         
         # Rename if necessary
         if (!rename($extracted_path, $new_file_path)) { 
-          $err .= "Failed to rename $extracted_path to $new_file_path: $!";
+          $err .= "Failed to rename $file_name: $!";
           &LogOut(100,"Failed to rename $extracted_path to $new_file_path: $!", $ErrorLog);
           $all_files_valid = 0;  
           next;
@@ -454,11 +561,19 @@ sub ValidateFileUpload {
         # BUG: this should run against each file?
         my ($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($extracted_path);
         my $checkmagic = &Check_Magic($Magic, $extracted_path);
-        my $checkversion = &Check_Version($ver, $extracted_path, $GameVersion);
+        my $checkversion;
+        $checkversion = &Check_Version($ver, $extracted_path, $GameVersion);
+        if ($ZipVersion eq '') {
+          $checkversion = &Check_Version($ver, $extracted_path);
+          $ZipVersion = $ver if $checkversion;
+        } else {
+          $checkversion = &Check_Version($ver, $extracted_path, $ZipVersion);
+        }
        
         # If any file fails validation, stop processing
         unless ($checkmagic && $checkversion) {
-          $err .= "Validation failed for file: $file_name" . ($checkversion ? '' : " (Stars! version $ver, this game uses $GameVersion)") . '. ';
+          #$err .= "Validation failed for file: $file_name" . ($checkversion ? '' : " (Stars! version $ver. This game uses $GameVersion)") . '. ';   
+          $err .= "Validation failed for file: $file_name" . (!$checkmagic ? ' (not a Stars! file)' : $checkversion ? '' : " (Stars! version $ver does not match the other files)") . ".\n";     
           &LogOut(100, "Validation failed for file: $file_name", $ErrorLog);
           $all_files_valid = 0;
           next;
@@ -512,6 +627,17 @@ sub ValidateFileUpload {
     
     if ($all_files_valid) { 
       &LogOut(200, "Zip File: All files have been validated, unzipped, renamed (if needed), and copied to $final_destination_dir for ID: $id, GameFile: $GameFile", $LogFile);
+      if ($ZipVersion && $ZipVersion ne $GameVersion) {
+        # 2.6k fixed the exploits and file leaks, so those options are switched off for it (as Edit Game does)
+        my $sql = ($ZipVersion eq '2.6k') 
+          ? qq|UPDATE Games SET GameVersion = ?, Exploit = 0, Sanitize = 0 WHERE GameFile = ? AND GameStatus = 6;|
+          : qq|UPDATE Games SET GameVersion = ? WHERE GameFile = ? AND GameStatus = 6;|;
+        my $db = &DB_Open($dsn);
+        if (my $sth = &DB_Call($db, $sql, $ZipVersion, $GameFile)) { $sth->finish(); }
+        &DB_Close($db);
+        &LogOut(100, "ValidateFileUpload: Zip game $GameFile set to version $ZipVersion (was $GameVersion)", $LogFile);
+      }
+
       # Get the values from the CHK file
       @CHK = &Read_CHK($GameFile);
       if (!&Valid_CHK($GameFile)) {
@@ -521,7 +647,12 @@ sub ValidateFileUpload {
       }
     }  
     if ($all_files_valid) {
+      # The game takes the version of the uploaded files
+      
       &Make_Zip_Game($id, $GameFile, @CHK);
+      $err .= "Game uploaded.\n";
+      $err .= "Use Replace Player to assign each Player ID to the right User.\n";
+
       # Redirect the UI to the Replace Player Player UI
       $in{'lp'} = 'game';
       $in{'cp'} = 'Replace Player';  
@@ -529,7 +660,10 @@ sub ValidateFileUpload {
     } else {  # If the zip failed to upload, remove the partially-created game.
       &LogOut(0,"ValidateFileUpload: Zip failed for $GameFile: $err",$ErrorLog);
       $db = &DB_Open($dsn);
-      $sql = qq|DELETE FROM Games WHERE GameFile = ?;|;
+      #$sql = qq|DELETE FROM Games WHERE GameFile = ?;|;
+      # Only ever remove a game that is still being created
+      $sql = qq|DELETE FROM Games WHERE GameFile = ? AND GameStatus = 6;|;
+
       if (my $sth = &DB_Call($db,$sql,$GameFile)) { $sth->finish(); }
       &DB_Close($db);
       &LogOut(0,"ValidateFileUpload: Deleted Game $GameFile from DB: $err",$ErrorLog);
@@ -549,6 +683,9 @@ sub ValidateFileUpload {
       $in{'cp'} = 'create_game';
       $in{'rp'} = '';
       &LogOut(200,"One or more files failed validation. No files were copied, $err", $ErrorLog);
+      # Remove everything this upload left in the upload folder
+      foreach my $file (@all_extracted) { if (-f $file) { unlink $file; } }
+      if (-f $zip_file) { unlink $zip_file; }
       return 0;
     }
 

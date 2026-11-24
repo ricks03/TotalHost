@@ -48,7 +48,6 @@ my $filename;
 $inName = $ARGV[0]; # input file
 $inBlock = $ARGV[1]; # Desired block Type
 $inBin = $ARGV[2]; # Display in Binary
-$inBin = 1;
 unless ($inBlock) { $inBlock = -1;}
 $filename = $inName;
 
@@ -81,22 +80,13 @@ $basefile = basename($filename);    # mygamename.m1
 $dir  = dirname($filename);         # c:\stars
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m  extension
 
-# Read in the binary Stars! file, byte by byte
-my $FileValues;
-my @fileBytes;
-open(StarFile, "<$filename" );
-binmode(StarFile);
-while ( read(StarFile, $FileValues, 1)) {
-  push @fileBytes, $FileValues; 
-}
-close(StarFile);
+my @fileBytes = &readFile($filename);
 
 # Decrypt the data, block by block
 my ($outBytes) = &decryptBlock(@fileBytes);
 my @outBytes = @{$outBytes};
  
 ################################################################
-
 sub decryptBlock {
   my (@fileBytes) = @_;
   my @block;
@@ -144,6 +134,7 @@ sub decryptBlock {
       @decryptedData = @{ $decryptedData };
       
       # Special handling for Block 7: has unencrypted planet bytes after encrypted data
+      # BUG: This doesn't really do anything here.
       if ($typeId == 7) {
         my $numPlanets = &read16(\@decryptedData, 10);
         my $planetBytes = $numPlanets * 4;

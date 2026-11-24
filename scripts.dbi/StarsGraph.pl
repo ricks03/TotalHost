@@ -111,7 +111,8 @@ foreach $dirname (@AllDirs) {
   while (defined(my $mfile = readdir(DIR))) {
     next if $mfile =~ /^\.\.?$/; # skip . and ..
     # Only for the .m files - score blocks aren't in the .hst file
-    if ($mfile =~ /^(\w+[\w.-]+\.[Mm]\d{1,2})$/) {
+    #if ($mfile =~ /^(\w+[\w.-]+\.[Mm]\d{1,2})$/) {
+    if ($mfile =~ /^(.+\.[Mm]\d{1,2})$/) {
       $lastturn = $dirname;
       my $MFile = "$sourcedir/$dirname/$mfile";
       my (undef, $score, $player) = &getScores($MFile);

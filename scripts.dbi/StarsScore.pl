@@ -59,7 +59,7 @@ $basefile = basename($filename);    # mygamename.m1
 $dir  = dirname($filename);         # c:\stars
 $dir =~ s/\\/\//g;  # normalize to forward slashes
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
-if (lc($ext) =~ /[x]/ || lc($ext) =~ /r/) { print "R & X files do not include score information\n"; exit; }
+if (lc($ext) =~ /\.x/ || lc($ext) =~ /\.r/) { print "R & X files do not include score information\n"; exit; }
 
 if (lc($ext) =~ /hst/) {
   my $gameDir = dirname($filename);
@@ -72,25 +72,14 @@ if (lc($ext) =~ /hst/) {
   my $total = scalar(@mFiles);
   print "Found $total .m file(s) for $gameName in $gameDir\n\n";
   for my $mFile (sort @mFiles) {
-    my @fileBytes;
-    my $FileValues;
-    open(my $StarFile, "<", $mFile) or die "Cannot open $mFile: $!\n";
-    binmode($StarFile);
-    while (read($StarFile, $FileValues, 1)) { push @fileBytes, $FileValues; }
-    close($StarFile);
-    &decryptScores2(&lastTurnBytes(@fileBytes));  }
+    my @fileBytes = &readFile($mFile, 1);
+    
+    &decryptScores2(&lastTurnBytes(@fileBytes));  
+  }
   exit;
 }
 
-# Read in the binary Stars! file, byte by byte
-my $FileValues;
-my @fileBytes;
-open(StarFile, "<$filename");
-binmode(StarFile);
-while (read(StarFile, $FileValues, 1)) {
-  push @fileBytes, $FileValues; 
-}
-close(StarFile);
+my @fileBytes = &readFile($filename);
 
 # Decrypt the data, block by block
 my ($outBytes) = &decryptScores2(&lastTurnBytes(@fileBytes));

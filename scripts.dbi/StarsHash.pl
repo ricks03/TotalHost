@@ -49,10 +49,9 @@ use StarsBlock; # A Perl Module from TotalHost
 my $debug = 1; # Enable better debugging output. Bigger the better
 
 ##########  
-my $filename; 
-$inFile1 = $ARGV[0]; # input file 1
-$inFile2 = $ARGV[1]; # input file 2
-$filename = $inFile1;
+my $inFile1 = $ARGV[0]; # input file 1
+my $inFile2 = $ARGV[1]; # input file 2
+my $filename = $inFile1;
 
 if (!($inFile1)) { 
   print "\n\nDisplays the file hash block information in Stars! .x file.\n";
@@ -63,7 +62,7 @@ if (!($inFile1)) {
 unless (-e $inFile1 ) { 
   print "File: $inFile1 does not exist!\n"; exit; 
 }
-unless (-e $inFile2 && $inFile2) { 
+unless ($inFile2 && -e $inFile2) { 
   print "File: $inFile2 does not exist!\n"; exit; 
 }
 
@@ -73,22 +72,13 @@ $basefile = basename($filename);    # mygamename.m1
 $dir  = dirname($filename);         # c:\stars
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m  extension
 
-# Read in the binary Stars! file, byte by byte
-my $FileValues;
-my @fileBytes;
-open(StarFile, "<$filename" );
-binmode(StarFile);
-while ( read(StarFile, $FileValues, 1)) {
-  push @fileBytes, $FileValues; 
-}
-close(StarFile);
+my @fileBytes = &readFile($filename);
 
 # Decrypt the data, block by block
 my ($outBytes) = &decryptBlock(@fileBytes);
 my @outBytes = @{$outBytes};
  
 ################################################################
-
 sub decryptBlock {
   my (@fileBytes) = @_;
   my @block;
@@ -155,7 +145,7 @@ sub processHash {
   print "D: Label (Hash): $d_label\n";
   my $d_date = &read16(\@decryptedData, 14);  # probably D volume date
   print "D: Date (Hash): $d_date\n";
-  my $drive_size = &read8(\@decryptedData,16); # C: and D: drive size in 100's of MB
+  my $drive_size = &read8(\@decryptedData[16]); # C: and D: drive size in 100's of MB
   print "Drive Size (Hash): $drive_size\n";
 }
 

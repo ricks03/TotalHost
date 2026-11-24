@@ -67,14 +67,12 @@ $dir =~ s/\\/\//g;  # normalize to forward slashes
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
 
 # There is not planet information in these files
-if ($ext =~ /[rR]/ ) { print "Race files do not include planet information\n"; exit; }
+#if ($ext =~ /[rR]/ ) { print "Race files do not include planet information\n"; exit; }
+if ($ext =~ /^\.r\d*$/i) { print "Race files do not include planet information\n"; exit; }
 
-# Read in the binary Stars! file, byte by byte
-my $FileValues;
-my @fileBytes;
-
-# If we are looking at nother file but the XY file exists read it in if only for the planet names
-if ($ext !~ /[xX]/ ) {
+# If we are looking at another file but the XY file exists read it in if only for the planet names
+#if ($ext !~ /[xX]/ ) {
+if ($ext !~ /^\.x[y\d]*$/i) {
   my $display_tmp = $display; # store the display value
   $display = 0;
   my ($prefix, $d, $suffix) = fileparse($basefile, qr/\.[^.]*/);
@@ -82,21 +80,15 @@ if ($ext !~ /[xX]/ ) {
   print "Scanning for .x file $filename so we can do planet names.....\n";
   if (-e $filename) {  # If there IS a .xy file, read it.
     print "Found it: $filename\n";
-    open my $StarFile,  '<', "$filename" or die $!;
-    binmode($StarFile);
-    while (read($StarFile, $FileValues, 1)) { push @fileBytes, $FileValues; }
-    close($StarFile);
-    my ($outBytes) = &decryptBlockPlanet(\@fileBytes, $coords_ref);
+    
+    my @fileBytes = &readFile($filename);
+    
+    &decryptBlockPlanet(\@fileBytes, $coords_ref); #  populates %planet_ID2Name
     $display = $display_tmp; # Set display back to the default
   }
 }
 
-# Read in the requested file
-@fileBytes = ();  # clear XY bytes before reading main file
-open my $StarFile,  '<', "$filename" or die $!;
-binmode($StarFile);
-while (read($StarFile, $FileValues, 1)) { push @fileBytes, $FileValues; }
-close($StarFile);
+my @fileBytes = &readFile($filename,1);
 
 # Decrypt the data, block by block
 my ($outBytes) = &decryptBlockPlanet(\@fileBytes, $coords_ref);
@@ -238,7 +230,7 @@ sub decryptBlockPlanet {
         }
         
         # The planet info is now unencrypted, and the rest of the file sans the footer. 
-        my $index = 84; # the first 20 bytes is the header, and then 64 bytes in block 7        
+        my $index = 84; # block 8 (18 bytes) + block 7 HDR (2 bytes) + GAME struct (64 bytes) = offset 84 where RAW STARPACK records begin
         my $read_x = 1000;
         my $write_x = 1000;
         my $planetId = 1;

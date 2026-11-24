@@ -32,6 +32,7 @@ use CGI::Carp qw(fatalsToBrowser);
 use DBI;
 do 'config.pl';
 use TotalHost;
+my %in; 
 
 #%in = &parse_input(*in);
 #foreach my $field (param()) { $in{$field} = &clean(param($field)); }
@@ -59,8 +60,8 @@ my $cgi = CGI->new;
 my $cookie = $cgi->cookie('TotalHost');
 # Limiting session duration
 #my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
-my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions", expires=>"+4h"});
-my $sessionid = $session->id unless $sessionid;
+my $session = CGI::Session->load("driver:File", $cookie, {Directory=>"$Dir_Sessions", expires=>"+4h"});
+my $sessionid = $session->id;
 #$sessionid = $session->id;
 
 # Doesn't need to validate, because everything in here doesn't require auth.
@@ -163,7 +164,7 @@ if ($in{'cp'} eq 'login_page') { &login_page;
 if  (!($in{'rp'})) { 
   print qq|<td width="$rp_width"></td>\n|;
 } else { 
-	$sql = 'SELECT * from Games WHERE GameStatus = 2;';
+	my $sql = 'SELECT * from Games WHERE GameStatus=2 or GameStatus=3;';
 	print qq|<td width="$rp_width">\n|;
 	&list_games($sql, 'Games in Progress');
 	print "</td>\n";
@@ -181,7 +182,8 @@ sub login_page {
 	print qq|<FORM name="login" method="$FormMethod" action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">\n|;
 	print qq|<input type="hidden" name="action" value="login">\n|;
 	print qq|<table>\n|;
-	print qq|<tr><td>User ID: </td><td><input type=text name="User_Login" value="$id" size=10 maxlength=32></td></tr>\n|;
+  my $safe_login = &html_escape($userlogin);
+	print qq|<tr><td>User ID: </td><td><input type=text name="User_Login" value="$safe_login" size=10 maxlength=32></td></tr>\n|;
 	print qq|<tr><td>Password: </td><td><input type=password id="pass_temp" size=10></td><input type="hidden" name="User_Password" id="User_Password"></tr>\n|;
 	print qq|<tr><td>\n|;
 	print qq|</td></tr>\n|;
@@ -207,31 +209,31 @@ eof
 
 sub account_create {
 	# confirm that there's not too many users
-	$db = &DB_Open($dsn);
-	$sql = qq|SELECT Count(User.User_ID) AS CountOfUser_ID FROM `User`;|;
+	my $db = &DB_Open($dsn);
+	my $sql = qq|SELECT Count(User.User_ID) AS CountOfUser_ID FROM `User`;|;
 	if (my $sth = &DB_Call($db,$sql)) { 
   	($User_Count) = $sth->fetchrow_array();
     $sth->finish();
   }
   &DB_Close($db);
-  if ($User_Count > $max_users ) {
+  if ($User_Count >= $max_users ) {
   	#print $cgi->redirect( -URL => "$WWW_HomePage$WWW_Scripts/index.pl?cp=max");
     &max_users;	
-  	exit;
+  	return;
   } 
 
 print <<eof;
 <td>
 <h2>Create Account</h2>
-<FORM name="login" method=POST action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">
+<FORM name="login" method=POST action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value); document.getElementById('pass_len').value = document.getElementById('pass_temp').value.length;">
 <input type="hidden" name="action" value="add_user">
 <table>
 <tr><td>First Name: </td><td><input type=text name="User_First" value="" size=32 maxlength=32></td></tr>
 <tr><td>Last Name: </td><td><input type=text name="User_Last" value="" size=32 maxlength=32></td></tr>
 <tr><td>User ID: </td><td><input type=text name="User_Login" value="" size=32 maxlength=32></td></tr>
-<tr><td>Email Address: </td><td><input type=text name="User_Email" value="" size=32 maxlength=32></td></tr>
-<tr><td>Password: </td><td><input type=password name="pass_temp" id="pass_temp"></td></tr>
-<tr><td><input type="hidden" name="User_Password" id="User_Password"><input type=submit name="Submit" value="Create Account"></td></tr>
+<tr><td>Email Address: </td><td><input type=text name="User_Email" value="" size=32 maxlength=50></td></tr>
+<tr><td>Password: </td><td><input type=password id="pass_temp"></td></tr>
+<tr><td><input type="hidden" name="User_Password" id="User_Password"><input type="hidden" name="pass_len" id="pass_len"><input type=submit name="Submit" value="Create Account"></td></tr>
 </table>
 <input type="hidden" name="cp" value="">
 </FORM>

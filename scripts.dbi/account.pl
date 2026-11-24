@@ -52,7 +52,7 @@ if ($in{'action'} eq 'login') { &login; exit;
 } elsif ($in{'action'} eq 'logout' || $in{'action'} eq 'logoutfull') { 
 	my $cgi = CGI->new;
 	my $cookie = &get_cookie($cgi);
-	my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
+	my $session = CGI::Session->load("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
 	$cookie = $session->id unless $cookie;
 	if ($in{'action'} eq 'logout') { &logout($cgi,$session); exit;}
 	elsif ($in{'action'} eq 'logoutfull') { &logoutfull($cgi,$session); exit;
@@ -62,7 +62,7 @@ if ($in{'action'} eq 'login') { &login; exit;
 
 my $cgi = CGI->new;   
 my $cookie = $cgi->cookie('TotalHost');
-my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
+my $session = CGI::Session->load("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
 print $cgi->header();
 
 &html_top($cgi, $session, $note);
@@ -71,7 +71,7 @@ if ($in{'action'} eq 'add_user' || $in{'action'} eq 'activate_user' ) {
 	%menu_left = 	(
 				"1About Us"			=> "$WWW_Scripts/index.pl?lp=home&cp=aboutus",
 				"2FAQ"				=> "$WWW_Scripts/index.pl?lp=home&cp=faq",
-				"3Strategy Guide"	=> "/Strategy/ssh.htm",
+				"3Strategy Guide"	=> "/Strategy/ssg.htm",
 				"4Downloads"		=> "$WWW_Scripts/index.pl?lp=home&cp=downloads",
 				"3Order of Events"	=> "$WWW_Scripts/index.pl?lp=home&cp=orderofevents",
 				"3Game Defaults"	=> "$WWW_Scripts/index.pl?lp=home&cp=gamedefaults",
@@ -106,12 +106,12 @@ if ($in{'action'} eq 'add_user') { &add_user;
 } elsif ($in{'action'} eq 'reset_user') { &reset_user; 
 } elsif ($in{'action'} eq 'reset_password') { &reset_password; 
 } elsif ($in{'action'} eq 'reset_password2') { &reset_password2; 
-} elsif ($in{'action'} eq 'change_password') { &change_password($session); 
+#} elsif ($in{'action'} eq 'change_password') { &change_password($session); 
 } elsif ($in{'action'} eq 'login_fail') { 
     print "<P>Login failed! (The User Name is case-sensitive, and the account must be activated.)"; 
     print qq|<P>Do you need to <a href=/scripts/index.pl?cp=reset_user>Reset your password</a>?|;
 } elsif ($in{'action'} eq '') { print "No action specified\n"; 
-} else { print "error with action: $in{'action'}\n"; }
+} else { print "error with action: " . &html_escape($in{'action'}) . "\n"; }
 print '</td>';
 
 # RP
@@ -125,13 +125,29 @@ sub add_user {
 	my $User_Login = $in{'User_Login'};
 	my $User_Email = $in{'User_Email'};
   my $valid_email = Email::Valid->address($User_Email);
-	my $pass_temp = $in{'pass_temp'};
+	my $pass_len = ($in{'pass_len'} =~ /^\d+$/) ? $in{'pass_len'} : 0;
+  # Letters, numbers, dot, dash and underscore only. The column is varchar(25).
+  my $valid_login = ($User_Login =~ /^[A-Za-z0-9._-]{3,25}$/) ? 1 : 0;
+
 	my $User_Password = $in{'User_Password'};
   
   # Check to see that fields were filled out
-  if ($User_First && $User_Last && $User_Login && $User_Email && $valid_email && $pass_temp && (length($pass_temp) >= $min_password_length)) {
-  
+  #if ($User_First && $User_Last && $User_Login && $User_Email && $valid_email && ($pass_len >= $min_password_length)) {
+  if ($User_First && $User_Last && $User_Login && $valid_login && $User_Email && $valid_email && ($pass_len >= $min_password_length)) {  
   	my $db = &DB_Open($dsn);
+    # The user limit has to be checked here too. Checking only when the form is shown is easy to step around.
+    my $User_Count = 0;
+    if (my $sth = &DB_Call($db, qq|SELECT Count(User_ID) FROM User;|)) {
+      ($User_Count) = $sth->fetchrow_array();
+      $sth->finish();
+    }
+    if ($User_Count >= $max_users) {
+      print "<P>The site has reached its maximum of $max_users users. Please contact $mail_from.\n";
+      &LogOut(100,"Account creation refused, at max_users $max_users",$LogFile);
+      &DB_Close($db);
+      return;
+    }
+    
   	my $Date =&GetTimeString();
   	my $hash = $in{'User_Password'} . $secret_key;
   	my $passhash = sha1_hex($hash); 
@@ -194,12 +210,13 @@ sub add_user {
     unless ($User_First) { print "<li>First Name is a required field.</li>\n"; }
     unless ($User_Last)  { print "<li>Last Name is a required field.</li>\n"; }
     unless ($User_Login) { print "<li>User ID is a required field.</li>\n"; }
+    if ($User_Login && !$valid_login) { print "<li>User ID must be 3 to 25 letters, numbers, dots, dashes or underscores.</li>\n"; }
     unless ($User_Email) { print "<li>Email Address is a required field.</li>\n";}
-    unless ($pass_temp && (length($pass_temp) >= $min_password_length))  { print "<li>Password is a required field and at least $min_password_length characters.</li>\n";}
+    unless (($pass_len >= $min_password_length))  { print "<li>Password is a required field and at least $min_password_length characters.</li>\n";}
     if ($User_Email && !$valid_email) { print "<li>The email address you entered ( $User_Email ) does not detect as valid.</li>\n";  }
     print "</ul>\n";
     print "<P>Please try again!\n";
-    &LogOut(100,"Account: User1: $User_First, User2: $User_Last, Login: $User_Login, Email: $User_Email, Pass length: " . length($pass_temp),$ErrorLog);
+    &LogOut(100,"Account: User1: $User_First, User2: $User_Last, Login: $User_Login, Email: $User_Email, Pass length: " . $pass_len,$ErrorLog);
   }
 }
 
@@ -237,7 +254,7 @@ sub activate_user {
     	# Hashing password with secret key
     	my $hash = $User_Password . $secret_key;
     	my $passhash = sha1_hex($hash);
-    	&LogOut(401, "Attempting a match on A: $User_Login 2: $User_Password 3: $passhash 4: $submit_hash", $LogFile);
+    	&LogOut(401, "Attempting a match on A: $User_Login", $LogFile);
         
     	if ($passhash eq $submit_hash && $submit_user eq $User_Login) {
         $id = $User_ID;
@@ -249,22 +266,17 @@ sub activate_user {
   }
 	
   if ($id ne '') {
-    my $cgi = CGI->new;
-    my $cookie = $cgi->cookie('TotalHost');  # Get the cookie information
-    my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
-    $sessionid = $session->id unless $sessionid;
-    $session->param("logged-in", 1);
-    $session->param("userid", $User_ID);
-    $session->param("userlogin", $User_Login);
-    $session->param("email", $User_Email);
-    $session->param("timezone", $User_Timezone);
     &LogOut(100,"Account Activated for $User_Login",$LogFile);
     # Get the serial number for this user
     # which will be the serial number of the line of the corresponding User ID. 
     # We lose some this way, but we have 7 million so I think it will be ok. 
     my $user_serial;
     if (-f $File_Serials) { # If the serial file exists
-      open (IN_FILE,$File_Serials) || &LogOut(0,"Can\'t open Serials File $File_Serials",$ErrorLog);
+      #open (IN_FILE,$File_Serials) || &LogOut(0,"Can\'t open Serials File $File_Serials",$ErrorLog);
+      unless (open (IN_FILE,$File_Serials)) {
+        &LogOut(0,"Can\'t open Serials File $File_Serials",$ErrorLog);
+        return;
+      }
       chomp(my @serials = <IN_FILE>);
 		  close(IN_FILE);
       my $id_update = $User_ID + 1; 
@@ -276,7 +288,6 @@ sub activate_user {
     $sql = qq|UPDATE User SET User_Status=1, User_Modified=?, User_File=?, User_Serial=?, CreateGame=1 WHERE User_ID=?;|;
     my $sth = &DB_Call($db,$sql,$Date,$userfile, $user_serial,$id);
     $sth->finish();
-    $redirect = $WWW_Scripts . '/page.pl';
     # handy function - don't lose. 
     #	&print_redirect($cgi,$sessionid,$redirect);
     print "Account Activated for $User_Login" . ". Please Log In.";
@@ -293,11 +304,13 @@ sub reset_user {
 	&LogOut(100,"Password Reset for $in{'User_Login'}",$LogFile);
 	$db = &DB_Open($dsn);
   # updated to only be active accounts
-	$sql = 'SELECT User_Login, User_ID, User_Email FROM User WHERE User_Status > 0;';
+	#$sql = 'SELECT User_Login, User_ID, User_Email FROM User WHERE User_Status > 0;';
+  $sql = 'SELECT User_Login, User_ID, User_Email, User_Password FROM User WHERE User_Status > 0;';
 	# Check to be sure the account exists
   if (my $sth = &DB_Call($db, $sql)) {
     while (my @row = $sth->fetchrow_array()) {
-        ($User_Login, $User_ID, $User_Email) = @row;
+        #($User_Login, $User_ID, $User_Email) = @row;
+        ($User_Login, $User_ID, $User_Email, $User_Password) = @row;
         if ($User_Login eq $in{'User_Login'} && lc($User_Email) eq lc($in{'User_Email'})) {
             $id = $User_ID;
         }
@@ -307,13 +320,16 @@ sub reset_user {
   }
   if ($id) { 
   	# Create new temporary password
-  	$temp = $id . $secret_key;
-  	$new_password = sha1_hex($temp);
-  	$Date =&GetTimeString();
-  	# add new temporary password to database
-  	$sql = "UPDATE User SET User_Password=?, User_Status=2, User_Modified=? WHERE User_ID=?;";
-  	my $sth = &DB_Call($db,$sql,$new_password, $Date,$id);
-    $sth->finish();
+  	#$temp = $id . $secret_key;
+  	#$new_password = sha1_hex($temp);
+    #$new_password = &random_token();
+    $new_password = sha1_hex($id . $User_Password . $secret_key);
+#   	$Date =&GetTimeString();
+#   	# add new temporary password to database
+#   	$sql = "UPDATE User SET User_Password=?, User_Status=2, User_Modified=? WHERE User_ID=?;";
+#   	my $sth = &DB_Call($db,$sql,$new_password, $Date,$id);
+#     $sth->finish();
+  	if (my $sth = &DB_Call($db, "UPDATE User SET User_Status=2, User_Modified=? WHERE User_ID=?;", &GetTimeString(), $id)) { $sth->finish(); }
   	# Email new temporary password
   	$Subject = $mail_prefix . 'Password Reset Request';
   	$Message = "\n\nA request was submitted to reset your password for User ID: $in{'User_Login'}.\n";
@@ -335,17 +351,21 @@ sub reset_password {
 	$submit_hash = $in{'new'};
 	$submit_user = $in{'user'};
 	$db = &DB_Open($dsn);
-	$sql = "SELECT User.User_Login, User.User_ID, User.User_Password, User.User_Email FROM User;";
+	#$sql = "SELECT User.User_Login, User.User_ID, User.User_Password, User.User_Email FROM User;";
+  $sql = "SELECT User.User_Login, User.User_ID, User.User_Password, User.User_Email FROM User WHERE User_Status=2;";
+
 	if (my $sth = &DB_Call($db, $sql)) {
     while (my @row = $sth->fetchrow_array()) {
       ($User_Login, $User_ID, $User_Password, $User_Email) = @row;
 
       # Create the new password hash
-      $temp = $User_ID . $secret_key;
-      $new_password = sha1_hex($temp);
+      #$temp = $User_ID . $secret_key;
+      #$new_password = sha1_hex($temp);
 
       # Check if the user login and password match
-      if ($User_Login eq $in{'user'} && $User_Password eq $new_password) {
+      #if ($User_Login eq $in{'user'} && $User_Password eq $new_password) {
+      #if ($in{'new'} =~ /^[0-9a-f]{40}$/ && $User_Login eq $in{'user'} && $User_Password eq $in{'new'}) {
+      if ($in{'new'} =~ /^[0-9a-f]{40}$/ && $User_Login eq $in{'user'} && sha1_hex($User_ID . $User_Password . $secret_key) eq $in{'new'}) {
         $id = $User_ID;
       }
       if ($id) { last; }  # Exit the loop if a match is found
@@ -356,12 +376,13 @@ sub reset_password {
 	if ($id) {
 print <<eof;
 <td>
-<FORM name="login" method="$FormMethod" action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value)">
+<FORM name="login" method="$FormMethod" action="$WWW_Scripts/account.pl" onsubmit="document.getElementById('User_Password').value = hex_sha1(document.getElementById('pass_temp').value); document.getElementById('pass_len').value = document.getElementById('pass_temp').value.length;">
 <input type="hidden" name="action" value="reset_password2">
 <input type="hidden" name="User_Login" value="$User_Login">
-<br>Enter new password: <input type=text id="pass_temp">
+<br>Enter new password (at least $min_password_length characters): <input type=password id="pass_temp">
 <input type="hidden" name="User_Password" id="User_Password">
-<input type="hidden" name="Old_Password" value="$User_Password">
+<input type="hidden" name="pass_len" id="pass_len">
+<input type="hidden" name="Old_Password" value="$in{'new'}">
 <input type=submit name="Submit" value="Reset Password">
 </FORM>
 </td>
@@ -374,19 +395,29 @@ eof
 
 sub reset_password2 {
 	$db = &DB_Open($dsn);
-	$sql = "SELECT User_Login, User_Password, User_ID, User_Email FROM User;";
+	#$sql = "SELECT User_Login, User_Password, User_ID, User_Email FROM User;";
+  $sql = "SELECT User_Login, User_Password, User_ID, User_Email FROM User WHERE User_Status=2;";
 	if (my $sth = &DB_Call($db, $sql)) {
     while (my @row = $sth->fetchrow_array()) {
         ($User_Login, $User_Password, $User_ID, $User_Email) = @row;
         # Check if the user login and old password match
-        if ($User_Login eq $in{'User_Login'} && $User_Password eq $in{'Old_Password'}) {
-            $id = $User_ID;
+        #if ($User_Login eq $in{'User_Login'} && $User_Password eq $in{'Old_Password'}) {
+        # Check if the user login and old password (the reset token) match
+        #if ($in{'Old_Password'} =~ /^[0-9a-f]{40}$/ && $User_Login eq $in{'User_Login'} && $User_Password eq $in{'Old_Password'}) {
+        if ($in{'Old_Password'} =~ /^[0-9a-f]{40}$/ && $User_Login eq $in{'User_Login'} && sha1_hex($User_ID . $User_Password . $secret_key) eq $in{'Old_Password'}) {
+          $id = $User_ID;
         }
         if ($id) { last; }  # Exit the loop if a match is found
     }
     $sth->finish();
   }
-
+  
+  my $pass_len = ($in{'pass_len'} =~ /^\d+$/) ? $in{'pass_len'} : 0;
+	if ($id && !($in{'User_Password'} =~ /^[0-9a-f]{40}$/ && $pass_len >= $min_password_length)) {
+		print "<P><font color=red>Password not changed. It must be at least $min_password_length characters. Use your browser's Back button and try again.</font>\n";
+		&DB_Close($db);
+		return;
+	}
 	if ($id) {
 		$new_password = $in{'User_Password'};
 		$hash = $new_password . $secret_key;
@@ -404,22 +435,22 @@ sub reset_password2 {
 	&DB_Close($db);	
 }
 
-sub change_password {
-  my ($session) = @_;
-	$Date =&GetTimeString();
-	$userid=$session->param("userid");
-	$User_Login = $session->param("userlogin");
-	$User_Email = $session->param("email");
-	$new_password = $in{'User_Password'};
-	$hash = $new_password . $secret_key;
-	$userhash = sha1_hex($hash); 
-	$db = &DB_Open($dsn);
-	$sql = qq|UPDATE User SET User_Password=?, User_Modified=?  WHERE User_ID=?;|;
-	my $sth = &DB_Call($db,$sql,$userhash,$Date,$userid);
-  $sth->finish();
-	print "Password changed for $userid\n";
-  &DB_Close($db);
-}
+# sub change_password {
+#   my ($session) = @_;
+# 	$Date =&GetTimeString();
+# 	$userid=$session->param("userid");
+# 	$User_Login = $session->param("userlogin");
+# 	$User_Email = $session->param("email");
+# 	$new_password = $in{'User_Password'};
+# 	$hash = $new_password . $secret_key;
+# 	$userhash = sha1_hex($hash); 
+# 	$db = &DB_Open($dsn);
+# 	$sql = qq|UPDATE User SET User_Password=?, User_Modified=?  WHERE User_ID=?;|;
+# 	my $sth = &DB_Call($db,$sql,$userhash,$Date,$userid);
+#   $sth->finish();
+# 	print "Password changed for $userid\n";
+#   &DB_Close($db);
+# }
 
 sub login {
 #	use Captcha::reCAPTCHA;
@@ -462,14 +493,14 @@ sub login {
     }
     $sth->finish();
   }
-
+  if ($id) { if (my $sth = &DB_Call($db, "UPDATE User SET User_Status=1 WHERE User_ID=? AND User_Status=2;", $id)) { $sth->finish(); } }
   &DB_Close($db);	
   if ($id) {
     &LogOut(100,"$submit_user Logged In",$LogFile);
     my $cgi = CGI->new;
     my $cookie = $cgi->cookie('TotalHost');  # Get the cookie information
     my $session = CGI::Session->new("driver:File", $cookie, {Directory=>"$Dir_Sessions"});
-    my $sessionid = $session->id unless $sessionid;
+    my $sessionid = $session->id;
     $session->param("logged-in", 1);
     $session->param("userid", $User_ID);
     $session->param("userlogin", $User_Login);

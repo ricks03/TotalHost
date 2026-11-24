@@ -41,6 +41,9 @@ if ($ARGV[0]) {
     $inDir = dirname($arg);
   } elsif (-d $arg) {
     $inDir = $arg;
+  } else {
+    print "Path '$arg' is not a file or directory.\n";
+    exit;
   }
 }
 
@@ -56,11 +59,14 @@ if (!($ARGV[0])) {
 } 
 
 #Validate directory existence
-unless (-d $inDir ) { print "Directory: $inDir does not exist!\n"; exit;  }
+unless (defined $inDir && -d $inDir) { print "Directory: " . ($inDir // '<none>') . " does not exist!\n"; exit; }
 
 # Fix if you leave the / off the directory, now OS aware
-if ($inDir =~ /\\/) { if (substr($inDir,-1) ne '\\') {  $inDir = $inDir . '\\'; }
-} elsif ( $inDir =~ /\//) { if (substr($inDir,-1) ne '/') {  $inDir = $inDir . '/'; }
+# if ($inDir =~ /\\/) { if (substr($inDir,-1) ne '\\') {  $inDir = $inDir . '\\'; }
+# } elsif ( $inDir =~ /\//) { if (substr($inDir,-1) ne '/') {  $inDir = $inDir . '/'; }
+# }
+unless ($inDir =~ m{[/\\]$}) {
+  $inDir .= ($^O eq 'MSWin32') ? '\\' : '/';
 }
 
 # if a file is specified, check to see if it exists
@@ -74,10 +80,9 @@ if ($inFile) {
 
 # Read in all files in the directory $inDir and store block 9 data+ for each file
 my %block9;
-opendir(DIR, $inDir) or print "Directory: Can\'t opendir $inDir\n"; 
+#opendir(DIR, $inDir) or print "Directory: Can\'t opendir $inDir\n"; 
+opendir(DIR, $inDir) or do { print "Directory: Can't opendir $inDir\n"; exit; };
 while (defined(my $file = readdir(DIR))) {  
-  my $FileValues;
-  my @fileBytes;
   my $filename =  $inDir . $file;
   next unless ($file =~ /^(\w+[\w.-]+\.[xX]\d{1,2})$/); # skip unless it's a .x[n] file
   # This regexp skips the ARGV[1] value
@@ -85,13 +90,9 @@ while (defined(my $file = readdir(DIR))) {
   #next if ($inFile && $inFile =~ /$file/i); # Skip for the case-insensitive file we started with 
 if ($inFile && !($file =~ /^\Q$file_prefix\E\.[xX]\d{1,2}$/i)) { next; }  # Skip if it's a different game
   print "$filename\n";
-  open(StarFile, "<$filename" );
-  binmode(StarFile);
-  while ( read(StarFile, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
-  close(StarFile);
-
+  
+  my @fileBytes = &readFile($filename);
+  
   # Decrypt the data, block by block
   my @block9data = &decryptSerials(@fileBytes);
   if (@block9data) {
@@ -102,25 +103,45 @@ closedir(DIR);
 print "\n";
 
 # Loop through the stored .x files
-foreach my $file1 ( sort keys %block9 ) {
+# foreach my $file1 ( sort keys %block9 ) {
+#   print "Checking: $file1\n";
+#   # Check it against all the files in the array
+#   foreach my $file2 ( sort keys %block9 ) {
+#     if ($file1 eq $file2) { next; } # if it's the same file then skip it
+#     # Check to see if the serial numbers are the same
+#     if ($block9{$file1}[0] == $block9{$file2}[0]) {
+#       # If the serial numbers are the same, the hardware hashes must be the same
+#       if ($block9{$file1}[1] eq $block9{$file2}[1]) {
+#         print "\tInfo   : $file1 same serial/hardware hash as $file2\n";
+#       } else { 
+#         print "\tDANGER : $file1 same serial as $file2, but different hardware hash\n"; 
+#       }
+#     } else { 
+#       print "\tOK     : $file1 different serial than $file2\n"; 
+#     } 
+#   } 
+#   print "\n";
+# } 
+
+# Skip forward for each .x file, so we won't compare .x1 to .x2 and then .x2 to .x1
+my @files = sort keys %block9;
+for (my $i = 0; $i < @files; $i++) {
+  my $file1 = $files[$i];
   print "Checking: $file1\n";
-  # Check it against all the files in the array
-  foreach my $file2 ( sort keys %block9 ) {
-    if ($file1 eq $file2) { next; } # if it's the same file then skip it
-    # Check to see if the serial numbers are the same
+  for (my $j = $i + 1; $j < @files; $j++) {
+    my $file2 = $files[$j];
     if ($block9{$file1}[0] == $block9{$file2}[0]) {
-      # If the serial numbers are the same, the hardware hashes must be the same
       if ($block9{$file1}[1] eq $block9{$file2}[1]) {
         print "\tInfo   : $file1 same serial/hardware hash as $file2\n";
-      } else { 
-        print "\tDANGER : $file1 same serial as $file2, but different hardware hash\n"; 
+      } else {
+        print "\tDANGER : $file1 same serial as $file2, but different hardware hash\n";
       }
-    } else { 
-      print "\tOK     : $file1 different serial than $file2\n"; 
-    } 
-  } 
+    } else {
+      print "\tOK     : $file1 different serial than $file2\n";
+    }
+  }
   print "\n";
-} 
+}
 
 exit;
 ####################################################################

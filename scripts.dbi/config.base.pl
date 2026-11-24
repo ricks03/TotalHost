@@ -11,6 +11,7 @@ $WWW_Image = '/images/';
 $WWW_Banner = 'StarsTotalHost.jpg';
 $WWW_Notes = '/Notes/';
 $WWW_Scripts = '/scripts';
+$WWW_Downloads = '/Downloads';
 $Location_Index = $WWW_HomePage . $WWW_Scripts . '/index.pl';
 
 # Logging
@@ -78,20 +79,20 @@ $FormMethod      = 'Post'; # Method used for forms, Post or Get
 $Dir_Root        = '/var/www/html';
 $Dir_User        = '/home/totalhost';
 $Dir_WINE        = 'd:';
-$Dir_Sessions    = $Dir_User . '/sessions/'; # Note if you change this all the current passwords will invalidate. 
+$Dir_Sessions    = $Dir_User . '/sessions/'; # Note if you change this all the current sessions will invalidate. 
 $Dir_Upload      = $Dir_User . '/upload';
 $Dir_Games       = $Dir_User . '/games'; # Location of the actual game files used for turn gen
 $Dir_Download    = $Dir_User . '/download'; #Location where zip files are downloaded
 $Dir_Races       = $Dir_User . '/races';
 $File_Serials    = $Dir_User . '/serialC.txt'; # Text file of serial numbers
-$Dir_Graphs      = $Dir_Root . '/downloads'; #Location of movies & Graphs
+$Dir_Graphs      = $Dir_Root . '/Downloads'; #Location of movies & Graphs
 $Dir_WWWRoot     = $Dir_Root;
 $Dir_Scripts     = $Dir_Root . '/scripts';
 $WINE_Races      = '\\races'; # Location of the actual race files used for game creation 
 $WINE_Games      = '\\games'; # Location of the actual game files used for game creation & turn gen
 $File_Planets    = $Dir_User . '/strings_planets.txt'; # Planet name file
 
-$reboot_file   = $Dir_Root . '/reboot'; # Leave blank to disable reboot detection
+$reboot_file   = $Dir_User . '/reboot'; # Leave blank to disable reboot detection
 
 # Email
 # Currently expects an localhost open relay
@@ -103,7 +104,7 @@ $mail_from = 'me@example.com';
 $mail_prefix = '[TH] ';
 
 #Internet Detection
-$internet_status_log = $Dir_Root  . '/internet_status.log';
+$internet_status_log = $Dir_Log  . '/internet_status.log';
 $internet_threshold  = 3;
 $internet_site       = '8.8.8.8';      # Google
 

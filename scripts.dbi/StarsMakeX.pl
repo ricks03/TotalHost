@@ -59,19 +59,23 @@ unless ($is_m_file || $ext =~ /^\.hst$/i) {
 }
 
 print "Reading $filename\n";
-my $FileValues;
-my @fileBytes;
-open(StarFile, "<$filename") or die "Cannot open $filename: $!\n";
-binmode(StarFile);
-while (read(StarFile, $FileValues, 1)) { push @fileBytes, $FileValues; }
-close(StarFile);
+
+my @fileBytes = &readFile($filename);
 
 # Parse block 8 (rtBOF)
-$FileValues = $fileBytes[1] . $fileBytes[0];
+my $FileValues = $fileBytes[1] . $fileBytes[0];
 my ($typeId, $size) = &parseBlock($FileValues, 0);
 die "Expected block 8 first, got block $typeId\n" unless $typeId == 8;
 
 my @block = @fileBytes[0 .. (2 + $size - 1)];
+# A .m file can hold several turns (a player who missed turns gets them all), each
+# starting with its own block 8, oldest first. The .x must be for the newest turn.
+my $offset = 0;
+while ($offset + 2 <= @fileBytes) {
+  my ($bType, $bSize) = &parseBlock($fileBytes[$offset + 1] . $fileBytes[$offset], $offset);
+  if ($bType == 8) { @block = @fileBytes[$offset .. ($offset + 2 + $bSize - 1)]; }
+  $offset += 2 + $bSize;
+}
 my ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
     
 print "  Game ID : $lidGame\n";

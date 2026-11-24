@@ -147,15 +147,7 @@ if (-e "$listPrefix.hst.last" && $file_type =~ /x/i) {
   }
 }
 
-# Read in the binary Stars! file, byte by byte
-my $FileValues;
-my @fileBytes;
-open(STARFILE, "<$filename");
-binmode(STARFILE);
-while (read(STARFILE, $FileValues, 1)) {
-  push @fileBytes, $FileValues; 
-}
-close(STARFILE);
+my @fileBytes = &readFile($filename);
 
 # Decrypt the data, block by block, and process it
 # Include the directory to handle the difference between TH and standalone 
@@ -202,7 +194,7 @@ if ($file_type =~ /hst/i || $file_type =~ /M/i ) {
     &writeList("$listPrefix.hst.planet", \%planetList);
   }
   
-  if ($lastPlayer) {# Store the last player value for 10th Starbase for a .x pass
+  if (defined $lastPlayer && $lastPlayer >= 0) {# Store the last player value for 10th Starbase for a .x pass
 #    print "Printing Last Player...\n";
 #    print "Last Player: $lastPlayer\n";
     open (LISTFILE, ">$listPrefix.hst.last");

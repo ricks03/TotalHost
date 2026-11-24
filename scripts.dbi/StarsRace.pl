@@ -75,15 +75,7 @@ $dir =~ s/\\/\//g;  # normalize to forward slashes
 #if ($ext =~ /[xX]/ || uc($ext) =~ /\.H\d/ ) { print "This file does not include race information\n"; exit; }
 if ($ext =~ /[xX]/ ) { print "This file does not include race information\n"; exit; }
 
-# Read in the binary Stars! file, byte by byte
-my $FileValues;
-my @fileBytes;
-open(StarFile, "<$filename");
-binmode(StarFile);
-while (read(StarFile, $FileValues, 1)) {
-  push @fileBytes, $FileValues; 
-}
-close(StarFile);
+my @fileBytes = &readFile($filename);
 
 # Decrypt the data, block by block
 my ($outBytes) = &decryptBlockRace(@fileBytes);

@@ -88,8 +88,8 @@ sub starstat {
 	my $verInc = substr($ver,11,5);
 	my $verMinor = substr($ver,4,7);
 	my $verMajor = substr($ver,0,4);
-	my $verMajor = bin2dec($verMajor);
-	my $verMinor = bin2dec($verMinor);
+	$verMajor = bin2dec($verMajor);
+	$verMinor = bin2dec($verMinor);
 	$verInc = bin2dec($verInc);
 	$ver = $verMajor . "." . $verMinor . "." . $verInc;
 	$ver = &Fix_Version($ver);
@@ -264,6 +264,11 @@ sub FileData {
     $file_type='hst'; 
     $file_player = 16;
   }
+  # Only .x1 - .x16 are player turn files. Anything else starting with x (.xy, .x0, .x17, .xyz) is not.
+  if ($file_type eq 'x' && $file_ext !~ /^x([1-9]|1[0-6])$/) {
+    $file_type = '';
+    $file_player = '';
+  }
 	return $file_prefix, $file_player, $file_type, $file_ext; 	
 }
 
@@ -317,11 +322,7 @@ sub SLogOut {
 	my ($Second, $Minute, $Hour, $DayofMonth, $WrongMonth, $WrongYear, $WeekDay, $DayofYear, $IsDST) = localtime($CurrentEpoch); 
 	my $Month = $WrongMonth + 1; 
 	my $Year = $WrongYear + 1900;
-  if ($DayofMonth <=7) { $WeekofMonth = 1;}
-	elsif ($DayofMonth >7 && $DayofMonth <=14) { $WeekofMonth = 2;}
-	elsif ($DayofMonth >14 && $DayofMonth <=21) { $WeekofMonth = 3;}
-	elsif ($DayofMonth >21 && $DayofMonth <=28) { $WeekofMonth = 4;}
-	elsif ($DayofMonth >28 && $DayofMonth <=31) { $WeekofMonth = 5;}
+  my $WeekofMonth = int(($DayofMonth - 1) / 7) + 1;
   my $LogFileDate = $LogFile . '.' . $Year . '.' . $Month . '.' . $WeekofMonth; 
 
 	if ($Logging <= $logging) { 

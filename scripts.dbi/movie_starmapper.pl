@@ -40,7 +40,7 @@ use strict;
 use warnings;
 our ($Dir_Games, $Dir_Graphs, $WINE_executable, $Stars26k_executable, $Dir_WINE, $WINE_Games,
      $StarMapper_Year, $StarMapper_Password, $StarMapper_URL,
-     $MapOutFile, $DataOutFile, $ImgOutFile, $imagemagick, $starmapper);
+     $MapOutFile, $DataOutFile, $ImgOutFile, $imagemagick, $starmapper, $ErrorLog);
 use FindBin;
 use lib $FindBin::Bin;
 
@@ -183,7 +183,10 @@ foreach $dirname (@AllDirs) { # Dirname is the year value
     #     $file2 = $destdir . '\\' . $GameFile . ' ' . $dirname . '.p' . $number;  
     #$pla = $WINE_executable . " -dp $Dir_WINE\\$WINE_Games\\\\$GameFile\.mov\\\\$dirname\\\\$GameFile" . '.m' . $number;
     if ($GameVersion eq '2.6k') {
-      $pla = "$Stars26k_executable -dp $destdir/$dirname/$GameFile.m$number";
+      #$pla = "$Stars26k_executable -dp $destdir/$dirname/$GameFile.m$number";
+      # The stars.ini next to stars-host has newreports=1, which names the report <game>.p<player> as this script expects
+      my $Stars26k_ini = File::Basename::dirname($Stars26k_executable) . '/stars.ini';
+      $pla = "$Stars26k_executable --ini $Stars26k_ini -dp $destdir/$dirname/$GameFile.m$number";
     } else {
       $pla = $WINE_executable . " -dp $Dir_WINE\\$WINE_Games\\\\$GameFile\.mov\\\\$dirname\\\\$GameFile" . '.m' . $number;
     }
@@ -280,13 +283,26 @@ if (-f $MapOutFile) {
   chmod 0770, $ImgOutFile;
   $exit_status = &call_system($ImgOutFile);  # Run imagemagic (requires successful starmapper)
   my $GifFile = "$Dir_Graphs/movies/$GameFile.gif";
-  chmod 0440, $GifFile; 
+  chmod 0640, $GifFile;   # owner (www-data) can write it, so the movie can be made again 
 } else { print "Can\'t create $ImgOutFile, because $MapOutFile is missing"; }
 
 
-print "Done! Delete the folder $destdir\n";
-exit 0;
+#print "Done! Delete the folder $destdir\n";
 #if ($destdir) { rmtree($destdir) or die "$!: for directory $destdir\n"; }
+
+# The work folder holds a copy of every turn with the passwords removed. Remove it once the
+# movie is made; if the movie failed, keep it so the failure can be looked into.
+my $MovieFile = "$Dir_Graphs/movies/$GameFile.gif";
+if (-f $MovieFile && $destdir && -d $destdir) {
+  chdir $Dir_Games;   # rmtree will not remove the folder we are standing in (chdir $destdir above)
+  rmtree($destdir, { error => \my $rmerr });
+  if (@$rmerr) { &LogOut(0, "movie_starmapper: could not fully remove $destdir for $GameFile", $ErrorLog); }
+  print "Done.\n";
+} else {
+  print "No movie was made; leaving $destdir to look into.\n";
+}
+exit 0;
+
 
 ##########################################
 ##########################################

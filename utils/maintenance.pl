@@ -44,9 +44,12 @@ die "The directory '$Dir_Games' does not exist.\n" unless -d $Dir_Games;
 die "The directory '$Dir_Races' does not exist.\n" unless -d $Dir_Races;
 
 # Convert the Games files to lower-case
-find(\&lowercase_filenames, $Dir_Games);
+# find(\&lowercase_filenames, $Dir_Games);
+# finddepth does a folder's contents before the folder itself, so renaming a folder is safe
+finddepth(\&lowercase_filenames, $Dir_Games);
 #Convert the Races files to lower-case
-find(\&lowercase_filenames, $Dir_Races);
+# find(\&lowercase_filenames, $Dir_Races);
+finddepth(\&lowercase_filenames, $Dir_Races);
 
 my $sql;
 my $dh;
@@ -86,7 +89,8 @@ print "\n";
 
 # Compare the GameUsers Race Files themselves between the DB and file system
 print "Game Users Race Files Compare ($DB_NAME, $Dir_Races):\n";
-$sql = qq|SELECT RaceFile FROM Races;|;
+#$sql = qq|SELECT RaceFile FROM Races;|;
+$sql = qq|SELECT GameUsers.RaceFile FROM GameUsers INNER JOIN Games ON Games.GameFile = GameUsers.GameFile WHERE Games.GameStatus IN (7, 0);|;
 $gameusersrace_ref = get_db($sql); # This is files not folders
 $race_files_ref = get_fs_files("$Dir_Races");
 compare_files($gameusersrace_ref, $race_files_ref, $Dir_Races);
@@ -237,6 +241,8 @@ sub lowercase_filenames {
 
     # Skip if current item is . or ..
     return if ($item =~ m|/\.\.?$|);
+    # Stars! makes its own BACKUP folder and would create a second one if this were renamed
+    return if ($item =~ m{/BACKUP(/|$)});
 
     # Get the directory and filename
     my $dir  = dirname($item);
@@ -247,13 +253,15 @@ sub lowercase_filenames {
 
     # If the file name needs to be changed to lowercase
     if ($file ne $lowercase_file) {
-        my $new_path = "$dir/$lowercase_file";
+      my $new_path = "$dir/$lowercase_file";
 
-        # Rename the file or directory
-        if (move($item, $new_path)) {
-            print "Renamed: $item -> $new_path\n";
-        } else {
-            warn "Could not rename $item to $new_path: $!\n";
-        }
+      # Rename the file or directory, but never on top of something that is already there
+      if (-e $new_path) {
+          warn "NOT renamed, $new_path already exists: $item\n";
+      } elsif (move($item, $new_path)) {
+          print "Renamed: $item -> $new_path\n";
+      } else {
+          warn "Could not rename $item to $new_path: $!\n";
+      }
     }
 }

@@ -20,7 +20,7 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use File::Find;
-use File::stat;
+#use File::stat;
 do 'config.pl';
 
 my $commandline = $ARGV[0];
@@ -29,29 +29,46 @@ my $commandline = $ARGV[0];
 my $uid = getpwnam($apache_user);
 my $gid = getgrnam($apache_user);
 # Error handling in case user or group doesn't exist
-die "User www-data not found" unless defined $uid;
-die "Group www-data not found" unless defined $gid;
+die "User $apache_user not found" unless defined $uid;
+die "Group $apache_user not found" unless defined $gid;
 
 # Set permissons for Dir_Games
 print "Settings permissions for $Dir_Games\n";
-find(\&set_permissions, $Dir_Games);
-
+#find(\&set_permissions, $Dir_Games);
+find(
+    sub { set_permissions($File::Find::name, 0) },
+    $Dir_Games
+);
 # Set permissons for Dir_Races
 print "Settings permissions for $Dir_Races\n";
-find(\&set_permissions, $Dir_Races);
-print "\n";
+#find(\&set_permissions, $Dir_Races);
+find(
+    sub { set_permissions($File::Find::name, 0) },
+   $Dir_Races
+);
+# Set permissons for Utils
+my $utils = "$Dir_User/utils";
+print "Settings permissions for $utils\n";
+#find(\&set_permissions, $utils);
+find(
+    sub { set_permissions($File::Find::name, 1) },
+    $utils
+);
+
 
 # Define the subroutine to process each file
 # Define the subroutine to process each file and directory
 sub set_permissions {
-    my $file = $File::Find::name;
+  #my $file = $File::Find::name;
+  my ($file, $execute) = @_;
     
     # Set ownership to www-data:www-data
     chown $uid, $gid, $file or warn "Could not chown $file: $!";
-    
-    if (-f $file) {
-        # Set permissions for files to 660
-        chmod 0660, $file or warn "Could not chmod $file: $!";
+     if (-f $file) {
+      # Set permissions for files to 660 or 770
+      if ($execute) { chmod 0770, $file or warn "Could not chmod $file: $!"; }
+      else { chmod 0660, $file or warn "Could not chmod $file: $!"; }
+      #chmod 0660, $file or warn "Could not chmod $file: $!"; 
     }
     elsif (-d $file) {
         # Set permissions for directories to 770

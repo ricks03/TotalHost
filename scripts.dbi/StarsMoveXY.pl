@@ -203,24 +203,17 @@ sub check_wormhole_collisions { ### Check for wormhole collisions (.hst file onl
 }
 
 sub process_xy_file { ### Process .xy file (mode 0=display, 1=export, 2=import)
-  my ($file, $coords_ref, $mode) = @_;  
-  my @fileBytes;
-  open my $fh, '<', $file or die "Cannot open $file: $!";
-  binmode($fh);
-  my $FileValues;
-  while (read($fh, $FileValues, 1)) { push @fileBytes, $FileValues; }
-  close($fh);
-  my ($outBytes, $coord_mapping, $planet_coords) = &decryptBlockXY(\@fileBytes, $coords_ref, $mode, $file);
-  return ($outBytes, $coord_mapping, $planet_coords);}
+  my ($filename, $coords_ref, $mode) = @_;  
+  my @fileBytes = &readFile($filename, 1);
+  
+  my ($outBytes, $coord_mapping, $planet_coords) = &decryptBlockXY(\@fileBytes, $coords_ref, $mode, $filename);
+  return ($outBytes, $coord_mapping, $planet_coords);
+}
 
 sub process_fleet_file { ### Process fleet file (.hst or .m)
-  my ($file, $coord_mapping) = @_;  
-  my @fileBytes;
-  open my $fh, '<', $file or die "Cannot open $file: $!";
-  binmode($fh);
-  my $FileValues;
-  while (read($fh, $FileValues, 1)) { push @fileBytes, $FileValues; }
-  close($fh);  
+  my ($filename, $coord_mapping) = @_;  
+  my @fileBytes = &readFile($filename,1);  
+
   my $outBytes = &decryptBlockFleet(\@fileBytes, $coord_mapping);  
   return $outBytes;
 }
@@ -453,6 +446,7 @@ sub decryptBlockFleet { # Decrypt and process fleet blocks in .hst or .m files
   my $ownerId; 
   my $fleetId; #needs to persist so it's available for follow-on Blocks 19 & 20
   my $waypointId = 0; # value is implicit as it's the order the waypoints appear after the fleet block
+  my %waypointList;
   
   while ($offset < @fileBytes) {
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
@@ -711,17 +705,12 @@ sub print_homeworlds { ### Print homeworld names and coordinates from HST block 
 }
 
 sub scan_hst_file { ### Extract homeworld planet IDs from block 6 in HST file
-  my ($hst_file) = @_;
+  my ($filename) = @_;
   my @homeworlds;
   my %wormholes;
-  my @fileBytes;
 
-  open my $fh, '<', $hst_file or die "Cannot open $hst_file: $!";
-  binmode($fh);
-  my $FileValues;
-  while (read($fh, $FileValues, 1)) { push @fileBytes, $FileValues; }
-  close($fh);
-
+  my @fileBytes = &readFile($filename,1);
+ 
   my $offset = 0;
   my ($seedA, $seedB);
   my $player = 0;

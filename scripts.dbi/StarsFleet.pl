@@ -79,10 +79,8 @@ $dir      = dirname($filename);
 $dir =~ s/\\/\//g;
 ($ext) = $basefile =~ /(\.[^.]+)$/;
 
-if ($ext =~ /[rR]/) { print "Race files do not include fleet information\n"; exit; }
-
-my $FileValues;
-my @fileBytes;
+#if ($ext =~ /[rR]/) { print "Race files do not include fleet information\n"; exit; }
+if ($ext =~ /^\.r\d*$/i) { print "Race files do not include fleet information\n"; exit; }
 
 # Read the .xy file first to populate planet names and coordinates.
 # Only attempt this when processing a non-.xy file.
@@ -94,10 +92,9 @@ if ($ext !~ /\.xy$/i) {
     print "Found: $xyfile\n";
     my $display_tmp = $display;
     $display = 0;
-    open my $XYFile, '<', $xyfile or die "Cannot open $xyfile: $!";
-    binmode($XYFile);
-    while (read($XYFile, $FileValues, 1)) { push @fileBytes, $FileValues; }
-    close($XYFile);
+    
+    my @fileBytes = &readFile($xyfile);
+    
     &decryptBlockFleet(\@fileBytes);
     @fileBytes = ();
     $display = $display_tmp;
@@ -107,11 +104,7 @@ if ($ext !~ /\.xy$/i) {
   }
 }
 
-# Read the main Stars! file.
-open my $StarFile, '<', $filename or die "Cannot open $filename: $!";
-binmode($StarFile);
-while (read($StarFile, $FileValues, 1)) { push @fileBytes, $FileValues; }
-close($StarFile);
+my @fileBytes = &readFile($filename, 1);
 
 # Decrypt the data block by block and display results.
 my ($outBytes) = &decryptBlockFleet(\@fileBytes);
@@ -167,11 +160,18 @@ sub decryptBlockFleet {
 
     # ---- Block 8: File Header (never encrypted) ----
     if ($typeId == 8) {
-      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt)
-        = &getFileHeaderBlock(\@block);
+      ($binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ($seedA, $seedB) = &initDecryption($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA;
       $seedY = $seedB;
+      # Reset per-year counters so concatenated turns in one file don't bleed
+      %player                   = ();
+      $designShipTotal          = 0;
+      $designBaseTotal          = 0;
+      $designShipCounter        = 0;
+      $designBaseCounter        = 0;
+      $designShipTotalCounter   = 0;
+      $designBaseTotalCounter   = 0;
       if ($display) {
         print "File: $basefile, Player:" . ($Player+1) . ", Year:" . ($turn+2400) . ", dt:$dt\n\n";
       }
@@ -497,8 +497,10 @@ sub decryptBlockFleet {
           $gLength       = 4 >> (3 - $gLength);
           my $popLength  = ($contentsLengths & 0xC0) >> 6;
           $popLength     = 4 >> (3 - $popLength);
-          my $fuelLength = $contentsLengths >> 8;
-          $fuelLength    = 4 >> (3 - $fuelLength);
+#           my $fuelLength = $contentsLengths >> 8;
+#           $fuelLength    = 4 >> (3 - $fuelLength);
+          my $fuelLength = ($contentsLengths >> 8) & 0x03;
+          $fuelLength    = ($fuelLength == 0) ? 0 : 4 >> (3 - $fuelLength);
           $index += 2;
           $ironium    = &readN(\@decryptedData, $index, $iLength);    $index += $iLength;
           $boranium   = &readN(\@decryptedData, $index, $bLength);    $index += $bLength;

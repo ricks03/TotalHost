@@ -81,7 +81,8 @@ if (-e $inName && -f $inName) { # if it exists, and it's just a file (not a dire
       push @mDirs, "$inName/$file";
       next;
     }
-    next unless ($file =~ (/^.*\.(m|x)$/i)); #prefiltering for .m and .x files
+    #next unless ($file =~ (/^.*\.(m|x)$/i)); #prefiltering for .m and .x files
+    next unless ($file =~ /\.(m|x)\d*$/i); #prefiltering for .m and .x files
     push @Files, "$inName/$file";
   }
 }
@@ -92,7 +93,8 @@ foreach my $dirName (@mDirs) {
   opendir(BIN, $dirName) or die "Cannot open directory $dirName\n";
   while (defined ($file = readdir BIN)) {
     next if $file =~ /^\.\.?$/; # skip . and ..
-    next unless ($file =~ /^.*\.(m|x|hst)$/i); #prefiltering for .m / .x / .hst files
+    #next unless ($file =~ /^.*\.(m|x|hst)$/i); #prefiltering for .m / .x / .hst files
+    next unless ($file =~ /\.(m\d*|x\d*|hst)$/i); #prefiltering for .m / .x / .hst files
     push @Files, "$dirName/$file";
     print "Backups: $dirName/$file\n";
   }
@@ -111,19 +113,12 @@ foreach $filename (@Files) {
   $dir =~ s/\\/\//g;  # normalize to forward slashes
   ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1  extension
   
-  # Read in the binary Stars! file, byte by byte
-  my $FileValues;
-  my @fileBytes;
   print "\nFor File: $filename\n";
-  open(StarFile, "<$filename" );
-  binmode(StarFile);
-  while ( read(StarFile, $FileValues, 1)) {
-    push @fileBytes, $FileValues; 
-  }
-  close(StarFile);
   
+  my @fileBytes = &readFile($filename);
+
   # Decrypt the data, block by block
-  my ($outBytes, $messages) = &decryptMessages(\@fileBytes, $ext);
+  my ($messages) = &decryptMessages(\@fileBytes, $ext);
   my @messages = @{ $messages };
   unless (scalar (@messages)) { print "No message(s) found.\n" };  
   foreach my $message (@messages) {

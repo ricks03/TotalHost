@@ -80,8 +80,8 @@ if ($file1 =~ /\.m\d*$/i) {
 print "Detected file type: " . ($is_history ? "History (.H)" : "Turn (.M)") . "\n" if $debug;
 
 # Read binary files byte by byte
-my @fileBytes1 = readFile($file1);
-my @fileBytes2 = readFile($file2);
+my @fileBytes1 = &readFile($file1,1);
+my @fileBytes2 = &readFile($file2,1);
 
 # Step 1: Categorize P1's blocks
 print "=== Step 1: Categorizing Player 1 blocks ===\n" if $debug;
@@ -110,11 +110,13 @@ my $outBytes = merge_and_write($p1, $p2, $is_history);
 
 # Write output file
 my $newFile = $outFile || $file1 . '.merged';
+
 open(my $fh, '>:raw', $newFile) or die "Cannot open $newFile: $!\n";
 for my $byte (@$outBytes) {
   print $fh $byte;
 }
 close($fh);
+
 # Print what happened
 my $f1 = (split(/\//, $file1))[-1];
 my $f2 = (split(/\//, $file2))[-1];
@@ -123,19 +125,6 @@ unless (defined $ENV{'GATEWAY_INTERFACE'}) {  # Don't print if called from the w
   print "$f1 < $f2 => $fn\n";
 }
 #print "\nFile output: " . (split(/\//, $newFile))[-1] . "\n"; # print only the file name, not the path.
-
-sub readFile {
-  my ($filename) = @_;
-  my @bytes;
-  my $buf;
-  open(my $fh, "<", $filename) or die "Cannot open $filename: $!\n";
-  binmode($fh);
-  while (read($fh, $buf, 1)) {
-    push @bytes, $buf;
-  }
-  close($fh);
-  return @bytes;
-}
 
 sub decryptA {
 # decryptA - Decrypt and categorize ALL blocks from P1's .M or .H file
@@ -371,6 +360,30 @@ sub decryptB {
   my @objects;
   my @scores;
 
+  # Block 16 buffering: hold the raw data until we see the second waypoint,
+  # then convert to block 17 with correct dirLong.  $pending_fleet holds the
+  # raw block 16 decrypted data; $pending_meta holds [ $fleetId, $ownerId ].
+  my $pending_fleet = undef;
+  my $pending_meta  = undef;
+  my $wp_count      = 0;
+  my %p2_own_designs;  # Ship design data keyed by slot, for P2's own designs only
+  
+  my $flush_pending = sub {
+    my ($dirLong) = @_;
+    return unless defined $pending_fleet;
+    #my $converted = convertFleetToPartial($pending_fleet, $dirLong);
+    my $converted = convertFleetToPartial($pending_fleet, $dirLong, \%p2_own_designs);
+    my @convData  = @{$converted};
+    my @newHeader = makeBlockHeader(17, scalar(@convData));
+    push @fleets, [ 17, $pending_meta->[0], $pending_meta->[1],
+                    [@newHeader], [@convData] ];
+    print "  decryptB: Fleet $pending_meta->[0] (owner=$pending_meta->[1])"
+        . " Block 16 -> 17 dirLong=$dirLong\n" if $debug;
+    $pending_fleet = undef;
+    $pending_meta  = undef;
+    $wp_count      = 0;
+  };
+  
   # Design ownership tracking (same as decryptA)
   my @ship_design_counts;
   my @starbase_design_counts;
@@ -385,6 +398,8 @@ sub decryptB {
     my @data = @block[2..$#block];
     
     if ($typeId == 8) {  # FileHeaderBlock
+      # Flush any buffered block 16 fleet left from the prior year, before seeds reset
+      $flush_pending->(0) if defined $pending_fleet;
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption($binSeed, $fShareware, $Player, $turn, $lidGame);
       print "  decryptB: Block 8 header, Player=$Player, Turn=$turn\n" if $debug;
@@ -400,11 +415,17 @@ sub decryptB {
       @starbase_design_counts = ();
       $ship_design_idx = 0;
       $starbase_design_idx = 0;
-
+      # Also reset pending-fleet buffering state
+      $pending_fleet = undef;
+      $pending_meta  = undef;
+      $wp_count      = 0;
+      %p2_own_designs = ();
     } elsif ($typeId == 0) {  # FileFooterBlock
     } else {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB);
       @decryptedData = @{$decryptedData};
+      # Flush any buffered block 16 fleet when a non-waypoint block arrives.
+      $flush_pending->(0) if defined $pending_fleet && $typeId != 19 && $typeId != 20;
 
       if ($typeId == 6) {  # PlayerBlock - extract design counts
         my $playerId = $decryptedData[0] & 0xFF;
@@ -442,18 +463,14 @@ sub decryptB {
         my @newHeader = makeBlockHeader(14, scalar(@decryptedData));
         push @planets, [ 14, $planetId, $ownerId, [@newHeader], [@decryptedData] ];
 
-      } elsif ($typeId == 16) {  # FleetBlock (P2 owns) -> convert to Block 17
+      } elsif ($typeId == 16) {  # FleetBlock (P2 owns) -> buffer pending second waypoint
         my $field1 = read16(\@decryptedData, 0);
         my $fleetId = $field1 & 0x1FF;
         my $ownerId = ($field1 >> 9) & 0x0F;
-
-        my $converted = convertFleetToPartial(\@decryptedData);
-        my @convData = @{$converted};
-
-        my @newHeader = makeBlockHeader(17, scalar(@convData));
-        print "  decryptB: Fleet $fleetId (owner=$ownerId) Block 16 -> 17\n" if $debug;
-        push @fleets, [ 17, $fleetId, $ownerId, [@newHeader], [@convData] ];
-
+        $pending_fleet = [@decryptedData];
+        $pending_meta  = [ $fleetId, $ownerId ];
+        $wp_count      = 0;
+        print "  decryptB: Fleet $fleetId (owner=$ownerId) Block 16 buffered\n" if $debug;        
       } elsif ($typeId == 17) {  # PartialFleetBlock - keep as-is
         my $field1 = read16(\@decryptedData, 0);
         my $fleetId = $field1 & 0x1FF;
@@ -462,6 +479,38 @@ sub decryptB {
         my @newHeader = makeBlockHeader(17, scalar(@decryptedData));
         push @fleets, [ 17, $fleetId, $ownerId, [@newHeader], [@decryptedData] ];
 
+      } elsif ($typeId == 19 || $typeId == 20) {  # OrderA/OrderB (waypoints)
+        if (defined $pending_fleet) {
+          $wp_count++;
+          if ($wp_count == 2) {
+            # Second ORDER block is lpord[1]: the first actual destination.
+            # lpord[0] is the "fake" current-position waypoint per turn.c
+            # line 1713 comment; its pt == FLEETSOME.pt already in
+            # $pending_fleet bytes 8-11, so we skip it and use only this block.
+            my $fleet_x = ($pending_fleet->[8]  & 0xFF)
+                        | (($pending_fleet->[9]  & 0xFF) << 8);
+            my $fleet_y = ($pending_fleet->[10] & 0xFF)
+                        | (($pending_fleet->[11] & 0xFF) << 8);
+            my $wp2_x   = ($decryptedData[0] & 0xFF) | (($decryptedData[1] & 0xFF) << 8);
+            my $wp2_y   = ($decryptedData[2] & 0xFF) | (($decryptedData[3] & 0xFF) << 8);
+            my $iWarp   = ($decryptedData[6] >> 4) & 0x0F;
+            my $dx      = $wp2_x - $fleet_x;
+            my $dy      = $wp2_y - $fleet_y;
+            my $dirLong = 0;
+            if ($iWarp && ($dx || $dy)) {
+              # Scaling per turn.c lines 1585-1590: halve both until each fits in 127.
+              while (abs($dx) > 127 || abs($dy) > 127) {
+                $dx = int($dx / 2);
+                $dy = int($dy / 2);
+              }
+              $dirLong = ($dx + 127)
+                       | (($dy + 127) << 8)
+                       | (($iWarp & 0x0F) << 16)
+                       | (1 << 20);  # fdirValid
+            }
+            $flush_pending->($dirLong);
+          }
+        }
       } elsif ($typeId == 26) {  # DesignBlock - keep unconverted, determine ownership
         my $is_starbase = ($decryptedData[1] >> 6) & 0x01;
         my @newHeader = makeBlockHeader(26, scalar(@decryptedData));
@@ -488,8 +537,13 @@ sub decryptB {
             $designPlayer = $ship_design_counts[$ship_design_idx][0];
             $ship_design_counts[$ship_design_idx][1]--;
           }
-          print "  decryptB: Ship design -> player $designPlayer\n" if $debug;
+          print "  decryptB: Ship design -> player $designPlayer\n" if $debug;         
           push @ship_designs, [ 26, 0, $designPlayer, [@newHeader], [@decryptedData] ];
+          
+          if ($designPlayer == $Player) {
+            my $slot = extractDesignSlot(\@decryptedData);
+            $p2_own_designs{$slot} = [@decryptedData];
+          }
         }
       } elsif ($typeId == 43) {  # ObjectBlock
         # Parse object ID from first 2 bytes
@@ -507,7 +561,7 @@ sub decryptB {
         my @newHeader = makeBlockHeader(43, scalar(@decryptedData));
         print "  decryptB: Object idFull=$idFull owner=$ownerId type=$objectType\n" if $debug;
         push @objects, [ $typeId, $idFull, $ownerId, [@newHeader], [@decryptedData] ];        
-       } elsif ($typeId == 45) {  # PlayerScoresBlock
+      } elsif ($typeId == 45) {  # PlayerScoresBlock
         # Parse player ID from first 2 bytes
         my $wWord = ($decryptedData[0] & 0xFF) | (($decryptedData[1] & 0xFF) << 8);
         my $playerId = $wWord & 0x1F;  # 5 bits for iPlayer
@@ -515,11 +569,13 @@ sub decryptB {
         my @newHeader = makeBlockHeader(45, scalar(@decryptedData));
         print "  decryptB: Score for player $playerId\n" if $debug;
         push @scores, [ $typeId, $playerId, 0, [@newHeader], [@decryptedData] ];
-      } # else: skip Block 28 (queues), 19/20 (waypoints), 21 (names), 32 (counters), 33 (filters), etc.      
+      } # else: skip Block 28 (queues), 21 (names), 32 (counters), 33 (filters), etc.    
     }
     $offset = $offset + (2 + $size);
   }
-
+  # Flush any block 16 fleet buffered at end of file with no second waypoint.
+  $flush_pending->(0) if defined $pending_fleet;
+  
   print "  decryptB summary: players=" . scalar(@players) .
         " planets=" . scalar(@planets) .
         " fleets=" . scalar(@fleets) .
@@ -969,6 +1025,16 @@ sub mergeDesigns {
     my $plr = $rec->[2];
     my $slot = extractDesignSlot($rec->[4]);
     
+#     if ($plr == $p2_owner) {
+#       # P2 owns this player - their designs are authoritative
+#       $designs{$plr}{$slot} = $rec;
+#       print "    mergeDesigns: P2 design (OWNER) - player=$plr, slot=$slot\n" if $debug;
+#     } elsif (!exists $designs{$plr}{$slot}) {
+#       # P1 doesn't have this slot - add it
+#       $designs{$plr}{$slot} = $rec;
+#       print "    mergeDesigns: P2 design (new slot) - player=$plr, slot=$slot\n" if $debug;
+#     }
+    # Fixed for player 3 data.
     if ($plr == $p2_owner) {
       # P2 owns this player - their designs are authoritative
       $designs{$plr}{$slot} = $rec;
@@ -977,6 +1043,15 @@ sub mergeDesigns {
       # P1 doesn't have this slot - add it
       $designs{$plr}{$slot} = $rec;
       print "    mergeDesigns: P2 design (new slot) - player=$plr, slot=$slot\n" if $debug;
+    } else {
+      # Both have this slot - pick the higher det (detAll=7 beats detSome=3)
+      # det is bits 0-7 of wFlags, which is byte 0 of the block data.
+      my $p1_det = $designs{$plr}{$slot}->[4][0] & 0xFF;
+      my $p2_det = $rec->[4][0] & 0xFF;
+      if ($p2_det > $p1_det) {
+        $designs{$plr}{$slot} = $rec;
+        print "    mergeDesigns: P2 design (higher det=$p2_det vs $p1_det) - player=$plr, slot=$slot\n" if $debug;
+      }
     }
   }
   
@@ -1245,7 +1320,7 @@ sub convertFleetToPartial {
 #   bytes 4-5: flags (det:8, fInclude:1, fRepOrders:1, fDead:1, ...)
 #   bytes 6-7: idPlanet
 #   bytes 8-11: pt (POINT: x, y)
-  my ($data) = @_;
+  my ($data, $dirLong, $designs_ref) = @_;
   # === PARSE Block 16 ===
   # FLEETSOME header (12 bytes)
   my $id = ($data->[0] & 0xFF) | (($data->[1] & 0xFF) << 8);
@@ -1276,16 +1351,60 @@ sub convertFleetToPartial {
     }
   }
   
-  # For Block 16 (detAll), next would be cargo minerals
-  # We need to skip those and find dirLong if it exists
-  # For simplicity, calculate dirLong from fleet position
-  # dirLong encodes direction as (dirX, dirY, warp, flags)
-  
-  my $dirLong = 0x1000;  # Default: some valid direction
-  
-  # Calculate total weight from ship counts
-  # We don't have ship designs loaded, so approximate as 0
-  my $wt = 0;
+  # dirLong encodes (dirFltX, dirFltY, iwarpFlt, fdirValid) per turn.c.
+  # Caller computes from second waypoint ORDER block; default 0 (stationary).
+  $dirLong //= 0;
+
+  # Parse cargo section (save.c: written for det >= detMore, which detAll satisfies).
+  # Format: 2-byte mask then packed values per mineral (0=absent, 1=byte, 2=short, 3=long).
+  # Mass adds iMin1..iColonist (indices 0-3); fuel (index 4) is excluded per save.c line 1083.
+  my $cargoMask = ($data->[$offset] & 0xFF) | (($data->[$offset+1] & 0xFF) << 8);
+  $offset += 2;
+  my @rgwtMin = (0, 0, 0, 0, 0);
+  for (my $i = 0; $i < 5; $i++) {
+    my $bits = ($cargoMask >> ($i * 2)) & 0x03;
+    if    ($bits == 1) { $rgwtMin[$i] = $data->[$offset++] & 0xFF; }
+    elsif ($bits == 2) { $rgwtMin[$i] = ($data->[$offset] & 0xFF) | (($data->[$offset+1] & 0xFF) << 8); $offset += 2; }
+    elsif ($bits == 3) { $rgwtMin[$i] = ($data->[$offset] & 0xFF) | (($data->[$offset+1] & 0xFF) << 8)
+                                      | (($data->[$offset+2] & 0xFF) << 16) | (($data->[$offset+3] & 0xFF) << 24); $offset += 4; }
+  }
+  my $wt = $rgwtMin[0] + $rgwtMin[1] + $rgwtMin[2] + $rgwtMin[3];
+
+  # Mass from ships: sum(rgcsh[i] * design_weight[i]) per save.c line 1080.
+  # Design weight for detAll: hull base mass (readHullType index 10) + component masses
+  # (readItemDetail index 10 * count) per StarsBlock.pm lines 3766-3801.
+  # Design weight for detSome: wtEmpty stored directly at offset 4-5.
+  if (defined $designs_ref) {
+    my %hullType   = readHullType();
+    my %itemDetail = readItemDetail();
+    for (my $i = 0; $i < 16; $i++) {
+      next unless $rgcsh[$i] > 0;
+      next unless exists $designs_ref->{$i};
+      my $d   = $designs_ref->{$i};
+      my $det = $d->[0] & 0xFF;
+      if ($det == 7) {  # detAll: compute from hull + components
+        my $hullId   = $d->[2] & 0xFF;
+        my $shipMass = exists $hullType{$hullId} ? $hullType{$hullId}[10] : 0;
+        my $nSlots   = $d->[6] & 0xFF;
+        my $idx      = 17;
+        for (my $s = 0; $s < $nSlots; $s++) {
+          my $cat   = ($d->[$idx] & 0xFF) | (($d->[$idx+1] & 0xFF) << 8);
+          my $iId   = $d->[$idx+2] & 0xFF;
+          my $iCnt  = $d->[$idx+3] & 0xFF;
+          $idx += 4;
+          if ($iCnt > 0) {
+            my $key = $cat . '|' . ($iId + 1);
+            $shipMass += $iCnt * $itemDetail{$key}[10] if exists $itemDetail{$key};
+          }
+        }
+        $wt += $rgcsh[$i] * $shipMass;
+      } elsif ($det == 3) {  # detSome: wtEmpty at offset 4-5
+        my $wtEmpty = ($d->[4] & 0xFF) | (($d->[5] & 0xFF) << 8);
+        $wt += $rgcsh[$i] * $wtEmpty;
+      }
+    }
+  }
+
   
   # === BUILD Block 17 (detSome) ===
   my @output;
