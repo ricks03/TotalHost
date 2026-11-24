@@ -474,25 +474,42 @@ sub login {
   # Can only log in fron an active account
   #$sql = "SELECT * FROM User;";
   $db = &DB_Open($dsn);
-  $sql = "SELECT User_ID, User_Login, User_Password, User_Email, User_Timezone FROM User WHERE User_Status > 0;";
-  if (my $sth = &DB_Call($db, $sql)) {
-  	while (my @row = $sth->fetchrow_array()) {
-  	  ($User_ID, $User_Login, $User_Password, $User_Email, $User_Timezone) = @row;
-      # Hashing the submitted password with the secret key
-      $hash = $submit_hash . $secret_key;
-      $passhash = sha1_hex($hash);
-      &LogOut(300, "Attempting a match on B: $User_Login", $LogFile);
-      # Check for a match
+#   $sql = "SELECT User_ID, User_Login, User_Password, User_Email, User_Timezone FROM User WHERE User_Status > 0;";
+#   if (my $sth = &DB_Call($db, $sql)) {
+#   	while (my @row = $sth->fetchrow_array()) {
+#   	  ($User_ID, $User_Login, $User_Password, $User_Email, $User_Timezone) = @row;
+#       # Hashing the submitted password with the secret key
+#       $hash = $submit_hash . $secret_key;
+#       $passhash = sha1_hex($hash);
+#       &LogOut(300, "Attempting a match on B: $User_Login", $LogFile);
+#       # Check for a match
+#       if ($User_Password eq $passhash && $submit_user eq $User_Login) {
+#         $id = $User_ID;
+#         &LogOut(200, "Login user match success on $User_Login", $LogFile);
+#       } else {
+#         &LogOut(401, "Login user match failed on $User_Login", $LogFile);
+#       }
+#       if ($id) { last; }  # Exit the loop if a match is found
+#     }
+#     $sth->finish();
+#   }
+  # Look up only the account being logged into
+  $sql = "SELECT User_ID, User_Login, User_Password, User_Email, User_Timezone FROM User WHERE User_Status > 0 AND User_Login = ?;";
+  if (my $sth = &DB_Call($db, $sql, $submit_user)) {
+    $passhash = sha1_hex($submit_hash . $secret_key);
+        while (my @row = $sth->fetchrow_array()) {
+          ($User_ID, $User_Login, $User_Password, $User_Email, $User_Timezone) = @row;
+      # The database match ignores case, so check the exact name here too
       if ($User_Password eq $passhash && $submit_user eq $User_Login) {
         $id = $User_ID;
         &LogOut(200, "Login user match success on $User_Login", $LogFile);
-      } else {
-        &LogOut(401, "Login user match failed on $User_Login", $LogFile);
+        last;
       }
-      if ($id) { last; }  # Exit the loop if a match is found
     }
     $sth->finish();
   }
+  unless ($id) { &LogOut(200, "Login failed for $submit_user", $LogFile); }
+
   if ($id) { if (my $sth = &DB_Call($db, "UPDATE User SET User_Status=1 WHERE User_ID=? AND User_Status=2;", $id)) { $sth->finish(); } }
   &DB_Close($db);	
   if ($id) {
