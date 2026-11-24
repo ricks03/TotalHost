@@ -1373,7 +1373,8 @@ sub GenerateTurn { # Generate a turn and refresh files
 
   #print "\tGenerating a turn for $GameFile\n";
   &LogOut(200, "GenerateTurn: Generating a turn for $GameFile for $GenTurn", $LogFile);    
-	my $exit_status = &call_system($GenTurn,2); # GenerateTurn
+	#my $exit_status = &call_system($GenTurn,2); # GenerateTurn
+  my $exit_status = &call_system($GenTurn,2,1); # GenerateTurn; stars-host returns 1 even on success, the year check below decides
   &LogOut(200, "GenerateTurn: Done Generating a turn for $GameFile with $GenTurn", $LogFile);
   # Did the year in the host file actually move?
   my ($Magic, $lidGame, $ver, $turn_after) = &starstat($Dir_Games . '/' . $GameFile . '/' . $GameFile . '.hst');
@@ -1972,7 +1973,8 @@ sub clear_internet_log {
 
 # A centralized place to make system calls
 sub call_system {
-  my ($call, $delay) = @_;  
+  #my ($call, $delay) = @_;  
+  my ($call, $delay, $quiet) = @_;  # $quiet: a non-zero exit is not an error by itself; the caller checks the result
   my $rand = rand(1); # So we can uniquely ID the start and stop in the log
   #chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
   #chdir($WINE_path) or &LogOut(0,"Cannot change directory: $WINE_path",$ErrorLog);
@@ -2012,7 +2014,8 @@ sub call_system {
 
   #system($CheckGame);
   my $exit_status = system($call);
-  if ($exit_status != 0) { &LogOut(0, "call_system: FAILED call $rand: $call, Exit Status: $exit_status (" . ($exit_status >> 8) . ")", $ErrorLog); }
+  #if ($exit_status != 0) { &LogOut(0, "call_system: FAILED call $rand: $call, Exit Status: $exit_status (" . ($exit_status >> 8) . ")", $ErrorLog); }
+  if ($exit_status != 0) { &LogOut(0, "call_system: FAILED call $rand: $call, Exit Status: $exit_status (" . ($exit_status >> 8) . ")", $quiet ? $LogFile : $ErrorLog); }
   &LogOut(100, "call_system: Ending call $rand: $call, Delay: $delay, Exit Status: $exit_status", $LogFile); 
 	sleep $delay if $delay;
   return $exit_status;
