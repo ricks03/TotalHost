@@ -603,8 +603,13 @@ if ($in{'cp'} eq 'edit_profile') {
       if (defined($pid) && $pid == 0) {
         # Child: detach from the web request so Apache does not wait for it
         close(STDIN);
-        open(STDOUT, '>', '/dev/null');
-        open(STDERR, '>>', $ErrorLog);   # TotalHost's error log, so a failed movie can be looked into
+        #open(STDOUT, '>', '/dev/null');
+        #open(STDERR, '>>', $ErrorLog);   # TotalHost's error log, so a failed movie can be looked into
+        # Everything the movie job prints goes to its own log, named like the others (movie.log.<year>.<month>.<week of month>)
+        my @t = localtime();
+        my $MovieLog = "$Dir_Log/movie.log." . ($t[5] + 1900) . '.' . ($t[4] + 1) . '.' . (int(($t[3] - 1) / 7) + 1);
+        open(STDOUT, '>>', $MovieLog);
+        open(STDERR, '>&', \*STDOUT);
         POSIX::setsid();
         exec(@cmd) or exit(1);
       }

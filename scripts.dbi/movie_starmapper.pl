@@ -306,6 +306,7 @@ exit 0;
 
 ##########################################
 ##########################################
+
 sub fixlen {
 	# If the player number is only one digit, make it two
 	my ($len) = @_;
