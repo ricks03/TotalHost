@@ -35,9 +35,9 @@ do 'config.pl';
 use StarStat; # eval'd at compile time
 use StarsBlock; # eval'd at compile time
 
-if (!defined($secret_key) || $secret_key eq '' || $secret_key eq 'secret_key') {
-  die "config.pl: \$secret_key is not set. Change it from the default before running TotalHost.\n";
-}
+# if (!defined($secret_key) || $secret_key eq '' || $secret_key eq 'secret_key') {
+#   die "config.pl: \$secret_key is not set. Change it from the default before running TotalHost.\n";
+# }
                                            
 CGI::Session->name('TotalHost');
 
