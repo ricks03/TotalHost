@@ -1975,7 +1975,8 @@ sub clear_internet_log {
 sub call_system {
   #my ($call, $delay) = @_;  
   my ($call, $delay, $quiet) = @_;  # $quiet: a non-zero exit is not an error by itself; the caller checks the result
-  my $rand = rand(1); # So we can uniquely ID the start and stop in the log
+  #my $rand = rand(1); # So we can uniquely ID the start and stop in the log
+  my $rand = sprintf('%04x', int(rand(65536)));  # Short random tag to pair the Starting and Ending lines in the log
   #chdir("/home/www-data/.wine/drive_c") or die "Cannot change directory: $!";
   #chdir($WINE_path) or &LogOut(0,"Cannot change directory: $WINE_path",$ErrorLog);
   #$call = "sudo -u $apache_user " . $call;
@@ -2010,12 +2011,13 @@ sub call_system {
     &LogOut(400, "call_system: Running from CLI",$LogFile);
   }
 
-  &LogOut(0,"call_system: Starting call $rand: $call",$LogFile);
+  &LogOut(400,"call_system: Starting call $rand: $call",$LogFile);
 
   #system($CheckGame);
   my $exit_status = system($call);
   #if ($exit_status != 0) { &LogOut(0, "call_system: FAILED call $rand: $call, Exit Status: $exit_status (" . ($exit_status >> 8) . ")", $ErrorLog); }
-  if ($exit_status != 0) { &LogOut(0, "call_system: FAILED call $rand: $call, Exit Status: $exit_status (" . ($exit_status >> 8) . ")", $quiet ? $LogFile : $ErrorLog); }
+  #if ($exit_status != 0) { &LogOut(0, "call_system: FAILED call $rand: $call, Exit Status: $exit_status (" . ($exit_status >> 8) . ")", $quiet ? $LogFile : $ErrorLog); }
+  if ($exit_status != 0 && !$quiet) { &LogOut(0, "call_system: FAILED call $rand: $call, Exit Status: $exit_status (" . ($exit_status >> 8) . ")", $ErrorLog); }
   &LogOut(100, "call_system: Ending call $rand: $call, Delay: $delay, Exit Status: $exit_status", $LogFile); 
 	sleep $delay if $delay;
   return $exit_status;
