@@ -907,7 +907,7 @@ sub displayBlockRace { # mostly a lesser duplicate of decryptBlockRace
         $aiEnabled = ($decryptedData[7] >> 1) & 0x01;
         if ($aiEnabled) {
           # bits 23 defines how good the AI will be:
-           $aiSkill = ($decryptedData[7] >> 2) & 0x03; #00 - Easy, 01 - Standard, 10 - Harder, 11 - Expert 
+           $aiSkill = ($decryptedData[7] >> 2) & 0x07; #00 - Easy, 01 - Standard, 10 - Harder, 11 - Expert 
           
           # Bit 4 is always 0
           # bits 765 define which PRT AI to use: 
@@ -970,8 +970,10 @@ sub displayBlockRace { # mostly a lesser duplicate of decryptBlockRace
           $electronicsLevelPointsSincePrevLevel     = &read32(\@decryptedData,48); # (4 bytes) #Always 0 in race file
           $biologyLevelPointsSincePrevLevel         = &read32(\@decryptedData,52); # (4 bytes) #Always 0 in race file
           $researchPercentage    = $decryptedData[56]; # defaults to 15
-          $currentResourcePriority = $decryptedData[57] >> 4; # (right 4 bits) [same, energy ..., lowest]  #Always 0 in race file
-          $nextResourcePriority  = $decryptedData[57] & 0x0F; # (left 4 bits) #Always 0 in race file
+          #$currentResourcePriority = $decryptedData[57] >> 4; # (right 4 bits) [same, energy ..., lowest]  #Always 0 in race file
+          #$nextResourcePriority  = $decryptedData[57] & 0x0F; # (left 4 bits) #Always 0 in race file
+          $currentResourcePriority = $decryptedData[57] & 0x0F; # low nibble = iTechCur (current research field)
+          $nextResourcePriority    = $decryptedData[57] >> 4;   # high nibble = iTechNext (next research field)
           $researchPointsPreviousYear = &read32(\@decryptedData,58); # (4 bytes) #Always 0 in race file
           $resourcePerColonist = $decryptedData[62]; # ? 55? 
           $producePerFactory = $decryptedData[63];
@@ -1976,8 +1978,8 @@ sub decryptAI {
   my $action = 0; # Was any action taken
   my ($aiEnabled, $aiSkill, $aiRace);
   my @aiStatus = qw(Active Inactive CA PP HE IS SS AR);
-  my @aiSkill = qw(Easy Standard Harder Expert);
-  my @aiRace = ('HE', 'SS', 'IS', 'CA', 'PP', 'AR', 'Human Inactive/Expansion');
+  #my @aiSkill = qw(Easy Standard Harder Expert);
+  #my @aiRace = ('HE', 'SS', 'IS', 'CA', 'PP', 'AR', 'Human Inactive/Expansion');
   my @prts = qw (HE SS WM CA IS SD PP IT AR JOAT );
   
   while ($offset < @fileBytes) {
@@ -2035,7 +2037,7 @@ sub decryptAI {
               push @messages, "AI Status: Disabled";
           } else {
               $aiEnabled = ($decryptedData[7] >> 1) & 0x01;
-              $aiSkill = ($decryptedData[7] >> 2) & 0x03;  #00 - Easy, 01 - Standard, 10 - Harder, 11 - Expert
+              $aiSkill = ($decryptedData[7] >> 2) & 0x07;  #00 - Easy, 01 - Standard, 10 - Harder, 11 - Expert
               $aiRace = ($decryptedData[7] >> 5) & 0x07;
               my $aiStatus = "AI Status: " . ($aiEnabled ? "Enabled" : "Not Enabled");
               if ($aiEnabled) { $aiStatus .= " $aiSkill[$aiSkill], $aiRace[$aiRace]"; }

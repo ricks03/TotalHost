@@ -4630,8 +4630,10 @@ sub process_forcegen {
     if (&checkbox($decrementforcegentimes)) {
     	$NumberofTimes = $GameValues{'ForceGenTimes'} -1;
 			# Update NumberofTimes
-			$sql = "UPDATE Games SET ForceGenTimes = $NumberofTimes WHERE GameFile = ?";
-			if (my $sth = &DB_Call($db,$sql,$GameValues{'GameFile'})) { 
+			#$sql = "UPDATE Games SET ForceGenTimes = $NumberofTimes WHERE GameFile = ?";
+			#if (my $sth = &DB_Call($db,$sql,$GameValues{'GameFile'})) { 
+			$sql = "UPDATE Games SET ForceGenTimes = ? WHERE GameFile = ?";
+			if (my $sth = &DB_Call($db,$sql,$NumberofTimes,$GameValues{'GameFile'})) { 
         &LogOut(200,"Decremented ForceGenTimes for $GameValues{'GameFile'}",$LogFile); 
         $sth->finish(); 
       }

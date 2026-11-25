@@ -133,17 +133,6 @@ sub decryptBlock {
       ($decryptedData, $seedA, $seedB, $padding) = &decryptBytes(\@data, $seedA, $seedB); 
       @decryptedData = @{ $decryptedData };
       
-      # Special handling for Block 7: has unencrypted planet bytes after encrypted data
-      # BUG: This doesn't really do anything here.
-      if ($typeId == 7) {
-        my $numPlanets = &read16(\@decryptedData, 10);
-        my $planetBytes = $numPlanets * 4;
-        # Read the unencrypted planet bytes from file
-        my @planetData = @fileBytes[$offset + 2 + $size .. $offset + 2 + $size + $planetBytes - 1];
-        # Store them for later output
-        my @block7PlanetBytes = @planetData;
-      }
-
       # WHERE THE MAGIC HAPPENS
       &processData(\@decryptedData,$typeId,$offset,$size,$inBlock);
       # END OF MAGIC

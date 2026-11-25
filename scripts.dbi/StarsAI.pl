@@ -42,8 +42,8 @@ do 'config.pl';
 my $debug = 0;
 
 my @aiStatus = qw(Active Inactive CA PP HE IS SS AR);
-my @aiSkill = qw(Easy Standard Harder Expert);
-my @aiRace = ('HE', 'SS', 'IS', 'CA', 'PP', 'AR', 'Human Inactive/Expansion');
+#my @aiSkill = qw(Easy Standard Harder Expert);
+#my @aiRace = ('HE', 'SS', 'IS', 'CA', 'PP', 'AR', 'Human Inactive/Expansion');
 my @prts = qw (HE SS WM CA IS SD PP IT AR JOAT );
 
 my $filename = $ARGV[0]; # input HST file

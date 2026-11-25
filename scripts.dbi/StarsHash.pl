@@ -145,7 +145,8 @@ sub processHash {
   print "D: Label (Hash): $d_label\n";
   my $d_date = &read16(\@decryptedData, 14);  # probably D volume date
   print "D: Date (Hash): $d_date\n";
-  my $drive_size = &read8(\@decryptedData[16]); # C: and D: drive size in 100's of MB
+  #my $drive_size = &read8(\@decryptedData[16]); # C: and D: drive size in 100's of MB
+  my $drive_size = &read8($decryptedData[16]); # C: and D: drive size in 100's of MB
   print "Drive Size (Hash): $drive_size\n";
 }
 

@@ -166,5 +166,5 @@ $timezone = 'America/New_York';
 
 @aiStatus = qw(Human Inactive CA PP HE IS SS AR);
 @aiSkill = qw(Easy Standard Harder Expert);
-@aiRace = ('HE', 'SS', 'IS', 'CA', 'PP', 'AR', 'Human Inactive/Expansion');
+@aiRace = ('HE', 'SS', 'IS', 'CA', 'PP', 'AR', 'Dead', 'Human Inactive/Expansion');
 

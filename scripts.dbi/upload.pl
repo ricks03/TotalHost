@@ -131,7 +131,8 @@ if ($File) {
   print $cgi->start_html;
   #$err .= "$userlogin: File too large or File Name must be provided." ;
   &LogOut(300,$err,$ErrorLog);
-  print $err; 
+  #print $err; 
+  print &html_escape($err);
   print $cgi->end_html;
 }
 
@@ -228,7 +229,8 @@ sub ValidateFileUpload {
             #$call = "mkdir $racefiledir" could be exploited if $racefiledir is manipulated.  Solution: Use mkdir() instead of system() for safer directory creation.
             #my $call = "mkdir $racefiledir";
             #my $exit_code = system($call);  # Where 0 is success
-            my $exit_code = system('mkdir',$racefiledir);  # Where 0 is success
+            #my $exit_code = system('mkdir',$racefiledir);  # Where 0 is success
+            my $exit_code = (mkdir $racefiledir) ? 0 : 1;  # Where 0 is success
             if ($exit_code) { &LogOut(0,"ValidateFileUpload: Failed to create Race Directory, $racefiledir, $client_ip",$ErrorLog); }
             #unless (mkdir $racefiledir) { &LogOut(0,"ValidateFileUpload: Failed to create Race Directory $racefiledir",$ErrorLog); }
           }
@@ -906,6 +908,8 @@ sub decryptBlockRaceAI { # mostly a duplicate of displayBlockRace and decryptBlo
     } 
     $offset = $offset + (2 + $size); 
   } 
+  #my @aiRaceName  = ('HE', 'SS', 'IS', 'CA', 'PP', 'AR', '', 'Human Inactive/Expansion');
+  #my @aiSkillName = qw(Easy Standard Harder Expert);
   my $logRace  = $aiEnabled ? $aiRace[$aiRace]   : 'N/A';
   my $logSkill = $aiEnabled ? $aiSkill[$aiSkill] : 'N/A';
   &LogOut(200, "Check_AI decryptBlockRaceAI: Enabled: $aiEnabled, Race: $logRace ($aiRace), Skill: $logSkill ($aiSkill)", $LogFile);

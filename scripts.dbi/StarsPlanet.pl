@@ -338,7 +338,7 @@ sub decryptBlockPlanet {
         # We need to know if a planet has been in the history file past a turn generation.
 				# That way we can send "discovery" messages even if you Save and Load.  Otherwise
 				# we would only send you the messages the first time you load the turn file.       
-        $fFirstYear  = ($flags >> 15) & 0x01 != 0; # Extract 'fFirstYear' (1 bit at bit position 15)   fFirstYear
+        $fFirstYear  = ($flags >> 15) & 0x01; # Extract 'fFirstYear' (1 bit at bit position 15)   fFirstYear
 
         if (($flags & 0x0078) != 0) {  die "Unexpected planet flags 78: $flags";  }  # bits 3, 4, 5, and 6 (0 indexed)
 
