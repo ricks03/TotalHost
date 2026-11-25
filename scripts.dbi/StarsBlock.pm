@@ -1745,6 +1745,8 @@ sub StarsList {
   my %queueList;
   my %designList;
   my %waypointList;
+  my %planetList;
+  my $planetList;
   my $lastPlayer;
   my $warning;
   
@@ -1762,7 +1764,7 @@ sub StarsList {
   if (-f "$listPrefix.hst.queue")    { unlink "$listPrefix.hst.queue" }
   if (-f "$listPrefix.hst.waypoint") { unlink "$listPrefix.hst.waypoint" }
   if (-f "$listPrefix.hst.design")   { unlink "$listPrefix.hst.design" }
-  if (-f "$listPrefix.hst.design")   { unlink "$listPrefix.hst.design" }
+  if (-f "$listPrefix.hst.planet")   { unlink "$listPrefix.hst.planet" }
   #if (-f "$listPrefix.hst.last")     { unlink "$listPrefix.hst.last" }  # Never changes
 
   if (-d $gameDir) { # Check to make sure we're putting the List files in the right place
@@ -1770,6 +1772,7 @@ sub StarsList {
     if (%queueList)    { &writeList("$listPrefix.hst.queue", \%queueList); }
     if (%fleetList)    { &writeList("$listPrefix.hst.fleet", \%fleetList); }
     if (%waypointList) { &writeList("$listPrefix.hst.waypoint", \%waypointList); }
+    if (%planetList)   { &writeList("$listPrefix.hst.planet", \%planetList); }
 #     if ($lastPlayer) {
 #       open (LISTFILE, ">$listPrefix.hst.last");
 #       print LISTFILE "$lastPlayer"; 
@@ -1831,9 +1834,17 @@ sub StarsFix {
   if (-f "$listPrefix.hst.waypoint" ) {
     my $waypointList = &readList("$listPrefix.hst.waypoint");
     %waypointList = %$waypointList;
-  #  &printList(\%fleetList);
+  #  &printList(\%waypointList);
   } #else { print "No waypoint file detected.\n"; }
  
+   # Read planet ownership data for the SS Pop Steal check
+  my %planetList;
+  if (-f "$listPrefix.hst.planet" ) {
+    my $planetList = &readList("$listPrefix.hst.planet");
+    %planetList = %$planetList;
+  #  &printList(\%planetList);
+  }
+
   # read lastPlayer
   my $lastPlayer = -1; # storing the last player # for 10th Starbase
   if ($file_type =~ /x/i && -f "$listPrefix.hst.last") {  # we don't have $dt here. 
@@ -1870,8 +1881,8 @@ sub StarsFix {
 #   %designList = %$designList;
 #   %waypointList = %$waypointList; 
   my ($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $planetList);
-  my %planetList;
-  ($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer, $planetList) = &decryptFix(dirname($filename), $filename, \@fileBytes,\%fleetList, \%queueList, \%designList, \%waypointList, $lastPlayer);
+  #($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer, $planetList) = &decryptFix(dirname($filename), $filename, \@fileBytes,\%fleetList, \%queueList, \%designList, \%waypointList, $lastPlayer);
+  ($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer, $planetList) = &decryptFix(dirname($filename), $filename, \@fileBytes,\%fleetList, \%queueList, \%designList, \%waypointList, $lastPlayer, \%planetList);
   my @outBytes = @{$outBytes};
   %warning      = %$warning;
   %fleetList    = %$fleetList;
@@ -3021,13 +3032,14 @@ sub adjustFleetCargo { #
 
 sub decryptFix {
   # Exploit check .hst and .x files
-  my ($gameDir, $filename, $fileBytes, $fleetList, $queueList, $designList, $waypointList, $lastPlayer) = @_;
+  my ($gameDir, $filename, $fileBytes, $fleetList, $queueList, $designList, $waypointList, $lastPlayer, $planetList) = @_;
   @fileBytes = @$fileBytes;
   %fleetList  = %$fleetList;
   %queueList  = %$queueList;
   %designList = %$designList;
   %waypointList = %$waypointList;
-  my %planetList;  
+  my %planetList = $planetList ? %$planetList : ();  # from .hst.planet on an .x pass; empty on an .hst pass 
+  my $havePlanetData = %planetList ? 1 : 0;          # used by the SS Pop Steal check (H1f)
   
   # Get the pieces of file names
   my $basefile = basename($filename);    # mygamename.m1
@@ -3153,6 +3165,7 @@ sub decryptFix {
         if ($playerId >= 0) {
           $planetList{$playerId}{$planetId}{id}      = $planetId;
           $planetList{$playerId}{$planetId}{ownerId} = $playerId;
+          $planetList{$playerId}{$planetId}{playerId} = $playerId;  # readList keys rows on playerId
         }
       } 
       elsif ( $typeId == 3 ) { # waypoint delete block
@@ -3350,17 +3363,29 @@ sub decryptFix {
           # 'no action','Load All Available','Unload All','Load Exactly','UnLoad Exactly','Fill Up to %','Wait For %','Load Optimal/Dunnage','Set Amount To','Set Waypoint To'
           $warnId = &zerofy($playerId) . '-popsteal-' . $fleetId . '+' . $waypointId; # adding a zero lets us sort on key
           #if ($typeId == 5 && $taskId == 1 && $targetType == 1 && $taskPopulation =~ /[135679]/ && $fleetList{$playerId}{$fleetId}{robberBaron} == 1 ) { # @showTransportTask
-          my $targetOwner = -1;
-          foreach my $ownerId (keys %planetList) {
-            if (exists $planetList{$ownerId}{$targetId}) { $targetOwner = $ownerId; last; }
-          }
-          if ($typeId == 5 && $taskId == 1 && $targetType == 1 && $taskPopulation =~ /[135679]/ && $fleetList{$playerId}{$fleetId}{robberBaron} == 1 && $targetOwner != $playerId) {
+#           my $targetOwner = -1;
+#           foreach my $ownerId (keys %planetList) {
+#             if (exists $planetList{$ownerId}{$targetId}) { $targetOwner = $ownerId; last; }
+#           }
+#           if ($typeId == 5 && $taskId == 1 && $targetType == 1 && $taskPopulation =~ /[135679]/ && $fleetList{$playerId}{$fleetId}{robberBaron} == 1 && $targetOwner != $playerId) {
+#             $err = 'SS Pop Steal: Player ' . ($playerId+1) . ' fleet ' . ($fleetId+1) . " asssigned Transport> Population> $showTransportTask[$taskPopulation] orders at $xDest" . 'x' . "$yDest.";          
+#             $needsFixing++;
+#             if ($fixFiles ) { # Only fix if fixFiles is set
+#               $decryptedData[18] = 0; # Set the fleet task and cargo value for population to do nothing
+#               $decryptedData[19] = 0; 
+#               $err .= ' Fixed!! Reset to Do Nothing.';
+#             } else {$err .= '';}
+          # Own planet? (exists check first so the lookup doesn't autovivify $planetList{$playerId})
+          my $ownPlanet = exists $planetList{$playerId} && exists $planetList{$playerId}{$targetId};
+          if ($typeId == 5 && $taskId == 1 && $targetType == 1 && $taskPopulation =~ /[135679]/ && $fleetList{$playerId}{$fleetId}{robberBaron} == 1 && !$ownPlanet) {
             $err = 'SS Pop Steal: Player ' . ($playerId+1) . ' fleet ' . ($fleetId+1) . " asssigned Transport> Population> $showTransportTask[$taskPopulation] orders at $xDest" . 'x' . "$yDest.";          
             $needsFixing++;
-            if ($fixFiles ) { # Only fix if fixFiles is set
+            if ($fixFiles && $havePlanetData) { # Only fix if fixFiles is set and planet ownership is known
               $decryptedData[18] = 0; # Set the fleet task and cargo value for population to do nothing
               $decryptedData[19] = 0; 
               $err .= ' Fixed!! Reset to Do Nothing.';
+            } elsif ($fixFiles) {
+              $err .= ' Not fixed: no planet ownership data (.hst.planet) for this turn, so this may be the player\'s own planet.';
             } else {$err .= '';}
             $warning{$warnId} = $err;
           } else { # Clear warnings if the task is now do nothing for pop

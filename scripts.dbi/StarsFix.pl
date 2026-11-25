@@ -152,7 +152,9 @@ my @fileBytes = &readFile($filename);
 # Decrypt the data, block by block, and process it
 # Include the directory to handle the difference between TH and standalone 
 my ($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $planetList);
-($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer, $planetList) = &decryptFix(dirname($filename), $filename, \@fileBytes,\%fleetList, \%queueList, \%designList, \%waypointList, $lastPlayer);
+#($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer, $planetList) = &decryptFix(dirname($filename), $filename, \@fileBytes,\%fleetList, \%queueList, \%designList, \%waypointList, $lastPlayer);
+($outBytes, $needsFixing, $warning, $fleetList, $queueList, $designList, $waypointList, $lastPlayer, $planetList) = &decryptFix(dirname($filename), $filename, \@fileBytes,\%fleetList, \%queueList, \%designList, \%waypointList, $lastPlayer, \%planetList);
+
 my @outBytes = @{$outBytes};
 %warning      = %$warning;
 %fleetList    = %$fleetList;
