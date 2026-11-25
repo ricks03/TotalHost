@@ -379,9 +379,11 @@ sub Email_Turns { #email turns out to the appropriate players
 			$Message .= "Next scheduled turn generation on or after " . $dt->strftime('%a %b %d %H:%M:%S %Y %Z');
 			$Message .= ".\n\n";
 		}
-    if (&checkbox($GameVals{'AsAvailable'}) == 1 ) { $Message .= "Turns will generate when all turns are in.\n\n"; }
+    #if (&checkbox($GameVals{'AsAvailable'}) == 1 ) { $Message .= "Turns will generate when all turns are in.\n\n"; }                  
+    if (&checkbox($GameVals{'AsAvailable'}) == 1 && $GameVals{'GameStatus'} != 9 && $GameVals{'GameStatus'} != 4) { $Message .= "Turns will generate when all turns are in.\n\n"; }                                                                                                    
 
-		if ($GameVals{'ForceGen'} == 1  && $GameVals{'GameStatus'} != 4 ) { 
+		#if ($GameVals{'ForceGen'} == 1  && $GameVals{'GameStatus'} != 4 ) { 
+    if ($GameVals{'ForceGen'} == 1 && $GameVals{'GameStatus'} != 4 && $GameVals{'GameStatus'} != 9) {
 			$Message .= qq|Automated generation will force $GameVals{'ForceGenTurns'} years at a time for the next $GameVals{'ForceGenTimes'} turns|;
 			if ($GameVals{'HST_Turn'} eq '2400' || $GameVals{'HST_Turn'} eq '2401' ) { $Message .= ' not including years 2400 and 2401, which will generate only one year'; }
 			$Message .= ".\n";
@@ -1904,6 +1906,8 @@ sub process_game_status {
 		$GameValues{'Subject'} = qq|$GameValues{'GameName'} ($GameValues{'GameFile'}): Status updated to $state|;
 		$GameValues{'Message'} = "Game status for $GameValues{'GameName'} ($GameValues{'GameFile'}) has been updated to $state.\n";
     # Customize the message depending on the status change.
+    if ($state eq 'Ended') { $GameValues{'GameStatus'} = 9; }
+    elsif ($state =~ /^Pause/) { $GameValues{'GameStatus'} = 4; }
     if ($state eq 'Locked') { $GameValues{'Message'}              .= "\nNo new players can join the game.\n"; 
     } elsif ($state eq 'Unlocked') { $GameValues{'Message'}       .= "\nPlayers can again join the game.\n"; 
     } elsif ($state eq 'Pause') { $GameValues{'Message'}          .= "\nAutomated turn generation is suspended.\n"; 
