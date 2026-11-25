@@ -37,10 +37,12 @@ use lib $FindBin::Bin;
 use StarsBlock;
 
 my $filename = $ARGV[0];
+my $serialConflict = (defined $ARGV[1] && $ARGV[1] eq '--serial-conflict') ? 1 : 0;
 unless ($filename) {
-  print "\n\nUsage: StarsMakeX.pl <game.hst | game.mN>\n\n";
+  print "\n\nUsage: StarsMakeX.pl <game.hst | game.mN> [--serial-conflict]\n\n";
   print "Given a .hst file: creates a blank .x file for every player in the game.\n";
   print "Given a .m file:   creates a blank .x file for that player only.\n";
+  print "--serial-conflict: write the standard serial with a different, fixed hardware hash.\n";
   print "Examples:\n";
   print "\tStarsMakeX.pl c:\\stars\\mygame.hst\n";
   print "\tStarsMakeX.pl c:\\stars\\mygame.m3\n\n";
@@ -226,10 +228,14 @@ sub makeXFile {
   # cbLog = total bytes between end of block 9 and start of block 0.
   #   = block46 header(2) + block46 data(8) = 10
   my $cbLog = 10;
+  # --serial-conflict: same serial as every other blank .x, but a fixed non-zero
+  # hardware hash ("THTEST" 1 2 3 4 5), so checkSerials sees "same serial, different hardware".
+  my @hardware9 = $serialConflict ? (0x54, 0x48, 0x54, 0x45, 0x53, 0x54, 1, 2, 3, 4, 5) : ((0) x 11);
   my @data9 = (
     $cbLog & 0xFF, ($cbLog >> 8) & 0xFF,  # short cbLog (LE)
     0xFF, 0xFF, 0xFF, 0xFF,                # long lSerialNumber = -1 (not loaded)
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,      # BYTE rgbConfig[11] = 0
+    #0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,      # BYTE rgbConfig[11] = 0
+    @hardware9,                            # BYTE rgbConfig[11]: 0, or the fixed test hash
   );
   my @fakeBlk9 = (&write16CHR(makeBlockHeader(9, 17)), map { chr($_) } @data9);
   my ($encryptedBlock);
