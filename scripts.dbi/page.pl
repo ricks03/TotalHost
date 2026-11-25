@@ -3124,7 +3124,12 @@ sub update_game {
   if ($in{'type'} eq 'create') {
 		# Need to create a random gamefile name for a new game
 		use Digest::SHA1 qw(sha1_hex);
-		$GameFile = substr(sha1_hex(time()), 5, 8); # Should be random enough
+		#$GameFile = substr(sha1_hex(time()), 5, 8); # Should be random enough
+    my $tries = 0;
+    do {
+    $GameFile = substr(sha1_hex(time() . $$ . rand() . $userlogin), 5, 8); # More random file name
+  } while (-e "$Dir_Games/$GameFile" && ++$tries < 10);
+
     $in{'GameFile'} = $GameFile;
   } else {
     $GameFile =  &clean($in{'GameFile'});
@@ -4209,7 +4214,7 @@ sub process_delay {
 			my $log =  "process_delay: $userlogin delayed $GameFile $delay_turns turns from " . localtime($GameValues{'NextTurn'}) . " ($GameValues{'NextTurn'}) to " . localtime($NextTurn) . " ($NextTurn)";
 			&LogOut(100, $log,$LogFile);
 			# EMail all the players that the game has been delayed
-			$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Turn Delay|;
+			$GameValues{'Subject'} = qq|$GameValues{'GameName'} : Turn Delay|;
 			$GameValues{'Message'} = qq|A player has Delayed the $GameValues{'GameName'} game for $delay_turns turn(s).|;
 			$GameValues{'NextTurn'} = $NextTurn;
 			&Email_Turns($GameFile, \%GameValues, 0);
@@ -4226,7 +4231,7 @@ sub process_delay {
 		if ($SumOfDelaysLeft <= $MinDelay) { 
 			$sql = qq|UPDATE Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile) SET GameUsers.DelaysLeft = ? WHERE (((Games.GameFile)=?));|;
 			if (my $sth = &DB_Call($db,$sql,$GameValues{'NumDelay'},$GameFile)) { 
-				$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Turn Delays reset|;
+				$GameValues{'Subject'} = qq|$GameValues{'GameName'} : Turn Delays reset|;
 				$GameValues{'Message'} = qq|A recent player for the $GameValues{'GameName'} game has delayed the game, causing a reset of the number of player delays available. You can now delay the game $GameValues{'NumDelay'} times.|;
 				&Email_Turns($GameFile, \%GameValues, 0);
 				&LogOut(100, "process_delay: $GameFile delays reset to $GameValues{'NumDelay'} due to $userlogin request of $delay_turns",$LogFile);
@@ -4725,7 +4730,7 @@ sub process_remove_password {
   # my $EmailPlayers = &checkboxnull($GameValues{'EmailPlayers'});
   # This is a big deal, so we always want to notify everyone.
  		print "<P>Emailing players...\n";
- 		$GameValues{'Subject'} = qq|$mail_prefix $GameValues{'GameName'} : Password Reset for Player $PlayerID|;
+ 		$GameValues{'Subject'} = qq|$GameValues{'GameName'} : Password Reset for Player $PlayerID|;
  		$GameValues{'Message'} = "The Host has reset the password for Player $PlayerID in $GameValues{'GameName'}\n";
  		&Email_Turns($GameFile, \%GameValues, 0);
     &LogOut(100,"Password reset for $File, $GameFile, $PlayerID", $LogFile);
@@ -4934,7 +4939,7 @@ sub process_switch_player {
     # Email all the players of the change
     #unless (($GameValues{'LastTurn'} == 0) && ($GameValues{'LastTurn'} == 0)) {
     unless ($GameValues{'LastTurn'} == 0 ) {
-      $GameValues{'Subject'} = $mail_prefix . "$GameValues{'GameName'} Player Change";
+      $GameValues{'Subject'} = "$GameValues{'GameName'} Player Change";
       $GameValues{'Message'} = "\n\nIn $GameValues{'GameName'} ($GameValues{'GameFile'}), the host has replaced Player $PlayerID with $ReplaceName.\n";
       &Email_Turns($GameFile, \%GameValues, 0);
     }
@@ -4986,7 +4991,7 @@ sub process_switch_host {
     # Email all the players of the change
     #unless (($GameValues{'LastTurn'} == 0) && ($GameValues{'LastTurn'} == 0)) {
     unless (($GameValues{'LastTurn'} == 0)) {
-      $GameValues{'Subject'} = $mail_prefix . "$GameValues{'GameName'} Host Change";
+      $GameValues{'Subject'} = "$GameValues{'GameName'} Host Change";
       $GameValues{'Message'} = "\n\nIn $GameValues{'GameName'} ($GameValues{'GameFile'}), the host has changed from $Host to $ReplaceName.\n";
       &Email_Turns($GameFile, \%GameValues, 0);
     }
