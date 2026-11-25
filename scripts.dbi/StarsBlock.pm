@@ -515,6 +515,40 @@ sub read8 {
 #   return ($blocktype, $blocksize);
 # }
 
+sub planetStarbaseDesign {
+  # Return the starbase design slot (isb, 0-9) from a full planet block (type 13), or -1.
+  # Layout follows StarsPlanet.pl decryptBlockPlanet / Stars! RTPLANET.
+  my ($data) = @_;
+  my $owner = ($data->[1] & 0xF8) >> 3;
+  return -1 if $owner == 31;                       # unowned
+  my $flags = ($data->[2] & 0xFF) | (($data->[3] & 0xFF) << 8);
+  return -1 unless ($flags & 0x0200);              # fStarbase
+  my $det      = $flags & 0x7F;
+  my $fIncEVO  = ($flags >> 10) & 0x01;            # original hab values present
+  my $fIncImp  = ($flags >> 11) & 0x01;            # installations present
+  my $fSurfMin = ($flags >> 13) & 0x01;            # surface minerals present
+  my $index = 4;
+  if ($det >= 3) {
+    my $bitmask = $data->[4];
+    $index = 5;
+    $index++ if (( $bitmask       & 0x03) == 1);   # ironium conc countdown
+    $index++ if ((($bitmask >> 2) & 0x03) == 1);   # boranium conc countdown
+    $index++ if ((($bitmask >> 4) & 0x03) == 1);   # germanium conc countdown
+    $index += 3;                                   # mineral concentrations
+    $index += 3;                                   # grav/temp/rad
+    $index += 3 if $fIncEVO;                       # original grav/temp/rad
+    $index += 2;                                   # pop/def guess (planet is owned)
+  }
+  if ($det >= 4 && $fSurfMin) {
+    my $len = $data->[$index++];
+    my @lenMap = (0, 1, 2, 4);
+    $index += $lenMap[$len & 0x03] + $lenMap[($len >> 2) & 0x03] + $lenMap[($len >> 4) & 0x03];
+    $index += $lenMap[($len >> 6) & 0x03] if $det == 7;   # population
+  }
+  $index += 8 if $fIncImp;                         # installations (type 13 only)
+  return $data->[$index] & 0x0F;                   # low 4 bits of the starbase field = isb
+}
+
 sub read16 {
 #	 Read a 16 bit little endian integer from a byte array
   my ($data, $offset) = @_;
@@ -3163,9 +3197,11 @@ sub decryptFix {
         my $fInclude = ($flags >> 8) & 0x01;  # Bit 8, should always be 1
         # More in the block I don't care about right now.    
         if ($playerId >= 0) {
-          $planetList{$playerId}{$planetId}{id}      = $planetId;
-          $planetList{$playerId}{$planetId}{ownerId} = $playerId;
+          $planetList{$playerId}{$planetId}{id}       = $planetId;
+          $planetList{$playerId}{$planetId}{ownerId}  = $playerId;
           $planetList{$playerId}{$planetId}{playerId} = $playerId;  # readList keys rows on playerId
+          # Starbase design slot (0-9) on this planet, -1 if none. Used by 201kt Space Dock (H2).
+          $planetList{$playerId}{$planetId}{isb}      = $hasStarbase ? &planetStarbaseDesign(\@decryptedData) : -1;
         }
       } 
       elsif ( $typeId == 3 ) { # waypoint delete block
@@ -4527,6 +4563,31 @@ sub decryptFix {
       push @outBytes, @encryptedBlock;
     }
     $offset = $offset + (2 + $size); 
+  }
+  ### 201kt Space Dock #########################################################
+  # Stars! client bug (build.c:796 -> ship.c:4477): clicking Edit on a ship design that is
+  # queued at a Space Dock removes it from those queues in the client only. No block 29 is
+  # written, so the host keeps the item, and the host never checks dock capacity when it
+  # builds. If the design was edited to > 200kt, the host builds it at the Space Dock.
+  # Checked after all blocks so a later block 29 for the planet (which reflects the removal) counts.
+  # Warning only: converting the design change to a delete would destroy the design host-side.
+  if ($file_type =~ /x/i && exists $queueList{$Player}) {
+    foreach my $qPlanetId (keys %{$queueList{$Player}}) {
+      my $isb = $planetList{$Player}{$qPlanetId}{isb};
+      next unless defined $isb && $isb >= 0;
+      my $sbDesign = $designList{$Player}{$isb + 16};                 # starbase designIds are slot+16
+      next unless $sbDesign && $sbDesign->{hullId} == 33;             # 33 = Space Dock
+      foreach my $entry (split(chr(31), $queueList{$Player}{$qPlanetId}{item} // '')) {
+        my ($itemId, $count, $completePercent, $itemType) = split(/\|/, $entry);
+        next unless defined $itemType && $itemType == 4 && $itemId < 16; # ship designs only
+        my $shipDesign = $designList{$Player}{$itemId};
+        next unless $shipDesign && $shipDesign->{mass} > 200;           # client allows <= 200
+        my $dockWarnId = &zerofy($Player) . '-201kt-' . &zerofy($qPlanetId) . '-' . &zerofy($itemId);
+        $warning{$dockWarnId} = '201kt Space Dock: Player ' . ($Player+1) . ': ship design slot ' . ($itemId+1) .
+          " ($shipDesign->{shipName}, $shipDesign->{mass}kt) is still queued at Space Dock planet #" . ($qPlanetId+1) .
+          ". Open that planet's production queue, remove it, and resubmit.";
+      }
+    }
   }
   return \@outBytes, $needsFixing, \%warning, \%fleetList, \%queueList, \%designList, \%waypointList, $lastPlayer, \%planetList; #return \@outBytes, $needsFixing, \%warning, \%fleetList, \%queueList, \%designList, \%waypointList, $lastPlayer;
 }
