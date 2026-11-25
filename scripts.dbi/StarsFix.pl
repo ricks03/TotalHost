@@ -38,7 +38,8 @@
 # Space Dock Armor Slot Buffer Overflow (Design)
 # Mineral Upload  (Manual Load)
 # SS Pop Steal  (Waypoint Change)
-# 32k merge     (Waypoint Change or Move/Merge Fleet)                                             
+# 32k merge     (Waypoint Change or Move/Merge Fleet)       
+# 201kt Space Dock (Design edit while queued at Space Dock; warn only)                                      
 # FreePop (code mostly written but untested as I can't replicte)
 #    Testing suggests modifying the .x file and/or the .m file return "unable" on generation.
 
@@ -74,6 +75,7 @@ if (!($filename)) {
   print "   Cheap Starbase (.x) (requires .hst pass creating .queue for .x)\n";
   print "   Mineral Upload (requires .hst pass creating .fleet for .x)\n";
   print "   32k Merge (requires .hst pass creating .fleet for .x)\n";
+  print "   201kt Space Dock (.x, warn only) (requires .hst pass creating .queue/.design/.planet for .x)\n";
 #  print "   FreePop (requires .hst pass creating .fleet for .x)\n";
   print "\nBy default, a new file will be created if fixed: <filename>.fixed\n\n";
   print "You can create a different file with StarsFix.pl <filename> <newfilename>\n";
