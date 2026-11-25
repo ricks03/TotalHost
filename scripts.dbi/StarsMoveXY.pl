@@ -223,9 +223,10 @@ sub write_output_file { ### Write output file
   my @outBytes = @{$outBytes_ref};
   # write file
   open (my $OutFile, '>:raw', $filename) or die "Cannot create output file $filename: $!";
-  for (my $i = 0; $i < @outBytes; $i++) {
-    print $OutFile $outBytes[$i];
-  }
+  #for (my $i = 0; $i < @outBytes; $i++) {
+    #print $OutFile $outBytes[$i];
+  #}
+  print $OutFile join('', @outBytes);
   close($OutFile);
 }
 

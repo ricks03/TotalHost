@@ -231,9 +231,10 @@ if ($needsFixing && $fixFiles > 1) {
   if ($outFileName) { $newFile = $outFileName;  } 
   else { $newFile = $gameDir . '/' . $basefile . '.fixed'; }
   open (OutFile, '>:raw', "$newFile");
-  for (my $i = 0; $i < @outBytes; $i++) {
-    print OutFile $outBytes[$i];
-  }
+  #for (my $i = 0; $i < @outBytes; $i++) {
+    #print OutFile $outBytes[$i];
+  #}
+  print OutFile join('', @outBytes);
   close (OutFile);
   
   print "\n\nFile output: $newFile\n";

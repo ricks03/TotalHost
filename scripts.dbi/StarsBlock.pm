@@ -168,9 +168,10 @@ sub StarsPWD {
     &BlockLogOut(0, "StarsPWD: Cannot open $filename for write: $!", $ErrorLog);
     return 0;
   }
-  for (my $i = 0; $i < @outBytes; $i++) {
-    print OUTFILE $outBytes[$i];
-  }
+  #for (my $i = 0; $i < @outBytes; $i++) {
+    #print OUTFILE $outBytes[$i];
+  #}
+  print OUTFILE join('', @outBytes);
   close (OUTFILE);
   return 1;
 }
@@ -1555,9 +1556,10 @@ sub StarsClean {   # Removes shared "privileged" information from a .m file for 
         &BlockLogOut(0,"StarsClean: Failed to open $mFile for write: $!", $ErrorLog);
         next;
       }
-      for (my $i = 0; $i < @outBytes; $i++) {
-        print CLEANFILE $outBytes[$i];
-      }
+      #for (my $i = 0; $i < @outBytes; $i++) {
+        #print CLEANFILE $outBytes[$i];
+      #}
+      print CLEANFILE join('', @outBytes);
       close (CLEANFILE);
       &BlockLogOut(200,"StarsClean: Cleaned $mFile for $GameFile", $LogFile);
     } else {
@@ -1947,9 +1949,10 @@ sub StarsFix {
         &BlockLogOut(0, "StarsFix: Cannot open $filename for write: $!", $ErrorLog);
         return $warning; # backup remains; don't lose $warning
       }
-      for (my $i = 0; $i < @outBytes; $i++) {
-        print OUTFILE $outBytes[$i];
-      }
+      #for (my $i = 0; $i < @outBytes; $i++) {
+        #print OUTFILE $outBytes[$i];
+      #}
+      print OUTFILE join('', @outBytes);
       close (OUTFILE);
       &BlockLogOut(200," StarsFix: Fixed $filename", $LogFile);
     } else { &BlockLogOut(300," StarsFix: Not in Fix mode for $filename", $LogFile); }
@@ -1992,9 +1995,10 @@ sub StarsAI {
       &BlockLogOut(0, "StarsAI: Cannot open $filename for write: $!", $ErrorLog);
       return 0;
     }
-    for (my $i = 0; $i < @outBytes; $i++) {
-      print OUTFILE $outBytes[$i];
-    }
+    #for (my $i = 0; $i < @outBytes; $i++) {
+      #print OUTFILE $outBytes[$i];
+    #}
+    print OUTFILE join('', @outBytes);
     close (OUTFILE);   
     &BlockLogOut(200," StarsAI: Updated $filename for playerId:$PlayerAI to $NewStatus ", $LogFile);
     return 1;

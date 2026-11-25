@@ -198,9 +198,10 @@ foreach my $filename (@mFiles) {
   # Don't do unless it needs Cleaning
   if ($needsCleaning) {
     open ( CLEANFILE, '>:raw', "$newFile" );
-    for (my $i = 0; $i < @outBytes; $i++) {
-      print CLEANFILE $outBytes[$i];
-    }
+    #for (my $i = 0; $i < @outBytes; $i++) {
+      #print CLEANFILE $outBytes[$i];
+    #}
+    print CLEANFILE join('', @outBytes);
     close ( CLEANFILE);
     
     print "File output: $newFile\n";

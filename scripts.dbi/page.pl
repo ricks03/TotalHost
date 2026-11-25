@@ -1455,6 +1455,13 @@ sub show_game {
   		print "<table>\n";
       if ($GameValues{'Teams'}) { print "<tr><th></th><th></th><th></th><th></th><th>Merged</th><th></th><th></th><th></th></tr>\n"; }
       # This won't execute without a .chk file (not available if the game isn't started)
+      # Pre-fetch every player in this game once 
+      my %PlayersByID;
+      $sql = qq|SELECT Games.GameFile, User.User_File, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, GameUsers.DelaysLeft, GameUsers.Team, _PlayerStatus.PlayerStatus_txt FROM _PlayerStatus INNER JOIN (User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON _PlayerStatus.PlayerStatus = GameUsers.PlayerStatus WHERE Games.GameFile = ?;|;
+      if (my $sth = &DB_Call($db, $sql, $GameFile)) {
+        while (my $row = $sth->fetchrow_hashref()) { $PlayersByID{ $row->{'PlayerID'} } = { %{$row} }; }
+        $sth->finish();
+      }
   		my($Position) = '3';
       my $Player = 0;
       my ($del, $del2); # html delete tag
@@ -1472,12 +1479,15 @@ sub show_game {
     			($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($MFile);
     			$TurnYears = $HST_Turn - $turn +1; 
     			# Get the values for the current player
-          $sql = qq|SELECT Games.GameFile, User.User_File, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, GameUsers.DelaysLeft, GameUsers.Team, _PlayerStatus.PlayerStatus_txt FROM _PlayerStatus INNER JOIN (User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON _PlayerStatus.PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=?) AND ((GameUsers.PlayerID)=?));|;  			
-          if (my $sth = &DB_Call($db,$sql,$GameFile,$Player)) {
-            while (my $row = $sth->fetchrow_hashref()) { %PlayerValues = %{$row};  
-          } 
-          $sth->finish();
-        }
+#          $sql = qq|SELECT Games.GameFile, User.User_File, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, GameUsers.DelaysLeft, GameUsers.Team, _PlayerStatus.PlayerStatus_txt FROM _PlayerStatus INNER JOIN (User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON _PlayerStatus.PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=?) AND ((GameUsers.PlayerID)=?));|;  			
+#          if (my $sth = &DB_Call($db,$sql,$GameFile,$Player)) {
+#            while (my $row = $sth->fetchrow_hashref()) { %PlayerValues = %{$row};  
+#          } 
+#          $sth->finish();
+#        }
+          # Get the values for the current player
+          %PlayerValues = ();
+          if (exists $PlayersByID{$Player}) { %PlayerValues = %{ $PlayersByID{$Player} }; }
 
   			# Modify display based on player status. If the player isn't active indicate such
         # These are TH values, not Stars! values
@@ -2033,6 +2043,13 @@ sub show_client {
 		  # display the game and player information from the .chk File
       
       # This won't execute without a .chk file (not available if the game isn't started)
+      # Pre-fetch every player in this game once
+      my %PlayersByID;
+      $sql = qq|SELECT Games.GameFile, User.User_File, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, _PlayerStatus.PlayerStatus_txt FROM _PlayerStatus INNER JOIN (User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON _PlayerStatus.PlayerStatus = GameUsers.PlayerStatus WHERE Games.GameFile = ?;|;
+      if (my $sth = &DB_Call($db, $sql, $GameFile)) {
+        while (my $row = $sth->fetchrow_hashref()) { $PlayersByID{ $row->{'PlayerID'} } = { %{$row} }; }
+        $sth->finish();
+      }
   		my($Position) = '3';
       my $Player = 0;
       # Display player status, one line for each player in the .chk file
@@ -2047,11 +2064,14 @@ sub show_client {
   			($Magic, $lidGame, $ver, $turn, $iPlayer, $dt, $fDone, $fInUse, $fMulti, $fGameOver, $fShareware) = &starstat($MFile);
   			$TurnYears = $HST_Turn - $turn +1; 
   			# Get the values for the current player
-  			$sql = qq|SELECT Games.GameFile, User.User_File, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, _PlayerStatus.PlayerStatus_txt FROM _PlayerStatus INNER JOIN (User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON _PlayerStatus.PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=?) AND ((GameUsers.PlayerID)=?));|;
-  			if (my $sth = &DB_Call($db,$sql,$GameFile,$Player)) { 
-          while (my $row = $sth->fetchrow_hashref()) { %PlayerValues = %{$row};  } 
-          $sth->finish();
-        }
+#  			$sql = qq|SELECT Games.GameFile, User.User_File, GameUsers.User_Login, GameUsers.PlayerID, GameUsers.PlayerStatus, _PlayerStatus.PlayerStatus_txt FROM _PlayerStatus INNER JOIN (User INNER JOIN (Games INNER JOIN GameUsers ON (Games.GameFile = GameUsers.GameFile)) ON User.User_Login = GameUsers.User_Login) ON _PlayerStatus.PlayerStatus = GameUsers.PlayerStatus WHERE (((Games.GameFile)=?) AND ((GameUsers.PlayerID)=?));|;
+#  			if (my $sth = &DB_Call($db,$sql,$GameFile,$Player)) { 
+#          while (my $row = $sth->fetchrow_hashref()) { %PlayerValues = %{$row};  } 
+#          $sth->finish();
+#        }
+          # Get the values for the current player
+          %PlayerValues = ();
+          if (exists $PlayersByID{$Player}) { %PlayerValues = %{ $PlayersByID{$Player} }; }
   			# Modify display based on player status. If the player isn't active indicate such
         #print "<br>player" . $Player . "-race=$CHK_Name\n";
         print "<br>player" . $Player . "-race=" . &html_escape($CHK_Name) . "\n";

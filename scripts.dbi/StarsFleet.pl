@@ -116,9 +116,10 @@ if ($fixFiles > 1) {
   if ($outFileName) { $newFile = $outFileName; }
   else              { $newFile = $dir . '/' . $basefile . '.fixed'; }
   open my $OutFile, '>:raw', $newFile or die "Cannot open $newFile: $!";
-  for (my $i = 0; $i < @outBytes; $i++) {
-    print $OutFile $outBytes[$i];
-  }
+  #for (my $i = 0; $i < @outBytes; $i++) {
+    #print $OutFile $outBytes[$i];
+  #}
+  print $OutFile join('', @outBytes);
   close($OutFile);
   print "\nFile output: $newFile\n";
   unless ($outFileName) { print "Don't forget to rename $newFile\n\n"; }

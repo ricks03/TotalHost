@@ -121,9 +121,10 @@ if ($outBytes) {
   
   # Output the Stars! File with blank password(s)
   open (OutFile, '>:raw', "$newFile");
-  for (my $i = 0; $i < @outBytes; $i++) {
-    print OutFile $outBytes[$i];
-  }
+  #for (my $i = 0; $i < @outBytes; $i++) {
+    #print OutFile $outBytes[$i];
+  #}
+  print OutFile join('', @outBytes);
   close (OutFile);
   
   print "File output: $newFile\n";

@@ -88,9 +88,10 @@ if ($outBytes) {
   
   # Output the Stars! File with fixed checksum
   open (OUTFILE, '>:raw', "$newFile");
-  for (my $i = 0; $i < @outBytes; $i++) {
-    print OUTFILE $outBytes[$i];
-  }
+  #for (my $i = 0; $i < @outBytes; $i++) {
+    #print OUTFILE $outBytes[$i];
+  #}
+  print OUTFILE join('', @outBytes);
   close (OUTFILE);
   
   print "Fixed file: $newFile\n";
