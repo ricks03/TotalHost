@@ -1,0 +1,2 @@
+# Real config holds DB_PASSWORD / secret_key; only config.base.pl is tracked
+config.pl
