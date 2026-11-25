@@ -3997,7 +3997,7 @@ sub decryptFix {
   #                    else { print "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount\n";}
                       $index++;
                     }
-                    ($decryptedData[$armorIndex], $decryptedData[$armorIndex+1]) = &write16($hullType{$hullId}[14]); # Reset the hull armor value
+                    ($decryptedData[$armorIndex], $decryptedData[$armorIndex+1]) = &write16($hullType{$hullId}[18]); # Reset the hull armor value
                     $needsFixing++;
                     $warnId = &zerofy($ownerId) . '-starbase-' . &zerofy($planetId); # warn on player and planet
                     if ($fixFiles ) {
