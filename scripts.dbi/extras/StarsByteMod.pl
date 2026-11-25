@@ -1,7 +1,6 @@
 #!/usr/bin/perl
-# StarsByte.pl
+# StarsByteMod.pl
 # Displays Stars! Block Data
-# Test file for debugging Block 8 decoding
 #
 # Rick Steeves
 # starsah@corwyn.net
@@ -46,6 +45,7 @@ my $inBlock = '';
 my $inBin = 0; 
 my $inName;
 my $filename; 
+my $outFileName;
 $inName = $ARGV[0]; # input file
 $inBlock = $ARGV[1]; # Desired block Type
 $inBin = $ARGV[2]; # Desired block Type
@@ -63,7 +63,7 @@ if (!($inName)) {
   print "Worth noting that if the specific data is \n";
   print "two bytes, the data is stored: \n";
   print "  A B C D E F\n";
-  print "but actually read by Stars! as:\n";
+  print "but actaully read by Stars! as:\n";
   print "  (B A) (D C) (F E)\n\n";
   print "Data is also often tightly packed, so the binary result represents\n";
   print "the information using the bits (0 or 1).\n";
@@ -80,20 +80,65 @@ my ($basefile, $dir, $ext);
 $basefile = basename($filename);    # mygamename.m1
 $dir  = dirname($filename);         # c:\stars
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m  extension
+#print "FILENAME: $filename\n";
 
-# Read in the binary Stars! file, byte by byte
-my $FileValues;
-my @fileBytes;
-open(StarFile, "<$filename" );
-binmode(StarFile);
-while ( read(StarFile, $FileValues, 1)) {
-  push @fileBytes, $FileValues; 
-}
-close(StarFile);
+my @fileBytes = &readFile($filename);
 
+my $block9 = 0;
+my $byteCalc = 0;
+my @decryptedBlock;
 # Decrypt the data, block by block
-my ($outBytes) = &decryptBlock(@fileBytes);
+my ($outBytes, $decryptedBlock) = &decryptBlock(@fileBytes);
+#my ($outBytes, $decryptedBlock) = &decryptBlock();
 my @outBytes = @{$outBytes};
+@decryptedBlock = @{$decryptedBlock};
+
+# So we can mod Mod block 9
+$debug = 1;
+# Instead of doing complicated math along the way, just recalculate it
+my $blockBytes = 0;
+foreach my $blockCounter (@decryptedBlock) {
+      my %blockCounter = %$blockCounter;
+      my $typeId = $blockCounter{typeId};
+      my $size = $blockCounter{size};
+      if ( $typeId != 9  && $typeId != 0 ) {
+        $blockBytes = $blockBytes + ($size + 2);
+      }
+}
+print "BlockBytes: $blockBytes\n";
+
+foreach my $blockCounter (@decryptedBlock) {
+      my %blockCounter = %$blockCounter;
+      my @encryptedBlock;
+      my $encryptedBlock;
+      my @block = @$blockCounter{block};
+      my $typeId = $blockCounter{typeId};
+      my $size = $blockCounter{size};
+      my @decryptedData = @$blockCounter{decryptedData};
+      my $padding = $blockCounter{padding};
+      my $seedX = $blockCounter{seedX};
+      my $seedY = $blockCounter{seedY};
+#      if ($typeId == 9) {
+#        # update the Block 9 checksum with the adjusted checksum
+#         ($block[0], $block[1]) = write16($blockBytes);
+#      }
+      #reencrypt the data for output
+      ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
+      @encryptedBlock = @ { $encryptedBlock };
+      if ($debug > 1) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
+      push @outBytes, @encryptedBlock;
+}
+
+my $newFile; 
+if ($outFileName) { $newFile = $outFileName;  } 
+else { $newFile = $dir . '/' . $basefile . '.clean'; }
+open (OUTFILE, '>:raw', "$newFile");
+#  for (my $i = 0; $i < @outBytes; $i++) {
+foreach my $value (@outBytes) {
+  if ($value) { print OUTFILE $value; }
+}
+close (OUTFILE);
+
  
 ################################################################
 
@@ -106,9 +151,10 @@ sub decryptBlock {
   my @encryptedBlock;
   my @outBytes;
   my ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt);
-  my ( $seedA, $seedB, $seedX, $seedY);
+  my ( $random, $seedA, $seedB, $seedX, $seedY);
   my ( $FileValues, $typeId, $size );
   my $offset = 0; #Start at the beginning of the file
+  my $blockCounter = 0;
   while ($offset < @fileBytes) {
     # Get block info and data
     $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
@@ -117,66 +163,33 @@ sub decryptBlock {
     @block =  @fileBytes[$offset .. $offset+(2+$size)-1]; # The entire block in question
     my @data = @block[2..$#block];
     
+    if ($debug > 1) { print "BLOCK RAW: Size " . @block . ":\n" . join ("", @block), "\n"; }
     # FileHeaderBlock, never encrypted
     if ($typeId == 8) {  # File Header Block
-      # Convert the nonencrypted Block 8 data
-      my ($unshiftedData) = &unshiftBytes(\@data); 
-      my @unshiftedData = @{ $unshiftedData };
+       # Convert the nonencrypted Block 8 data
+       my ($unshiftedData) = &unshiftBytes(\@data); 
+       my @unshiftedData = @{ $unshiftedData };
       &processData(\@unshiftedData,$typeId,$offset,$size, $inBlock);
-      
-# 2 bytes: Header    
-# 4 bytes: (0/3): Magic
-# 4 bytes: (4/7): GameID
-# 2 bytes: (8/9): version
-# 2 bytes: (10/11): turn number
-# 2 bytes: (12/13): Player and encryption seed
-# 1 byte: File type
-#   Bit 0 (1) - Turn Submitted
-#   Bit 1 (2) - Host is using file
-#   Bit 2 (4) - Multiple turns in .m file
-#   Bit 3 (8) - Game over
-#   Bit 4 (16)- Shareware Version
-      my $rickMagic            = &read32(\@unshiftedData, 0);  print "Magic: $rickMagic\n";
-      #my $rickMagicStr        = &decodeBytesForStarsString(@unshiftedData[0..4]);  print "MagicStr: $rickMagicStr\n";  #Broken
-      #my $rickMagicStr        = unpack ("A4", $rickMagic);  print "MagicStr: $rickMagicStr\n";  #Broken
-      my $rickGameID           = &read32(\@unshiftedData, 4);  print "GameId: $rickGameID\n";
-      my $rickVersion          = &read16(\@unshiftedData, 8);  print "Version: $rickVersion\n";
-	    my $rickversionMajor = $rickVersion >> 12;         # First 4 bits
-      print "\tMajor: $rickversionMajor\n";
-	    my $rickversionMinor = ($rickVersion >> 5) & 0x7F; # Middle 7 bits
-      print "\tMinor: $rickversionMinor\n";
-	    my $rickversionIncrement = $rickVersion & 0x1F;    # Last 5 bits
-      print "\tIncrement: $rickversionIncrement\n";
-      my $rickTurnNumber       = &read16(\@unshiftedData, 10);  print "Turn Number: $rickTurnNumber\n";
-      my $rickplayerData             = &read16(\@unshiftedData, 12); print "PlayerData: $rickplayerData\n";
-      my $rickencryptionSalt = $rickplayerData >> 5;  # First 11 bits
-      print "\tSalt: $rickencryptionSalt\n";
-		  my $rickplayerNumber = $rickplayerData & 0x1F;  # Last 5 bits
-      print "\tPlayer Number: $rickplayerNumber\n";
-      my $rickfiletype          = &read8($unshiftedData,14); print "FileType: $rickfiletype\n";
-  		my $rickflags = &read8($unshiftedData,15);
-    	my $rickunknownBits = (($rickflags >> 5) & 0x07);
-      print "\tUnknown: $rickunknownBits\n";
-    	my $rickturnSubmitted = ($rickflags & 1) > 0;
-      print "\tSubmitted: $rickturnSubmitted\n";
-    	my $rickhostUsing =     ($rickflags & (1 << 1)) > 0;
-      print "\tUsing: $rickhostUsing\n";
-    	my $rickmultipleTurns = ($rickflags & (1 << 2)) > 0;
-      print "\tMultiple: $rickmultipleTurns\n";
-    	my $rickgameOver =      ($rickflags & (1 << 3)) > 0;
-      print "\tGame Over: $rickgameOver\n";
-    	my $rickshareware =     ($rickflags & (1 << 4)) > 0;		
-      print "\tShareware: $rickshareware\n";
+
       # We always have this data before getting to block 6, because block 8 is first
       # If there are two (or more) block 8s, the seeds reset for each block 8
       ( $binSeed, $fShareware, $Player, $turn, $lidGame, $Magic, $fMulti, $dt) = &getFileHeaderBlock(\@block);
       ( $seedA, $seedB) = &initDecryption ($binSeed, $fShareware, $Player, $turn, $lidGame);
       $seedX = $seedA; # Used to reverse the decryption
       $seedY = $seedB; # Used to reverse the decryption
+      $decryptedBlock[$blockCounter]{block} = \@block;
+      $decryptedBlock[$blockCounter]{typeId} = $typeId;
+      $decryptedBlock[$blockCounter]{size} = $size;
+      $decryptedBlock[$blockCounter]{decryptedData} = \@decryptedData;
+      $decryptedBlock[$blockCounter]{padding} = $padding;
+      $decryptedBlock[$blockCounter]{seedX} = $seedX;
+      $decryptedBlock[$blockCounter]{seedY} = $seedY;
+      $blockCounter++;
+
       push @outBytes, @block;
     } elsif ($typeId == 0) { # FileFooterBlock, not encrypted 
-      my ($unshiftedData) = &unshiftBytes(\@data); 
-      my @unshiftedData = @{ $unshiftedData };
+       my ($unshiftedData, $padding) = &unshiftBytes(\@data); 
+       my @unshiftedData = @{ $unshiftedData };
       &processData(\@unshiftedData,$typeId,$offset,$size, $inBlock);
       push @outBytes, @block;
     } else {
@@ -186,13 +199,24 @@ sub decryptBlock {
       # WHERE THE MAGIC HAPPENS
       &processData(\@decryptedData,$typeId,$offset,$size, $inBlock);
       # END OF MAGIC
+ #     unless ($typeId == 30) {
+      $decryptedBlock[$blockCounter]{block} = \@block;
+      $decryptedBlock[$blockCounter]{typeId} = $typeId;
+      $decryptedBlock[$blockCounter]{size} = $size;
+      $decryptedBlock[$blockCounter]{decryptedData} = \@decryptedData;
+      $decryptedBlock[$blockCounter]{padding} = $padding;
+      $decryptedBlock[$blockCounter]{seedX} = $seedX;
+      $decryptedBlock[$blockCounter]{seedY} = $seedY;
+      $blockCounter++;
       #reencrypt the data for output
+      print "SeedX: $seedX, $seedY \n";
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
       @encryptedBlock = @ { $encryptedBlock };
       if ($debug > 1) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
       push @outBytes, @encryptedBlock;
+  #    }
     }
     $offset = $offset + (2 + $size); 
   }
-  return \@outBytes;
+  return \@outBytes, \@decryptedBlock;
 }

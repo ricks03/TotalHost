@@ -67,15 +67,7 @@ $dir  = dirname($filename);         # c:\stars
 $dir =~ s/\\/\//g;  # normalize to forward slashes
 ($ext) = $basefile =~ /(\.[^.]+)$/; # .m1
 
-# Read in the binary Stars! file, byte by byte
-my $FileValues;
-my @fileBytes;
-open(StarFile, "<$filename");
-binmode(StarFile);
-while (read(StarFile, $FileValues, 1)) {
-  push @fileBytes, $FileValues; 
-}
-close(StarFile);
+my @fileBytes = &readFile($filename);
 
 # Decrypt the data, block by block
 my ($outBytes) = &decryptBlock(@fileBytes);
@@ -147,43 +139,6 @@ sub decryptBlock {
       &processData(\@decryptedData,$typeId,$offset,$size, $inBlock);
 #      }
       # END OF MAGIC
-      #my $FileValues = $fileBytes[$offset + 1] . $fileBytes[$offset];
-#       # 1. Concatenate Array values
-#       print "Block0: $block[0] , Block1: $block[1]\n";
-#       my $BlockValues = $block[1] . $block[0];
-#       print "BlockValues: $BlockValues\n";
-#       # 2. unpack array values
-#       my ($Header) =  unpack("S",$BlockValues);
-#       print "Header: $Header\n";
-#       # 3. convert string array values to binary
-#       my $binHeader = dec2bin($Header);
-#       print "Binheader: $binHeader\n";
-#       # 4. slice up Header to two values
-#       my $blocktype = (substr($binHeader, 8,6));
-#       my $blocksize = (substr($binHeader, 14,2)) . (substr($binHeader, 0,8));
-#       print "STUFF: $typeId, $size, $blocktype, $blocksize\n";
-#       
-#       # Right here we can change the block size in decimal
-#       # and then the following code will convert it all back into the 
-#       # correct structure, switching back and forth from decimal<> binary
-#       # 5. change block size.
-#       #my $blocksize2 = dec2bin(6);
-#       my $blocksize2 = "$blocksize";  # Just convert back from whence we came
-#       print "BS: $blocksize2\n";
-#       # 4. unslice up the two values
-#       $blocksize2 = substr($blocksize2,-10); # Make it the right length (10 bits)
-#       print "BS2: $blocksize2\n";
-#       my $bt = substr($blocksize2, 2,10) . $blocktype . substr($blocksize2,0,2);
-#       # 3. convery the binary to decimal
-#       my $binHeader2 = bin2dec($bt);
-#       # 2. Pack values
-#       my $Header2 = pack ("S", $binHeader2);
-#       print "Header2: $Header2\n";
-#       # 1. Assign array values
-#       $block[0] = substr($Header2,1,1);
-#       $block[1] = substr($Header2,0,1);
-#       print "Block0: $block[0] , Block1: $block[1]\n\n";
-      # reencrypt the data for output
       
       unless ($typeId == 30) { 
       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
