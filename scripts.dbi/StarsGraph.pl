@@ -196,7 +196,11 @@ $graph->set(
 $graph->set_legend_font(gdTinyFont);
 $graph->set_legend(@singularRaceNames);
 
-my $gd = $graph->plot( \@data );
+#my $gd = $graph->plot( \@data );
+# Nothing to graph without year folders (2400, 2401, ...) holding the game history
+unless (@turns) { print "No year folders (2400, 2401, ...) found in $sourcedir. Nothing to graph.\n"; exit; }
+my $gd = $graph->plot( \@data ) or die "Could not draw the graph: " . $graph->error . "\n";
+
 open OUT, ">$graphPath" or die "Couldn't open for output: $!";
 binmode(OUT);
 print OUT $gd->png( );
