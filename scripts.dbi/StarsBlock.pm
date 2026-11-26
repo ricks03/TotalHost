@@ -5106,7 +5106,7 @@ sub advantagePointsLeft {
   # Off-center hab bonus 
   my $cGood = 0;
   for my $i (0..2) {
-    if ($envCenter[$i] > 0) {  $cPoints += abs($envCenter[$i] - 50) * 4;
+    if ($envCenter[$i] >= 0) {  $cPoints += abs($envCenter[$i] - 50) * 4;
     } else {  $cGood++; } # immune
   }
 
@@ -5200,8 +5200,8 @@ sub advantagePointsLeft {
   }
 
   if ($cBad + $cGood > 4) { $cPoints -= (($cBad + $cGood) * 10) * ($cBad + $cGood - 4); } # Penalize for too many traits
-  if ($cGood - $cBad > 3) { $cPoints -= 60 * ($cGood - $cBad - 3); } # Too many disadvantage traits
-  if ($cBad - $cGood > 3) { $cPoints -= 40 * ($cBad - $cGood - 3); } # Too many advantage traits
+  if ($cGood - $cBad > 3) { $cPoints -= 60 * ($cGood - $cBad - 3); } # Too many advantage traits
+  if ($cBad - $cGood > 3) { $cPoints -= 40 * ($cBad - $cGood - 3); } # Too many disadvantage traits
 
   # NAS interaction with specific PRTs
   if (&bitTest($grbitAttr, $ibitRaceAdvScanner)) {
