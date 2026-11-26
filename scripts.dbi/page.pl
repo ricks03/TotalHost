@@ -3717,7 +3717,7 @@ sub read_def {
 		if ($vc_tech) { push (@Vals, "Attains Tech $vc_techlevel in $vc_techfields fields"); }
 		if ($vc_score) { push (@Vals, "Exceeds a score of $vc_scoreamt"); }
 		if ($vc_exceed) { push (@Vals, "Exceeds 2nd place score by $vc_exceed_percent%"); }
-	 	if ($vc_prod) { push (@Vals, "Production capacity of $vc_prod,000"); }
+	 	if ($vc_prod) { push (@Vals, "Production capacity of $vc_prodcapacity,000"); }
 		if ($vc_capital) { push (@Vals, "Owns $vc_capitalnum capital ships"); }
 		if ($vc_turns) { push (@Vals, "Highest score after $vc_years years"); }
 		push (@Vals, "Meet $vc_meet victory criteria after $vc_minyears years");
