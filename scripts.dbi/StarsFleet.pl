@@ -651,9 +651,12 @@ sub decryptBlockFleet {
           if ($typeId == 19 && $validTask) {
             if ($taskId == 1) { # Transport
               my @minerals = ('Iron', 'Bor', 'Germ', 'Pop', 'Fuel');
-              my @actions  = ('NoTask', 'Transport', 'Load>=', 'Load<=', 'SetTo',
-                              'FillPercent', 'WaitForPercent', 'LoadAll', 'UnloadAll',
-                              'LoadNone', 'FuelOnly');
+#               my @actions  = ('NoTask', 'Transport', 'Load>=', 'Load<=', 'SetTo',
+#                               'FillPercent', 'WaitForPercent', 'LoadAll', 'UnloadAll',
+#                               'LoadNone', 'FuelOnly');
+              my @actions  = ('None', 'LoadAll', 'UnloadAll', 'LoadExactly', 'UnloadExactly',
+                              'FillUpTo%', 'WaitFor%', 'LoadOptimal/Dunnage', 'SetAmountTo',
+                              'SetWaypointTo');   # opOrd* in defines.h                
               my $hasOrder = 0;
               for (my $i = 0; $i < 5; $i++) {
                 my $itemaction = &read16(\@decryptedData, 8 + ($i * 2));

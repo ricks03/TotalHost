@@ -1269,7 +1269,7 @@ sub ConvertPlanetToPartial {
   if ($need_fIncSurfMin) {
     # Build mineral bitmask
     my $minBitmask = 0;
-    for (my $i = 0; $i < 3; $i++) { #for (my $i = 0; $i < 4; $i++) { # BUG: AI sais this should be 3
+    for (my $i = 0; $i < 3; $i++) { #for (my $i = 0; $i < 4; $i++) { 
       my $val = $rgwtMin[$i];
       my $bits = 0;
       if ($val > 0) {

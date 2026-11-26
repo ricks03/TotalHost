@@ -552,7 +552,8 @@ sub decryptBlockFleet { # Decrypt and process fleet blocks in .hst or .m files
             if ($taskId == 1) {
               my @transport = ();
               for (my $i = 0; $i < 5; $i++) {
-                my $offset = 12 + ($i * 2);
+                #my $offset = 12 + ($i * 2);
+                my $offset = 8 + ($i * 2);
                 my $itemaction = &read16(\@decryptedData, $offset);
                 my $quantity = $itemaction & 0x0FFF;        # bits 0-11
                 my $action = ($itemaction >> 12) & 0x0F;    # bits 12-15

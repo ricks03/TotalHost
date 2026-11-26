@@ -461,7 +461,8 @@ sub decryptBlockPlanet {
   		      }
           }
           
-          if ($ownerId > -1 && $fRouting == 1) { 
+          #if ($ownerId > -1 && $fRouting == 1) { 
+          if ($typeId == 13 && $ownerId > -1 && $fRouting == 1) { # wRouting is only in rtPlanetA (save.c:976)
             $idRoute = &read16(\@decryptedData, $index) & 0b1111111111; # First 10 bits Route destination Id
             #  last 6 bits unused
             $index += 2;

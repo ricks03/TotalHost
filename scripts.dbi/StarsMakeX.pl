@@ -26,7 +26,7 @@
 # A "blank" .x file contains only:
 #   Block 8  - rtBOF              (file header, 16 bytes, unencrypted)
 #   Block 9  - rtLogHdr           (log header,  17 bytes, encrypted)
-#   Block 46 - SaveAndSubmitBlock ( 8 bytesm    encrypted)
+#######   Block 46 - SaveAndSubmitBlock ( 8 bytesm    encrypted)
 #   Block 0  - rtEOF              (end of file, 0 bytes, unencrypted)
 
 use strict;
@@ -227,7 +227,8 @@ sub makeXFile {
   # struct _rtloghdr { short cbLog; long lSerialNumber; BYTE rgbConfig[11]; }
   # cbLog = total bytes between end of block 9 and start of block 0.
   #   = block46 header(2) + block46 data(8) = 10
-  my $cbLog = 10;
+  #my $cbLog = 10;
+  my $cbLog = 0;
   # --serial-conflict: same serial as every other blank .x, but a fixed non-zero
   # hardware hash ("THTEST" 1 2 3 4 5), so checkSerials sees "same serial, different hardware".
   my @hardware9 = $serialConflict ? (0x54, 0x48, 0x54, 0x45, 0x53, 0x54, 1, 2, 3, 4, 5) : ((0) x 11);
@@ -241,16 +242,21 @@ sub makeXFile {
   my ($encryptedBlock);
   ($encryptedBlock, $seedA, $seedB) = &encryptBlock(\@fakeBlk9, \@data9, 0, $seedA, $seedB); 
   
-  # --- Block 46 (SaveAndSubmitBlock, 8 data bytes, all zeros) --------------
-  # Always 8 bytes in a .x file. cbLog above accounts for these 10 bytes (2+8).
-  my @data46    = (0) x 8;
-  my @fakeBlk46 = (&write16CHR(makeBlockHeader(46, 8)), map { chr($_) } @data46);
-  my ($encryptedBlock46) = &encryptBlock(\@fakeBlk46, \@data46, 0, $seedA, $seedB);
-  
+#   # --- Block 46 (SaveAndSubmitBlock, 8 data bytes, all zeros) --------------
+#   # Always 8 bytes in a .x file. cbLog above accounts for these 10 bytes (2+8).
+#   my @data46    = (0) x 8;
+#   my @fakeBlk46 = (&write16CHR(makeBlockHeader(46, 8)), map { chr($_) } @data46);
+#   my ($encryptedBlock46) = &encryptBlock(\@fakeBlk46, \@data46, 0, $seedA, $seedB);
+#   
+#   # --- Block 0 (rtEOF, 0 data bytes) ---------------------------------------
+#   my @block0 = &write16CHR(makeBlockHeader(0, 0));
+# 
+#   return (@block8, @{$encryptedBlock}, @{$encryptedBlock46}, @block0);
   # --- Block 0 (rtEOF, 0 data bytes) ---------------------------------------
   my @block0 = &write16CHR(makeBlockHeader(0, 0));
 
-  return (@block8, @{$encryptedBlock}, @{$encryptedBlock46}, @block0);
+  return (@block8, @{$encryptedBlock}, @block0);
+
 }
 
 sub makeBlockHeader {

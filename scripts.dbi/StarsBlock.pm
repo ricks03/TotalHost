@@ -3417,7 +3417,7 @@ sub decryptFix {
 #             } else {$err .= '';}
           # Own planet? (exists check first so the lookup doesn't autovivify $planetList{$playerId})
           my $ownPlanet = exists $planetList{$playerId} && exists $planetList{$playerId}{$targetId};
-          if ($typeId == 5 && $taskId == 1 && $targetType == 1 && $taskPopulation =~ /[135679]/ && $fleetList{$playerId}{$fleetId}{robberBaron} == 1 && !$ownPlanet) {
+          if ($typeId == 5 && $taskId == 1 && $targetType == 1 && $taskPopulation =~ /[1356789]/ && $fleetList{$playerId}{$fleetId}{robberBaron} == 1 && !$ownPlanet) {
             $err = 'SS Pop Steal: Player ' . ($playerId+1) . ' fleet ' . ($fleetId+1) . " asssigned Transport> Population> $showTransportTask[$taskPopulation] orders at $xDest" . 'x' . "$yDest.";          
             $needsFixing++;
             if ($fixFiles && $havePlanetData) { # Only fix if fixFiles is set and planet ownership is known
@@ -4058,6 +4058,10 @@ sub decryptFix {
         # idType determines if From and To IDs are unknown(0), planet(1), fleet(2), space(4), salvage/packet/MT(8)
         $toIdType = $decryptedData[4] >> 4;  # left 4 bits
         $fromIdType =  ($decryptedData[4] >> 0) & 0xF;  # right 4 bits 
+        # Only fleet ids are packed as id:9 + owner:4 (FLEETID). A planet id is the raw
+        # planet number (0-998), so take all 16 bits and there is no owner in the id.
+        if ($fromIdType == 1) { $fromId = &read16(\@decryptedData, 0); $fromOwnerId = -1; }
+        if ($toIdType == 1)   { $toId   = &read16(\@decryptedData, 2); $toOwnerId   = -1; }
         $index = 5;
         $contents = $decryptedData[$index];
         $isIronium = &getMask($contents,0);
@@ -4072,11 +4076,18 @@ sub decryptFix {
         if ($typeId == 1 ) {  # Small load
           $indexStep = 1; $indexHalf = 128; $indexFlip = 254; 
 #          if ($isIronium)    { $ironium = $decryptedData[$index]; if ($ironium >= $indexHalf) { $ironium = $ironium -$indexFlip; } $index=$index+$indexStep; }
-          if ($isIronium)    { $ironium = $decryptedData[$index]; if ($ironium >= $indexHalf) { $ironium = -(~$ironium & 0xFF)+ 1; } $index=$index+$indexStep; }
-          if ($isBoranium)   { $boranium = $decryptedData[$index]; if ($boranium >= $indexHalf) { $boranium = -(~$boranium & 0xFF) + 1; } $index=$index+$indexStep; }
-          if ($isGermanium)  { $germanium = $decryptedData[$index]; if ($germanium >= $indexHalf) { $germanium = -(~$germanium & 0xFF) + 1; } $index=$index+$indexStep; }
-          if ($isPopulation) { $population = $decryptedData[$index]; if ($population >= $indexHalf) { $population = -(~$population & 0xFF) + 1 ; } $index=$index+$indexStep;}
-          if ($isFuel)       { $fuel = $decryptedData[$index]; if ($fuel >= $indexHalf) { $fuel = -(~$fuel & 0xFF) + 1; } }
+#           if ($isIronium)    { $ironium = $decryptedData[$index]; if ($ironium >= $indexHalf) { $ironium = -(~$ironium & 0xFF)+ 1; } $index=$index+$indexStep; }
+#           if ($isBoranium)   { $boranium = $decryptedData[$index]; if ($boranium >= $indexHalf) { $boranium = -(~$boranium & 0xFF) + 1; } $index=$index+$indexStep; }
+#           if ($isGermanium)  { $germanium = $decryptedData[$index]; if ($germanium >= $indexHalf) { $germanium = -(~$germanium & 0xFF) + 1; } $index=$index+$indexStep; }
+#           if ($isPopulation) { $population = $decryptedData[$index]; if ($population >= $indexHalf) { $population = -(~$population & 0xFF) + 1 ; } $index=$index+$indexStep;}
+#           if ($isFuel)       { $fuel = $decryptedData[$index]; if ($fuel >= $indexHalf) { $fuel = -(~$fuel & 0xFF) + 1; } }
+          # Signed char (RTXFER rgcQuan): bytes 128-255 are -128..-1
+          if ($isIronium)    { $ironium = $decryptedData[$index]; if ($ironium >= $indexHalf) { $ironium -= 256; } $index=$index+$indexStep; }
+          if ($isBoranium)   { $boranium = $decryptedData[$index]; if ($boranium >= $indexHalf) { $boranium -= 256; } $index=$index+$indexStep; }
+          if ($isGermanium)  { $germanium = $decryptedData[$index]; if ($germanium >= $indexHalf) { $germanium -= 256; } $index=$index+$indexStep; }
+          if ($isPopulation) { $population = $decryptedData[$index]; if ($population >= $indexHalf) { $population -= 256; } $index=$index+$indexStep;}
+          if ($isFuel)       { $fuel = $decryptedData[$index]; if ($fuel >= $indexHalf) { $fuel -= 256; } }
+
         } elsif ( $typeId == 2 ) { # Medium load
           $indexStep = 2; $indexFlip = 2**16; $indexHalf = $indexFlip/2; 
           if ($isIronium)    { $ironium = &read16(\@decryptedData, $index); if ($ironium >= $indexHalf) { $ironium = $ironium -$indexFlip; } $index=$index+$indexStep; }
@@ -4105,16 +4116,17 @@ sub decryptFix {
         # As the orders can accumulate, need to track the total uploaded over 
         # multiple tasks.
         if (-f "$listPrefix.hst.fleet" ) {
-          unless (exists($totalUpload{$toId})) { $totalUpload{$toId} = 0; }
-          if ((($fromOwnerId == 0 &&  $fromIdType == 1 ) && ($toOwnerId != $Player && $toIdType == 2) )) {
-            $totalUpload{$toId} = $totalUpload{$toId} - $ironium; 
-            $totalUpload{$toId} = $totalUpload{$toId} - $boranium; 
-            $totalUpload{$toId} = $totalUpload{$toId} - $germanium; 
+          unless (exists($totalUpload{"$toOwnerId+$toId"})) { $totalUpload{"$toOwnerId+$toId"} = 0; }
+          #if ((($fromOwnerId == 0 &&  $fromIdType == 1 ) && ($toOwnerId != $Player && $toIdType == 2) )) {
+          if ($fromIdType == 1 && ($toOwnerId != $Player && $toIdType == 2)) { # planet to another player's fleet
+            $totalUpload{"$toOwnerId+$toId"} = $totalUpload{"$toOwnerId+$toId"} - $ironium; 
+            $totalUpload{"$toOwnerId+$toId"} = $totalUpload{"$toOwnerId+$toId"} - $boranium; 
+            $totalUpload{"$toOwnerId+$toId"} = $totalUpload{"$toOwnerId+$toId"} - $germanium; 
             #print "Player: $Player, fromOwnerId: $fromOwnerId fromId:$fromId(" . &showDestType($fromIdType) . "), toOwnerId: $toOwnerId toId:$toId(" . &showDestType($toIdType) . ") TotalUpload: $totalUpload{$toId}, Cargo space:" . $fleetList{$toOwnerId}{$toId}{cargoCapacity} . "\n";
-            if ( $totalUpload{$toId}  >  $fleetList{$toOwnerId}{$toId}{cargoCapacity} ) {
+            if ( $totalUpload{"$toOwnerId+$toId"}  >  $fleetList{$toOwnerId}{$toId}{cargoCapacity} ) {
               $warnId = &zerofy($Player) . '-mineral-' . &zerofy($toOwnerId) . '+' . &zerofy($toId); # adding a zero lets us sort on key
-              $err = 'Mineral Upload: Overage of '. ( $totalUpload{$toId}-$fleetList{$toOwnerId}{$toId}{cargoCapacity}) . ' from player ' . ($Player+1) . ' to player ' . ($toOwnerId+1). ', fleet ' . ($toId+1) . '.';
-              $err = 'Mineral Upload: Player ' . ($Player+1) . ' attempted to transfer ' . $totalUpload{$toId} . 'kT minerals to player ' . ($toOwnerId+1) . ' fleet ' . ($toId+1) . ', exceeding cargo capacity of ' . $fleetList{$toOwnerId}{$toId}{cargoCapacity} . 'kT by ' . ($totalUpload{$toId}-$fleetList{$toOwnerId}{$toId}{cargoCapacity}) . 'kT.';
+              $err = 'Mineral Upload: Overage of '. ( $totalUpload{"$toOwnerId+$toId"}-$fleetList{$toOwnerId}{$toId}{cargoCapacity}) . ' from player ' . ($Player+1) . ' to player ' . ($toOwnerId+1). ', fleet ' . ($toId+1) . '.';
+              $err = 'Mineral Upload: Player ' . ($Player+1) . ' attempted to transfer ' . $totalUpload{"$toOwnerId+$toId"} . 'kT minerals to player ' . ($toOwnerId+1) . ' fleet ' . ($toId+1) . ', exceeding cargo capacity of ' . $fleetList{$toOwnerId}{$toId}{cargoCapacity} . 'kT by ' . ($totalUpload{"$toOwnerId+$toId"}-$fleetList{$toOwnerId}{$toId}{cargoCapacity}) . 'kT.';
               $needsFixing++; 
               if ($fixFiles ) {
                 # BUG: If we make an adjustment here remember to update fleetList data
@@ -4128,7 +4140,7 @@ sub decryptFix {
         } else { $err .= "Missing .fleet $listPrefix.hst.fleet. Cannot calculate Mineral Upload.\n"; }
          
         # clear the warning if it's been fixed and total is low enough again
-        if ( $totalUpload{$toId} <  $fleetList{$toOwnerId}{$toId}{cargoCapacity} ) {
+        if ( $totalUpload{"$toOwnerId+$toId"} <  $fleetList{$toOwnerId}{$toId}{cargoCapacity} ) {
           $warnId = &zerofy($Player) . '-mineral-' . &zerofy($toOwnerId) . '+' . &zerofy($toId);
           if (exists($warning{$warnId})) { delete ($warning{$warnId}); $needsFixing--;}
         }
@@ -4672,7 +4684,14 @@ sub decryptMessages {
         my $iInRe       = &read16(\@decryptedData, 8); # msg # this is a reply to, 0 if not a reply
         my $messageBytes = &read16(\@decryptedData, 10);
         my $messageLength = $size -1;
-        $message = &decodeBytesForStarsString(@decryptedData[11..$messageLength]);
+        #$message = &decodeBytesForStarsString(@decryptedData[11..$messageLength]);
+        if ($messageBytes & 0x8000) { # If the compressed form would be longer than the plain text, it stores the plain text instead and saves a negative length
+          $message = join('', map { chr($_) } @decryptedData[12..$messageLength]);
+          $message =~ s/\x00+$//;
+        } else {
+          $message = &decodeBytesForStarsString(@decryptedData[11..$messageLength]);
+        }
+
         $message =~ s/[\r\n]+$//;  # strip trailing newlines/carriage returns
         if ($message) {
           if ($currentYear) {push @messages, $currentYear; undef $currentYear}  # Do this only for the first message of the year, as separated by Block 8s
