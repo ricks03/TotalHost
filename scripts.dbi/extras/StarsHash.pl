@@ -134,16 +134,19 @@ sub processHash {
   # Display the byte information
   my ($decryptedData,$typeId,$offset,$size)  = @_;
   my @decryptedData = @{ $decryptedData };
-  my $byte0 =  &read16(\@decryptedData, 0);  # unknown
+  my $byte0 =  &read16(\@decryptedData, 0);   # cbLog: bytes of log records after block 9 (RTLOGHDR)
   my $serial = &read32(\@decryptedData, 2);  # serial number, blocks 2-5
   print "Serial (Hash): $serial\n";
   my $c_label = &read32(\@decryptedData, 6);  # C drive volume label, blocks 6-9
   print "C: Label (Hash): $c_label\n";
   my $c_date = &read16(\@decryptedData, 10); # blocks 10-11. Probably C volume date
   print "C: Date (Hash): $c_date\n";
-  my $d_label = &read16(\@decryptedData, 12);  # D drive volume label, blocks 12-13
+#   my $d_label = &read16(\@decryptedData, 12);  # D drive volume label, blocks 12-13
+#   print "D: Label (Hash): $d_label\n";
+  my $d_label = &read16(\@decryptedData, 12) | ($decryptedData[14] << 16);  # D drive volume label, 3 bytes 12-14 (utilgen.c:2324)
   print "D: Label (Hash): $d_label\n";
-  my $d_date = &read16(\@decryptedData, 14);  # probably D volume date
+  my $d_date = &read8($decryptedData[15]);  # D volume date, 1 byte (utilgen.c:2325)
+  #my $d_date = &read16(\@decryptedData, 14);  # probably D volume date
   print "D: Date (Hash): $d_date\n";
   #my $drive_size = &read8(\@decryptedData[16]); # C: and D: drive size in 100's of MB
   my $drive_size = &read8($decryptedData[16]); # C: and D: drive size in 100's of MB

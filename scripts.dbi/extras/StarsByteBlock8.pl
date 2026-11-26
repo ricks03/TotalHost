@@ -146,8 +146,10 @@ sub decryptBlock {
       print "\tPlayer Number: $rickplayerNumber\n";
       my $rickfiletype          = &read8($unshiftedData[14]); print "FileType: $rickfiletype\n";
   		my $rickflags = &read8($unshiftedData[15]);
-    	my $rickunknownBits = (($rickflags >> 5) & 0x07);
-      print "\tUnknown: $rickunknownBits\n";
+#     	my $rickunknownBits = (($rickflags >> 5) & 0x07);
+#       print "\tUnknown: $rickunknownBits\n";
+      my $rickunknownBits = (($rickflags >> 5) & 0x07);   # wGen (RTBOF): must match the game's wGen
+      print "\twGen: $rickunknownBits\n";
     	my $rickturnSubmitted = ($rickflags & 1) > 0;
       print "\tSubmitted: $rickturnSubmitted\n";
     	my $rickhostUsing =     ($rickflags & (1 << 1)) > 0;

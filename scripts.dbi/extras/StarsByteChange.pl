@@ -42,9 +42,10 @@ my $inBlock = '';
 my $inBin = 0; 
 my $inName = $ARGV[0]; # input file
 my $outFileName = $ARGV[1];
-$inBlock = $ARGV[1]; # Desired block Type
-$inBin = $ARGV[2]; # Desired block Type
-unless ($inBlock) { $inBlock = -1;}
+# $inBlock = $ARGV[1]; # Desired block Type
+# $inBin = $ARGV[2]; # Desired block Type
+# unless ($inBlock) { $inBlock = -1;}
+$inBlock = -1;   # show every block (the 2nd argument is the output file)
 my $filename = $inName;
 
 if (!($filename)) { 

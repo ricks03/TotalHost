@@ -92,53 +92,63 @@ my ($outBytes, $decryptedBlock) = &decryptBlock(@fileBytes);
 #my ($outBytes, $decryptedBlock) = &decryptBlock();
 my @outBytes = @{$outBytes};
 @decryptedBlock = @{$decryptedBlock};
-
-# So we can mod Mod block 9
-$debug = 1;
-# Instead of doing complicated math along the way, just recalculate it
-my $blockBytes = 0;
-foreach my $blockCounter (@decryptedBlock) {
-      my %blockCounter = %$blockCounter;
-      my $typeId = $blockCounter{typeId};
-      my $size = $blockCounter{size};
-      if ( $typeId != 9  && $typeId != 0 ) {
-        $blockBytes = $blockBytes + ($size + 2);
-      }
-}
-print "BlockBytes: $blockBytes\n";
-
-foreach my $blockCounter (@decryptedBlock) {
-      my %blockCounter = %$blockCounter;
-      my @encryptedBlock;
-      my $encryptedBlock;
-      my @block = @$blockCounter{block};
-      my $typeId = $blockCounter{typeId};
-      my $size = $blockCounter{size};
-      my @decryptedData = @$blockCounter{decryptedData};
-      my $padding = $blockCounter{padding};
-      my $seedX = $blockCounter{seedX};
-      my $seedY = $blockCounter{seedY};
-#      if ($typeId == 9) {
-#        # update the Block 9 checksum with the adjusted checksum
-#         ($block[0], $block[1]) = write16($blockBytes);
-#      }
-      #reencrypt the data for output
-      ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
-      @encryptedBlock = @ { $encryptedBlock };
-      if ($debug > 1) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
-      push @outBytes, @encryptedBlock;
-}
-
-my $newFile; 
-if ($outFileName) { $newFile = $outFileName;  } 
+# 
+# # So we can mod Mod block 9
+# $debug = 1;
+# # Instead of doing complicated math along the way, just recalculate it
+# my $blockBytes = 0;
+# foreach my $blockCounter (@decryptedBlock) {
+#       my %blockCounter = %$blockCounter;
+#       my $typeId = $blockCounter{typeId};
+#       my $size = $blockCounter{size};
+#       if ( $typeId != 9  && $typeId != 0 ) {
+#         $blockBytes = $blockBytes + ($size + 2);
+#       }
+# }
+# print "BlockBytes: $blockBytes\n";
+# 
+# foreach my $blockCounter (@decryptedBlock) {
+#       my %blockCounter = %$blockCounter;
+#       my @encryptedBlock;
+#       my $encryptedBlock;
+#       my @block = @$blockCounter{block};
+#       my $typeId = $blockCounter{typeId};
+#       my $size = $blockCounter{size};
+#       my @decryptedData = @$blockCounter{decryptedData};
+#       my $padding = $blockCounter{padding};
+#       my $seedX = $blockCounter{seedX};
+#       my $seedY = $blockCounter{seedY};
+# #      if ($typeId == 9) {
+# #        # update the Block 9 checksum with the adjusted checksum
+# #         ($block[0], $block[1]) = write16($blockBytes);
+# #      }
+#       #reencrypt the data for output
+#       ($encryptedBlock, $seedX, $seedY) = &encryptBlock( \@block, \@decryptedData, $padding, $seedX, $seedY);
+#       @encryptedBlock = @ { $encryptedBlock };
+#       if ($debug > 1) { print "\nBLOCK ENCRYPTED: \n" . join ("", @encryptedBlock), "\n\n"; }
+#       push @outBytes, @encryptedBlock;
+# }
+# 
+# my $newFile; 
+# if ($outFileName) { $newFile = $outFileName;  } 
+# else { $newFile = $dir . '/' . $basefile . '.clean'; }
+# open (OUTFILE, '>:raw', "$newFile");
+# #  for (my $i = 0; $i < @outBytes; $i++) {
+# foreach my $value (@outBytes) {
+#   if ($value) { print OUTFILE $value; }
+# }
+# close (OUTFILE);
+# decryptBlock has already re-encrypted every block (after any change made in its
+# "WHERE THE MAGIC HAPPENS" section) into @outBytes, header and footer included.
+# Note: in a .x, cbLog (block 9, decrypted bytes 0-1) must equal the total size of the
+# records between block 9 and the footer (log.c:1862) if records are added or removed.
+my $newFile;
+if ($outFileName) { $newFile = $outFileName;  }
 else { $newFile = $dir . '/' . $basefile . '.clean'; }
-open (OUTFILE, '>:raw', "$newFile");
-#  for (my $i = 0; $i < @outBytes; $i++) {
-foreach my $value (@outBytes) {
-  if ($value) { print OUTFILE $value; }
-}
+open (OUTFILE, '>:raw', "$newFile") or die "Cannot write $newFile: $!\n";
+print OUTFILE join('', @outBytes);
 close (OUTFILE);
-
+print "File output: $newFile\n";
  
 ################################################################
 
