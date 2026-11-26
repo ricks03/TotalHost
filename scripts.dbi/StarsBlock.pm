@@ -1346,6 +1346,17 @@ sub decodeBytesForStarsString {
 	return $result;
 }
 
+# Read one race name starting at $i. Returns (name, index after it). save.c WriteRtPlr:
+# length byte > 0 = compressed; 0 = plain string + NUL.
+sub readRaceName {
+  my ($d, $i) = @_;
+  my $len = $d->[$i] & 0xFF;
+  return (&decodeBytesForStarsString(@$d[$i .. $i + $len]), $i + $len + 1) if $len;
+  my ($s, $j) = ('', $i + 1);
+  while ($j < @$d && $d->[$j]) { $s .= chr($d->[$j]); $j++; }
+  return ($s, $j + 1);
+}
+
 
 sub getPlayers {
   my ($getBits) = @_;
@@ -2080,9 +2091,19 @@ sub decryptAI {
           # When human is set back to active from Inactive, bit 1 flips but bits 765 aren't reset to 0
           # So the values for Byte 7 for human are 1 (active) or 225 (active again) and 227 (inactive/expansion player)
           
-          if ($decryptedData[7] == 227) {
+          # Byte 7: bit0 fInclude, bit1 fAi, bits2-4 lvlAi, bits5-7 idAi (struct.h PLAYER; save.c:1424)
+          my $b7         = $decryptedData[7];
+          my $fAi        = ($b7 >> 1) & 0x01;
+          my $idAi       = ($b7 >> 5) & 0x07;
+          my $isHuman    = !$fAi;                  # active human, whatever fInclude is
+          my $isInactive = $fAi && $idAi == 7;     # idAiMaid = Human (Inactive)
+          my $isDead     = $fAi && $idAi == 6;     # idAiDead
+          my $isRealAi   = $fAi && $idAi < 6;
+          if ($isInactive) {
+          #if ($decryptedData[7] == 227) {
               push @messages, "AI Status: Human (Inactive)";
-          } elsif ($decryptedData[7] == 1 || $decryptedData[7] == 225) {
+          #} elsif ($decryptedData[7] == 1 || $decryptedData[7] == 225) {
+          } elsif ($isHuman) {
               push @messages, "AI Status: Disabled";
           } else {
               $aiEnabled = ($decryptedData[7] >> 1) & 0x01;
@@ -2103,13 +2124,16 @@ sub decryptAI {
             # Have to handle the password change differently for human <> inactive
             # Change Human to Human
             if ($newStatus eq 'Active' ) {
-              if  (($newStatus eq 'Active' && $decryptedData[7] == 1)  || ($newStatus eq 'Active' && $decryptedData[7] == 225)) { # Active and Active Again
+              #if  (($newStatus eq 'Active' && $decryptedData[7] == 1)  || ($newStatus eq 'Active' && $decryptedData[7] == 225)) { # Active and Active Again
+              if ($isHuman) { # Active and Active Again
                 push @messages, "Already Active Human";
                 if ($logging) { &BlockLogOut(200," StarsAI: Already Human. No Status Change for playerId:$playerId", $LogFile); }
               # Change from Human (Inactive) to Active
-              } elsif ($newStatus eq 'Active' && $decryptedData[7] == 227 ) { # Human (Inactive)
+              #} elsif ($newStatus eq 'Active' && $decryptedData[7] == 227 ) { # Human (Inactive)
+              } elsif ($isInactive) { # Human (Inactive)
                 $action = 1;
-                $decryptedData[7] = 225;
+                #$decryptedData[7] = 225;
+                $decryptedData[7] = ($b7 & 0x01) | 0xE0;   # fAi off, idAi left at Maid, as Stars does
                 # The bits for the password of an inactive player are the inverse of the 
                 # bits of the password for an active player 
                 # Flip the bits of the password
@@ -2119,10 +2143,12 @@ sub decryptAI {
                 $decryptedData[15] = &read8(~$decryptedData[15]);
                 push @messages, "Changing from Human(Inactive) AI to Active";
                 if ($logging) { &BlockLogOut(200," StarsAI: Flipped playerId:$playerId to Active", $LogFile); }
-               } elsif ($newStatus eq 'Active'  && ($decryptedData[7] != 1 && $decryptedData[7] != 225 && $decryptedData[7] != 227)) { # must be an AI
+               #} elsif ($newStatus eq 'Active'  && ($decryptedData[7] != 1 && $decryptedData[7] != 225 && $decryptedData[7] != 227)) { # must be an AI
+               } elsif ($isRealAi) { # must be an AI
                 # Change AI to Human # Reset the AI password to blank for human use
                 $action = 1;
-                $decryptedData[7] = 225;
+                #$decryptedData[7] = 225;
+                $decryptedData[7] = ($b7 & 0x01) | 0xE0;   # fAi off, idAi left at Maid, as Stars does
                 $decryptedData[12] = 0;
                 $decryptedData[13] = 0;
                 $decryptedData[14] = 0;
@@ -2135,13 +2161,16 @@ sub decryptAI {
               }
             } elsif ($newStatus eq 'Inactive') {  
               # Change Human(Inactive) to Human(Inactive)
-              if ($newStatus eq 'Inactive' && $decryptedData[7] == 227 ) {
+              #if ($newStatus eq 'Inactive' && $decryptedData[7] == 227 ) {
+              if ($isInactive) {
                 push @messages, "Already Human(Inactive)";
                 if ($logging) { &BlockLogOut(200," StarsAI: Already Human (Inactive)", $LogFile); }
               # Change Human to Human(Inactive)
-              } elsif (($newStatus eq 'Inactive' && $decryptedData[7] == 225)  || ($newStatus eq 'Inactive' && $decryptedData[7] == 1)) { # making sure they're human
+              #} elsif (($newStatus eq 'Inactive' && $decryptedData[7] == 225)  || ($newStatus eq 'Inactive' && $decryptedData[7] == 1)) { # making sure they're human
+              } elsif ($isHuman) { # making sure they're human
                 $action = 1; 
-                $decryptedData[7] = 227;
+                #$decryptedData[7] = 227;
+                $decryptedData[7] = ($b7 & 0x01) | 0xE2;   # fAi on, idAi = Maid (Human Inactive)
                 # The bits for the password of an inactive player are the inverse of the 
                 # bits of the password for an active player 
                 # Flip the bits of the password
@@ -2151,9 +2180,11 @@ sub decryptAI {
                 $decryptedData[15] = &read8(~$decryptedData[15]);
                 push @messages, "Changing from Active to Human(Inactive) AI";
                 if ($logging) { &BlockLogOut(200," StarsAI: Flipped playerId:$playerId to Human(Inactive) AI", $LogFile); }
-              } elsif ($newStatus eq 'Inactive' && ($decryptedData[7] != 1 && $decryptedData[7] != 225 && $decryptedData[7] != 227)) { # an AI
+              #} elsif ($newStatus eq 'Inactive' && ($decryptedData[7] != 1 && $decryptedData[7] != 225 && $decryptedData[7] != 227)) { # an AI
+              } elsif ($isRealAi) { # an AI
                 $action = 1; 
-                $decryptedData[7] = 227;
+                #$decryptedData[7] = 227;
+                $decryptedData[7] = ($b7 & 0x01) | 0xE2;   # fAi on, idAi = Maid (Human Inactive)
                 # The inverse of a blank password
                 $decryptedData[12] = 255;
                 $decryptedData[13] = 255;
@@ -2162,7 +2193,10 @@ sub decryptAI {
                 push @messages, "Changing from Full AI to Human(Inactive) AI";
                 if ($logging) { &BlockLogOut(200," StarsAI: Changing from Full AI to Human(Inactive) AI for playerId:$playerId", $LogFile); }
               }
-            } else { # If not setting to active or inactive then setting to AI 
+            #} else { # If not setting to active or inactive then setting to AI 
+            } elsif ($isDead) {
+              push @messages, "Dead player: status not changed";
+            } else { # If not setting to active or inactive then setting to AI
               $action = 1; 
               # Set the standard AI password              
               $decryptedData[12] = 238;
@@ -3977,7 +4011,11 @@ sub decryptFix {
           ### Cheap Starbase ###################################################
           # Editing a starbase under construction at planet(s) with no starbase . $dt == 1 is .x          
           #if ($file_type =~ /x/i && -f "$listPrefix.hst.queue") {
-          if ($dt == 1 && -f "$listPrefix.hst.queue") {
+          #if ($dt == 1 && -f "$listPrefix.hst.queue") {
+          if ($dt == 1 && ! -f "$listPrefix.hst.queue") {
+            $err .= "Missing .queue file $listPrefix.hst.queue. Cannot detect Cheap Starbase.\n";
+          } elsif ($dt == 1) {
+
             if ($typeId == 27 && $isStarbase && $totalBuilt == 0) { # .x and Starbase
               foreach my $planetId (sort keys %{$queueList{$ownerId}}) { 
                 my @itemList = split (chr(31), $queueList{$ownerId}{$planetId}{item}); # $planetId = planetId
@@ -3985,23 +4023,27 @@ sub decryptFix {
                   my ($itemId,$count,$completePercent,$itemType) = split ('\|', $k);
                   if ($itemType == 4 && $itemId == $designId && $completePercent > 0 ) { # if the item is a ship design (4) partially complete
                     $err = 'Cheap Starbase: Player ' . ($ownerId+1) . '. Do not edit a starbase under construction (design slot ' . ($designNumber+1) . ": $shipName).";
-                    $index = 19;  
-                    # Loop through each slot, setting the slot to 0
-                    for (my $itemSlot = 0; $itemSlot < $slotCount; $itemSlot++) {
-                      ($decryptedData[$index], $decryptedData[$index+1]) = &write16(0);
-                      $itemCategory = &read16(\@decryptedData, $index);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
-                      $index += 2;
-                      $decryptedData[$index] = 0;
-                      $itemId = &read8($decryptedData[$index]); # Use current value of index, and increment by 1
-                      $index++;
-                      $decryptedData[$index] = 0;
-                      $itemCount = $decryptedData[$index];
-  #                    my ( $category_str,$item_str ) = &showCategory($itemCategory, $itemId);
-  #                    if ( $category_str && $item_str ) { print "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount\n"; }
-  #                    else { print "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount\n";}
-                      $index++;
+                    #$index = 19;  
+                    if ($fixFiles) {   # only blank the design when fixing
+                      $index = 19;
+                      # Loop through each slot, setting the slot to 0
+                      for (my $itemSlot = 0; $itemSlot < $slotCount; $itemSlot++) {
+                        ($decryptedData[$index], $decryptedData[$index+1]) = &write16(0);
+                        $itemCategory = &read16(\@decryptedData, $index);  # Where index is 17 or 19 depending on whether this is a .x file or .m file
+                        $index += 2;
+                        $decryptedData[$index] = 0;
+                        $itemId = &read8($decryptedData[$index]); # Use current value of index, and increment by 1
+                        $index++;
+                        $decryptedData[$index] = 0;
+                        $itemCount = $decryptedData[$index];
+    #                    my ( $category_str,$item_str ) = &showCategory($itemCategory, $itemId);
+    #                    if ( $category_str && $item_str ) { print "slot: $itemSlot, category: $category_str($itemCategory), item: $item_str($itemId), count: $itemCount\n"; }
+    #                    else { print "slot: $itemSlot, category: <unknown>($itemCategory), item: <unknown>($itemId), count: $itemCount\n";}
+                        $index++;
+                      }
+                      ($decryptedData[$armorIndex], $decryptedData[$armorIndex+1]) = &write16($hullType{$hullId}[18]); # Reset the hull armor value
                     }
-                    ($decryptedData[$armorIndex], $decryptedData[$armorIndex+1]) = &write16($hullType{$hullId}[18]); # Reset the hull armor value
+
                     $needsFixing++;
                     $warnId = &zerofy($ownerId) . '-starbase-' . &zerofy($planetId); # warn on player and planet
                     if ($fixFiles ) {
@@ -4011,7 +4053,7 @@ sub decryptFix {
                   } else { $err = ''; }
                 }
               }
-            } else { $err .= "Missing .queue file $listPrefix.hst.queue. Cannot detect Cheap Starbase.\n"; }
+            } #else { $err .= "Missing .queue file $listPrefix.hst.queue. Cannot detect Cheap Starbase.\n"; }
           }
         } 
 
@@ -4301,7 +4343,8 @@ sub decryptFix {
         $dumpCargo = ($decryptedData[1] >> 7) & 0x01; 
         $primaryTarget = ($decryptedData[2] >> 0) & 0x0F; 
         $secondaryTarget = ($decryptedData[2] >> 4) & 0x0F; 
-        $attackWho = $decryptedData[3]; 
+        #$attackWho = $decryptedData[3]; 
+        $attackWho = $decryptedData[3] & 0x1F; # iplrAttack:5
         $planNameLength = $decryptedData[4]; 
         $planName = &decodeBytesForStarsString(@decryptedData[4..4+$planNameLength]);  
 
@@ -4311,7 +4354,8 @@ sub decryptFix {
            $err = 'Friendly Fire: Player ' . ($planPlayerId+1) . ': detected in Default battle plan against ' . &attackWho($attackWho) . '.';
            $needsFixing++;
            if ($fixFiles ) {
-             $decryptedData[3] = 2;
+             #$decryptedData[3] = 2;
+             $decryptedData[3] = ($decryptedData[3] & 0xE0) | 2; # keep the 3 unused bits
              $err .= ' Fixed!! Attack Who reset to Neutral/Enemy.';
            }
            $warning{$warnId} = $err;
@@ -4675,6 +4719,10 @@ sub decryptMessages {
         $playerId++; # As 0 is "Everyone" need to use representative IDs
         $singularRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
         $pluralRaceName[$playerId] = &decodeBytesForStarsString(@decryptedData[$singularMessageEnd+1..$size-1]);
+        my $nextName;
+        ($singularRaceName[$playerId], $nextName) = &readRaceName(\@decryptedData, $index);
+        ($pluralRaceName[$playerId])              = &readRaceName(\@decryptedData, $nextName);
+        $singularRaceName[0] = 'Everyone';
         $singularRaceName[0] = 'Everyone';
       } elsif ($typeId == 40) { # check the Message block 
         my $byte0 =  &read16(\@decryptedData, 0);  # bytes 0-3: lpmsgplrNext pointer, meaningless on disk
@@ -4779,9 +4827,10 @@ sub decryptScores {
           my $playerRelationsLength = $decryptedData[112]; 
           $index = $index + $playerRelationsLength + 1;
         } 
-        my $singularNameLength = $decryptedData[$index] & 0xFF;
-        my $singularMessageEnd = $index + $singularNameLength;
-        my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+#         my $singularNameLength = $decryptedData[$index] & 0xFF;
+#         my $singularMessageEnd = $index + $singularNameLength;
+#         my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+        my ($singularRaceName) = &readRaceName(\@decryptedData, $index);
         push @singularRaceNames, $singularRaceName;
       } elsif ($typeId == 45) { # PlayerScoresBlock
         my $scorex = &read16(\@decryptedData, 0);
@@ -5000,9 +5049,10 @@ sub decryptNameBlock {
           my $playerRelationsLength = $decryptedData[112]; 
           $index = $index + $playerRelationsLength + 1;
         } 
-        my $singularNameLength = $decryptedData[$index] & 0xFF;
-        my $singularMessageEnd = $index + $singularNameLength;
-        my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+#         my $singularNameLength = $decryptedData[$index] & 0xFF;
+#         my $singularMessageEnd = $index + $singularNameLength;
+#         my $singularRaceName = &decodeBytesForStarsString(@decryptedData[$index..$singularMessageEnd]);
+        my ($singularRaceName) = &readRaceName(\@decryptedData, $index);
         print "Singular Race Name: $singularRaceName\n";
         push @singularRaceNames, $singularRaceName;
       }

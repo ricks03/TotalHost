@@ -226,7 +226,7 @@ sub makeXFile {
   # --- Block 9 (rtLogHdr, 17 data bytes) -----------------------------------
   # struct _rtloghdr { short cbLog; long lSerialNumber; BYTE rgbConfig[11]; }
   # cbLog = total bytes between end of block 9 and start of block 0.
-  #   = block46 header(2) + block46 data(8) = 10
+  ##########   = block46 header(2) + block46 data(8) = 10
   #my $cbLog = 10;
   my $cbLog = 0;
   # --serial-conflict: same serial as every other blank .x, but a fixed non-zero

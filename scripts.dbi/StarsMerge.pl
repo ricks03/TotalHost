@@ -1287,7 +1287,7 @@ sub ConvertPlanetToPartial {
     $output[$offset++] = $minBitmask;
     
     # Write mineral values
-    for (my $i = 0; $i < 3; $i++) { #for (my $i = 0; $i < 4; $i++) {  # BUG: AI says this should be 3
+    for (my $i = 0; $i < 3; $i++) { #for (my $i = 0; $i < 4; $i++) {  # 3 is right: rtPlanetB never carries colonists (save.c:487-510)
       my $val = $rgwtMin[$i];
       if ($val > 0) {
         if ($val <= 255) {
