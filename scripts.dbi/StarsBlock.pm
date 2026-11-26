@@ -1844,7 +1844,7 @@ sub StarsList {
 sub StarsFix {
   # Return results from Stars! file for exploits (based off StarsFix & StarsQueue/StarsFleet/decryptQueue/decryptFleet
   my ($gameDir, $filename, $turn) = @_; # .x file location includes path (Uploads). 
-  my $needsFixing = 0;
+  #my $needsFixing = 0;
   
   # Get the pieces of file names
   my $basefile = basename($filename);    # mygamename.m1
