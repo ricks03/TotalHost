@@ -111,7 +111,8 @@ $internet_site       = '8.8.8.8';      # Google
 $min_players = 2; # The minimum number of players to create/launch a game
 
 $secret_key = 'secret_key';
-%TurnResult = ("turned in" => "In", "still out" => "Out", "right game" => "Wrong Game", "dead" => "Deceased", "right year" => "Wrong Year", "file corrupt" => "Corrupt");
+#%TurnResult = ("turned in" => "In", "still out" => "Out", "right game" => "Wrong Game", "dead" => "Deceased", "right year" => "Wrong Year", "file corrupt" => "Corrupt");
+%TurnResult = ("turned in" => "In", "still out" => "Out", "right game" => "Wrong Game", "dead" => "Deceased", "right year" => "Wrong Year", "corrupted" => "Corrupt", "partially done" => "In");
 %TurnBall = ("In" => "$WWW_Image"  . "greenball.gif", "Out" => "$WWW_Image"  . "yellowball.gif", "Wrong Game" => "$WWW_Image"  . "redball.gif", "Deceased" => "$WWW_Image"  . "blackball.gif", "Wrong Year" => "$WWW_Image"  . "redball.gif", "Corrupt" => "$WWW_Image"  . "redball.gif", "Error" => "$WWW_Image"  . "redball.gif", "Idle" => "$WWW_Image"  . "purpleball.gif", "Banned" => "$WWW_Image"  . "grayball.gif", "AI" => "$WWW_Image"  . "orangeball.gif");
 %StatusBall = ("Finished" => "$WWW_Image"  . "blackball.gif", "Awaiting Players" => "$WWW_Image"  . "goldball.gif", "In Progress" => "$WWW_Image"  . "greenball.gif", "Delayed" => "$WWW_Image"  . "babyblueball.gif", "Active" => "$WWW_Image"  . "greenball.gif", "Idle" => "$WWW_Image"  . "grayball.gif", "Creation in Progress" => "$WWW_Image"  . "animball.gif", "Pending Start" => "$WWW_Image"  . "blueball.gif", "Paused" => "$WWW_Image"  . "blueball.gif");
 @WeekDays = qw(Sun. Mon. Tue. Wed. Thu. Fri. Sat.);

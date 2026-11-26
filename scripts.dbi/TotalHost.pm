@@ -1237,7 +1237,8 @@ sub Turns_Missing {
 	if (my $sth = &DB_Call($db,$sql,$GameFile)) { 
     while (my $row = $sth->fetchrow_hashref()) { 
       %Values = %{$row};  
-			if ((index($Status[$Values{'PlayerID'}], 'turned in') == -1) && (index($Status[$Values{'PlayerID'}], 'dead') == -1)) { 
+			#if ((index($Status[$Values{'PlayerID'}], 'turned in') == -1) && (index($Status[$Values{'PlayerID'}], 'dead') == -1)) {
+      if ((index($Status[$Values{'PlayerID'}], 'turned in') == -1) && (index($Status[$Values{'PlayerID'}], 'partially done') == -1) && (index($Status[$Values{'PlayerID'}], 'dead') == -1)) { 
         &LogOut(300,"Turns_Missing: OUT $Values{'PlayerID'}: $Status[$Values{'PlayerID'}]",$LogFile); 
         $TurnsMissing = 1;
         last;  # Exit the while loop if TurnsMissing is true  

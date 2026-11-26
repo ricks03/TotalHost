@@ -735,7 +735,8 @@ sub Make_Zip_Game {
     unless ($i == 1 ) { # Player 1 can never be an AI
       ($aiEnabled, $aiRace, $aiSkill) = &Check_AI($player_file); # Results for RAce and Skill are strings
       &LogOut(300,"Make_Zip_Game: AI Results for $GameFile for $player_file: $aiEnabled, $aiRace, $aiSkill", $LogFile);
-      if ($aiEnabled) { next; }  # Don't insert AI players
+      #if ($aiEnabled) { next; }  # Don't insert AI players
+      if ($aiEnabled && $aiRace ne $aiRace[7]) { next; }  # Don't insert AI players; Human(Inactive) (idAi 7) is a real player
     }
     $GameValues{'RaceFile'} = undef; # We don't have a race file for a zip game
     $GameValues{'RaceID'} = 0; # We don't have a race ID for a zip game  

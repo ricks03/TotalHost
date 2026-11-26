@@ -650,7 +650,8 @@ sub decryptPWD {
       if ($action && $size && $dt == 5) { # .r file checksum update
         my ($unshiftedData) = &unshiftBytes(\@data);
         my @unshiftedData = @{ $unshiftedData };
-        if ($unshiftedData[0] > 0 && $unshiftedData[1] > 0) {
+        #if ($unshiftedData[0] > 0 && $unshiftedData[1] > 0) {
+        if (@unshiftedData >= 2) {
           $unshiftedData[0] = $checkSum1;
           $unshiftedData[1] = $checkSum2;
           my $shiftedData = &shiftBytes(\@unshiftedData);
@@ -1429,7 +1430,8 @@ sub resetRace { # reset the race values to the default
   my $playerRelationsLength = $decryptedBytes[112];
   my $playerId = $decryptedBytes[0] & 0xFF;
   my $fullDataFlag = (($decryptedBytes[6] & 0x07) == 7); #my $fullDataFlag = $decryptedBytes[6] & 0x04;
-  my @resetRace =  ( 81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 );
+  #my @resetRace =  ( 81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 );
+  my @resetRace =  ( 0,0,0,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 );
 
   # Reset all the player values but hab ranges to default Humanoid
   # Don't bother if no fullDataFlag
@@ -1437,10 +1439,12 @@ sub resetRace { # reset the race values to the default
 
   if ($fullDataFlag && $playerId != $Player) {
     if ($display) { print "Cleaning player $playerId ...\n"; }
+    my $fDead = $decryptedBytes[84] & 0x01;   # wFlags bit 0: keep dead players dead
     for (my $i = 8; $i < 112; $i++) {
       # CA can legitimately see hab ranges (bytes 16-24), so preserve them
       unless ($isCA && $i >= 16 && $i <= 24) { $decryptedBytes[$i] = $resetRace[$i-8]; }
     }
+    $decryptedBytes[84] |= $fDead;
     # Reset all of the player relations to Neutral
     # Variable length based on number of players
     # If player relations have never been set, length is 0
@@ -1608,7 +1612,7 @@ sub decryptClean {
   my ($fullDataFlag, $fullDataBytes);
   my $playerRelations; # byte, 0 neutral, 1 friend, 2 enemy
   # The values used when cleaning race values. Defaults to Humanoids
-  my @resetRace =  ( 81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 );
+  #my @resetRace =  ( 81,0,1,0,0,0,0,0,50,50,50,15,15,15,85,85,85,15,3,3,3,3,3,3,35,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,96,35,0,0,0,10,10,10,10,10,5,10,0,1,1,1,1,1,1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 );
   my $isCA = 0;
   
    # Pass 1: Find the file owner's PRT
@@ -2290,13 +2294,15 @@ sub showCategory {
   $item{'16'} = [ qw ( Laser X-Ray MiniGun YakimoraPhaser Blackjack Phaser PulsedSapper ColloidalPhaser GatlingGun MiniBlaster Bludgeon MarkIVBlaster PhasedSapper HeavyBlaster GatlingNeutrino MyopicDisruptor Blunderbuss Disruptor MultiContainedMunition SyncroSapper MegaDisruptor BigMuthaCannon StreamingPulverizer Anti-MatterPulverizer ) ]; 
   $item{'32'} = [ qw ( Alpha Beta Delta Epsilon Rho Upsilon Omega AntiMatter Jihad Juggernaut Doomsday Armageddon ) ];
   $item{'64'} = [ qw ( LadyFinger BlackCat M-70 M-80 Cherry LBU-17 LBU-32 LBU-74 HushaBoom Retro Smart Neutron EnrichedNeutron Peerless Annihilator ) ];
-  $item{'128'} = [ qw ( Midget Mini Miner Maxi Super Ultra Orbital ) ]; 
+  #$item{'128'} = [ qw ( Midget Mini Miner Maxi Super Ultra Orbital ) ];
+  $item{'128'} = [ qw ( Midget Mini Miner Maxi Super Ultra AlienMiner Orbital ) ];  
   $item{'256'} = [ qw ( Mine40 Mine50 Mine80 Mine130 Heavy50 Heavy110 Heavy200 Speed20 Speed30 Speed50 ) ];
   #$item{'512'} = [ qw ( SG250 SG300 SG600 SG500 SGany SG800  SGanyany Mass5 Mass6 Mass7 Mass8 Mass9 Mass10 Mass11 Mass12 Mass13 ) ];  
   $item{'512'} = [ qw ( SG100 SGany SG150 SG300 SG100any SGany800 SGanyany Mass5 Mass6 Mass7 Mass8 Mass9 Mass10 Mass11 Mass12 Mass13 ) ];
   $item{'1024'} = [ &planetaryScanners() ];
   $item{'2048'} = [ qw ( TransportCloak StealthCloak Super-StealthCloak Ultra-StealthCloak MultiFunction BattleComputer BattleSuperComputer BattleNexus Jammer10 Jammer20 Jammer30 Jammer50 EnergyCapacitor FluxCapacitor EnergyDampener TachyonDetector Anti-matterGenerator) ];
-  $item{'4096'} = [ qw ( Colonization OrbitalCon Cargo SuperCargo MultiCargo Fuel SuperFuel ManeuveringJet Overthruster BeamDeflector ) ];
+  #$item{'4096'} = [ qw ( Colonization OrbitalCon Cargo SuperCargo MultiCargo Fuel SuperFuel ManeuveringJet Overthruster BeamDeflector ) ];
+  $item{'4096'} = [ qw ( Colonization OrbitalCon Cargo SuperCargo MultiCargo Fuel SuperFuel ManeuveringJet Overthruster JumpGate BeamDeflector ) ];
   #$item{'6194'} = [ qw ( empty ) ];
   $item{'6144'} = [ qw ( empty ) ];
 

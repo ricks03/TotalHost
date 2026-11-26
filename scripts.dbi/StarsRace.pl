@@ -51,7 +51,9 @@ my @singularRaceName;
 my @pluralRaceName;
 my $playerId;
 my @aiSkill = qw(Easy Standard Harder Expert);
-my @aiRace = qw( HE SS IS CA PP AR Inactive/Expansion);
+#my @aiRace = qw( HE SS IS CA PP AR Inactive/Expansion);
+my @aiRace = ('HE', 'SS', 'IS', 'CA', 'PP', 'AR', 'Dead', 'Human Inactive/Expansion');
+
         
 my $filename = $ARGV[0]; # input file
 if (!($filename)) { 
